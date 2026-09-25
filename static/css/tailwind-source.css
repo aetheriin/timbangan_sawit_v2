@@ -3,91 +3,52 @@
 @tailwind utilities;
 
 @layer components {
-  /* Panel & Card */
-  .panel {
-    @apply bg-slate-800 border border-slate-700 rounded-xl p-6;
-  }
-  .stat-card {
-    @apply bg-slate-800 border border-slate-700 p-5 rounded-xl flex items-center justify-between;
-  }
+  /* Layout */
+  .app-shell { @apply flex h-screen overflow-hidden bg-slate-100; }
+  .sidebar { @apply bg-slate-900 text-slate-300 w-56 flex-shrink-0 transition-all duration-200 overflow-hidden; }
+  .sidebar-collapsed { @apply w-0; }
+  .sidebar-link { @apply w-full text-left px-5 py-3 text-sm font-medium hover:bg-slate-800 transition flex items-center gap-2; }
+  .sidebar-link-active { @apply bg-blue-600 text-white; }
+  .main-area { @apply flex-1 flex flex-col overflow-y-auto; }
+  .topbar { @apply bg-black text-white px-6 py-4 flex items-center justify-between; }
+
+  /* Info bar */
+  .info-bar { @apply bg-white m-4 rounded-xl border border-slate-200 p-5 flex items-start justify-between gap-6; }
+  .info-grid { @apply grid grid-cols-2 lg:grid-cols-3 gap-4 flex-1; }
+  .info-field-label { @apply text-xs font-semibold text-slate-500 mb-1 block; }
+  .info-field-input { @apply w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50; }
+  .info-photo-box { @apply w-28 h-28 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50 flex-shrink-0; }
+
+  /* Tabs */
+  .tab-header { @apply flex bg-slate-900 mx-4 rounded-t-xl overflow-hidden; }
+  .tab-btn { @apply flex-1 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition text-center; }
+  .tab-btn-active { @apply bg-white text-blue-700; }
+  .tab-body { @apply bg-slate-100 mx-4 mb-4 rounded-b-xl; }
+
+  /* Collapsible section */
+  .section-box { @apply bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden; }
+  .section-header { @apply bg-slate-200 px-5 py-3 flex items-center justify-between cursor-pointer select-none; }
+  .section-header-text { @apply text-sm font-medium text-slate-600 flex items-center gap-2; }
+  .section-chevron { @apply transition-transform duration-200; }
+  .section-chevron-collapsed { @apply -rotate-90; }
+  .section-body { @apply p-0; }
+  .section-body-hidden { @apply hidden; }
 
   /* Buttons */
-  .btn-primary {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition;
-  }
-  .btn-secondary {
-    @apply bg-slate-700 hover:bg-slate-600 text-white font-semibold px-4 py-2 rounded-xl text-xs transition;
-  }
-  .btn-danger-text {
-    @apply text-red-400 hover:text-red-300 text-xs transition;
-  }
-  .btn-info-text {
-    @apply text-blue-400 hover:text-blue-300 text-xs transition;
-  }
+  .btn-primary { @apply bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
+  .btn-secondary { @apply bg-slate-500 hover:bg-slate-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
+  .btn-success { @apply bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
 
-  /* Form fields */
-  .input-field {
-    @apply w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500;
-  }
-  .field-label {
-    @apply block text-xs font-semibold text-slate-400 mb-1.5;
-  }
+  /* Form */
+  .input-field { @apply w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500; }
+  .field-label { @apply block text-sm text-slate-700 mb-1.5; }
 
   /* Table */
-  .table-header-row {
-    @apply bg-slate-900/50 text-slate-400 uppercase font-semibold border-b border-slate-700;
-  }
-  .table-cell {
-    @apply p-3 whitespace-nowrap;
-  }
-
-  /* Badges status */
-  .badge-success {
-    @apply bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px];
-  }
-  .badge-warning {
-    @apply bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full text-[10px];
-  }
-  .badge-danger {
-    @apply bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px];
-  }
-  .badge-neutral {
-    @apply bg-slate-700 text-slate-400 border border-slate-600 px-2 py-0.5 rounded-full text-[10px];
-  }
-  .badge-info {
-    @apply bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full text-[10px];
-  }
-  .badge-status {
-    @apply px-2 py-0.5 rounded-full text-[10px] border;
-  }
+  .table-header-row { @apply bg-slate-100 text-slate-500 text-sm font-medium; }
+  .table-cell { @apply px-5 py-3; }
 
   /* Modal */
-  .modal-overlay {
-    @apply fixed inset-0 bg-slate-900/70 hidden items-center justify-center z-50 p-4;
-  }
-  .modal-box {
-    @apply bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-4;
-  }
-  .modal-overlay-dark {
-    @apply fixed inset-0 bg-black/80 hidden items-center justify-center z-50 p-4;
-  }
-
-  /* Navigation */
-  .nav-link {
-    @apply text-slate-300 hover:text-white transition;
-  }
-  .nav-link-active {
-    @apply text-emerald-400 font-semibold;
-  }
-
-  .page-title {
-    @apply text-2xl font-bold text-white flex items-center gap-2;
-  }
-  .page-subtitle {
-    @apply text-xs text-slate-400 mt-1;
-  }
-
-  .status-pill-ready {
-    @apply text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full font-medium flex items-center gap-2;
-  }
+  .modal-overlay { @apply fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 p-4; }
+  .modal-box { @apply bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl; }
+  .modal-header { @apply bg-slate-600 text-white px-6 py-4 flex justify-between items-center; }
 }
