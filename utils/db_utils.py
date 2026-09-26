@@ -1,435 +1,426 @@
 import os
-import hashlib
 import pyodbc
+import hashlib
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from datetime import date, datetime
 from config import get_connection_string
 
 load_dotenv()
 
 def get_connection():
-  return pyodbc.connect(get_connection_string())
+    return pyodbc.connect(get_connection_string())
 
-# SUPIR
-def insert_supir(
-    nama,
-    embedding_binary,
-    nik=None,
-    nomor_sim=None,
-    sim_berlaku=None,
-    foto_path=None,
-):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "INSERT INTO Supir (Nama, NIK, NomorSIM, SIMBerlakuSampai, FaceEmbedding,"
-      " FotoPath) VALUES (?, ?, ?, ?, ?, ?)",
-      nama,
-      nik,
-      nomor_sim,
-      sim_berlaku,
-      embedding_binary,
-      foto_path,
-  )
-  conn.commit()
-  conn.close()
-
-
-def get_all_supir():
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute("SELECT Id, Nama, FaceEmbedding FROM Supir")
-  rows = cursor.fetchall()
-  conn.close()
-  return rows
-
-def get_daftar_supir():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT Id, NIK, Nama, NomorSIM, SIMBerlakuSampai, FotoPath, CreatedAt
-        FROM Supir WHERE IsActive = 1 ORDER BY CreatedAt DESC
-    """)
-    columns = [c[0] for c in cursor.description]
-    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
-    conn.close()
-    return data
-
-def get_supir_by_id(supir_id):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute("SELECT Id, Nama, NIK FROM Supir WHERE Id = ?", supir_id)
-  row = cursor.fetchone()
-  conn.close()
-  return row
-
-def nonaktifkan_supir(supir_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Supir SET IsActive = 0 WHERE Id = ?", supir_id)
-    conn.commit()
-    conn.close()
-
-def get_supir_lengkap_by_id(supir_id):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT Id, Nama, NIK, NomorSIM, SIMBerlakuSampai FROM Supir WHERE Id = ?", supir_id)
-    row = cursor.fetchone()
-    conn.close()
-    return row
-
-def update_supir(supir_id, nama, nik, nomor_sim, sim_berlaku, embedding_binary=None, foto_path=None):
-    conn = get_connection()
-    cursor = conn.cursor()
-    if embedding_binary is not None:
-        cursor.execute(
-            "UPDATE Supir SET Nama=?, NIK=?, NomorSIM=?, SIMBerlakuSampai=?, FaceEmbedding=?, FotoPath=? WHERE Id=?",
-            nama, nik, nomor_sim, sim_berlaku, embedding_binary, foto_path, supir_id
-        )
-    else:
-        cursor.execute(
-            "UPDATE Supir SET Nama=?, NIK=?, NomorSIM=?, SIMBerlakuSampai=? WHERE Id=?",
-            nama, nik, nomor_sim, sim_berlaku, supir_id
-        )
-    conn.commit()
-    conn.close()
-
-# KENDARAAN
-def get_or_create_kendaraan(plat_nomor, jenis_truk=None):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute("SELECT Id FROM Kendaraan WHERE PlatNomor = ?", plat_nomor)
-  row = cursor.fetchone()
-  if row:
-    conn.close()
-    return row.Id
-
-  cursor.execute(
-      "INSERT INTO Kendaraan (PlatNomor, JenisTruk) VALUES (?, ?)",
-      plat_nomor,
-      jenis_truk,
-  )
-  conn.commit()
-  cursor.execute("SELECT Id FROM Kendaraan WHERE PlatNomor = ?", plat_nomor)
-  kendaraan_id = cursor.fetchone().Id
-  conn.close()
-  return kendaraan_id
-
-# TRANSAKSI TIMBANG & SECURITY (TOKENIZATION & HASH)
-def hitung_hash(
-    nomor_tiket,
-    supir_id,
-    plat_nomor,
-    berat_bruto,
-    berat_tara=0,
-    secret_key=None,
-):
-  """Menghitung Hash Keamanan SHA-256 """
-  if secret_key is None:
-      secret_key = os.getenv("HASH_SECRET_KEY")
-  data = (
-      f"{nomor_tiket}{supir_id}{plat_nomor}{berat_bruto}{berat_tara}{secret_key}"
-  )
-  return hashlib.sha256(data.encode()).hexdigest()
-
-def buat_tiket_security(supir_id, plat_nomor, qr_token):
-  """Mencatat registrasi awal di Pos Security sebelum truk masuk timbangan."""
-  kendaraan_id = get_or_create_kendaraan(plat_nomor)
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      """
-        INSERT INTO TransaksiTimbang (SupirId, KendaraanId, NomorTiket, Status)
-        VALUES (?, ?, ?, 'Menunggu Timbang')
-    """,
-      supir_id,
-      kendaraan_id,
-      qr_token,
-  )
-  conn.commit()
-  conn.close()
-  return qr_token
-
-def cari_transaksi_by_qr(qr_token):
-  """Mencari data tiket aktif berdasarkan QR Token untuk di-scan di Pos Timbangan."""
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      """
-        SELECT t.Id, t.NomorTiket, t.SupirId, s.Nama AS NamaSupir, s.NIK,
-               t.KendaraanId, k.PlatNomor, t.BeratBruto, t.Status
-        FROM TransaksiTimbang t
-        JOIN Supir s ON t.SupirId = s.Id
-        JOIN Kendaraan k ON t.KendaraanId = k.Id
-        WHERE t.NomorTiket = ?
-    """,
-      qr_token,
-  )
-  row = cursor.fetchone()
-  conn.close()
-  return row
-
-def catat_timbang_masuk(supir_id, kendaraan_id, berat, plat_nomor, qr_token):
-  """Mengunci Berat Bruto (Masuk) & membuat Hash Keamanan Pertama."""
-  hash_val = hitung_hash(qr_token, supir_id, plat_nomor, berat)
-
-  conn = get_connection()
-  cursor = conn.cursor()
-
-  # Pengecekan apakah transaksi sudah dibuat dari Pos Security
-  cursor.execute(
-      "SELECT Id FROM TransaksiTimbang WHERE NomorTiket = ?", qr_token
-  )
-  row = cursor.fetchone()
-
-  if row:
-    cursor.execute(
-        """
-            UPDATE TransaksiTimbang 
-            SET WaktuMasuk = GETDATE(), BeratBruto = ?, HashKeamanan = ?, Status = 'Menunggu Keluar'
-            WHERE NomorTiket = ?
-        """,
-        berat,
-        hash_val,
-        qr_token,
-    )
-  else:
-    cursor.execute(
-        """
-            INSERT INTO TransaksiTimbang (SupirId, KendaraanId, NomorTiket, WaktuMasuk, BeratBruto, HashKeamanan, Status) 
-            VALUES (?, ?, ?, GETDATE(), ?, ?, 'Menunggu Keluar')
-        """,
-        supir_id,
-        kendaraan_id,
-        qr_token,
-        berat,
-        hash_val,
-    )
-
-  conn.commit()
-  conn.close()
-  return qr_token
-
-def catat_timbang_keluar(transaksi_id, berat_tara):
-    """Mengunci Berat Tara (Keluar), menghitung Netto, dan memperbarui Hash Keamanan Akhir."""
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT t.NomorTiket, t.SupirId, t.BeratBruto, k.PlatNomor
-        FROM TransaksiTimbang t
-        JOIN Kendaraan k ON t.KendaraanId = k.Id
-        WHERE t.Id = ?
-    """, transaksi_id)
-    row = cursor.fetchone()
-
-    if row:
-        nomor_tiket, supir_id, berat_bruto, plat_nomor = row
-        berat_netto = berat_bruto - berat_tara
-        status_final = 'Selesai' if berat_netto > 0 else 'Perlu Cek Manual'
-        hash_baru = hitung_hash(nomor_tiket, supir_id, plat_nomor, berat_bruto, berat_tara)
-
-        cursor.execute("""
-            UPDATE TransaksiTimbang
-            SET WaktuKeluar = GETDATE(), BeratTara = ?, BeratNetto = ?, HashKeamanan = ?, Status = ?
-            WHERE Id = ?
-        """, berat_tara, berat_netto, hash_baru, status_final, transaksi_id)
-
-        conn.commit()
-        conn.close()
-        return berat_netto, status_final
-
-    conn.close()
-    return None, None
-
-# USER MANAGEMENT & DASHBOARD SUMMARY
-def get_riwayat_transaksi():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT t.Id, t.NomorTiket, s.Nama AS NamaSupir, k.PlatNomor, t.WaktuMasuk, t.BeratBruto,
-               t.WaktuKeluar, t.BeratTara, t.BeratNetto, t.Status, t.HashKeamanan, t.AlasanBatal,
-               t.CatatanManual, t.FotoBuktiManual, t.DiperiksaOleh
-        FROM TransaksiTimbang t
-        JOIN Supir s ON t.SupirId = s.Id
-        JOIN Kendaraan k ON t.KendaraanId = k.Id
-        ORDER BY t.CreatedAt DESC
-    """)
-    columns = [c[0] for c in cursor.description]
-    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
-    conn.close()
-    return data
-
-def batalkan_transaksi(transaksi_id, alasan, dibatalkan_oleh):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE TransaksiTimbang SET Status = 'Dibatalkan', AlasanBatal = ? WHERE Id = ?",
-        f"{alasan} (oleh: {dibatalkan_oleh})", transaksi_id
-    )
-    conn.commit()
-    conn.close()
+# ===== USERS =====
 
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT Id, Username, PasswordHash, NamaLengkap, Role FROM Users WHERE Username = ? AND IsActive = 1", username)
+    cursor.execute("SELECT id_user, username, password, nama, role FROM users WHERE username = ? AND is_active = 1", username)
     row = cursor.fetchone()
     conn.close()
     return row
 
 def get_user_by_id(user_id):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "SELECT Id, Username, NamaLengkap, Role FROM Users WHERE Id = ?", user_id
-  )
-  row = cursor.fetchone()
-  conn.close()
-  return row
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_user, username, nama, role FROM users WHERE id_user = ?", user_id)
+    row = cursor.fetchone()
+    conn.close()
+    return row
 
-def update_last_login(user_id):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute("UPDATE Users SET LastLogin = GETDATE() WHERE Id = ?", user_id)
-  conn.commit()
-  conn.close()
+def insert_user(username, password_hash, nama, role):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)", nama, username, password_hash, role)
+    conn.commit()
+    conn.close()
 
-def get_dashboard_summary_timbang():
-  conn = get_connection()
-  cursor = conn.cursor()
+# ===== SUPPLIER / PRODUK =====
 
-  cursor.execute(
-      "SELECT COUNT(*) FROM TransaksiTimbang WHERE CAST(CreatedAt AS DATE) ="
-      " CAST(GETDATE() AS DATE)"
-  )
-  total_hari_ini = cursor.fetchone()[0]
+def get_semua_supplier():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_supplier, nama_supplier FROM supplier WHERE is_active = 1 ORDER BY nama_supplier")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
-  cursor.execute("""
-        SELECT ISNULL(SUM(BeratNetto), 0) FROM TransaksiTimbang
-        WHERE Status = 'Selesai' AND CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE)
-    """)
-  total_netto = cursor.fetchone()[0]
+def get_semua_produk():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_produk, nama_produk, kategori FROM produk WHERE is_active = 1 ORDER BY nama_produk")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
-  cursor.execute("SELECT COUNT(*) FROM Supir")
-  total_supir = cursor.fetchone()[0]
+# ===== KENDARAAN =====
 
-  cursor.execute("""
-        SELECT COUNT(*) FROM Supir
-        WHERE SIMBerlakuSampai IS NOT NULL AND SIMBerlakuSampai < GETDATE()
-    """)
-  sim_expired = cursor.fetchone()[0]
+def get_or_create_kendaraan(no_plat, no_stnk=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_kendaraan FROM kendaraan WHERE no_plat = ?", no_plat)
+    row = cursor.fetchone()
+    if row:
+        if no_stnk:
+            cursor.execute("UPDATE kendaraan SET no_stnk = ? WHERE id_kendaraan = ?", no_stnk, row.id_kendaraan)
+            conn.commit()
+        conn.close()
+        return row.id_kendaraan
+    cursor.execute("INSERT INTO kendaraan (no_plat, no_stnk) VALUES (?, ?)", no_plat, no_stnk)
+    conn.commit()
+    cursor.execute("SELECT id_kendaraan FROM kendaraan WHERE no_plat = ?", no_plat)
+    kendaraan_id = cursor.fetchone().id_kendaraan
+    conn.close()
+    return kendaraan_id
 
-  conn.close()
-  return {
-      "total_hari_ini": total_hari_ini,
-      "total_netto": total_netto,
-      "total_supir": total_supir,
-      "sim_expired": sim_expired,
-  }
+# ===== DRIVER =====
 
-def insert_user(username, password_hash, nama_lengkap, role="admin"):
-  conn = get_connection()
-  cursor = conn.cursor()
-  cursor.execute(
-      "INSERT INTO Users (Username, PasswordHash, NamaLengkap, Role) VALUES"
-      " (?, ?, ?, ?)",
-      username,
-      password_hash,
-      nama_lengkap,
-      role,
-  )
-  conn.commit()
-  conn.close()
+def get_all_driver_embeddings():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_driver, nama_driver, face_embedding_data FROM driver WHERE is_active = 1")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
-def cek_nik_supir_ada(nik, exclude_id=None):
-  if not nik:
-    return False
-  conn = get_connection()
-  cursor = conn.cursor()
-  if exclude_id:
-    cursor.execute(
-        "SELECT Id FROM Supir WHERE NIK = ? AND Id != ?", nik, exclude_id
-    )
-  else:
-    cursor.execute("SELECT Id FROM Supir WHERE NIK = ?", nik)
-  row = cursor.fetchone()
-  conn.close()
-  return row is not None
+def get_driver_by_id(driver_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_driver, nik, nama_driver, no_sim, is_updated, foto_path FROM driver WHERE id_driver = ?", driver_id)
+    row = cursor.fetchone()
+    conn.close()
+    return row
 
-def cari_wajah_mirip_supir(embedding_baru, threshold=0.55, exclude_id=None):
-  from utils.face_utils import binary_to_embedding, compare_faces
+def cek_nik_ada(nik, exclude_id=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+    if exclude_id:
+        cursor.execute("SELECT id_driver FROM driver WHERE nik = ? AND id_driver != ?", nik, exclude_id)
+    else:
+        cursor.execute("SELECT id_driver FROM driver WHERE nik = ?", nik)
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
 
-  supir_list = get_all_supir()
-  for row in supir_list:
-    supir_id, nama, embedding_binary = row
-    if exclude_id and supir_id == exclude_id:
-      continue
-    embedding_tersimpan = binary_to_embedding(embedding_binary)
-    is_match, distance = compare_faces(
-        embedding_tersimpan, embedding_baru, threshold
-    )
-    if is_match:
-      return (supir_id, nama)
-  return None
+def cari_wajah_mirip_driver(embedding_baru, threshold=0.55, exclude_id=None):
+    from utils.face_utils import binary_to_embedding, compare_faces
+    driver_list = get_all_driver_embeddings()
+    for row in driver_list:
+        driver_id, nama, embedding_binary = row
+        if exclude_id and driver_id == exclude_id:
+            continue
+        if embedding_binary is None:
+            continue
+        embedding_tersimpan = binary_to_embedding(embedding_binary)
+        is_match, _ = compare_faces(embedding_tersimpan, embedding_baru, threshold)
+        if is_match:
+            return (driver_id, nama)
+    return None
 
-def tambah_bukti_manual(transaksi_id, catatan, foto_path=None):
+def insert_driver(nik, nama, no_sim, embedding_binary, foto_path=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE TransaksiTimbang SET CatatanManual = ?, FotoBuktiManual = ? WHERE Id = ?",
-        catatan, foto_path, transaksi_id
+        "INSERT INTO driver (nik, nama_driver, no_sim, face_embedding_data, foto_path) VALUES (?, ?, ?, ?, ?)",
+        nik, nama, no_sim, embedding_binary, foto_path
+    )
+    conn.commit()
+    cursor.execute("SELECT id_driver FROM driver WHERE nik = ?", nik)
+    driver_id = cursor.fetchone().id_driver
+    conn.close()
+    return driver_id
+
+def hitung_hash_driver(nik, nama, no_sim, timestamp, secret_key=None):
+    if secret_key is None:
+        secret_key = os.getenv("HASH_SECRET_KEY")
+    data = f"{nik}{nama}{no_sim}{timestamp}{secret_key}"
+    return hashlib.sha256(data.encode()).hexdigest()
+
+def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated_by, embedding_binary=None, foto_path=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT nik, nama_driver, no_sim FROM driver WHERE id_driver = ?", driver_id)
+    lama = cursor.fetchone()
+
+    timestamp = datetime.now()
+    hash_baru = hitung_hash_driver(nik_baru, nama_baru, sim_baru, timestamp)
+
+    if embedding_binary is not None:
+        cursor.execute(
+            "UPDATE driver SET nik=?, nama_driver=?, no_sim=?, face_embedding_data=?, foto_path=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_driver=?",
+            nik_baru, nama_baru, sim_baru, embedding_binary, foto_path, hash_baru, driver_id
+        )
+    else:
+        cursor.execute(
+            "UPDATE driver SET nik=?, nama_driver=?, no_sim=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_driver=?",
+            nik_baru, nama_baru, sim_baru, hash_baru, driver_id
+        )
+
+    cursor.execute(
+        """INSERT INTO driver_audit_logs
+           (id_driver, nik_lama, nik_baru, nama_lama, nama_baru, no_sim_lama, no_sim_baru, hash_audit, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        driver_id, lama.nik, nik_baru, lama.nama_driver, nama_baru, lama.no_sim, sim_baru, hash_baru, updated_by
     )
     conn.commit()
     conn.close()
 
-def setujui_manual_check(transaksi_id, admin_nama):
+def cari_riwayat_driver_by_plat(no_plat):
+    """Cari transaksi TERAKHIR untuk plat ini (apapun statusnya) untuk menyarankan supir & foto."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT TOP 1 d.id_driver, d.nik, d.nama_driver, d.no_sim, d.foto_path, d.is_updated,
+               k.id_kendaraan, k.no_stnk
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN driver d ON t.id_driver = d.id_driver
+        WHERE k.no_plat = ?
+        ORDER BY t.created_at DESC
+    """, no_plat)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+def cari_driver_by_nik(nik):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_driver, nik, nama_driver, no_sim, foto_path, is_updated FROM driver WHERE nik = ? AND is_active = 1", nik)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+# ===== TRANSAKSI (INTI) =====
+
+def generate_no_tiket(no_plat):
+    plat_bersih = no_plat.replace(" ", "").upper()
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"TKT-{plat_bersih}-{timestamp}"
+
+def cari_transaksi_aktif_by_plat(no_plat):
+    """Cari transaksi yang belum SELESAI/REJECTED untuk plat ini."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
+               s.nama_supplier, p.nama_produk, p.kategori,
+               k.no_plat, k.no_stnk,
+               d.id_driver, d.nik, d.nama_driver, d.no_sim, d.is_updated
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN produk p ON t.id_produk = p.id_produk
+        JOIN driver d ON t.id_driver = d.id_driver
+        WHERE (k.no_plat = ? OR t.no_tiket = ?) AND t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        ORDER BY t.created_at DESC
+    """, (no_plat, no_plat),)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id):
+    """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
+    kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
+    qr_expired = datetime.now() + timedelta(hours=24)
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE TransaksiTimbang SET Status = 'Selesai', DiperiksaOleh = ? WHERE Id = ?",
-        admin_nama, transaksi_id
+        """INSERT INTO transaksi
+           (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at, security_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired, security_id
+    )
+    cursor.execute("INSERT INTO timbangan (no_tiket) VALUES (?)", no_tiket)
+    cursor.execute("INSERT INTO timeline_monitoring (no_tiket, stage, processed_by) VALUES (?, 'SECURITY_INIT', ?)", no_tiket, security_id)
+    conn.commit()
+    conn.close()
+    return no_tiket
+
+def catat_timeline(no_tiket, stage, processed_by):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO timeline_monitoring (no_tiket, stage, processed_by) VALUES (?, ?, ?)",
+        no_tiket, stage, processed_by
     )
     conn.commit()
     conn.close()
 
-def tolak_manual_check(transaksi_id, admin_nama, alasan):
+# ===== TIMBANGAN =====
+
+def get_data_timbangan(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE TransaksiTimbang SET Status = 'Ditolak', DiperiksaOleh = ?, AlasanBatal = ? WHERE Id = ?",
-        admin_nama, alasan, transaksi_id
-    )
+    cursor.execute("SELECT * FROM timbangan WHERE no_tiket = ?", no_tiket)
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+def hitung_hash_timbang(no_tiket, bruto, tara, secret_key=None):
+    if secret_key is None:
+        secret_key = os.getenv("HASH_SECRET_KEY")
+    data = f"{no_tiket}{bruto}{tara}{secret_key}"
+    return hashlib.sha256(data.encode()).hexdigest()
+
+def simpan_timbang_pertama(no_tiket, berat, operator_id):
+    """Untuk PEMBELIAN: ini bruto. Untuk PENJUALAN: ini tara. Untuk PENIMBANGAN_SAJA: ini bruto (jadi netto langsung)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT jenis_transaksi FROM transaksi WHERE no_tiket = ?", no_tiket)
+    jenis = cursor.fetchone().jenis_transaksi
+
+    if jenis == 'PENJUALAN':
+        cursor.execute("UPDATE timbangan SET berat_tara = ?, waktu_tara = GETDATE(), operator_timbang_id = ? WHERE no_tiket = ?", berat, operator_id, no_tiket)
+    else:
+        cursor.execute("UPDATE timbangan SET berat_bruto = ?, waktu_bruto = GETDATE(), operator_timbang_id = ? WHERE no_tiket = ?", berat, operator_id, no_tiket)
+
+    if jenis == 'PENIMBANGAN_SAJA':
+        cursor.execute("UPDATE timbangan SET berat_netto = ? WHERE no_tiket = ?", berat, no_tiket)
+        cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
+    else:
+        cursor.execute("UPDATE transaksi SET status_alur = 'TIMBANG_1' WHERE no_tiket = ?", no_tiket)
+
     conn.commit()
     conn.close()
+    return jenis
 
-def get_all_users():
+def simpan_timbang_kedua(no_tiket, berat, operator_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT Id, Username, NamaLengkap, Role, IsActive, LastLogin, CreatedAt FROM Users ORDER BY CreatedAt DESC")
+    cursor.execute("SELECT jenis_transaksi FROM transaksi WHERE no_tiket = ?", no_tiket)
+    jenis = cursor.fetchone().jenis_transaksi
+
+    cursor.execute("SELECT berat_bruto, berat_tara FROM timbangan WHERE no_tiket = ?", no_tiket)
+    existing = cursor.fetchone()
+
+    if jenis == 'PENJUALAN':
+        bruto = berat
+        tara = existing.berat_tara
+        cursor.execute("UPDATE timbangan SET berat_bruto = ?, waktu_bruto = GETDATE() WHERE no_tiket = ?", berat, no_tiket)
+    else:
+        bruto = existing.berat_bruto
+        tara = berat
+        cursor.execute("UPDATE timbangan SET berat_tara = ?, waktu_tara = GETDATE() WHERE no_tiket = ?", berat, no_tiket)
+
+    netto = round(abs(bruto - tara), 2)
+    hash_val = hitung_hash_timbang(no_tiket, bruto, tara)
+
+    cursor.execute(
+        "UPDATE timbangan SET berat_netto = ?, hash_keamanan = ?, operator_timbang_id = ? WHERE no_tiket = ?",
+        netto, hash_val, operator_id, no_tiket
+    )
+    cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
+    conn.commit()
+    conn.close()
+    return netto
+
+def get_history_timbangan_by_supplier(id_supplier, hari=7):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN timbangan tb ON t.no_tiket = tb.no_tiket
+        WHERE t.id_supplier = ? AND t.created_at >= DATEADD(day, -?, GETDATE())
+        ORDER BY t.created_at DESC
+    """, id_supplier, hari)
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     return data
 
-def cek_username_ada(username):
+# ===== SORTASI & LAB =====
+def get_data_sortasi(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT Id FROM Users WHERE Username = ?", username)
+    cursor.execute("SELECT * FROM sortasi WHERE no_tiket = ?", no_tiket)
     row = cursor.fetchone()
     conn.close()
-    return row is not None
+    return row
 
-def reset_password_user(user_id, password_hash_baru):
+def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, catatan, operator_id):
+    data_tb = get_data_timbangan(no_tiket)
+    berat_acuan = data_tb.berat_bruto or data_tb.berat_netto or 0
+    total_persen_potongan = (mentah or 0) + (tangkai or 0) + (sampah or 0)
+    total_potongan_kg = round(berat_acuan * total_persen_potongan / 100, 2)
+
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE Users SET PasswordHash = ? WHERE Id = ?", password_hash_baru, user_id)
+    cursor.execute("SELECT id_sortasi FROM sortasi WHERE no_tiket = ?", no_tiket)
+    if cursor.fetchone():
+        cursor.execute("""UPDATE sortasi SET persen_buah_mentah=?, persen_buah_busuk=?, persen_tangkai_panjang=?,
+                           persen_sampah_kotoran=?, persen_buah_matang=?, persen_brondolan=?, total_potongan_kg=?,
+                           catatan=?, operator_sortasi_id=?, waktu_sortasi=GETDATE() WHERE no_tiket=?""",
+                       mentah, busuk, tangkai, sampah, matang, brondolan, total_potongan_kg, catatan, operator_id, no_tiket)
+    else:
+        cursor.execute("""INSERT INTO sortasi (no_tiket, persen_buah_mentah, persen_buah_busuk, persen_tangkai_panjang,
+                           persen_sampah_kotoran, persen_buah_matang, persen_brondolan, total_potongan_kg, catatan,
+                           operator_sortasi_id, waktu_sortasi) VALUES (?,?,?,?,?,?,?,?,?,?,GETDATE())""",
+                       no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, total_potongan_kg, catatan, operator_id)
+    cursor.execute("UPDATE transaksi SET status_alur = 'TIMBANG_2' WHERE no_tiket = ?", no_tiket)
+    conn.commit()
+    conn.close()
+    return total_potongan_kg
+
+def get_standar_mutu(id_produk):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM standar_mutu WHERE id_produk = ?", id_produk)
+    row = cursor.fetchone()
+    if not row:
+        cursor.execute("INSERT INTO standar_mutu (id_produk) VALUES (?)", id_produk)
+        conn.commit()
+        cursor.execute("SELECT * FROM standar_mutu WHERE id_produk = ?", id_produk)
+        row = cursor.fetchone()
+    conn.close()
+    return row
+
+def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE standar_mutu SET maks_ffa=?, maks_air=?, maks_kotoran=? WHERE id_produk=?",
+                   maks_ffa, maks_air, maks_kotoran, id_produk)
     conn.commit()
     conn.close()
 
-def toggle_status_user(user_id, status_baru):
+def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE Users SET IsActive = ? WHERE Id = ?", status_baru, user_id)
+    cursor.execute("SELECT id_lab FROM lab_hasil WHERE no_tiket = ?", no_tiket)
+    if cursor.fetchone():
+        cursor.execute("""UPDATE lab_hasil SET ffa=?, kadar_air=?, kadar_kotoran=?, warna_locis=?,
+                           keputusan=?, no_dokumen_coa=?, operator_lab_id=?, waktu_pemeriksaan=GETDATE() WHERE no_tiket=?""",
+                       ffa, air, kotoran, warna, keputusan, no_coa, operator_id, no_tiket)
+    else:
+        cursor.execute("""INSERT INTO lab_hasil (no_tiket, ffa, kadar_air, kadar_kotoran, warna_locis, keputusan,
+                           no_dokumen_coa, operator_lab_id, waktu_pemeriksaan) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
+                       no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id)
+
+    status_baru = 'SELESAI' if keputusan == 'APPROVE' else 'REJECTED'
+    if keputusan == 'REJECT':
+        cursor.execute("UPDATE transaksi SET status_alur=?, alasan_reject=? WHERE no_tiket=?", status_baru, 'Ditolak Lab', no_tiket)
+    else:
+        cursor.execute("UPDATE transaksi SET status_alur=? WHERE no_tiket=?", status_baru, no_tiket)
     conn.commit()
     conn.close()
+
+def get_history_umum(tabel, limit=10):
+    conn = get_connection()
+    cursor = conn.cursor()
+    kolom_status = "sr.keputusan" if tabel == 'lab_hasil' else "t.status_alur"
+    cursor.execute(f"""
+        SELECT TOP {limit} k.no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
+        FROM {tabel} sr
+        JOIN transaksi t ON sr.no_tiket = t.no_tiket
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN produk p ON t.id_produk = p.id_produk
+        JOIN supplier s ON t.id_supplier = s.id_supplier
+        ORDER BY t.created_at DESC
+    """)
+    columns = [c[0] for c in cursor.description]
+    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+    return data

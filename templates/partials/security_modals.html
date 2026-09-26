@@ -1,0 +1,127 @@
+<!-- MODAL: Tambah Supir Baru -->
+<div id="modalTambahSupir" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Pendaftaran Supir Baru & Perekaman Wajah</h3>
+            <button onclick="closeModal('modalTambahSupir')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="field-label">Nama Lengkap</label>
+                <input type="text" id="tambahNama" placeholder="Masukkan Nama Lengkap" class="input-field">
+            </div>
+            <div>
+                <label class="field-label">NIK</label>
+                <input type="text" id="tambahNik" placeholder="Masukkan NIK" class="input-field">
+            </div>
+            <div>
+                <label class="field-label">SIM</label>
+                <input type="text" id="tambahSim" placeholder="Masukkan Nomor SIM" class="input-field">
+            </div>
+
+            <div class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                <div id="tambahFotoPreview" class="photo-circle mb-3">
+                    <i class="fa-solid fa-camera text-slate-300 text-2xl"></i>
+                </div>
+                <video id="tambahVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+                <canvas id="tambahCanvas" class="hidden"></canvas>
+                <button id="btnRekamTambah" onclick="toggleRekamWajah('tambah')" class="btn-success">Rekam Wajah</button>
+            </div>
+
+            <button onclick="simpanSupirBaru()" class="btn-primary w-full">Simpan Data</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Update Data -->
+<div id="modalUpdateData" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Update Data</h3>
+            <button onclick="closeModal('modalUpdateData')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 flex justify-between items-center">
+                <span>Mode: <b id="updateModeLabel">Mutasi Truk (data supir terkunci)</b></span>
+                <button onclick="toggleEditModeUpdate()" class="text-blue-700 hover:underline">
+                    <i class="fa-solid fa-pen mr-1"></i> Edit Data Diri / SIM
+                </button>
+            </div>
+
+            <div>
+                <label class="field-label">Nama Lengkap</label>
+                <input type="text" id="updateNama" readonly class="input-field bg-slate-50">
+            </div>
+            <div>
+                <label class="field-label">NIK</label>
+                <input type="text" id="updateNik" readonly class="input-field bg-slate-50">
+            </div>
+            <div>
+                <label class="field-label">SIM</label>
+                <input type="text" id="updateSim" readonly class="input-field bg-slate-50">
+            </div>
+
+            <div id="updatePlatBaruWrapper">
+                <label class="field-label">No. Plat Truk Baru</label>
+                <input type="text" id="updatePlatBaru" placeholder="Truk yang dibawa hari ini" class="input-field uppercase">
+            </div>
+
+            <div id="updateFotoWrapper" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hidden">
+                <div id="updateFotoPreview" class="photo-circle mb-3">
+                    <i class="fa-solid fa-camera text-slate-300 text-2xl"></i>
+                </div>
+                <video id="updateVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+                <canvas id="updateCanvas" class="hidden"></canvas>
+                <button id="btnRekamUpdate" onclick="toggleRekamWajah('update')" class="btn-success">Rekam Wajah</button>
+            </div>
+
+            <button onclick="simpanUpdateData()" class="btn-primary w-full">Simpan Data</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalStandarMutu" class="modal-overlay">
+    <div class="modal-box p-6 space-y-3">
+        <h3 class="font-bold mb-2">Update Standar Mutu</h3>
+        <div><label class="field-label">Maks FFA (%)</label><input type="number" id="stdInputFfa" class="input-field"></div>
+        <div><label class="field-label">Maks Air (%)</label><input type="number" id="stdInputAir" class="input-field"></div>
+        <div><label class="field-label">Maks Kotoran (%)</label><input type="number" id="stdInputKotoran" class="input-field"></div>
+        <button onclick="simpanStandarMutu()" class="btn-primary w-full">Simpan</button>
+    </div>
+</div>
+
+<!-- MODAL: Cetak QR Code -->
+<div id="modalCetakQR" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Cetak QR Code</h3>
+            <button onclick="closeModal('modalCetakQR')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="field-label">Nomor Plat Kendaraan</label>
+                <input type="text" id="qrNoPlat" placeholder="Press Tab →" class="input-field uppercase"
+                    onkeydown="if(event.key==='Tab') lookupPlatUntukQR(this)">
+            </div>
+
+            <div class="border border-slate-200 rounded-lg p-4">
+                <p class="font-semibold text-sm text-slate-700 mb-2 pb-2 border-b border-slate-100">Data Supir & Kendaraan :</p>
+                <p class="text-sm text-slate-600">Nama : <span id="qrNama"></span></p>
+                <p class="text-sm text-slate-600">NIK : <span id="qrNik"></span></p>
+                <p class="text-sm text-slate-600">SIM : <span id="qrSim"></span></p>
+                <p class="text-sm text-slate-600">STNK : <span id="qrStnk"></span></p>
+                <p class="text-sm text-slate-600">Status : <span id="qrStatus"></span></p>
+            </div>
+
+            <div id="printAreaQR" class="hidden text-center bg-white p-4 border-2 border-emerald-500 rounded-lg">
+                <div id="qrcodeContainer" class="flex justify-center"></div>
+                <p id="qrTiketText" class="font-mono font-bold mt-2"></p>
+            </div>
+
+            <button onclick="cetakQR()" class="btn-success w-full">
+                <i class="fa-solid fa-print mr-1"></i> Print QR Code
+            </button>
+        </div>
+    </div>
+</div>

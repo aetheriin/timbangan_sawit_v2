@@ -1,0 +1,64 @@
+<div data-tab-content="timbangan" class="hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div class="section-box p-5">
+            <h3 class="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b">Live Weight Display</h3>
+            <div class="bg-black rounded-lg p-6 text-center mb-4">
+                <span id="beratLiveDisplay" class="text-cyan-400 font-mono font-bold text-4xl">0 Kg</span>
+            </div>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="bg-slate-100 rounded-lg p-2 text-center">
+                    <p class="text-xs text-slate-500">Bruto</p>
+                    <p id="tbBruto" class="font-semibold text-sm">-</p>
+                </div>
+                <div class="bg-slate-100 rounded-lg p-2 text-center">
+                    <p class="text-xs text-slate-500">Tara</p>
+                    <p id="tbTara" class="font-semibold text-sm">-</p>
+                </div>
+                <div class="bg-slate-100 rounded-lg p-2 text-center">
+                    <p class="text-xs text-slate-500">Netto</p>
+                    <p id="tbNetto" class="font-semibold text-sm">-</p>
+                </div>
+            </div>
+            <button onclick="simpanHasilTimbangan()" class="btn-primary w-full">Simpan Hasil Timbangan</button>
+            <button onclick="bukaScanQRTimbangan()" class="text-xs text-blue-600 hover:underline mt-2 block text-center">
+                atau Scan QR Code
+            </button>
+        </div>
+
+        <div class="section-box p-5">
+            <h3 class="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b">Detail DO & Produk</h3>
+            <div class="space-y-3">
+                <div><label class="field-label">Jenis Transaksi</label><input type="text" id="tbJenisTransaksi" readonly class="input-field bg-slate-50"></div>
+                <div><label class="field-label">Supplier</label><input type="text" id="tbSupplier" readonly class="input-field bg-slate-50"></div>
+                <div><label class="field-label">Produk</label><input type="text" id="tbProduk" readonly class="input-field bg-slate-50"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-box mt-5">
+        <div class="section-header" onclick="toggleSection('history-timbangan')">
+            <span class="section-header-text">
+                <i id="chevron-history-timbangan" class="fa-solid fa-chevron-down section-chevron"></i>
+                History Timbangan (Supplier - 7 Hari Terakhir)
+            </span>
+        </div>
+        <div id="body-history-timbangan" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">No. Plat</th><th class="table-cell">Bruto</th><th class="table-cell">Tara</th><th class="table-cell">Netto</th></tr>
+                </thead>
+                <tbody id="tabelHistoryTimbangan" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="table-cell text-slate-400 text-center py-6">Pilih plat di atas untuk melihat riwayat</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="modalScanQRTimbangan" class="modal-overlay">
+        <div class="modal-box p-4">
+            <div id="qr-reader-timbang"></div>
+            <button onclick="closeModal('modalScanQRTimbangan'); qrScanner.stop();" class="btn-secondary w-full mt-3">Batal</button>
+        </div>
+    </div>
+</div>

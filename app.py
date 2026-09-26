@@ -1,639 +1,496 @@
-import json
 import os
+import json
 import uuid
+from flask import Flask, request, jsonify, render_template, redirect
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
-
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, render_template, request, url_for
-from flask_login import (
-    LoginManager,
-    current_user,
-    login_required,
-    login_user,
-    logout_user,
-)
+
+from utils.face_utils import extract_embedding, embedding_to_binary, binary_to_embedding, compare_faces
 from utils.auth import User
 from utils.db_utils import (
-    batalkan_transaksi,
-    buat_tiket_security,
-    cari_transaksi_by_qr,
-    cari_wajah_mirip_supir,
-    catat_timbang_keluar,
-    catat_timbang_masuk,
-    cek_nik_supir_ada,
-    get_all_supir,
-    get_connection,
-    get_daftar_supir,
-    get_dashboard_summary_timbang,
-    get_or_create_kendaraan,
-    get_riwayat_transaksi,
-    get_supir_by_id,
-    get_supir_lengkap_by_id,
-    get_user_by_username,
-    insert_supir,
-    insert_user,
-    nonaktifkan_supir,
-    setujui_manual_check,
-    tambah_bukti_manual,
-    tolak_manual_check,
-    update_last_login,
-    update_supir,
-    get_all_users, 
-    cek_username_ada, 
-    reset_password_user, 
-    toggle_status_user
+    get_user_by_username, get_user_by_id, insert_user,
+    get_semua_supplier, get_semua_produk,
+    cari_transaksi_aktif_by_plat, buat_transaksi_full, catat_timeline,
+    cari_riwayat_driver_by_plat, generate_no_tiket, cari_driver_by_nik,
+    get_history_timbangan_by_supplier,
+    get_driver_by_id, cek_nik_ada, cari_wajah_mirip_driver, insert_driver, update_driver_dengan_audit,
+    get_data_timbangan, simpan_timbang_pertama, simpan_timbang_kedua, 
+    get_data_sortasi, simpan_sortasi, get_standar_mutu, update_standar_mutu,
+    simpan_lab, get_history_umum
 )
-from utils.face_utils import (
-    binary_to_embedding,
-    compare_faces,
-    embedding_to_binary,
-    extract_embedding,
-    verifikasi_liveness,
-)
-from utils.timbang_state import baca_status, mulai_simulasi, reset_sesi
-from utils.verifikasi_state import (
-    get_verifikasi,
-    reset_verifikasi,
-    set_terverifikasi,
-)
-from werkzeug.security import check_password_hash, generate_password_hash
+from utils.serial_reader import mulai_pembacaan_serial, baca_status_asli, reset_deteksi_stabil
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY")
 
-# Cek folder upload
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-camera_trigger_state = {"is_active": False, "last_scanned_driver": None}
+mulai_pembacaan_serial()
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-
 @login_manager.user_loader
 def load_user(user_id):
-  return User.get(user_id)
-
+    row = get_user_by_id(user_id)
+    if row is None:
+        return None
+    return User(row.id_user, row.username, row.nama, row.role)
 
 def role_required(*roles):
-  def decorator(f):
-    @wraps(f)
-    def wrapped(*args, **kwargs):
-      if not current_user.is_authenticated:
-        return jsonify({"error": "Pengguna belum terautentikasi"}), 401
-      if current_user.role not in roles:
-        return jsonify({"error": "Akses ditolak untuk role Anda"}), 403
-      return f(*args, **kwargs)
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in roles and 'ADMIN' not in [current_user.role]:
+                return jsonify({"error": "Akses ditolak untuk role Anda"}), 403
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
 
-    return wrapped
-
-  return decorator
-
-
-@app.route("/")
-def index():
-  return redirect("/login")
-
+# ===== LOGIN =====
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-  if request.method == "POST":
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "")
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        row = get_user_by_username(username)
+        if row is None or not check_password_hash(row.password, password):
+            return render_template("login.html", error="Username atau password salah")
+        user = User(row.id_user, row.username, row.nama, row.role)
+        login_user(user)
 
-    row = get_user_by_username(username)
-    if row is None or not check_password_hash(row.PasswordHash, password):
-      return render_template(
-          "login.html", error="Username atau password salah"
-      )
-
-    user = User(row.Id, row.Username, row.NamaLengkap, row.Role)
-    login_user(user)
-    update_last_login(row.Id)
-
-    # PERBAIKAN: Redirect dinamis sesuai role pengguna untuk mencegah HTTP 403
-    if user.role == "admin":
-      return redirect(url_for("dashboard"))
-    elif user.role == "security":
-      return redirect(url_for("security_page"))
-    elif user.role == "operator_timbang":
-      return redirect(url_for("timbang"))
-    else:
-      return redirect(url_for("riwayat"))
-
-  return render_template("login.html", error=None)
-
-
-@app.route("/dashboard")
-@login_required
-@role_required("admin")
-def dashboard():
-  summary = get_dashboard_summary_timbang()
-  return render_template(
-      "dashboard.html", summary=summary, active_page="dashboard"
-  )
-
+        tab_default = {
+            'SECURITY': 'security', 'OPERATOR_TIMBANG': 'timbangan',
+            'SORTASI': 'sortasi', 'LAB': 'lab', 'ADMIN': 'security'
+        }
+        return redirect(f"/weighbridge?tab={tab_default.get(row.role, 'security')}")
+    return render_template("login.html", error=None)
 
 @app.route("/logout")
 @login_required
 def logout():
-  logout_user()
-  return redirect("/login")
+    logout_user()
+    return redirect("/login")
 
+@app.route("/")
+def index():
+    return redirect("/login")
 
-# 1. POS SECURITY CHECK-IN & TRIGGER KAMERA
-@app.route("/security")
+# ===== HALAMAN UTAMA (SATU HALAMAN, 4 TAB) =====
+
+@app.route("/weighbridge")
 @login_required
-@role_required("security", "admin")
-def security_page():
-  return render_template("security.html", active_page="security")
+def weighbridge():
+    tab_aktif = request.args.get("tab", "security")
+    supplier_list = get_semua_supplier()
+    produk_list = get_semua_produk()
+    return render_template("weighbridge.html", tab_aktif=tab_aktif, supplier_list=supplier_list, produk_list=produk_list)
 
+# ===== API: LOOKUP / GENERATE TIKET BERDASARKAN PLAT =====
+
+@app.route("/api/plat/lookup", methods=["POST"])
+@login_required
+def api_plat_lookup():
+    no_plat = request.form.get("no_plat", "").strip().upper()
+    if not no_plat:
+        return jsonify({"error": "Nomor plat kosong"}), 400
+
+    row = cari_transaksi_aktif_by_plat(no_plat)
+    if row:
+        return jsonify({
+            "status": "ADA_TIKET", "no_tiket": row.no_tiket, "jenis_transaksi": row.jenis_transaksi,
+            "no_do": row.no_do, "status_alur": row.status_alur, "supplier": row.nama_supplier,
+            "id_supplier": None, "produk": row.nama_produk, "kategori_produk": row.kategori,
+            "no_plat": row.no_plat, "no_stnk": row.no_stnk,
+            "driver": {"id_driver": row.id_driver, "nik": row.nik, "nama": row.nama_driver,
+                       "no_sim": row.no_sim, "is_updated": bool(row.is_updated), "foto_path": None}
+        }), 200
+
+    # TIDAK ADA tiket aktif -> siapkan draft (TIDAK di-insert dulu)
+    no_tiket_reserved = generate_no_tiket(no_plat)
+    riwayat = cari_riwayat_driver_by_plat(no_plat)
+
+    driver_info = None
+    if riwayat:
+        driver_info = {
+            "id_driver": riwayat.id_driver, "nik": riwayat.nik, "nama": riwayat.nama_driver,
+            "no_sim": riwayat.no_sim, "is_updated": bool(riwayat.is_updated),
+            "foto_path": riwayat.foto_path
+        }
+
+    return jsonify({
+        "status": "DRAFT",
+        "no_tiket_reserved": no_tiket_reserved,
+        "no_stnk": riwayat.no_stnk if riwayat else None,
+        "driver": driver_info
+    }), 200
+
+# ===== SECURITY: BUAT TIKET BARU =====
+
+@app.route("/api/security/buat-tiket", methods=["POST"])
+@login_required
+@role_required('SECURITY', 'ADMIN')
+def api_buat_tiket():
+    no_tiket = request.form.get("no_tiket", "").strip()
+    no_plat = request.form.get("no_plat", "").strip().upper()
+    no_stnk = request.form.get("no_stnk", "").strip() or None
+    no_do = request.form.get("no_do", "").strip() or None
+    jenis_transaksi = request.form.get("jenis_transaksi", "").strip()
+    id_supplier = request.form.get("id_supplier", "").strip()
+    id_produk = request.form.get("id_produk", "").strip()
+    id_driver = request.form.get("id_driver", "").strip()
+
+    if not all([no_tiket, no_plat, jenis_transaksi, id_supplier, id_produk, id_driver]):
+        return jsonify({"error": "Semua field wajib diisi"}), 400
+
+    existing = cari_transaksi_aktif_by_plat(no_plat)
+    if existing:
+        return jsonify({"error": f"Plat ini sudah punya tiket aktif: {existing.no_tiket}"}), 400
+
+    buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, current_user.id)
+    return jsonify({"message": "Tiket berhasil dibuat & tervalidasi", "no_tiket": no_tiket}), 200
+
+@app.route("/api/security/list-tiket-aktif")
+@login_required
+def api_list_tiket_aktif():
+    from utils.db_utils import get_connection
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.no_tiket, k.no_plat, s.nama_supplier, t.status_alur
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN supplier s ON t.id_supplier = s.id_supplier
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        ORDER BY t.created_at DESC
+    """)
+    columns = [c[0] for c in cursor.description]
+    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(data)
+
+# ===== DRIVER: TAMBAH, UPDATE (2 MODE) =====
+
+@app.route("/api/driver/tambah", methods=["POST"])
+@login_required
+@role_required('SECURITY', 'ADMIN')
+def api_driver_tambah():
+    nik = request.form.get("nik", "").strip()
+    nama = request.form.get("nama", "").strip()
+    no_sim = request.form.get("no_sim", "").strip()
+    file = request.files.get("foto")
+
+    if not all([nik, nama, no_sim, file]):
+        return jsonify({"error": "Semua field wajib diisi"}), 400
+    if cek_nik_ada(nik):
+        return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
+
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+
+    embedding = extract_embedding(filepath)
+    if embedding is None:
+        os.remove(filepath)
+        return jsonify({"error": "Wajah tidak terdeteksi"}), 400
+
+    mirip = cari_wajah_mirip_driver(embedding)
+    if mirip:
+        os.remove(filepath)
+        return jsonify({"error": f"Wajah sudah terdaftar sebagai '{mirip[1]}'"}), 400
+
+    binary_data = embedding_to_binary(embedding)
+    driver_id = insert_driver(nik, nama, no_sim, binary_data, f"uploads/{filename}")
+    return jsonify({"message": f"Supir '{nama}' berhasil ditambahkan", "id_driver": driver_id}), 200
+
+@app.route("/api/driver/update-mutasi", methods=["POST"])
+@login_required
+@role_required('SECURITY', 'ADMIN')
+def api_driver_update_mutasi():
+    """Mode default popup Update: cuma ganti plat truk, TIDAK ubah data driver."""
+    id_driver = request.form.get("id_driver", "").strip()
+    no_plat_baru = request.form.get("no_plat_baru", "").strip().upper()
+    no_tiket = request.form.get("no_tiket", "").strip()
+
+    if not all([id_driver, no_plat_baru, no_tiket]):
+        return jsonify({"error": "Data tidak lengkap"}), 400
+
+    kendaraan_id = get_or_create_kendaraan_wrapper(no_plat_baru)
+    from utils.db_utils import get_connection
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE transaksi SET id_kendaraan = ? WHERE no_tiket = ?", kendaraan_id, no_tiket)
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Truk berhasil dimutasikan"}), 200
+
+def get_or_create_kendaraan_wrapper(no_plat):
+    from utils.db_utils import get_or_create_kendaraan
+    return get_or_create_kendaraan(no_plat)
+
+@app.route("/api/driver/update-identitas", methods=["POST"])
+@login_required
+@role_required('SECURITY', 'ADMIN')
+def api_driver_update_identitas():
+    """Mode edit: ubah NIK/Nama/SIM, WAJIB audit log."""
+    id_driver = request.form.get("id_driver", "").strip()
+    nik = request.form.get("nik", "").strip()
+    nama = request.form.get("nama", "").strip()
+    no_sim = request.form.get("no_sim", "").strip()
+    file = request.files.get("foto")
+
+    if not all([id_driver, nik, nama, no_sim]):
+        return jsonify({"error": "Semua field wajib diisi"}), 400
+    if cek_nik_ada(nik, exclude_id=int(id_driver)):
+        return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
+
+    embedding_binary = None
+    foto_path = None
+    if file and file.filename != "":
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"{uuid.uuid4().hex}{ext}"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        embedding = extract_embedding(filepath)
+        if embedding is None:
+            os.remove(filepath)
+            return jsonify({"error": "Wajah tidak terdeteksi"}), 400
+        embedding_binary = embedding_to_binary(embedding)
+        foto_path = f"uploads/{filename}"
+
+    update_driver_dengan_audit(int(id_driver), nik, nama, no_sim, current_user.id, embedding_binary, foto_path)
+    return jsonify({"message": f"Data '{nama}' berhasil diperbarui, tercatat di audit log"}), 200
+
+@app.route("/api/driver/cari-by-nik", methods=["POST"])
+@login_required
+def api_driver_cari_nik():
+    nik = request.form.get("nik", "").strip()
+    row = cari_driver_by_nik(nik)
+    if not row:
+        return jsonify({"status": "TIDAK_DITEMUKAN"}), 200
+    return jsonify({
+        "status": "DITEMUKAN", "id_driver": row.id_driver, "nik": row.nik,
+        "nama": row.nama_driver, "no_sim": row.no_sim, "is_updated": bool(row.is_updated)
+    }), 200
+
+# ===== VERIFIKASI WAJAH (SAMA POLA DENGAN PROJECT SEBELUMNYA) =====
 
 @app.route("/api/kamera/start", methods=["POST"])
 def api_kamera_start():
-  """Trigger dari Web Security untuk menyalakan kamera kiosk_timbang.py."""
-  camera_trigger_state["is_active"] = True
-  camera_trigger_state["last_scanned_driver"] = None
-  reset_verifikasi()
-  return jsonify({"status": "SUCCESS", "message": "Kamera Kiosk diaktifkan"}), 200
+    from utils.verifikasi_state import reset_verifikasi
+    global camera_trigger_state
+    camera_trigger_state["is_active"] = True
+    reset_verifikasi()
+    return jsonify({"status": "SUCCESS"}), 200
 
+camera_trigger_state = {"is_active": False}
 
 @app.route("/api/kamera/status", methods=["GET"])
 def api_kamera_status():
-  """Endpoint polling yang dipanggil kiosk_timbang.py setiap 1 detik."""
-  return jsonify({"is_active": camera_trigger_state["is_active"]}), 200
-
+    return jsonify({"is_active": camera_trigger_state["is_active"]}), 200
 
 @app.route("/api/kamera/batal", methods=["POST"])
 def api_kamera_batal():
-  """Dipanggil oleh kiosk_timbang.py jika kamera ditutup manual oleh user (Tombol X / Q)."""
-  camera_trigger_state["is_active"] = False
-  camera_trigger_state["last_scanned_driver"] = None
-  reset_verifikasi()
-  return (
-      jsonify({"status": "SUCCESS", "message": "Trigger kamera dibatalkan"}),
-      200,
-  )
+    from utils.verifikasi_state import reset_verifikasi
+    camera_trigger_state["is_active"] = False
+    reset_verifikasi()
+    return jsonify({"status": "SUCCESS"}), 200
 
+@app.route("/api/verifikasi-wajah", methods=["POST"])
+def api_verifikasi_wajah():
+    from utils.face_utils import verifikasi_liveness
+    from utils.verifikasi_state import set_terverifikasi
+    from utils.db_utils import get_all_driver_embeddings
 
-@app.route("/api/security/cetak-tiket", methods=["POST"])
+    files = request.files.getlist("frames")
+    tantangan = request.form.get("tantangan", "KEDIP")
+
+    if not files or len(files) < 3:
+        return jsonify({"error": "Frame tidak cukup"}), 400
+
+    filepaths = []
+    try:
+        for f in files:
+            filepath = os.path.join(UPLOAD_FOLDER, f"tmp_{uuid.uuid4().hex}.jpg")
+            f.save(filepath)
+            filepaths.append(filepath)
+
+        if not verifikasi_liveness(filepaths, tantangan):
+            return jsonify({"error": "Liveness tidak terverifikasi"}), 400
+
+        embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
+        if embedding_baru is None:
+            return jsonify({"error": "Wajah tidak terdeteksi"}), 400
+
+        driver_list = get_all_driver_embeddings()
+        match_found = None
+        for row in driver_list:
+            driver_id, nama, embedding_binary = row
+            if embedding_binary is None:
+                continue
+            embedding_tersimpan = binary_to_embedding(embedding_binary)
+            is_match, _ = compare_faces(embedding_tersimpan, embedding_baru, threshold=0.55)
+            if is_match:
+                match_found = (driver_id, nama)
+                break
+
+        if not match_found:
+            return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
+
+        driver_id, nama = match_found
+        detail = get_driver_by_id(driver_id)
+        set_terverifikasi(driver_id, nama, detail.nik, detail.no_sim, bool(detail.is_updated))
+        camera_trigger_state["is_active"] = False
+
+        return jsonify({"message": f"Terverifikasi: {nama}", "id_driver": driver_id}), 200
+    finally:
+        for path in filepaths:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+
+@app.route("/api/status-verifikasi")
+def api_status_verifikasi():
+    from utils.verifikasi_state import get_verifikasi
+    v = get_verifikasi()
+    if v is None:
+        return jsonify({"terverifikasi": False})
+    return jsonify({"terverifikasi": True, **v})
+
+# ===== TIMBANGAN =====
+
+@app.route("/api/timbang/status")
+def api_timbang_status():
+    return jsonify(baca_status_asli())
+
+@app.route("/api/timbang/reset-baseline", methods=["POST"])
 @login_required
-@role_required("security", "admin")
-def api_cetak_tiket():
-  """Security menginput plat nomor & generate UUID acak untuk QR Code Struk yang tersimpan di DB."""
-  data = request.json or {}
-  plat_nomor = data.get("plat_nomor", "").strip().upper()
-  supir_id = data.get("supir_id", "").strip()
-  nama_supir = data.get("nama", "").strip()
+def api_timbang_reset_baseline():
+    reset_deteksi_stabil()
+    return jsonify({"message": "Baseline direset"}), 200
 
-  if not plat_nomor or not supir_id:
-    return jsonify({"error": "Plat nomor dan data supir wajib diisi"}), 400
-
-  qr_token = f"TKT-{uuid.uuid4().hex[:8].upper()}"
-  buat_tiket_security(supir_id, plat_nomor, qr_token)
-
-  return (
-      jsonify({
-          "status": "SUCCESS",
-          "qr_token": qr_token,
-          "plat_nomor": plat_nomor,
-          "nama_supir": nama_supir,
-      }),
-      200,
-  )
-
-@app.route("/admin/users")
+@app.route("/api/timbang/simpan", methods=["POST"])
 @login_required
-@role_required('admin')
-def admin_users():
-    data = get_all_users()
-    return render_template("admin_users.html", data=data, active_page="admin_users")
+@role_required('OPERATOR_TIMBANG', 'ADMIN')
+def api_timbang_simpan():
+    no_tiket = request.form.get("no_tiket", "").strip()
+    if not no_tiket:
+        return jsonify({"error": "No. Tiket wajib ada"}), 400
 
-@app.route("/admin/users/tambah", methods=["POST"])
+    status = baca_status_asli()
+    if not status.get("siap_kunci"):
+        return jsonify({"error": "Berat belum stabil"}), 400
+
+    berat = status["berat"]
+    data_lama = get_data_timbangan(no_tiket)
+
+    sudah_ada_bruto = data_lama.berat_bruto is not None
+    sudah_ada_tara = data_lama.berat_tara is not None
+
+    if not sudah_ada_bruto and not sudah_ada_tara:
+        jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id)
+        reset_deteksi_stabil()
+        if jenis == 'PENIMBANGAN_SAJA':
+            catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
+            return jsonify({"message": f"Berhasil, langsung SELESAI (Penimbangan). Netto: {berat} kg"}), 200
+        catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
+        label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
+        return jsonify({"message": f"{label} tersimpan: {berat} kg. Tunggu truk kembali untuk timbang kedua."}), 200
+    else:
+        netto = simpan_timbang_kedua(no_tiket, berat, current_user.id)
+        reset_deteksi_stabil()
+        catat_timeline(no_tiket, 'TIMBANG_KELUAR', current_user.id)
+        return jsonify({"message": f"Selesai! Netto: {netto} kg"}), 200
+
+@app.route("/api/timbang/data/<no_tiket>")
 @login_required
-@role_required('admin')
-def admin_users_tambah():
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "").strip()
-    nama = request.form.get("nama", "").strip()
-    role = request.form.get("role", "").strip()
-
-    if not all([username, password, nama, role]):
-        return jsonify({"error": "Semua field wajib diisi"}), 400
-    if role not in ['security', 'operator_timbang', 'admin']:
-        return jsonify({"error": "Role tidak valid"}), 400
-    if cek_username_ada(username):
-        return jsonify({"error": f"Username '{username}' sudah dipakai"}), 400
-
-    password_hash = generate_password_hash(password)
-    insert_user(username, password_hash, nama, role)
-    return jsonify({"message": f"User '{username}' berhasil dibuat"}), 200
-
-@app.route("/admin/users/reset-password/<int:user_id>", methods=["POST"])
-@login_required
-@role_required('admin')
-def admin_users_reset(user_id):
-    password_baru = request.form.get("password_baru", "").strip()
-    if not password_baru or len(password_baru) < 6:
-        return jsonify({"error": "Password minimal 6 karakter"}), 400
-    reset_password_user(user_id, generate_password_hash(password_baru))
-    return jsonify({"message": "Password berhasil direset"}), 200
-
-@app.route("/admin/users/toggle/<int:user_id>", methods=["POST"])
-@login_required
-@role_required('admin')
-def admin_users_toggle(user_id):
-    status_baru = request.form.get("status") == "1"
-    if user_id == current_user.id and not status_baru:
-        return jsonify({"error": "Tidak bisa menonaktifkan akun sendiri"}), 400
-    toggle_status_user(user_id, status_baru)
-    return jsonify({"message": "Status user berhasil diperbarui"}), 200
-
-# 2. POS JEMBATAN TIMBANG (BRUTO & TARA)
-@app.route("/timbang")
-@login_required
-@role_required("operator_timbang", "admin")
-def timbang():
-  return render_template("timbang.html", active_page="timbang")
-
+def api_timbang_data(no_tiket):
+    row = get_data_timbangan(no_tiket)
+    return jsonify({"berat_bruto": row.berat_bruto, "berat_tara": row.berat_tara, "berat_netto": row.berat_netto})
 
 @app.route("/api/timbang/scan-qr", methods=["POST"])
 @login_required
-@role_required("operator_timbang", "admin")
-def api_scan_qr():
-  """Lookup data supir & plat langsung dari Database SQL berdasarkan Token QR yang di-scan."""
-  data = request.json or {}
-  token = data.get("qr_token", "").strip().upper()
+def api_timbang_scan_qr():
+    no_tiket = request.form.get("no_tiket", "").strip()
+    row = cari_transaksi_aktif_by_plat_or_tiket(no_tiket)  
+    if not row:
+        return jsonify({"error": "Tiket tidak ditemukan / sudah selesai"}), 404
+    return jsonify({"status": "ADA_TIKET", "no_tiket": row.no_tiket, "jenis_transaksi": row.jenis_transaksi,
+                     "id_supplier": row.id_supplier, "supplier": row.nama_supplier, "produk": row.nama_produk}), 200
 
-  # Query ke Database via db_utils
-  row = cari_transaksi_by_qr(token)
-  if not row:
-    return jsonify({"error": "Tiket QR tidak ditemukan / tidak valid!"}), 404
-
-  tiket = {
-      "id": row.Id,
-      "qr_token": row.NomorTiket,
-      "supir_id": row.SupirId,
-      "nama": row.NamaSupir,
-      "nik": row.NIK,
-      "kendaraan_id": row.KendaraanId,
-      "plat_nomor": row.PlatNomor,
-      "berat_bruto": row.BeratBruto,
-      "status": row.Status,
-  }
-
-  # Set state terverifikasi
-  set_terverifikasi(row.SupirId, row.NamaSupir)
-
-  return jsonify({"status": "SUCCESS", "tiket": tiket}), 200
-
-
-@app.route("/timbang/mulai", methods=["POST"])
+@app.route("/api/history-timbangan-supplier")
 @login_required
-def timbang_mulai():
-  mulai_simulasi()
-  return jsonify({"message": "Simulasi dimulai"})
+def api_history_timbangan_supplier():
+    id_supplier = request.args.get("id_supplier")
+    if not id_supplier:
+        return jsonify([])
+    data = get_history_timbangan_by_supplier(id_supplier)
+    return jsonify(data)
 
+# ==== SORTASI =====
 
-@app.route("/timbang/status")
+@app.route("/api/sortasi/simpan", methods=["POST"])
 @login_required
-def timbang_status():
-  return jsonify(baca_status())
+@role_required('SORTASI', 'ADMIN')
+def api_sortasi_simpan():
+    no_tiket = request.form.get("no_tiket")
+    if not no_tiket:
+        return jsonify({"error": "Tiket belum dipilih"}), 400
+    vals = {k: float(request.form.get(k) or 0) for k in ['mentah', 'busuk', 'tangkai', 'sampah', 'matang', 'brondolan']}
+    catatan = request.form.get("catatan", "")
+    total = simpan_sortasi(no_tiket, vals['mentah'], vals['busuk'], vals['tangkai'], vals['sampah'],
+                            vals['matang'], vals['brondolan'], catatan, current_user.id)
+    return jsonify({"message": f"Sortasi tersimpan. Total potongan: {total} kg", "total_potongan_kg": total}), 200
 
+# === LAB =====
 
-@app.route("/timbang/kunci", methods=["POST"])
+@app.route("/api/lab/standar/<int:id_produk>")
 @login_required
-@role_required("operator_timbang", "admin")
-def timbang_kunci():
-  status = baca_status()
-  if not status["siap_kunci"]:
-    return jsonify({"error": "Berat belum stabil"}), 400
+def api_lab_standar(id_produk):
+    row = get_standar_mutu(id_produk)
+    return jsonify({"maks_ffa": row.maks_ffa, "maks_air": row.maks_air, "maks_kotoran": row.maks_kotoran})
 
-  qr_token = request.form.get("qr_token", "").strip().upper()
-  if not qr_token:
-    return jsonify({"error": "Tiket QR belum di-scan"}), 400
-
-  row = cari_transaksi_by_qr(qr_token)
-  if not row:
-    return jsonify({"error": "Tiket tidak ditemukan"}), 404
-
-  berat = status["berat"]
-  reset_verifikasi()
-  reset_sesi()
-
-  if row.BeratBruto is None:
-    catat_timbang_masuk(
-        row.SupirId, row.KendaraanId, berat, row.PlatNomor, qr_token
-    )
-    return (
-        jsonify({
-            "message": (
-                f"Timbang MASUK berhasil. Tiket: {qr_token}. Berat: {berat} kg"
-            )
-        }),
-        200,
-    )
-
-  if row.Status == "Selesai" or row.Status == "Perlu Cek Manual":
-    return jsonify({"error": "Tiket ini sudah selesai ditimbang"}), 400
-
-  netto, status_final = catat_timbang_keluar(row.Id, berat)
-  if status_final == "Perlu Cek Manual":
-    return (
-        jsonify({
-            "message": (
-                f"Timbang KELUAR tercatat, TAPI netto tidak valid ({netto} kg)"
-                " perlu Manual Check"
-            ),
-            "perlu_manual_check": True,
-        }),
-        200,
-    )
-  return (
-      jsonify({
-          "message": (
-              f"Timbang KELUAR berhasil. Berat: {berat} kg, Netto: {netto} kg"
-          )
-      }),
-      200,
-  )
-
-
-# 3. VERIFIKASI WAJAH & LIVENESS (DARI KIOSK_TIMBANG.PY)
-@app.route("/timbang/verifikasi-wajah", methods=["POST"])
-def verifikasi_wajah_timbang():
-  files = request.files.getlist("frames")
-  tantangan = request.form.get("tantangan", "KEDIP")
-
-  if not files or len(files) < 3:
-    return jsonify({"error": "Frame tidak cukup"}), 400
-
-  filepaths = []
-  try:
-    for f in files:
-      filepath = os.path.join(UPLOAD_FOLDER, f"tmp_{uuid.uuid4().hex}.jpg")
-      f.save(filepath)
-      filepaths.append(filepath)
-
-    if not verifikasi_liveness(filepaths, tantangan):
-      return jsonify({"error": "Liveness tidak terverifikasi"}), 400
-
-    embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
-    if embedding_baru is None:
-      return jsonify({"error": "Wajah tidak terdeteksi"}), 400
-
-    supir_list = get_all_supir()
-    match_found = None
-    for row in supir_list:
-      supir_id, nama, embedding_binary = row
-      embedding_tersimpan = binary_to_embedding(embedding_binary)
-      is_match, _ = compare_faces(
-          embedding_tersimpan, embedding_baru, threshold=0.55
-      )
-      if is_match:
-        match_found = (supir_id, nama)
-        break
-
-    if not match_found:
-      return jsonify({"error": "Supir tidak dikenali"}), 404
-
-    supir_id, nama = match_found
-    detail = get_supir_by_id(supir_id)
-    nik_asli = detail.NIK if detail else None
-    set_terverifikasi(supir_id, nama, nik_asli)
-
-    camera_trigger_state["is_active"] = False
-    camera_trigger_state["last_scanned_driver"] = {
-        "supir_id": supir_id,
-        "nama": nama,
-    }
-
-    return (
-        jsonify({
-            "message": f"Terverifikasi: {nama}",
-            "nik": nik_asli,
-            "nama": nama,
-        }),
-        200,
-    )
-
-  finally:
-    # OPTIMASI: Hapus file temporer frame JPEG
-    for path in filepaths:
-      if os.path.exists(path):
-        try:
-          os.remove(path)
-        except Exception:
-          pass
-
-
-@app.route("/timbang/status-verifikasi")
-def status_verifikasi():
-  v = get_verifikasi()
-  if v is None:
-    return jsonify({"terverifikasi": False})
-  return jsonify({
-      "terverifikasi": True,
-      "supir_id": v["supir_id"],
-      "nama": v["nama"],
-      "nik": v.get("nik"),
-  })
-
-
-# 4. RIWAYAT & MANAGEMENT SUPIR
-@app.route("/riwayat")
+@app.route("/api/lab/standar/update", methods=["POST"])
 @login_required
-def riwayat():
-  data = get_riwayat_transaksi()
-  return render_template("riwayat.html", data=data, active_page="riwayat")
+@role_required('LAB', 'ADMIN')
+def api_lab_standar_update():
+    id_produk = request.form.get("id_produk")
+    update_standar_mutu(id_produk, request.form.get("maks_ffa"), request.form.get("maks_air"), request.form.get("maks_kotoran"))
+    return jsonify({"message": "Standar mutu diperbarui"}), 200
 
-
-@app.route("/supir")
+@app.route("/api/lab/simpan", methods=["POST"])
 @login_required
-@role_required("admin")
-def supir():
-  data = get_daftar_supir()
-  return render_template("supir.html", data=data, active_page="supir")
+@role_required('LAB', 'ADMIN')
+def api_lab_simpan():
+    no_tiket = request.form.get("no_tiket")
+    if not no_tiket:
+        return jsonify({"error": "Tiket belum dipilih"}), 400
+    keputusan = request.form.get("keputusan")
+    no_coa = f"COA-{no_tiket}" if keputusan == 'APPROVE' else None
+    simpan_lab(no_tiket, request.form.get("ffa"), request.form.get("kadar_air"),
+               request.form.get("kadar_kotoran"), request.form.get("warna_locis"), keputusan, no_coa, current_user.id)
+    return jsonify({"message": f"Hasil lab tersimpan ({keputusan})", "no_dokumen_coa": no_coa}), 200
 
-
-@app.route("/supir/register", methods=["POST"])
+@app.route("/api/history/sortasi")
 @login_required
-@role_required("admin")
-def supir_register():
-  nama = request.form.get("nama", "").strip()
-  nik = request.form.get("nik", "").strip()
-  nomor_sim = request.form.get("nomor_sim", "").strip() or None
-  sim_berlaku = request.form.get("sim_berlaku", "").strip() or None
-  file = request.files.get("foto")
+def api_history_sortasi():
+    return jsonify(get_history_umum('sortasi'))
 
-  if not nama or not file:
-    return jsonify({"error": "Nama dan foto wajib diisi"}), 400
-  if not nik.isdigit():
-    return jsonify({"error": "NIK harus berupa angka"}), 400
-  if cek_nik_supir_ada(nik):
-    return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
-
-  ext = os.path.splitext(file.filename)[1]
-  unique_filename = f"{uuid.uuid4().hex}{ext}"
-  filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-  file.save(filepath)
-
-  embedding = extract_embedding(filepath)
-  if embedding is None:
-    if os.path.exists(filepath):
-      os.remove(filepath)
-    return jsonify({"error": "Wajah tidak terdeteksi di foto"}), 400
-
-  wajah_mirip = cari_wajah_mirip_supir(embedding)
-  if wajah_mirip:
-    if os.path.exists(filepath):
-      os.remove(filepath)
-    _, nama_terdaftar = wajah_mirip
-    return (
-        jsonify(
-            {"error": f"Wajah ini sudah terdaftar sebagai '{nama_terdaftar}'"}
-        ),
-        400,
-    )
-
-  binary_data = embedding_to_binary(embedding)
-  insert_supir(
-      nama,
-      binary_data,
-      nik=nik,
-      nomor_sim=nomor_sim,
-      sim_berlaku=sim_berlaku,
-      foto_path=f"uploads/{unique_filename}",
-  )
-
-  return jsonify({"message": f"Supir '{nama}' berhasil didaftarkan"}), 200
-
-
-@app.route("/supir/hapus/<int:supir_id>", methods=["POST"])
+@app.route("/api/history/lab")
 @login_required
-@role_required("admin")
-def supir_hapus(supir_id):
-  nonaktifkan_supir(supir_id)
-  return jsonify({"message": "Supir berhasil dinonaktifkan"}), 200
-
-
-@app.route("/supir/edit/<int:supir_id>", methods=["POST"])
-@login_required
-@role_required("admin")
-def supir_edit(supir_id):
-  nama = request.form.get("nama", "").strip()
-  nik = request.form.get("nik", "").strip()
-  nomor_sim = request.form.get("nomor_sim", "").strip() or None
-  sim_berlaku = request.form.get("sim_berlaku", "").strip() or None
-  file = request.files.get("foto")
-
-  if not nama:
-    return jsonify({"error": "Nama tidak boleh kosong"}), 400
-  if nik and not nik.isdigit():
-    return jsonify({"error": "NIK harus berupa angka"}), 400
-  if nik and cek_nik_supir_ada(nik, exclude_id=supir_id):
-    return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
-
-  embedding_binary = None
-  foto_path = None
-  if file and file.filename != "":
-    ext = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-    file.save(filepath)
-
-    embedding_baru = extract_embedding(filepath)
-    if embedding_baru is None:
-      os.remove(filepath)
-      return jsonify({"error": "Wajah tidak terdeteksi di foto baru"}), 400
-
-    wajah_mirip = cari_wajah_mirip_supir(embedding_baru, exclude_id=supir_id)
-    if wajah_mirip:
-      os.remove(filepath)
-      _, nama_terdaftar = wajah_mirip
-      return (
-          jsonify(
-              {"error": f"Wajah ini sudah terdaftar sebagai '{nama_terdaftar}'"}
-          ),
-          400,
-      )
-
-    embedding_binary = embedding_to_binary(embedding_baru)
-    foto_path = f"uploads/{unique_filename}"
-
-  update_supir(
-      supir_id,
-      nama,
-      nik if nik else None,
-      nomor_sim,
-      sim_berlaku,
-      embedding_binary,
-      foto_path,
-  )
-  return jsonify({"message": f"Data '{nama}' berhasil diperbarui"}), 200
-
-
-@app.route("/riwayat/batalkan/<int:transaksi_id>", methods=["POST"])
-@login_required
-@role_required("admin")
-def riwayat_batalkan(transaksi_id):
-  alasan = request.form.get("alasan", "").strip()
-  if not alasan:
-    return jsonify({"error": "Alasan pembatalan wajib diisi"}), 400
-  batalkan_transaksi(transaksi_id, alasan, current_user.nama_lengkap)
-  return jsonify({"message": "Transaksi ditandai batal"}), 200
-
-
-@app.route("/riwayat/tambah-bukti/<int:transaksi_id>", methods=["POST"])
-@login_required
-@role_required("security", "operator_timbang", "admin")
-def riwayat_tambah_bukti(transaksi_id):
-  catatan = request.form.get("catatan", "").strip()
-  file = request.files.get("foto")
-  if not catatan:
-    return jsonify({"error": "Catatan wajib diisi"}), 400
-
-  foto_path = None
-  if file and file.filename != "":
-    ext = os.path.splitext(file.filename)[1]
-    unique_filename = f"bukti_{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-    file.save(filepath)
-    foto_path = f"uploads/{unique_filename}"
-
-  tambah_bukti_manual(transaksi_id, catatan, foto_path)
-  return (
-      jsonify({
-          "message": (
-              "Catatan/bukti berhasil ditambahkan, menunggu keputusan Admin"
-          )
-      }),
-      200,
-  )
-
-
-@app.route("/riwayat/setujui/<int:transaksi_id>", methods=["POST"])
-@login_required
-@role_required("admin")
-def riwayat_setujui(transaksi_id):
-  setujui_manual_check(transaksi_id, current_user.nama_lengkap)
-  return jsonify({"message": "Transaksi disetujui dan ditandai Selesai"}), 200
-
-
-@app.route("/riwayat/tolak/<int:transaksi_id>", methods=["POST"])
-@login_required
-@role_required("admin")
-def riwayat_tolak(transaksi_id):
-  alasan = request.form.get("alasan", "").strip()
-  if not alasan:
-    return jsonify({"error": "Alasan penolakan wajib diisi"}), 400
-  tolak_manual_check(transaksi_id, current_user.nama_lengkap, alasan)
-  return jsonify({"message": "Transaksi ditolak"}), 200
-
+def api_history_lab():
+    return jsonify(get_history_umum('lab_hasil'))
 
 if __name__ == "__main__":
-  app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000)

@@ -56,16 +56,11 @@ async function lookupPlat(inputEl) {
 
     if (data.status === 'ADA_TIKET') {
         isiInfoBar(data);
-        document.getElementById('btnValidasi').classList.toggle('hidden', data.driver.is_updated === undefined ? false : false);
-    } else {
-        kosongkanInfoBar(noPlat);
-        // Jalur 1 ke Create Ticket: plat belum ada tiket -> arahkan ke Form
-        if (document.querySelector('.tab-btn-active').dataset.tab === 'security') {
-            setSidebarView('form');
-            const platForm = document.getElementById('formNoPlat');
-            if (platForm) platForm.value = noPlat;
-        }
+    } else if (data.status === 'DRAFT') {
+        isiInfoBarDraft(data, noPlat);
     }
+
+    window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
 }
 
 function isiInfoBar(data) {
@@ -73,9 +68,19 @@ function isiInfoBar(data) {
     document.getElementById('infoNoDO').value = data.no_do || '';
     document.getElementById('infoSupplier').value = data.supplier || '';
     document.getElementById('infoSupir').value = data.driver ? data.driver.nama : '';
+    document.getElementById('btnValidasi').classList.add('hidden'); // sudah ada tiket, tidak perlu validasi lagi
+}
 
-    const btnValidasi = document.getElementById('btnValidasi');
-    if (btnValidasi) btnValidasi.classList.remove('hidden');
+function isiInfoBarDraft(data, noPlat) {
+    document.getElementById('infoNoTiket').value = data.no_tiket_reserved || '';
+    document.getElementById('infoNoDO').value = '';
+    document.getElementById('infoSupplier').value = '';
+    document.getElementById('infoSupir').value = data.driver ? data.driver.nama : '';
+
+    const tabAktif = document.querySelector('.tab-btn-active').dataset.tab;
+    if (tabAktif === 'security') {
+        document.getElementById('btnValidasi').classList.remove('hidden');
+    }
 }
 
 function kosongkanInfoBar(noPlat) {

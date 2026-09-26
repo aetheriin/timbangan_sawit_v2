@@ -1,0 +1,221 @@
+<div data-tab-content="security">
+
+    <!-- ===== VIEW: LIST ===== -->
+    <div data-view-panel="list">
+
+        <div class="flex justify-end gap-3 mb-4">
+            <div class="relative">
+                <input type="text" id="searchTiket" placeholder="Search" class="input-field pl-9 w-64">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            </div>
+            <button onclick="setSidebarView('form')" class="btn-primary">
+                <i class="fa-solid fa-plus mr-1"></i> Create Ticket
+            </button>
+        </div>
+
+        <div class="section-box">
+            <div class="section-header" onclick="toggleSection('ticket-aktif')">
+                <span class="section-header-text">
+                    <i id="chevron-ticket-aktif" class="fa-solid fa-chevron-down section-chevron"></i>
+                    List Ticket Aktif
+                </span>
+            </div>
+            <div id="body-ticket-aktif" class="section-body">
+                <table class="w-full text-left text-sm">
+                    <thead class="table-header-row">
+                        <tr>
+                            <th class="table-cell">No. Ticket</th>
+                            <th class="table-cell">No. Plat</th>
+                            <th class="table-cell">Supplier</th>
+                            <th class="table-cell">Status</th>
+                            <th class="table-cell text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelTicketAktif" class="divide-y divide-slate-100">
+                        <tr><td colspan="5" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <div class="section-header" onclick="toggleSection('history-driver')">
+                <span class="section-header-text">
+                    <i id="chevron-history-driver" class="fa-solid fa-chevron-down section-chevron"></i>
+                    History Driver
+                </span>
+            </div>
+            <div id="body-history-driver" class="section-body">
+                <table class="w-full text-left text-sm">
+                    <thead class="table-header-row">
+                        <tr>
+                            <th class="table-cell">No. Plat</th>
+                            <th class="table-cell">Nama</th>
+                            <th class="table-cell">NIK</th>
+                            <th class="table-cell">SIM</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelHistoryDriver" class="divide-y divide-slate-100">
+                        <tr><td colspan="4" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VIEW: FORM (Create Ticket) ===== -->
+    <div data-view-panel="form" class="hidden">
+
+        <div class="section-box">
+            <div class="bg-slate-800 text-white px-5 py-3 flex justify-between items-center">
+                <span class="font-medium">Form Pendaftaran Tiket</span>
+                <button onclick="setSidebarView('list')" class="btn-secondary text-xs">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Kembali ke List
+                </button>
+            </div>
+
+            <div class="p-6 space-y-6">
+
+                <!-- 1. Informasi Kendaraan Produk -->
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-700 mb-4">1. Informasi Kendaraan Produk</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="field-label">No. Plat Kendaraan</label>
+                                <input type="text" id="formNoPlat" class="input-field uppercase">
+                            </div>
+                            <div>
+                                <label class="field-label">No. Ticket</label>
+                                <input type="text" id="formNoTiket" readonly placeholder="Terisi setelah Submit" class="input-field bg-slate-50 text-slate-400">
+                            </div>
+                            <div>
+                                <label class="field-label">No. STNK</label>
+                                <input type="text" id="formNoStnk" class="input-field">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="field-label">Pengemudi Terakhir Truk</label>
+                            <div class="border border-slate-200 rounded-lg p-4 flex items-center gap-3 bg-slate-50 h-[calc(100%-1.75rem)]">
+                                <div class="w-16 h-16 rounded border-2 border-dashed border-slate-300 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa-solid fa-user text-slate-300"></i>
+                                </div>
+                                <div id="pengemudiTerakhirInfo" class="text-sm text-slate-500">
+                                    Belum ada riwayat
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4 pt-4 border-t border-slate-100">
+                        <div>
+                            <label class="field-label">Nomor DO (Delivery Order)</label>
+                            <input type="text" id="formNoDo" class="input-field">
+                        </div>
+                        <div>
+                            <label class="field-label">Jenis Transaksi</label>
+                            <select id="formJenisTransaksi" class="input-field">
+                                <option value="">-- Pilih --</option>
+                                <option value="PEMBELIAN">Pembelian</option>
+                                <option value="PENJUALAN">Penjualan</option>
+                                <option value="PENIMBANGAN_SAJA">Penimbangan Saja</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label">Supplier</label>
+                            <select id="formSupplier" class="input-field">
+                                <option value="">-- Pilih --</option>
+                                {% for s in supplier_list %}
+                                <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label">Produk</label>
+                            <select id="formProduk" class="input-field">
+                                <option value="">-- Pilih --</option>
+                                {% for p in produk_list %}
+                                <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-4">
+                        <button id="btnMulaiValidasi" onclick="mulaiValidasiAwal()" class="btn-primary">Mulai Validasi Awal</button>
+                        <button id="btnCetakQR" onclick="openCetakQRDariTabel(document.getElementById('formNoPlat').value)" class="btn-success hidden">
+                            <i class="fa-solid fa-print mr-1"></i> Cetak QR Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Informasi Driver -->
+                <div id="sectionInfoDriver" class="pt-6 border-t border-slate-200 section-disabled">
+                    <h3 class="text-sm font-semibold text-slate-700 mb-4">2. Informasi Driver</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="border border-slate-200 rounded-lg p-5 text-center bg-slate-50">
+                            <div id="fotoDriverBox" class="photo-circle mb-3">
+                                <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
+                            </div>
+                            <video id="videoScanWajah" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+                            <canvas id="canvasScanWajah" class="hidden"></canvas>
+                            <button id="btnScanWajah" onclick="mulaiScanWajah()" class="btn-success">Mulai Scan Wajah</button>
+                            <p id="statusScanWajah" class="text-xs text-slate-500 mt-2"></p>
+                        </div>
+
+                        <div class="border border-slate-200 rounded-lg p-5 space-y-3">
+                            <div>
+                                <label class="field-label">ID Driver</label>
+                                <input type="text" id="driverIdDriver" readonly class="input-field bg-slate-50">
+                            </div>
+                            <div>
+                                <label class="field-label">Nama Driver</label>
+                                <input type="text" id="driverNama" readonly class="input-field bg-slate-50">
+                            </div>
+                            <div>
+                                <label class="field-label">NIK</label>
+                                <input type="text" id="driverNik" readonly class="input-field bg-slate-50">
+                            </div>
+                            <div>
+                                <label class="field-label">SIM</label>
+                                <input type="text" id="driverSim" readonly class="input-field bg-slate-50">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 mt-5">
+                        <button onclick="openModal('modalTambahSupir')" class="btn-success">Tambah</button>
+                        <div id="modalUpdateData" class="modal-overlay">
+                            <div class="modal-box">
+                                <div class="modal-header">
+                                    <h3 class="font-bold">Cari Supir Lain (Ganti Pengemudi)</h3>
+                                    <button onclick="closeModal('modalUpdateData')"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <div>
+                                        <label class="field-label">NIK Supir yang datang hari ini</label>
+                                        <input type="text" id="cariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
+                                            onkeydown="if(event.key==='Tab') cariSupirByNik(this)">
+                                    </div>
+                                    <div id="hasilCariNik" class="hidden border border-slate-200 rounded-lg p-4 space-y-1 text-sm">
+                                        <p>Nama: <b id="hasilNama"></b></p>
+                                        <p>NIK: <span id="hasilNik"></span></p>
+                                        <p>SIM: <span id="hasilSim"></span></p>
+                                        <p id="hasilBadgeUpdate" class="text-amber-600 text-xs hidden">⚠ Data Pernah Diperbarui</p>
+                                    </div>
+                                    <p id="tidakDitemukan" class="hidden text-sm text-red-500">Tidak ditemukan. Silakan gunakan tombol "Tambah" untuk daftar baru.</p>
+                                    <button onclick="pakaiSupirIni()" id="btnPakaiSupirIni" disabled class="btn-primary w-full disabled:bg-slate-300">
+                                        Gunakan Supir Ini
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="submitCreateTiket()" class="btn-primary">Submit</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>

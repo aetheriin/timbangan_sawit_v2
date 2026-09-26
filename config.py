@@ -1,12 +1,11 @@
 import os
 from dotenv import load_dotenv
-
 load_dotenv()
 
 DB_CONFIG = {
     "driver": "{ODBC Driver 18 for SQL Server}",
     "server": os.getenv("DB_SERVER"),
-    "database": os.getenv("DB_NAME"),
+    "database": "DbSistemTimbangan",
     "trusted_connection": "yes",
     "trust_server_certificate": "yes"
 }
