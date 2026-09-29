@@ -42,7 +42,12 @@ USERS = [
     ("dummy_admin", "Dummy Admin", "ADMIN"),
 ]
 
-SUPPLIERS = ["DUMMY KUD Sawit Makmur", "DUMMY CV Tani Jaya", "DUMMY PT Agro Riau"]
+# (kode_supplier, nama_supplier, tipe)
+SUPPLIERS = [
+    ("DMY-001", "DUMMY KUD Sawit Makmur", "SUPPLIER_PEMBELIAN"),
+    ("DMY-002", "DUMMY CV Tani Jaya", "SUPPLIER_PEMBELIAN"),
+    ("DMY-003", "DUMMY PT Agro Riau", "BUYER_PENJUALAN"),
+]
 
 PRODUK = [("DUMMY TBS", "TBS"), ("DUMMY CPO", "PRODUK_PKS"), ("DUMMY Kernel", "PRODUK_PKS")]
 
@@ -95,8 +100,8 @@ def seed_master():
     conn = get_connection()
     cur = conn.cursor()
     supplier_id = {}
-    for nama in SUPPLIERS:
-        cur.execute("INSERT INTO supplier (nama_supplier) VALUES (?)", nama)
+    for kode, nama, tipe in SUPPLIERS:
+        cur.execute("INSERT INTO supplier (kode_supplier, nama_supplier, tipe) VALUES (?, ?, ?)", kode, nama, tipe)
         supplier_id[nama] = _ambil_id(cur, "SELECT id_supplier FROM supplier WHERE nama_supplier = ?", nama)
     produk_id = {}
     for nama, kategori in PRODUK:

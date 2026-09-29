@@ -5,7 +5,7 @@ load_dotenv()
 DB_CONFIG = {
     "driver": "{ODBC Driver 18 for SQL Server}",
     "server": os.getenv("DB_SERVER"),
-    "database": "DbSistemTimbangan",
+    "database": os.getenv("DB_NAME", "DbSistemTimbangan"),
     "trusted_connection": "yes",
     "trust_server_certificate": "yes"
 }
