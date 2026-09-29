@@ -83,7 +83,7 @@ async function lookupPlat(noPlatRaw) {
     }
     if (data.error) { alert(data.error); return; }
 
-    data.no_plat = noPlat;
+    data.no_plat = data.no_plat || noPlat;   // server mengembalikan format baku, mis. 'BM 1455 JJ'
     terapkanHasilLookup(data);
 }
 

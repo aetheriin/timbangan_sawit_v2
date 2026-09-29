@@ -389,7 +389,9 @@ async function lookupPlatUntukQR(inputEl) {
     const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
     const data = await res.json();
 
+    if (data.error) { alert(data.error); return; }
     if (data.status === 'ADA_TIKET') {
+        inputEl.value = data.no_plat;
         document.getElementById('qrNama').textContent = data.driver.nama;
         document.getElementById('qrNik').textContent = data.driver.nik;
         document.getElementById('qrSim').textContent = data.driver.no_sim;

@@ -5,6 +5,7 @@ from utils.db_utils import (
     cari_riwayat_driver_by_plat, generate_no_tiket
 )
 from utils.serializers import serialisasi_tiket
+from utils.plat_utils import normalisasi_plat
 
 main_bp = Blueprint('main', __name__)
 
@@ -17,9 +18,9 @@ def weighbridge():
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required
 def api_plat_lookup():
-    no_plat = request.form.get("no_plat", "").strip().upper()
-    if not no_plat:
-        return jsonify({"error": "Nomor plat kosong"}), 400
+    no_plat, error = normalisasi_plat(request.form.get("no_plat"))
+    if error:
+        return jsonify({"error": error}), 400
 
     row = cari_transaksi_aktif(no_plat=no_plat)
     if row:
@@ -34,6 +35,7 @@ def api_plat_lookup():
                        "foto_path": riwayat.foto_path}
     return jsonify({
         "status": "DRAFT",
+        "no_plat": no_plat,
         "no_tiket_reserved": generate_no_tiket(no_plat),
         "no_stnk": riwayat.no_stnk if riwayat else None,
         "driver": driver_info
