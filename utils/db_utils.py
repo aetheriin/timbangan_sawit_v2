@@ -256,7 +256,12 @@ def catat_timeline(no_tiket, stage, processed_by):
 def get_data_timbangan(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM timbangan WHERE no_tiket = ?", no_tiket)
+    cursor.execute("""
+        SELECT tb.*, s.total_potongan_kg
+        FROM timbangan tb
+        LEFT JOIN sortasi s ON s.no_tiket = tb.no_tiket
+        WHERE tb.no_tiket = ?
+    """, no_tiket)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -315,6 +320,9 @@ def simpan_timbang_kedua(no_tiket, berat, operator_id):
         netto, hash_val, operator_id, no_tiket
     )
     cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
+    # Potongan sortasi = persen potongan x NETTO (berat buah saja, tanpa truk)
+    cursor.execute(f"UPDATE sortasi SET total_potongan_kg = ROUND(? * {SQL_PERSEN_POTONGAN} / 100, 2) WHERE no_tiket = ?",
+                   netto, no_tiket)
     conn.commit()
     conn.close()
     return netto
@@ -376,11 +384,20 @@ def get_data_sortasi(no_tiket):
     conn.close()
     return row
 
+# Komponen yang memotong berat: buah mentah + tangkai panjang + sampah/kotoran
+SQL_PERSEN_POTONGAN = ("(COALESCE(persen_buah_mentah, 0) + COALESCE(persen_tangkai_panjang, 0)"
+                       " + COALESCE(persen_sampah_kotoran, 0))")
+
+def hitung_persen_potongan(mentah, tangkai, sampah):
+    return round((mentah or 0) + (tangkai or 0) + (sampah or 0), 2)
+
 def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, catatan, operator_id):
+    """Potongan kg dihitung dari NETTO. Netto baru ada setelah timbang keluar, jadi sebelum itu
+    total_potongan_kg = NULL dan akan diisi otomatis oleh simpan_timbang_kedua."""
     data_tb = get_data_timbangan(no_tiket)
-    berat_acuan = data_tb.berat_bruto or data_tb.berat_netto or 0
-    total_persen_potongan = (mentah or 0) + (tangkai or 0) + (sampah or 0)
-    total_potongan_kg = round(berat_acuan * total_persen_potongan / 100, 2)
+    total_persen_potongan = hitung_persen_potongan(mentah, tangkai, sampah)
+    total_potongan_kg = (round(data_tb.berat_netto * total_persen_potongan / 100, 2)
+                         if data_tb.berat_netto is not None else None)
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -398,7 +415,7 @@ def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, 
     cursor.execute("UPDATE transaksi SET status_alur = 'TIMBANG_2' WHERE no_tiket = ?", no_tiket)
     conn.commit()
     conn.close()
-    return total_potongan_kg
+    return total_persen_potongan, total_potongan_kg
 
 def get_standar_mutu(id_produk):
     conn = get_connection()
@@ -434,11 +451,12 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
                            no_dokumen_coa, operator_lab_id, waktu_pemeriksaan) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
                        no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id)
 
-    status_baru = 'SELESAI' if keputusan == 'APPROVE' else 'REJECTED'
+    # APPROVE -> lanjut timbang kedua (bukan langsung SELESAI, supaya netto tetap tercatat)
     if keputusan == 'REJECT':
-        cursor.execute("UPDATE transaksi SET status_alur=?, alasan_reject=? WHERE no_tiket=?", status_baru, 'Ditolak Lab', no_tiket)
+        cursor.execute("UPDATE transaksi SET status_alur='REJECTED', alasan_reject=?, rejected_by=? WHERE no_tiket=?",
+                       'Ditolak Lab', operator_id, no_tiket)
     else:
-        cursor.execute("UPDATE transaksi SET status_alur=? WHERE no_tiket=?", status_baru, no_tiket)
+        cursor.execute("UPDATE transaksi SET status_alur='TIMBANG_2' WHERE no_tiket=?", no_tiket)
     conn.commit()
     conn.close()
 

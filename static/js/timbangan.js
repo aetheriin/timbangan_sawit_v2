@@ -15,7 +15,7 @@ window.addEventListener('platLookup', (e) => {
         noTiketAktif = null;
         idSupplierAktif = null;
         ['tbJenisTransaksi', 'tbSupplier', 'tbProduk'].forEach(id => document.getElementById(id).value = '');
-        ['tbBruto', 'tbTara', 'tbNetto'].forEach(id => document.getElementById(id).textContent = '-');
+        ['tbBruto', 'tbTara', 'tbNetto', 'tbPotongan', 'tbNettoAkhir'].forEach(id => document.getElementById(id).textContent = '-');
     }
 });
 
@@ -42,6 +42,8 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbBruto').textContent = data.berat_bruto ?? '-';
     document.getElementById('tbTara').textContent = data.berat_tara ?? '-';
     document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
+    document.getElementById('tbPotongan').textContent = data.potongan_kg ?? '-';
+    document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
 }
 
 async function muatHistorySupplier(idSupplier) {

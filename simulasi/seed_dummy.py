@@ -136,7 +136,9 @@ SKENARIO = [
     dict(nama="TBS pembelian lengkap", plat="bm1455jj", supir="Budi Santoso",
          jenis="PEMBELIAN", supplier="DUMMY KUD Sawit Makmur", produk="DUMMY TBS", stnk="STNK-0001",
          langkah=[("timbang", 18540), ("sortasi", dict(mentah=2, busuk=1, tangkai=1.5, sampah=0.5, matang=90, brondolan=5)),
-                  ("timbang", 7260)], harapan="SELESAI"),
+                  ("timbang", 7260)], harapan="SELESAI",
+         # netto 18540-7260 = 11280; potongan (2+1.5+0.5)% x 11280 = 451.2; netto akhir 10828.8
+         cek_berat=dict(berat_netto=11280, potongan_kg=451.2, netto_akhir=10828.8)),
     dict(nama="TBS menunggu sortasi", plat="A 1234 JJ", supir="Ahmad Yani",
          jenis="PEMBELIAN", supplier="DUMMY CV Tani Jaya", produk="DUMMY TBS", stnk="STNK-0002",
          langkah=[("timbang", 21030)], harapan="TIMBANG_1"),
@@ -144,16 +146,20 @@ SKENARIO = [
          jenis="PEMBELIAN", supplier="DUMMY KUD Sawit Makmur", produk="DUMMY TBS", stnk=None,
          langkah=[("timbang", 16880), ("sortasi", dict(mentah=4, busuk=2, tangkai=3, sampah=1, matang=85, brondolan=5))],
          harapan="TIMBANG_2"),
-    dict(nama="CPO penjualan, lab APPROVE", plat="BM 8821 TU", supir="Joko Susilo",
+    dict(nama="CPO penjualan, lab APPROVE lalu timbang kedua", plat="BM 8821 TU", supir="Joko Susilo",
          jenis="PENJUALAN", supplier="DUMMY PT Agro Riau", produk="DUMMY CPO", stnk="STNK-0004",
-         langkah=[("timbang", 9150), ("lab", "APPROVE", 3.2, 0.2, 0.02)], harapan="SELESAI"),
+         langkah=[("timbang", 9150), ("lab", "APPROVE", 3.2, 0.2, 0.02), ("timbang", 38150)], harapan="SELESAI",
+         cek_berat=dict(berat_netto=29000, potongan_kg=None, netto_akhir=29000)),
+    dict(nama="CPO menunggu hasil lab", plat="BM 9012 XY", supir="Hendra Saputra",
+         jenis="PENJUALAN", supplier="DUMMY PT Agro Riau", produk="DUMMY CPO", stnk=None,
+         langkah=[("timbang", 8870)], harapan="TIMBANG_1"),
     dict(nama="CPO penjualan, lab REJECT", plat="bk8abc", supir="Rudi Hartono",
          jenis="PENJUALAN", supplier="DUMMY PT Agro Riau", produk="DUMMY CPO", stnk=None,
          langkah=[("timbang", 9020), ("lab", "REJECT", 6.8, 0.9, 0.1)], harapan="REJECTED"),
     dict(nama="Penimbangan saja", plat="B 9", supir="Dedi Kurnia",
          jenis="PENIMBANGAN_SAJA", supplier="DUMMY CV Tani Jaya", produk="DUMMY Kernel", stnk=None,
          langkah=[("timbang", 12400)], harapan="SELESAI"),
-    dict(nama="Baru masuk pos security", plat="BM 3310 AK", supir="Hendra Saputra",
+    dict(nama="Baru masuk pos security", plat="BM 3310 AK", supir="Budi Santoso",
          jenis="PEMBELIAN", supplier="DUMMY CV Tani Jaya", produk="DUMMY TBS", stnk="STNK-0007",
          langkah=[], harapan=None),   # status awal = default kolom di DB
 ]
@@ -227,7 +233,31 @@ class Simulasi:
             self.cek(status == sk["harapan"], f"status_alur = {status} (harapan {sk['harapan']})")
         else:
             print(f"   [INFO] status_alur awal = {status}")
+        if sk.get("cek_berat"):
+            berat = self.client.get(f"/api/timbang/data/{no_tiket}").get_json()
+            hasil = {k: berat[k] for k in sk["cek_berat"]}
+            self.cek(hasil == sk["cek_berat"], f"berat {hasil}")
         return no_tiket
+
+    def uji_urutan_tahap(self, tiket):
+        print("\n== Uji urutan tahap")
+        self.login("dummy_timbang")
+        kode, data = self.timbang(tiket["TBS menunggu sortasi"], 7000)
+        self.cek(kode == 400, f"timbang kedua TBS sebelum sortasi ditolak: {data.get('error')}")
+        kode, data = self.timbang(tiket["CPO menunggu hasil lab"], 37000)
+        self.cek(kode == 400, f"timbang kedua CPO sebelum lab ditolak: {data.get('error')}")
+        kode, data = self.timbang(tiket["CPO penjualan, lab REJECT"], 37000)
+        self.cek(kode == 404, f"timbang tiket REJECTED ditolak: {data.get('error')}")
+
+        self.login("dummy_sortasi")
+        kode, data = self.post("/api/sortasi/simpan", {"no_tiket": tiket["CPO menunggu hasil lab"], "mentah": 1})
+        self.cek(kode == 400, f"sortasi untuk CPO ditolak: {data.get('error')}")
+        kode, data = self.post("/api/sortasi/simpan", {"no_tiket": tiket["Baru masuk pos security"], "mentah": 1})
+        self.cek(kode == 400, f"sortasi sebelum timbang pertama ditolak: {data.get('error')}")
+
+        self.login("dummy_lab")
+        kode, data = self.post("/api/lab/simpan", {"no_tiket": tiket["TBS menunggu sortasi"], "keputusan": "APPROVE"})
+        self.cek(kode == 400, f"lab untuk TBS ditolak: {data.get('error')}")
 
     def uji_negatif(self, supplier_id, produk_id, driver_id):
         print("\n== Uji negatif")
@@ -251,8 +281,8 @@ class Simulasi:
         self.cek(kode == 403, "role SORTASI tidak boleh buat tiket (403)")
 
     def jalankan(self, supplier_id, produk_id, driver_id):
-        for sk in SKENARIO:
-            self.jalankan_skenario(sk, supplier_id, produk_id, driver_id)
+        tiket = {sk["nama"]: self.jalankan_skenario(sk, supplier_id, produk_id, driver_id) for sk in SKENARIO}
+        self.uji_urutan_tahap(tiket)
         self.uji_negatif(supplier_id, produk_id, driver_id)
         print(f"\n{'=' * 50}\nSelesai: {self.gagal} pengecekan GAGAL")
         print(f"Login UI pakai: {', '.join(u[0] for u in USERS)} / password '{PASSWORD_DUMMY}'")
