@@ -9,7 +9,8 @@
    - users                + id_personel, role aktif hanya HO / SECURITY
    - transaksi            + is_driver_changed, prev_driver_id, driver_photo_path, hash_keamanan
                           no_do -> no_do_manual, status_alur disederhanakan
-   - Tabel baru: blacklist, security_audit_logs
+   - personel             + foto_sumber (UPLOAD / KAMERA)
+   - Tabel baru: blacklist, security_audit_logs, absensi
    - Trigger: blacklist permanen (is_blacklisted tidak bisa 1 -> 0)
 
    Jalankan di SSMS pada SALINAN database (ganti nama di baris USE).
@@ -41,6 +42,11 @@ IF COL_LENGTH('dbo.personel', 'kategori') IS NULL
 IF COL_LENGTH('dbo.personel', 'is_blacklisted') IS NULL
     ALTER TABLE dbo.personel ADD is_blacklisted BIT NOT NULL
         CONSTRAINT DF_Personel_Blacklist DEFAULT (0);
+GO
+
+IF COL_LENGTH('dbo.personel', 'foto_sumber') IS NULL
+    ALTER TABLE dbo.personel ADD foto_sumber VARCHAR(10) NULL
+        CONSTRAINT CK_Personel_FotoSumber CHECK (foto_sumber IN ('UPLOAD', 'KAMERA'));
 GO
 
 -- SECURITY / EMPLOYEE tidak selalu punya SIM; DRIVER tetap wajib
@@ -196,7 +202,32 @@ BEGIN
 END
 GO
 
-/* ---------- 8. Blacklist permanen ---------- */
+/* ---------- 8. absensi (face recognition live) ---------- */
+IF OBJECT_ID('dbo.absensi', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.absensi (
+        id_absensi         INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        id_personel        INT          NULL,   -- NULL jika wajah tidak dikenali
+        jenis              VARCHAR(10)  NULL,   -- MASUK / PULANG (hanya jika BERHASIL)
+        status             VARCHAR(20)  NOT NULL,
+        jarak_wajah        FLOAT        NULL,   -- jarak embedding terdekat
+        tantangan_liveness VARCHAR(20)  NULL,   -- KEDIP / MENOLEH_KIRI / MENOLEH_KANAN
+        foto_path          VARCHAR(255) NULL,   -- snapshot wajah saat absen
+        perangkat          VARCHAR(50)  NULL,   -- nama kiosk / kamera
+        ip_address         VARCHAR(45)  NULL,
+        waktu              DATETIME     NOT NULL CONSTRAINT DF_Absensi_Waktu DEFAULT (GETDATE()),
+        tanggal            AS CAST(waktu AS DATE) PERSISTED,
+        CONSTRAINT CK_Absensi_Status CHECK (status IN ('BERHASIL', 'TIDAK_DIKENALI', 'DITOLAK_BLACKLIST')),
+        CONSTRAINT CK_Absensi_Jenis CHECK (jenis IS NULL OR jenis IN ('MASUK', 'PULANG')),
+        CONSTRAINT CK_Absensi_Berhasil CHECK (status <> 'BERHASIL' OR (id_personel IS NOT NULL AND jenis IS NOT NULL)),
+        CONSTRAINT FK_Absensi_Personel FOREIGN KEY (id_personel) REFERENCES dbo.personel (id_personel)
+    );
+    CREATE INDEX IX_Absensi_Personel_Tanggal ON dbo.absensi (id_personel, tanggal);
+    CREATE INDEX IX_Absensi_Tanggal ON dbo.absensi (tanggal);
+END
+GO
+
+/* ---------- 9. Blacklist permanen ---------- */
 CREATE OR ALTER TRIGGER dbo.TR_Personel_BlacklistPermanen ON dbo.personel
 AFTER UPDATE AS
 BEGIN

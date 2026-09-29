@@ -15,6 +15,8 @@ Draf SQL-nya ada di `database/migrations/002_personel_blacklist.sql`.
 | Subjek wajah | Supir saja (`driver`) | Semua personel (`personel`): **DRIVER**, **SECURITY**, **EMPLOYEE** (orang HO) |
 | Tahapan | Security → Timbang 1 → Sortasi/Lab → Timbang 2 | Hanya **Security / Validasi Wajah** |
 | Role login | ADMIN, SECURITY, OPERATOR_TIMBANG, SORTASI, LAB | Dipakai **HO** dulu, semua menu tampil. Role **HO** / **SECURITY** disiapkan untuk pembatasan nanti |
+| Pendaftaran wajah | Rekam live di pos | **Upload foto** (atau kamera). Tidak wajib live |
+| Absensi | Tidak ada | **Absen masuk/pulang pakai face recognition live** + liveness |
 | Blacklist | Tidak ada | Ada, untuk **personel** dan **kendaraan**, ditetapkan HO dengan surat |
 | Audit | `driver_audit_logs` | `personel_audit_logs` + `security_audit_logs` (aktivitas security dipantau HO) |
 | Master data | plat, supplier, produk, kontrak | **Tetap ada**, karena tiket supir tetap mencatat truk, supplier, dan produk |
@@ -166,7 +168,57 @@ flowchart LR
   personel DRIVER baru, kodenya kosong sampai HO mengisi.
 - Setiap perubahan identitas tetap membuat baris audit (seperti `driver_audit_logs` di v2).
 
-### 4.4 Status tiket
+### 4.4 Pendaftaran personel (upload foto)
+
+```mermaid
+flowchart TD
+    A[HO buka Tambah Personel] --> B[Isi nama, NIK, kategori, SIM jika DRIVER<br/>kode personel opsional]
+    B --> C{Sumber foto}
+    C -- Upload --> D[Pilih file JPG/PNG maks 5 MB]
+    C -- Kamera --> E[Ambil foto dari webcam]
+    D & E --> F{Jumlah wajah<br/>terdeteksi = 1?}
+    F -- Tidak --> X[Tolak: minta foto lain]
+    F -- Ya --> G{Mirip personel<br/>yang sudah ada?}
+    G -- Ya --> Y[Tolak: wajah sudah terdaftar sebagai ...]
+    G -- Tidak --> H{Mirip personel<br/>blacklist?}
+    H -- Ya --> Z[Tolak + catat TRY_SCAN_BLACKLIST]
+    H -- Tidak --> I[INSERT personel<br/>embedding, foto_path, foto_sumber]
+    I --> J([ID Personel dibuat otomatis, misal 024])
+```
+
+- Foto upload **hanya untuk pendaftaran** (membuat embedding). Pendaftaran tidak butuh liveness.
+- Foto harus berisi **tepat satu wajah**. `extract_embedding` di v2 mengambil wajah pertama saja,
+  jadi perlu diubah agar menolak foto berisi 0 atau lebih dari 1 wajah.
+- `foto_sumber` (UPLOAD / KAMERA) disimpan supaya HO tahu asal foto acuan.
+
+### 4.5 Absensi dengan face recognition
+
+```mermaid
+flowchart TD
+    S([Personel datang ke kiosk absen]) --> A[Klik Mulai Scan Absen]
+    A --> L[Kamera live + tantangan liveness<br/>kedip / menoleh]
+    L --> LV{Liveness lolos?}
+    LV -- Tidak --> R0[Ulangi scan, tidak dicatat]
+    LV -- Ya --> M{Wajah cocok dengan<br/>personel aktif? jarak ≤ 0.55}
+    M -- Tidak --> R1[/absensi: TIDAK_DIKENALI<br/>id_personel NULL/]
+    M -- Ya --> BL{is_blacklisted?}
+    BL -- Ya --> R2[/absensi: DITOLAK_BLACKLIST/]
+    R2 --> LOG[/security_audit_logs:<br/>TRY_SCAN_BLACKLIST/]
+    BL -- Tidak --> DUP{Scan terakhir orang ini<br/>kurang dari 5 menit?}
+    DUP -- Ya --> R3[Abaikan, tampilkan absen sebelumnya]
+    DUP -- Tidak --> J{Sudah MASUK<br/>hari ini?}
+    J -- Belum --> IN[/absensi: BERHASIL, MASUK/]
+    J -- Sudah --> OUT[/absensi: BERHASIL, PULANG/]
+```
+
+- **Absensi selalu live + liveness**, jadi foto cetak/layar HP tidak bisa dipakai untuk absen.
+  Inilah alasan pendaftaran boleh dari upload, tetapi absen tidak.
+- Berlaku untuk semua kategori (EMPLOYEE HO, SECURITY, DRIVER). Filter per kategori ada di tampilan.
+- Snapshot wajah saat absen disimpan di `absensi.foto_path` sebagai bukti.
+- Scan PULANG yang berulang di hari yang sama tidak menimpa data lama. Setiap scan jadi baris baru,
+  dan rekap memakai MASUK pertama dan PULANG terakhir per hari.
+
+### 4.6 Status tiket
 
 ```mermaid
 stateDiagram-v2
@@ -211,6 +263,7 @@ erDiagram
         boolean is_blacklisted "permanen jika 1"
         varbinary face_embedding_data
         string foto_path
+        string foto_sumber "UPLOAD / KAMERA"
         boolean is_updated
         string current_hash
         boolean is_active
@@ -304,6 +357,19 @@ erDiagram
         int updated_by FK
         datetime updated_at
     }
+    absensi {
+        int id_absensi PK
+        int id_personel FK "NULL jika tidak dikenali"
+        string jenis "MASUK / PULANG"
+        string status "BERHASIL / TIDAK_DIKENALI / DITOLAK_BLACKLIST"
+        float jarak_wajah
+        string tantangan_liveness
+        string foto_path "snapshot saat absen"
+        string perangkat
+        string ip_address
+        datetime waktu
+        date tanggal "computed dari waktu"
+    }
     security_audit_logs {
         int id_log PK
         int user_id FK
@@ -317,6 +383,7 @@ erDiagram
     personel ||--o{ transaksi : "mengemudi (id_driver)"
     personel ||--o{ transaksi : "supir sebelumnya (prev_driver_id)"
     personel ||--o{ personel_audit_logs : "riwayat perubahan"
+    personel |o--o{ absensi : "absen masuk / pulang"
     personel ||--o{ blacklist : "rekam jejak blacklist"
     personel |o--o| users : "wajah akun"
     personel ||--o{ kendaraan_driver : "supir truk"
@@ -371,6 +438,7 @@ ERD usulan sudah bagus; ada beberapa penyesuaian supaya cocok dengan kode dan da
 | personel | blacklist | `id_personel` (opsional) | Rekam jejak blacklist personel |
 | personel | personel_audit_logs | `id_personel` | Riwayat perubahan identitas |
 | personel | users | `users.id_personel` (opsional, 0..1) | Wajah milik akun login |
+| personel | absensi | `absensi.id_personel` (opsional) | Riwayat absen; NULL bila wajah tidak dikenali |
 | kendaraan | transaksi | `id_kendaraan` | Truk yang dipakai |
 | kendaraan | blacklist | `id_kendaraan` (opsional) | Rekam jejak blacklist kendaraan |
 | supplier | transaksi | `id_supplier` | Supplier/buyer tiket |
@@ -385,7 +453,7 @@ ERD usulan sudah bagus; ada beberapa penyesuaian supaya cocok dengan kode dan da
 ## 6. Rancangan tampilan (sesimpel mungkin)
 
 Desain Figma: <https://www.figma.com/design/MYtNtlrszccggmaS5iUIus> (halaman
-"UI · Face Recognition (show/hide)", 7 layar + kartu catatan ID vs Kode).
+"UI · Face Recognition (show/hide)", 9 layar + kartu catatan ID vs Kode).
 
 Prinsipnya sama dengan v2: sidebar gelap, topbar hitam, kotak abu-abu yang bisa dibuka/ditutup
 (`toggleSection`). Deretan 4 tab di `base.html` diganti **satu tab saja** yang judulnya mengikuti
@@ -395,7 +463,8 @@ menu aktif. Pindah halaman lewat sidebar (`setSidebarView`). Untuk sekarang **se
 ┌ Sidebar ────────┐ ┌ Topbar: Face Recognition               Andi (HO) ⏻ ┐
 │ OPERASIONAL     │ ├──────────────────────────────────────────────────────┤
 │ ▸ Validasi Wajah│ │ Info bar: No Tiket | Plat | DO | Supplier | Supir | [foto] │
-│ ▸ Daftar Tiket  │ ├ [ Validasi Wajah ] ──────────────────────────────────┤
+│ ▸ Daftar Tiket  │
+│ ▸ Absensi       │ ├ [ Validasi Wajah ] ──────────────────────────────────┤
 │ DATA            │ │ [!] Banner merah BLACKLIST (hanya jika terkena)       │
 │ ▸ Personel      │ │ ▼ 1. Informasi Kendaraan (plat, STNK, DO, supplier…)  │
 │ ▸ Master Data   │ │ ▼ 2. Scan Wajah & Identitas Personel (ID + Kode)      │
@@ -408,8 +477,10 @@ menu aktif. Pindah halaman lewat sidebar (`setSidebarView`). Untuk sekarang **se
 |---|---|
 | 01 Validasi Wajah | 1. Informasi Kendaraan · 2. Scan Wajah & Identitas Personel (ID terkunci, Kode, kategori, status blacklist) · 3. Ganti Supir / Supir & Kontrak Truk |
 | 02 Validasi — Blacklist | Banner merah + no. surat, plat bertanda merah, bagian 2 terkunci, Submit nonaktif |
+| 08 Absensi | Scan Absensi (kamera live + tantangan liveness, kartu hasil) · Absensi Hari Ini (filter kategori / ditolak) · Rekap Bulanan (tertutup) |
+| 09 Modal Tambah Personel | Data personel + pilihan sumber foto **Upload Foto** / Kamera, preview, hasil cek wajah |
 | 03 Daftar Tiket | List Tiket Aktif · Riwayat Personel · Tiket Selesai/Ditolak (tertutup) |
-| 04 Personel | Filter kategori (Driver / Security / Employee HO / Blacklist) · Daftar Personel (kolom ID dan Kode terpisah) · Edit Personel (ID terkunci, Kode bisa diubah) |
+| 04 Personel | Filter kategori (Driver / Security / Employee HO / Blacklist) · Daftar Personel (kolom ID dan Kode terpisah) · Edit Personel (ID terkunci, Kode bisa diubah, ganti foto via Upload / Kamera) |
 | 05 Master Data | Kendaraan · Supplier/Buyer · Produk · Kontrak Truk · Supir per Truk |
 | 06 Blacklist | Tetapkan Blacklist (Personel/Kendaraan, no. surat, tanggal, alasan, upload surat, peringatan permanen) · Riwayat Blacklist |
 | 07 Audit Log | Aktivitas Security · Perubahan Data Personel (termasuk kode lama → baru) |
@@ -431,9 +502,11 @@ Update (Ganti Supir, Edit Data, Supir Truk, Kontrak Truk), Cetak QR.
 | GET | `/api/security/list-tiket-aktif` | semua | tetap |
 | POST | `/api/security/tutup-tiket` | SECURITY, HO | **baru**: status `SELESAI` |
 | POST | `/api/personel/cari-by-nik` | semua | dulu `/api/driver/cari-by-nik` |
-| POST | `/api/personel/tambah` | SECURITY (DRIVER saja), HO (semua kategori) | dulu `/api/driver/tambah`; tolak wajah/NIK yang mirip personel blacklist |
+| POST | `/api/personel/tambah` | SECURITY (DRIVER saja), HO (semua kategori) | dulu `/api/driver/tambah`; multipart `foto` dari **upload file atau kamera** + `foto_sumber`; tolak 0 / >1 wajah, wajah yang sudah terdaftar, dan yang mirip personel blacklist |
 | POST | `/api/personel/update-identitas` | SECURITY, HO | kode_personel & kategori hanya HO |
 | GET | `/api/personel` | HO | **baru**: daftar + filter |
+| POST | `/api/absensi/scan` | semua | **baru**: frames + tantangan liveness → cocokkan wajah, tentukan MASUK/PULANG, simpan snapshot |
+| GET | `/api/absensi?tanggal=&kategori=` | HO | **baru**: daftar absensi & rekap |
 | POST | `/api/verifikasi-wajah` | kiosk | respons + `kategori`, `is_blacklisted` |
 | GET | `/api/blacklist` | HO | **baru** |
 | POST | `/api/blacklist/tambah` | HO | **baru**, multipart (file surat) |
@@ -458,7 +531,9 @@ Sekarang semua endpoint cukup `@login_required`; kolom Role adalah rencana pemba
 5. **Audit**: `utils/audit_utils.py` (`catat_aktivitas(user_id, action_type, details, no_tiket=None)`),
    panggil di titik TRY_SCAN_BLACKLIST / OVERRIDE_DRIVER / MANUAL_INPUT.
 6. **Tampilan**: ikuti desain Figma: sidebar baru, satu tab, panel Personel, Master Data, Blacklist, Audit Log.
-7. **Tes**: tambah unit test untuk aturan blacklist & hash tiket (`tests/`).
+7. **Absensi**: `routes/absensi.py` + layar Absensi; `face_utils.extract_embedding` diubah agar wajib tepat 1 wajah;
+   kiosk (`kiosk_timbang.py`) bisa dipakai ulang dengan mode absen.
+8. **Tes**: tambah unit test untuk aturan blacklist & hash tiket (`tests/`).
 
 ---
 
@@ -469,6 +544,7 @@ Sudah diputuskan:
 - Aplikasi dipakai HO dulu dan menampilkan semua data. Pembatasan role menyusul.
 - Personel mencakup orang HO baru (kategori EMPLOYEE), bukan hanya supir.
 - Dua identitas: `id_personel` tetap (misal 006), `kode_personel` bisa diubah HO (misal PRGBS-001).
+- Pendaftaran personel boleh **upload foto** (tidak wajib live). Face recognition live dipakai untuk **absensi**.
 
 Masih perlu dikonfirmasi:
 
@@ -476,5 +552,7 @@ Masih perlu dikonfirmasi:
    HO perlu mencabut (misalnya salah input), perlu kolom `is_revoked`, `revoked_by`, dan `revoked_at`.
 2. **Kapan tiket `SELESAI`?** Tanpa tahap timbang, diusulkan tombol "Tutup Tiket" saat truk keluar,
    atau otomatis saat `qr_expired_at` lewat.
-3. **Format kode personel** selalu `PRGBS-###`? Kalau ya, bisa diberi CHECK di database dan
+3. **Jam kerja untuk status "Tepat waktu / Terlambat"** di absensi: jam berapa, dan sama untuk semua
+   kategori atau beda (misalnya security per shift)?
+4. **Format kode personel** selalu `PRGBS-###`? Kalau ya, bisa diberi CHECK di database dan
    saran nomor berikutnya otomatis di form.
