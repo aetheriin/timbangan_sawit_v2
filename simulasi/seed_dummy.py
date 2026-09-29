@@ -16,6 +16,7 @@ dan WAJIB_SCAN_WAJAH dimatikan hanya selama script ini berjalan.
 """
 import os
 import sys
+from datetime import date
 from unittest.mock import patch
 
 import numpy as np
@@ -62,21 +63,48 @@ DRIVERS = [
 ]
 
 
+PLAT_UPDATE_TRUK = "BM 5500 KT"   # truk untuk uji menu Update Truk (supir & kontrak)
+
+
+# ===================== CEK MIGRASI =====================
+
+def cek_migrasi():
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT TOP 1 id_kendaraan_driver FROM kendaraan_driver")
+        cur.execute("SELECT TOP 1 id_kontrak FROM kontrak_kendaraan")
+        cur.execute("SELECT TOP 1 id_kontrak FROM transaksi")
+    except Exception:
+        print("[GAGAL] Tabel menu Update Truk belum ada.\n"
+              "        Jalankan dulu database/migrations/001_kendaraan_driver_kontrak.sql di SSMS.")
+        return False
+    finally:
+        conn.close()
+    return True
+
+
 # ===================== HAPUS DATA DUMMY =====================
 
 def hapus_dummy():
     conn = get_connection()
     cur = conn.cursor()
+    plat_dummy = [normalisasi_plat(s["plat"])[0] for s in SKENARIO] + [PLAT_UPDATE_TRUK]
+    in_plat = ",".join("?" * len(plat_dummy))
+    sub_kendaraan = f"SELECT id_kendaraan FROM kendaraan WHERE no_plat IN ({in_plat})"
     sub_tiket = """SELECT t.no_tiket FROM transaksi t JOIN driver d ON t.id_driver = d.id_driver
                    WHERE d.nik LIKE '9999%'"""
     for tabel in ("timeline_monitoring", "sortasi", "lab_hasil", "timbangan"):
         cur.execute(f"DELETE FROM {tabel} WHERE no_tiket IN ({sub_tiket})")
     cur.execute("DELETE FROM transaksi WHERE id_driver IN (SELECT id_driver FROM driver WHERE nik LIKE '9999%')")
+    cur.execute(f"""DELETE FROM kendaraan_driver WHERE id_driver IN (SELECT id_driver FROM driver WHERE nik LIKE '9999%')
+                    OR id_kendaraan IN ({sub_kendaraan})""", *plat_dummy)
+    cur.execute(f"""DELETE FROM kontrak_kendaraan WHERE id_supplier IN (SELECT id_supplier FROM supplier WHERE nama_supplier LIKE 'DUMMY %')
+                    OR id_kendaraan IN ({sub_kendaraan})""", *plat_dummy)
     cur.execute("DELETE FROM driver_audit_logs WHERE id_driver IN (SELECT id_driver FROM driver WHERE nik LIKE '9999%')")
     cur.execute("DELETE FROM driver WHERE nik LIKE '9999%'")
     # Kendaraan hanya dihapus kalau sudah tidak dipakai transaksi manapun
-    plat_dummy = [normalisasi_plat(s["plat"])[0] for s in SKENARIO]
-    cur.execute(f"""DELETE FROM kendaraan WHERE no_plat IN ({','.join('?' * len(plat_dummy))})
+    cur.execute(f"""DELETE FROM kendaraan WHERE no_plat IN ({in_plat})
                     AND id_kendaraan NOT IN (SELECT id_kendaraan FROM transaksi WHERE id_kendaraan IS NOT NULL)""", *plat_dummy)
     cur.execute("DELETE FROM standar_mutu WHERE id_produk IN (SELECT id_produk FROM produk WHERE nama_produk LIKE 'DUMMY %')")
     cur.execute("DELETE FROM produk WHERE nama_produk LIKE 'DUMMY %'")
@@ -280,16 +308,101 @@ class Simulasi:
         kode, data = self.post("/api/security/buat-tiket", {"no_plat": "BM 1 A"})
         self.cek(kode == 403, "role SORTASI tidak boleh buat tiket (403)")
 
+    def uji_update_truk(self, supplier_id, produk_id, driver_id):
+        print(f"\n== Menu Update Truk ({PLAT_UPDATE_TRUK}): supir & kontrak")
+        plat = "bm5500kt"
+        hari_ini = date.today().isoformat()
+        self.login("dummy_security")
+
+        kode, data = self.post("/api/kendaraan/supir/tambah", {"no_plat": plat, "id_driver": driver_id["Budi Santoso"]})
+        self.cek(kode == 200 and data["supir"][0]["is_utama"], "supir pertama (Budi) otomatis jadi utama")
+        kode, data = self.post("/api/kendaraan/supir/tambah", {"no_plat": plat, "id_driver": driver_id["Ahmad Yani"]})
+        self.cek(kode == 200 and len(data["supir"]) == 2, "supir kedua (Ahmad) terdaftar sebagai cadangan")
+
+        kode, data = self.post("/api/kendaraan/kontrak/tambah", {
+            "no_plat": plat, "id_supplier": supplier_id["DUMMY KUD Sawit Makmur"], "id_produk": produk_id["DUMMY TBS"],
+            "jenis_transaksi": "PEMBELIAN", "no_kontrak": "KTR-DMY-001", "tanggal_mulai": hari_ini})
+        self.cek(kode == 200, f"kontrak dengan KUD Sawit Makmur: {data.get('message') or data.get('error')}")
+        kode, data = self.post("/api/kendaraan/kontrak/tambah", {
+            "no_plat": plat, "id_supplier": supplier_id["DUMMY PT Agro Riau"], "id_produk": produk_id["DUMMY CPO"],
+            "jenis_transaksi": "PENJUALAN", "tanggal_mulai": hari_ini})
+        self.cek(kode == 200, f"kontrak kedua dengan PT Agro Riau: {data.get('message') or data.get('error')}")
+        kode, data = self.post("/api/kendaraan/kontrak/tambah", {
+            "no_plat": plat, "id_supplier": supplier_id["DUMMY KUD Sawit Makmur"], "tanggal_mulai": hari_ini})
+        self.cek(kode == 400, f"kontrak ganda ditolak: {data.get('error')}")
+        kode, data = self.post("/api/kendaraan/kontrak/tambah", {
+            "no_plat": plat, "id_supplier": supplier_id["DUMMY CV Tani Jaya"],
+            "tanggal_mulai": hari_ini, "tanggal_selesai": "2020-01-01"})
+        self.cek(kode == 400, f"periode terbalik ditolak: {data.get('error')}")
+
+        kode, data = self.post("/api/plat/lookup", {"no_plat": plat})
+        self.cek(data.get("driver_utama", {}).get("nama") == "Budi Santoso" and len(data.get("kontrak_aktif", [])) == 2,
+                 "lookup plat menyarankan supir utama Budi + 2 kontrak aktif")
+
+        kode, data = self.post("/api/kendaraan/supir/utama", {"no_plat": plat, "id_driver": driver_id["Ahmad Yani"]})
+        utama = [s["nama_driver"] for s in data.get("supir", []) if s["is_utama"]]
+        self.cek(utama == ["Ahmad Yani"], "supir utama diganti ke Ahmad (hanya satu utama)")
+
+        # Truk sama, supir lain (Dedi, belum terdaftar) + supplier dari kontrak -> tiket mencatat id_kontrak
+        kode, data = self.post("/api/plat/lookup", {"no_plat": plat})
+        no_tiket = data["no_tiket_reserved"]
+        kode, data = self.post("/api/security/buat-tiket", {
+            "no_tiket": no_tiket, "no_plat": plat, "jenis_transaksi": "PEMBELIAN",
+            "id_supplier": supplier_id["DUMMY KUD Sawit Makmur"], "id_produk": produk_id["DUMMY TBS"],
+            "id_driver": driver_id["Dedi Kurnia"]})
+        self.cek(kode == 200, f"buat tiket truk kontrak dengan supir lain: {data.get('message') or data.get('error')}")
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""SELECT kk.no_kontrak FROM transaksi t JOIN kontrak_kendaraan kk ON t.id_kontrak = kk.id_kontrak
+                       WHERE t.no_tiket = ?""", no_tiket)
+        row = cur.fetchone()
+        conn.close()
+        self.cek(row is not None and row.no_kontrak == "KTR-DMY-001", "tiket otomatis tercatat di kontrak KTR-DMY-001")
+        data = self.client.get(f"/api/kendaraan?no_plat={plat}").get_json()
+        self.cek(any(s["nama_driver"] == "Dedi Kurnia" and not s["is_utama"] for s in data["supir"]),
+                 "supir Dedi otomatis masuk daftar supir truk (cadangan)")
+
+        id_kontrak_agro = next(k["id_kontrak"] for k in data["kontrak"] if k["nama_supplier"] == "DUMMY PT Agro Riau")
+        kode, data = self.post("/api/kendaraan/kontrak/akhiri", {"no_plat": plat, "id_kontrak": id_kontrak_agro})
+        status = {k["nama_supplier"]: k["status"] for k in data.get("kontrak", [])}
+        self.cek(status.get("DUMMY PT Agro Riau") == "NONAKTIF", "kontrak PT Agro Riau diakhiri")
+
+        kode, data = self.post("/api/kendaraan/supir/hapus", {"no_plat": plat, "id_driver": driver_id["Budi Santoso"]})
+        self.cek(kode == 200 and all(s["nama_driver"] != "Budi Santoso" for s in data["supir"]), "Budi dilepas dari truk")
+
+        self.login("dummy_timbang")
+        kode, _ = self.post("/api/kendaraan/kontrak/tambah", {"no_plat": plat, "id_supplier": 1, "tanggal_mulai": hari_ini})
+        self.cek(kode == 403, "role OPERATOR_TIMBANG tidak boleh ubah kontrak (403)")
+        return no_tiket
+
+    def uji_cetak_qr(self, no_tiket):
+        print("\n== Cetak QR")
+        self.login("dummy_security")
+        res = self.client.get(f"/api/qr/{no_tiket}")
+        self.cek(res.status_code == 200 and res.mimetype == "image/svg+xml" and b"<svg" in res.data,
+                 "gambar QR dibuat di server (SVG)")
+        res = self.client.get(f"/cetak/tiket/{no_tiket}")
+        html = res.get_data(as_text=True)
+        self.cek(res.status_code == 200 and "BM 5500 KT" in html and "<svg" in html and "CETAK ULANG" not in html,
+                 "halaman cetak tiket: plat + QR, cetakan pertama")
+        html = self.client.get(f"/cetak/tiket/{no_tiket}").get_data(as_text=True)
+        self.cek("CETAK ULANG ke-1" in html, "cetak kedua ditandai CETAK ULANG ke-1")
+        res = self.client.get("/cetak/tiket/TKT-TIDAK-ADA")
+        self.cek(res.status_code == 404, "tiket tidak ada -> 404")
+
     def jalankan(self, supplier_id, produk_id, driver_id):
         tiket = {sk["nama"]: self.jalankan_skenario(sk, supplier_id, produk_id, driver_id) for sk in SKENARIO}
         self.uji_urutan_tahap(tiket)
         self.uji_negatif(supplier_id, produk_id, driver_id)
+        self.uji_cetak_qr(self.uji_update_truk(supplier_id, produk_id, driver_id))
         print(f"\n{'=' * 50}\nSelesai: {self.gagal} pengecekan GAGAL")
         print(f"Login UI pakai: {', '.join(u[0] for u in USERS)} / password '{PASSWORD_DUMMY}'")
         return self.gagal
 
 
 def main():
+    if not cek_migrasi():
+        return 1
     hapus_dummy()
     if "--hapus" in sys.argv:
         return 0

@@ -10,9 +10,9 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('sidebar-collapsed');
 }
 
-// Sidebar "Form" dari tab manapun selalu membawa ke Create Ticket (tab Security)
+// Sidebar "Form" / "Update Truk" dari tab manapun selalu membawa ke tab Security
 function setSidebarView(view) {
-    if (view === 'form' && getTabAktif() !== 'security') {
+    if (view !== 'list' && getTabAktif() !== 'security') {
         switchTab('security', false);
     }
     document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('sidebar-link-active'));

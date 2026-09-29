@@ -133,12 +133,13 @@
                             </div>
                             <div>
                                 <label class="field-label">Supplier</label>
-                                <select id="formSupplier" class="input-field">
+                                <select id="formSupplier" class="input-field" onchange="terapkanKontrak(this.value)">
                                     <option value="">-- Pilih --</option>
                                     {% for s in supplier_list %}
                                     <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
                                     {% endfor %}
                                 </select>
+                                <p id="infoKontrak" class="text-xs text-emerald-600 mt-1 hidden"></p>
                             </div>
                             <div>
                                 <label class="field-label">Produk</label>
@@ -206,13 +207,158 @@
 
                         <!-- Urutan: Tambah → Update → Submit -->
                         <div class="flex gap-3 mt-5">
-                            <button onclick="openModal('modalTambahSupir')" class="btn-success">Tambah</button>
+                            <button onclick="bukaTambahSupir('tiket')" class="btn-success">Tambah</button>
                             <button onclick="bukaModalUpdate()" class="btn-secondary">Update</button>
                             <button onclick="submitCreateTiket()" class="btn-primary">Submit</button>
                         </div>
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VIEW: UPDATE (Data Truk: supir & kontrak supplier) ===== -->
+    <div data-view-panel="update" class="hidden">
+        <div class="section-box">
+            <div class="bg-slate-800 text-white px-5 py-3 flex justify-between items-center">
+                <span class="font-medium">Update Data Truk</span>
+                <button onclick="setSidebarView('list')" class="btn-secondary text-xs">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Kembali ke List
+                </button>
+            </div>
+
+            <div class="p-4 space-y-4">
+                <p class="text-xs text-slate-500">
+                    Satu truk bisa dibawa beberapa supir dan bisa terikat kontrak dengan beberapa supplier.
+                    Data di sini dipakai sebagai saran otomatis saat Create Ticket.
+                </p>
+
+                <!-- Kendaraan -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="field-label">No. Plat Kendaraan</label>
+                        <input type="text" id="updPlat" placeholder="Contoh: BM 1455 JJ lalu Tab" class="input-field uppercase"
+                            onkeydown="if(event.key==='Tab'||event.key==='Enter'){event.preventDefault();muatDataKendaraan(this.value)}">
+                    </div>
+                    <div>
+                        <label class="field-label">No. STNK</label>
+                        <input type="text" id="updStnk" class="input-field">
+                    </div>
+                    <div>
+                        <button onclick="simpanKendaraan()" class="btn-primary w-full">Simpan Data Truk</button>
+                    </div>
+                </div>
+                <p id="updStatusTruk" class="text-sm text-slate-500"></p>
+
+                <div id="updKonten" class="space-y-4 section-disabled">
+
+                    <!-- Supir truk -->
+                    <div class="section-box mb-0">
+                        <div class="section-header" onclick="toggleSection('upd-supir')">
+                            <span class="section-header-text">
+                                <i id="chevron-upd-supir" class="fa-solid fa-chevron-down section-chevron"></i>
+                                Supir Truk Ini
+                            </span>
+                        </div>
+                        <div id="body-upd-supir" class="section-body">
+                            <table class="w-full text-left text-sm">
+                                <thead class="table-header-row">
+                                    <tr><th class="table-cell">Nama</th><th class="table-cell">NIK</th><th class="table-cell">SIM</th>
+                                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                                </thead>
+                                <tbody id="tabelSupirTruk" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                            <div class="p-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                <div>
+                                    <label class="field-label">NIK supir</label>
+                                    <input type="text" id="updCariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
+                                        onkeydown="if(event.key==='Tab'||event.key==='Enter'){event.preventDefault();cariSupirUntukTruk(this.value)}">
+                                </div>
+                                <div>
+                                    <p id="updHasilNik" class="text-sm text-slate-500">Cari supir yang sudah terdaftar lewat NIK.</p>
+                                    <label class="text-sm text-slate-700 flex items-center gap-2 mt-1">
+                                        <input type="checkbox" id="updJadikanUtama"> Jadikan supir utama
+                                    </label>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button id="btnDaftarkanSupir" onclick="daftarkanSupirKeTruk()" disabled
+                                        class="btn-success flex-1 disabled:bg-slate-300 disabled:cursor-not-allowed">Daftarkan</button>
+                                    <button onclick="bukaTambahSupir('kendaraan')" class="btn-secondary flex-1">Supir Baru</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kontrak supplier -->
+                    <div class="section-box mb-0">
+                        <div class="section-header" onclick="toggleSection('upd-kontrak')">
+                            <span class="section-header-text">
+                                <i id="chevron-upd-kontrak" class="fa-solid fa-chevron-down section-chevron"></i>
+                                Kontrak Supplier / Buyer
+                            </span>
+                        </div>
+                        <div id="body-upd-kontrak" class="section-body">
+                            <table class="w-full text-left text-sm">
+                                <thead class="table-header-row">
+                                    <tr><th class="table-cell">No. Kontrak</th><th class="table-cell">Supplier</th><th class="table-cell">Produk</th>
+                                        <th class="table-cell">Jenis</th><th class="table-cell">Periode</th><th class="table-cell">Status</th>
+                                        <th class="table-cell text-right">Aksi</th></tr>
+                                </thead>
+                                <tbody id="tabelKontrakTruk" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                            <div class="p-5 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="field-label">Supplier / Buyer</label>
+                                    <select id="kkSupplier" class="input-field">
+                                        <option value="">-- Pilih --</option>
+                                        {% for s in supplier_list %}
+                                        <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="field-label">Produk (opsional)</label>
+                                    <select id="kkProduk" class="input-field">
+                                        <option value="">-- Semua --</option>
+                                        {% for p in produk_list %}
+                                        <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="field-label">Jenis Transaksi (opsional)</label>
+                                    <select id="kkJenis" class="input-field">
+                                        <option value="">-- Semua --</option>
+                                        <option value="PEMBELIAN">Pembelian</option>
+                                        <option value="PENJUALAN">Penjualan</option>
+                                        <option value="PENIMBANGAN_SAJA">Penimbangan Saja</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="field-label">No. Kontrak (opsional)</label>
+                                    <input type="text" id="kkNoKontrak" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="field-label">Tanggal Mulai</label>
+                                    <input type="date" id="kkMulai" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="field-label">Tanggal Selesai (kosong = tanpa batas)</label>
+                                    <input type="date" id="kkSelesai" class="input-field">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="field-label">Keterangan</label>
+                                    <input type="text" id="kkKeterangan" class="input-field">
+                                </div>
+                                <div class="flex items-end">
+                                    <button onclick="simpanKontrak()" class="btn-primary w-full">Simpan Kontrak</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>

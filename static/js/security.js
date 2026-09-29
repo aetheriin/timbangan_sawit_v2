@@ -17,16 +17,18 @@ async function muatHistoryDriver() {
 // ===== SINKRON FORM DENGAN HASIL LOOKUP PLAT =====
 let saranDriver = null;
 
-function tampilkanPengemudiTerakhir(dr) {
+function tampilkanPengemudiTerakhir(dr, utama = null) {
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
+    const barisUtama = utama && (!dr || String(utama.id_driver) !== String(dr.id_driver))
+        ? `<p class="text-xs text-blue-600">Supir utama: ${utama.nama}</p>` : '';
     if (!dr) {
-        info.textContent = 'Belum ada riwayat';
+        info.innerHTML = 'Belum ada riwayat' + barisUtama;
         foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
         return;
     }
     info.innerHTML = `<p class="font-semibold text-slate-700">${dr.nama}</p><p>NIK: ${dr.nik}</p>` +
-        (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '');
+        (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
         ? `<img src="/static/${dr.foto_path}" class="w-full h-full object-cover">`
         : '<i class="fa-solid fa-user text-slate-300"></i>';
@@ -53,7 +55,25 @@ function tandaiSudahValidasi() {
     btn.disabled = true;
     btn.classList.remove('btn-primary');
     btn.classList.add('btn-secondary');
-    document.getElementById('btnCetakQR').classList.remove('hidden');
+}
+
+// ===== KONTRAK AKTIF TRUK (dari menu Update Truk) =====
+let kontrakAktif = [];
+
+function tampilkanInfoKontrak() {
+    const el = document.getElementById('infoKontrak');
+    el.classList.toggle('hidden', !kontrakAktif.length);
+    el.textContent = kontrakAktif.length
+        ? 'Kontrak aktif: ' + kontrakAktif.map(k => k.nama_supplier + (k.no_kontrak ? ` (${k.no_kontrak})` : '')).join(', ')
+        : '';
+}
+
+// Supplier dipilih -> kalau ada kontrak aktif dengan supplier itu, isi produk & jenis dari kontrak
+function terapkanKontrak(idSupplier) {
+    const k = kontrakAktif.find(x => String(x.id_supplier) === String(idSupplier));
+    if (!k) return;
+    if (k.id_produk) document.getElementById('formProduk').value = k.id_produk;
+    if (k.jenis_transaksi) document.getElementById('formJenisTransaksi').value = k.jenis_transaksi;
 }
 
 window.addEventListener('platLookup', (e) => {
@@ -63,19 +83,27 @@ window.addEventListener('platLookup', (e) => {
     document.getElementById('formNoPlat').value = d.no_plat;
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
     document.getElementById('formNoStnk').value = d.no_stnk || '';
-    tampilkanPengemudiTerakhir(d.driver);
+    tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
 
     if (d.status === 'ADA_TIKET') {
+        kontrakAktif = [];
         document.getElementById('formNoDo').value = d.no_do || '';
         document.getElementById('formJenisTransaksi').value = d.jenis_transaksi;
         document.getElementById('formSupplier').value = d.id_supplier;
         document.getElementById('formProduk').value = d.id_produk;
         if (d.driver) isiDriver(d.driver);
         tandaiSudahValidasi();
+        document.getElementById('btnCetakQR').classList.remove('hidden');
     } else {
-        resetValidasiForm();       // DO/Supplier/Produk tetap manual (dropdown)
-        saranDriver = d.driver;
+        resetValidasiForm();
+        saranDriver = d.driver_utama || d.driver;   // supir utama (menu Update Truk) didahulukan
+        kontrakAktif = d.kontrak_aktif || [];
+        if (kontrakAktif.length) {                 // isi otomatis dari kontrak terbaru, tetap bisa diganti
+            document.getElementById('formSupplier').value = kontrakAktif[0].id_supplier;
+            terapkanKontrak(kontrakAktif[0].id_supplier);
+        }
     }
+    tampilkanInfoKontrak();
 });
 
 async function muatListTicketAktif() {
@@ -193,6 +221,17 @@ async function toggleRekamWajah(konteks) {
 }
 
 // ===== SIMPAN SUPIR BARU =====
+// Modal yang sama dipakai dari form tiket ('tiket') dan dari menu Update Truk ('kendaraan')
+let konteksTambahSupir = 'tiket';
+
+function bukaTambahSupir(konteks) {
+    konteksTambahSupir = konteks;
+    ['tambahNama', 'tambahNik', 'tambahSim'].forEach(id => document.getElementById(id).value = '');
+    streamState['tambahBlob'] = null;
+    document.getElementById('tambahFotoPreview').innerHTML = '<i class="fa-solid fa-camera text-slate-300 text-2xl"></i>';
+    openModal('modalTambahSupir');
+}
+
 async function simpanSupirBaru() {
     const formData = new FormData();
     formData.append('nama', document.getElementById('tambahNama').value.trim());
@@ -207,6 +246,10 @@ async function simpanSupirBaru() {
     alert(data.message || data.error);
     if (data.message) {
         closeModal('modalTambahSupir');
+        if (konteksTambahSupir === 'kendaraan') {
+            await daftarkanSupirKeTruk(data.id_driver);
+            return;
+        }
         isiDriver({ id_driver: data.id_driver, nik: document.getElementById('tambahNik').value.trim(),
                     nama: document.getElementById('tambahNama').value.trim(),
                     no_sim: document.getElementById('tambahSim').value.trim(),
@@ -349,6 +392,7 @@ async function submitCreateTiket() {
         muatListTicketAktif();
         muatHistoryDriver();
         lookupPlat(document.getElementById('formNoPlat').value);  // base bar jadi ADA_TIKET lengkap
+        if (confirm('Cetak QR tiket sekarang?')) bukaHalamanCetak(data.no_tiket);
     } else {
         alert(data.error);
     }
@@ -400,15 +444,25 @@ async function lookupPlatUntukQR(inputEl) {
 
         document.getElementById('printAreaQR').classList.remove('hidden');
         document.getElementById('qrTiketText').textContent = data.no_tiket;
-
-        const container = document.getElementById('qrcodeContainer');
-        container.innerHTML = '';
-        new QRCode(container, { text: data.no_tiket, width: 150, height: 150 });
+        // QR dibuat di server (tidak butuh internet / CDN)
+        document.getElementById('qrcodeContainer').innerHTML =
+            `<img src="/api/qr/${encodeURIComponent(data.no_tiket)}" alt="QR ${data.no_tiket}" width="150" height="150">`;
+        qrTiketAktif = data.no_tiket;
     } else {
+        qrTiketAktif = null;
+        document.getElementById('printAreaQR').classList.add('hidden');
         alert('Plat tidak ditemukan / belum ada tiket aktif');
     }
 }
 
+let qrTiketAktif = null;
+
+function bukaHalamanCetak(noTiket) {
+    const w = window.open(`/cetak/tiket/${encodeURIComponent(noTiket)}`, '_blank', 'width=420,height=720');
+    if (!w) alert('Pop-up diblokir browser. Izinkan pop-up untuk alamat ini, lalu klik Cetak QR lagi.');
+}
+
 function cetakQR() {
-    window.print();
+    if (!qrTiketAktif) { alert('Ketik plat lalu tekan Tab dulu'); return; }
+    bukaHalamanCetak(qrTiketAktif);
 }

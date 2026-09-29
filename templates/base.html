@@ -23,6 +23,9 @@
             <button class="sidebar-link" data-view="form" onclick="setSidebarView('form')">
                 <i class="fa-solid fa-file-pen"></i> Form
             </button>
+            <button class="sidebar-link" data-view="update" onclick="setSidebarView('update')">
+                <i class="fa-solid fa-truck"></i> Update Truk
+            </button>
         </nav>
     </aside>
 
@@ -95,6 +98,7 @@
 </div>
 
 {% block modals %}{% endblock %}
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/base.js') }}"></script>
 {% block extra_scripts %}{% endblock %}
 </body>
