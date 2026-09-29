@@ -1,13 +1,20 @@
 let noTiketSortasiAktif = null;
-let beratAcuanSortasi = 0;
+let beratAcuanSortasi = null;   // netto; null = belum timbang kedua
 
 window.addEventListener('platLookup', (e) => {
     const data = e.detail;
+    // Tiket lain (PKS / belum ada tiket) -> kosongkan, supaya sortasi tidak tersimpan ke tiket sebelumnya
+    noTiketSortasiAktif = null;
+    beratAcuanSortasi = null;
+    document.getElementById('srBeratAcuan').textContent = '-';
+    hitungPotongan();
     if (data.status === 'ADA_TIKET' && data.kategori_produk === 'TBS') {
         noTiketSortasiAktif = data.no_tiket;
         fetch(`/api/timbang/data/${data.no_tiket}`).then(r => r.json()).then(tb => {
-            beratAcuanSortasi = tb.berat_bruto || tb.berat_netto || 0;
-            document.getElementById('srBeratAcuan').textContent = beratAcuanSortasi;
+            // Potongan dihitung dari netto (berat buah saja, tanpa truk)
+            beratAcuanSortasi = tb.berat_netto;
+            document.getElementById('srBeratAcuan').textContent = beratAcuanSortasi ?? 'menunggu timbang kedua';
+            hitungPotongan();
         });
     }
     muatHistorySortasi();
@@ -18,10 +25,10 @@ function hitungPotongan() {
     const tangkai = parseFloat(document.getElementById('srTangkai').value) || 0;
     const sampah = parseFloat(document.getElementById('srSampah').value) || 0;
     const totalPersen = mentah + tangkai + sampah;
-    const totalKg = round2(beratAcuanSortasi * totalPersen / 100);
-
     document.getElementById('srEstimasiPersen').textContent = totalPersen.toFixed(1) + '%';
-    document.getElementById('srTotalPotongan').textContent = totalKg + ' Kg';
+    document.getElementById('srTotalPotongan').textContent = beratAcuanSortasi == null
+        ? 'dihitung saat timbang kedua'
+        : round2(beratAcuanSortasi * totalPersen / 100) + ' Kg';
     document.getElementById('srStatusMutu').textContent = totalPersen > 15 ? 'Kurang Baik' : 'Baik';
 }
 function round2(n) { return Math.round(n * 100) / 100; }

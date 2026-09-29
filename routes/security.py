@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 from extensions import role_required, UPLOAD_FOLDER, camera_trigger_state
 from utils.face_utils import (extract_embedding, embedding_to_binary, binary_to_embedding,
                               compare_faces, verifikasi_liveness)
+from utils.plat_utils import normalisasi_plat
 from utils.verifikasi_state import set_terverifikasi, get_verifikasi, reset_verifikasi
 from utils.db_utils import (
     cari_transaksi_aktif, buat_transaksi_full, get_list_tiket_aktif, get_history_driver,
@@ -30,11 +31,13 @@ def history_driver():
 def buat_tiket():
     f = request.form
     no_tiket = f.get("no_tiket", "").strip()
-    no_plat = f.get("no_plat", "").strip().upper()
+    no_plat, error_plat = normalisasi_plat(f.get("no_plat"))
     jenis = f.get("jenis_transaksi", "").strip()
     id_supplier, id_produk, id_driver = f.get("id_supplier"), f.get("id_produk"), f.get("id_driver")
 
-    if not all([no_tiket, no_plat, jenis, id_supplier, id_produk, id_driver]):
+    if error_plat:
+        return jsonify({"error": error_plat}), 400
+    if not all([no_tiket, jenis, id_supplier, id_produk, id_driver]):
         return jsonify({"error": "Semua field wajib diisi"}), 400
 
     existing = cari_transaksi_aktif(no_plat=no_plat)

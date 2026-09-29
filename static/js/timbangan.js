@@ -15,7 +15,7 @@ window.addEventListener('platLookup', (e) => {
         noTiketAktif = null;
         idSupplierAktif = null;
         ['tbJenisTransaksi', 'tbSupplier', 'tbProduk'].forEach(id => document.getElementById(id).value = '');
-        ['tbBruto', 'tbTara', 'tbNetto'].forEach(id => document.getElementById(id).textContent = '-');
+        ['tbBruto', 'tbTara', 'tbNetto', 'tbPotongan', 'tbNettoAkhir'].forEach(id => document.getElementById(id).textContent = '-');
     }
 });
 
@@ -42,6 +42,8 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbBruto').textContent = data.berat_bruto ?? '-';
     document.getElementById('tbTara').textContent = data.berat_tara ?? '-';
     document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
+    document.getElementById('tbPotongan').textContent = data.potongan_kg ?? '-';
+    document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
 }
 
 async function muatHistorySupplier(idSupplier) {
@@ -59,19 +61,52 @@ async function muatHistorySupplier(idSupplier) {
     `).join('');
 }
 
+// ===== SCAN QR TIKET =====
+// Kamera (library html5-qrcode disimpan lokal di static/vendor, tidak butuh internet)
+// atau scanner barcode USB (mengetik No. Tiket + Enter ke kotak input).
 let qrScanner = null;
+let sedangProsesScan = false;
+
 async function bukaScanQRTimbangan() {
+    const status = document.getElementById('statusScanQR');
+    const input = document.getElementById('inputScanTiket');
+    input.value = '';
+    sedangProsesScan = false;
     openModal('modalScanQRTimbangan');
-    qrScanner = new Html5Qrcode("qr-reader-timbang");
-    await qrScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, async (decodedText) => {
-        await qrScanner.stop();
-        closeModal('modalScanQRTimbangan');
-        document.getElementById('infoPlat').value = '';
-        const formData = new FormData();
-        formData.append('no_tiket', decodedText.trim());
-        const res = await fetch('/api/timbang/scan-qr', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.status === 'ADA_TIKET') terapkanHasilLookup(data);
-        else alert(data.error || 'Tiket tidak ditemukan');
-    });
+    input.focus();
+
+    if (typeof Html5Qrcode === 'undefined') {
+        status.textContent = 'Library kamera tidak termuat. Gunakan scanner barcode atau ketik No. Tiket.';
+        return;
+    }
+    status.textContent = 'Menyalakan kamera...';
+    try {
+        qrScanner = new Html5Qrcode('qr-reader-timbang');
+        await qrScanner.start({ facingMode: 'environment' }, { fps: 15, qrbox: 250 }, teks => prosesScanTiket(teks));
+        status.textContent = 'Arahkan QR tiket ke kamera, atau gunakan scanner barcode.';
+    } catch (err) {
+        qrScanner = null;
+        status.textContent = `Kamera tidak bisa dipakai (${err}). Gunakan scanner barcode atau ketik No. Tiket.`;
+        input.focus();
+    }
+}
+
+async function hentikanKameraQR() {
+    if (!qrScanner) return;
+    try { await qrScanner.stop(); } catch (e) { /* kamera sudah berhenti */ }
+    try { qrScanner.clear(); } catch (e) { /* abaikan */ }
+    qrScanner = null;
+}
+
+async function tutupScanQR() {
+    await hentikanKameraQR();
+    closeModal('modalScanQRTimbangan');
+}
+
+async function prosesScanTiket(teks) {
+    const noTiket = (teks || '').trim().toUpperCase();
+    if (!noTiket || sedangProsesScan) return;     // kamera bisa membaca QR yang sama berkali-kali
+    sedangProsesScan = true;
+    await tutupScanQR();
+    await lookupTiket(noTiket);
 }

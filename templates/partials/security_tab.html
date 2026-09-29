@@ -5,7 +5,7 @@
 
         <div class="flex justify-end gap-3 mb-4">
             <div class="relative">
-                <input type="text" id="searchTiket" placeholder="Search" class="input-field pl-9 w-64">
+                <input type="text" id="searchTiket" placeholder="Cari tiket / plat / supir" class="input-field pl-9 w-64" oninput="saringTabel(this.value)">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
             </div>
             <button onclick="setSidebarView('form')" class="btn-primary">
@@ -91,7 +91,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="field-label">No. Plat Kendaraan</label>
-                                    <input type="text" id="formNoPlat" placeholder="Ketik plat lalu Tab" class="input-field uppercase" onkeydown="handlePlatKey(event)">
+                                    <input type="text" id="formNoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab" class="input-field uppercase" onkeydown="handlePlatKey(event)">
                                 </div>
                                 <div>
                                     <label class="field-label">No. Ticket</label>
@@ -133,12 +133,13 @@
                             </div>
                             <div>
                                 <label class="field-label">Supplier</label>
-                                <select id="formSupplier" class="input-field">
+                                <select id="formSupplier" class="input-field" onchange="terapkanKontrak(this.value)">
                                     <option value="">-- Pilih --</option>
                                     {% for s in supplier_list %}
                                     <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
                                     {% endfor %}
                                 </select>
+                                <p id="infoKontrak" class="text-xs text-emerald-600 mt-1 hidden"></p>
                             </div>
                             <div>
                                 <label class="field-label">Produk</label>
@@ -204,12 +205,14 @@
                             </div>
                         </div>
 
-                        <!-- Urutan: Tambah → Update → Submit -->
+                        <!-- Tambah = supir baru | Update = ganti/edit supir, supir & kontrak truk | Submit = buat tiket -->
                         <div class="flex gap-3 mt-5">
-                            <button onclick="openModal('modalTambahSupir')" class="btn-success">Tambah</button>
-                            <button onclick="bukaModalUpdate()" class="btn-secondary">Update</button>
-                            <button onclick="submitCreateTiket()" class="btn-primary">Submit</button>
+                            <button id="btnTambahSupir" onclick="bukaTambahSupir('tiket')" class="btn-success">Tambah</button>
+                            <button id="btnUpdateSupir" onclick="bukaModalUpdate()" class="btn-secondary">Update</button>
+                            <button id="btnSubmitTiket" onclick="submitCreateTiket()" disabled
+                                class="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed">Submit</button>
                         </div>
+                        <p id="hintSubmit" class="text-xs text-slate-500 mt-2"></p>
                     </div>
                 </div>
 

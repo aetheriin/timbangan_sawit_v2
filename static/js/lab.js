@@ -3,22 +3,34 @@ let idProdukLabAktif = null;
 let keputusanDipilih = null;
 let standarAktif = {};
 
+function tampilkanStandar(std) {
+    standarAktif = std;
+    document.getElementById('stdFfa').textContent = std.maks_ffa != null ? std.maks_ffa + '%' : '-';
+    document.getElementById('stdAir').textContent = std.maks_air != null ? std.maks_air + '%' : '-';
+    document.getElementById('stdKotoran').textContent = std.maks_kotoran != null ? std.maks_kotoran + '%' : '-';
+    cekStandar();
+}
+
 window.addEventListener('platLookup', (e) => {
     const data = e.detail;
-    if (data.status === 'ADA_TIKET' && data.kategori_produk === 'PRODUK_PKS') {
-        noTiketLabAktif = data.no_tiket;
-        idProdukLabAktif = data.id_produk;
-        fetch(`/api/lab/standar/${data.id_produk}`).then(r => r.json()).then(std => {
-            standarAktif = std;
-            document.getElementById('stdFfa').textContent = std.maks_ffa + '%';
-            document.getElementById('stdAir').textContent = std.maks_air + '%';
-            document.getElementById('stdKotoran').textContent = std.maks_kotoran + '%';
-        });
+    // Tiket lain (TBS / belum ada tiket) -> kosongkan, supaya hasil lab tidak tersimpan ke tiket sebelumnya
+    const tiketPks = data.status === 'ADA_TIKET' && data.kategori_produk === 'PRODUK_PKS';
+    noTiketLabAktif = tiketPks ? data.no_tiket : null;
+    idProdukLabAktif = tiketPks ? data.id_produk : null;
+    ['labFfa', 'labAir', 'labKotoran', 'labWarna'].forEach(id => document.getElementById(id).value = '');
+    keputusanDipilih = null;
+    setKeputusan(null);
+    if (tiketPks) {
+        fetch(`/api/lab/standar/${data.id_produk}`).then(r => r.json()).then(tampilkanStandar);
+    } else {
+        tampilkanStandar({});
+        document.getElementById('labStatusLive').textContent = '-';
     }
     muatHistoryLab();
 });
 
 function cekStandar() {
+    if (standarAktif.maks_ffa == null) return;
     const ffa = parseFloat(document.getElementById('labFfa').value) || 0;
     const air = parseFloat(document.getElementById('labAir').value) || 0;
     const kotoran = parseFloat(document.getElementById('labKotoran').value) || 0;
@@ -52,7 +64,16 @@ async function submitLab() {
     if (data.message) muatHistoryLab();
 }
 
+function bukaStandarMutu() {
+    if (!idProdukLabAktif) { alert('Pilih tiket produk PKS dulu (ketik plat lalu Tab)'); return; }
+    document.getElementById('stdInputFfa').value = standarAktif.maks_ffa ?? '';
+    document.getElementById('stdInputAir').value = standarAktif.maks_air ?? '';
+    document.getElementById('stdInputKotoran').value = standarAktif.maks_kotoran ?? '';
+    openModal('modalStandarMutu');
+}
+
 async function simpanStandarMutu() {
+    if (!idProdukLabAktif) return;
     const formData = new FormData();
     formData.append('id_produk', idProdukLabAktif);
     formData.append('maks_ffa', document.getElementById('stdInputFfa').value);
@@ -60,8 +81,10 @@ async function simpanStandarMutu() {
     formData.append('maks_kotoran', document.getElementById('stdInputKotoran').value);
     const res = await fetch('/api/lab/standar/update', { method: 'POST', body: formData });
     const data = await res.json();
-    alert(data.message);
+    alert(data.message || data.error);
+    if (!data.message) return;
     closeModal('modalStandarMutu');
+    fetch(`/api/lab/standar/${idProdukLabAktif}`).then(r => r.json()).then(tampilkanStandar);
 }
 
 function cetakCOA() {

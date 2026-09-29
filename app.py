@@ -12,6 +12,7 @@ from routes.security import security_bp
 from routes.timbangan import timbangan_bp
 from routes.sortasi import sortasi_bp
 from routes.lab import lab_bp
+from routes.kendaraan import kendaraan_bp
 
 load_dotenv()
 
@@ -24,7 +25,7 @@ def load_user(user_id):
     row = get_user_by_id(user_id)
     return User(row.id_user, row.username, row.nama, row.role) if row else None
 
-for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp):
+for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp):
     app.register_blueprint(bp)
 
 if __name__ == "__main__":

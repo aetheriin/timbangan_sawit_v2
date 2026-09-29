@@ -1,5 +1,6 @@
 // ===== MUAT DATA LIST SAAT TAB SECURITY DIBUKA =====
 document.addEventListener('DOMContentLoaded', () => {
+    aturStatusForm('draft');
     muatListTicketAktif();
     muatHistoryDriver();
 });
@@ -12,48 +13,125 @@ async function muatHistoryDriver() {
             <td class="table-cell">${r.no_plat}</td><td class="table-cell">${r.nama_driver}</td>
             <td class="table-cell">${r.nik}</td><td class="table-cell">${r.no_sim}</td>
         </tr>`).join('') || `<tr><td colspan="4" class="table-cell text-slate-400 text-center py-8">Belum ada riwayat</td></tr>`;
+    saringTabel(document.getElementById('searchTiket').value);
+}
+
+// ===== SEARCH: saring List Ticket Aktif & History Driver =====
+function saringTabel(kata) {
+    const cari = kata.toUpperCase().replace(/\s+/g, '');       // "bm1455" cocok dengan "BM 1455 JJ"
+    ['tabelTicketAktif', 'tabelHistoryDriver'].forEach(id => {
+        document.querySelectorAll(`#${id} tr`).forEach(tr => {
+            if (tr.children.length < 2) return;                 // baris "belum ada data"
+            tr.classList.toggle('hidden', !!cari && !tr.textContent.toUpperCase().replace(/\s+/g, '').includes(cari));
+        });
+    });
 }
 
 // ===== SINKRON FORM DENGAN HASIL LOOKUP PLAT =====
 let saranDriver = null;
 
-function tampilkanPengemudiTerakhir(dr) {
+function tampilkanPengemudiTerakhir(dr, utama = null) {
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
+    const barisUtama = utama && (!dr || String(utama.id_driver) !== String(dr.id_driver))
+        ? `<p class="text-xs text-blue-600">Supir utama: ${utama.nama}</p>` : '';
     if (!dr) {
-        info.textContent = 'Belum ada riwayat';
+        info.innerHTML = 'Belum ada riwayat' + barisUtama;
         foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
         return;
     }
     info.innerHTML = `<p class="font-semibold text-slate-700">${dr.nama}</p><p>NIK: ${dr.nik}</p>` +
-        (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '');
+        (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
         ? `<img src="/static/${dr.foto_path}" class="w-full h-full object-cover">`
         : '<i class="fa-solid fa-user text-slate-300"></i>';
 }
 
+// ===== STATUS FORM PENDAFTARAN TIKET =====
+// draft    : isi data kendaraan, tombol "Mulai Validasi Awal" aktif
+// validasi : data kendaraan dikunci, tombol validasi beku, Informasi Driver aktif (scan wajah -> Submit)
+// selesai  : tiket sudah dibuat, tombol berubah jadi "Sudah Validasi"
+let statusForm = 'draft';
+let supirTerverifikasi = false;
+const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
+
+function aturStatusForm(status) {
+    statusForm = status;
+    FIELD_KENDARAAN.forEach(id => document.getElementById(id).disabled = status !== 'draft');
+    document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft');
+
+    const btn = document.getElementById('btnMulaiValidasi');
+    btn.textContent = status === 'selesai' ? 'Sudah Validasi' : 'Mulai Validasi Awal';
+    btn.disabled = status !== 'draft';
+    btn.classList.toggle('btn-primary', status !== 'selesai');
+    btn.classList.toggle('btn-secondary', status === 'selesai');
+    btn.classList.toggle('opacity-60', status === 'validasi');          // beku sampai scan wajah + Submit
+    btn.classList.toggle('cursor-not-allowed', status === 'validasi');
+
+    ['btnTambahSupir', 'btnUpdateSupir', 'btnScanWajah']
+        .forEach(id => document.getElementById(id).disabled = status !== 'validasi');
+    document.getElementById('btnCetakQR').classList.toggle('hidden', status !== 'selesai');
+    perbaruiTombolSubmit();
+}
+
+function perbaruiTombolSubmit() {
+    const adaSupir = !!document.getElementById('driverIdDriver').value;
+    const siap = statusForm === 'validasi' && adaSupir && (supirTerverifikasi || !WAJIB_SCAN_WAJAH);
+    document.getElementById('btnSubmitTiket').disabled = !siap;
+
+    let hint = '';
+    if (statusForm === 'selesai') hint = 'Tiket sudah dibuat. Gunakan tombol Cetak QR Code di atas.';
+    else if (statusForm === 'validasi' && !adaSupir) hint = 'Pilih supir: Mulai Scan Wajah, Tambah (supir baru), atau Update.';
+    else if (statusForm === 'validasi' && !siap) hint = 'Scan wajah supir dulu, setelah terverifikasi tombol Submit aktif.';
+    else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Submit untuk membuat tiket.'
+                                            : 'Scan wajah tidak diwajibkan (WAJIB_SCAN_WAJAH=false).';
+    document.getElementById('hintSubmit').textContent = hint;
+}
+
+function setSupirTerverifikasi(ok) {
+    supirTerverifikasi = ok;
+    perbaruiTombolSubmit();
+}
+
 function resetValidasiForm() {
     saranDriver = null;
-    document.getElementById('sectionInfoDriver').classList.add('section-disabled');
     ['driverIdDriver', 'driverNama', 'driverNik', 'driverSim'].forEach(id => document.getElementById(id).value = '');
-    const btn = document.getElementById('btnMulaiValidasi');
-    btn.textContent = 'Mulai Validasi Awal';
-    btn.disabled = false;
-    btn.classList.add('btn-primary');
-    btn.classList.remove('btn-secondary');
-    document.getElementById('btnCetakQR').classList.add('hidden');
+    document.getElementById('fotoDriverBox').innerHTML = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
+    document.getElementById('statusScanWajah').textContent = '';
     tandaiBorderDriver(null);
     document.getElementById('driverBadgeUpdate').classList.add('hidden');
+    supirTerverifikasi = false;
+    aturStatusForm('draft');
 }
 
 function tandaiSudahValidasi() {
-    document.getElementById('sectionInfoDriver').classList.remove('section-disabled');
-    const btn = document.getElementById('btnMulaiValidasi');
-    btn.textContent = 'Sudah Validasi';
-    btn.disabled = true;
-    btn.classList.remove('btn-primary');
-    btn.classList.add('btn-secondary');
-    document.getElementById('btnCetakQR').classList.remove('hidden');
+    supirTerverifikasi = true;
+    aturStatusForm('selesai');
+}
+
+// ===== KONTRAK AKTIF TRUK (diatur di modal Update -> Kontrak Truk) =====
+let kontrakAktif = [];
+
+function tampilkanInfoKontrak() {
+    const el = document.getElementById('infoKontrak');
+    el.classList.toggle('hidden', !kontrakAktif.length);
+    el.textContent = kontrakAktif.length
+        ? 'Kontrak aktif: ' + kontrakAktif.map(k => k.nama_supplier + (k.no_kontrak ? ` (${k.no_kontrak})` : '')).join(', ')
+        : '';
+}
+
+// Dipanggil setelah kontrak diubah di modal Update
+function sinkronKontrakKeForm(listAktif) {
+    kontrakAktif = listAktif;
+    tampilkanInfoKontrak();
+}
+
+// Supplier dipilih -> kalau ada kontrak aktif dengan supplier itu, isi produk & jenis dari kontrak
+function terapkanKontrak(idSupplier) {
+    const k = kontrakAktif.find(x => String(x.id_supplier) === String(idSupplier));
+    if (!k) return;
+    if (k.id_produk) document.getElementById('formProduk').value = k.id_produk;
+    if (k.jenis_transaksi) document.getElementById('formJenisTransaksi').value = k.jenis_transaksi;
 }
 
 window.addEventListener('platLookup', (e) => {
@@ -63,19 +141,27 @@ window.addEventListener('platLookup', (e) => {
     document.getElementById('formNoPlat').value = d.no_plat;
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
     document.getElementById('formNoStnk').value = d.no_stnk || '';
-    tampilkanPengemudiTerakhir(d.driver);
+    tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
 
     if (d.status === 'ADA_TIKET') {
+        kontrakAktif = [];
         document.getElementById('formNoDo').value = d.no_do || '';
         document.getElementById('formJenisTransaksi').value = d.jenis_transaksi;
         document.getElementById('formSupplier').value = d.id_supplier;
         document.getElementById('formProduk').value = d.id_produk;
         if (d.driver) isiDriver(d.driver);
         tandaiSudahValidasi();
+        document.getElementById('btnCetakQR').classList.remove('hidden');
     } else {
-        resetValidasiForm();       // DO/Supplier/Produk tetap manual (dropdown)
-        saranDriver = d.driver;
+        resetValidasiForm();
+        saranDriver = d.driver_utama || d.driver;   // supir utama (menu Update Truk) didahulukan
+        kontrakAktif = d.kontrak_aktif || [];
+        if (kontrakAktif.length) {                 // isi otomatis dari kontrak terbaru, tetap bisa diganti
+            document.getElementById('formSupplier').value = kontrakAktif[0].id_supplier;
+            terapkanKontrak(kontrakAktif[0].id_supplier);
+        }
     }
+    tampilkanInfoKontrak();
 });
 
 async function muatListTicketAktif() {
@@ -100,6 +186,7 @@ async function muatListTicketAktif() {
             </td>
         </tr>
     `).join('');
+    saringTabel(document.getElementById('searchTiket').value);
 }
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
@@ -111,8 +198,14 @@ function mulaiValidasiAwal() {
             return;
         }
     }
-    tandaiSudahValidasi();
-    if (saranDriver) isiDriver(saranDriver);   // saran supir dari riwayat, readonly
+    supirTerverifikasi = false;
+    aturStatusForm('validasi');
+    if (saranDriver) {                          // saran supir (utama / terakhir), tetap wajib scan wajah
+        isiDriver(saranDriver);
+        tandaiBorderDriver('biru');
+        document.getElementById('statusScanWajah').textContent = 'Saran supir truk ini. Lakukan scan wajah untuk verifikasi.';
+    }
+    perbaruiTombolSubmit();
 }
 
 // ===== SCAN WAJAH (reuse pola kiosk trigger dari project sebelumnya) =====
@@ -155,6 +248,7 @@ async function mulaiScanWajah() {
         isiDriver(data);
         tandaiBorderDriver('hijau');
         status.textContent = 'Terverifikasi: ' + data.nama;
+        setSupirTerverifikasi(true);
     }, 1000);
 }
 
@@ -193,6 +287,21 @@ async function toggleRekamWajah(konteks) {
 }
 
 // ===== SIMPAN SUPIR BARU =====
+// Modal yang sama dipakai dari form tiket ('tiket') dan dari menu Update Truk ('kendaraan')
+let konteksTambahSupir = 'tiket';
+
+function bukaTambahSupir(konteks) {
+    konteksTambahSupir = konteks;
+    if (konteks === 'kendaraan') {
+        if (!pastikanTrukDipilih()) return;
+        tutupModalUpdate();                            // modal Tambah dibuka di atas, Update dibuka lagi setelah simpan
+    }
+    ['tambahNama', 'tambahNik', 'tambahSim'].forEach(id => document.getElementById(id).value = '');
+    streamState['tambahBlob'] = null;
+    document.getElementById('tambahFotoPreview').innerHTML = '<i class="fa-solid fa-camera text-slate-300 text-2xl"></i>';
+    openModal('modalTambahSupir');
+}
+
 async function simpanSupirBaru() {
     const formData = new FormData();
     formData.append('nama', document.getElementById('tambahNama').value.trim());
@@ -207,11 +316,19 @@ async function simpanSupirBaru() {
     alert(data.message || data.error);
     if (data.message) {
         closeModal('modalTambahSupir');
+        if (konteksTambahSupir === 'kendaraan') {      // dari modal Update -> tab Supir Truk
+            await daftarkanSupirKeTruk(data.id_driver);
+            openModal('modalUpdateData');
+            setModeUpdate('truk');
+            return;
+        }
         isiDriver({ id_driver: data.id_driver, nik: document.getElementById('tambahNik').value.trim(),
                     nama: document.getElementById('tambahNama').value.trim(),
                     no_sim: document.getElementById('tambahSim').value.trim(),
                     is_updated: false, foto_path: data.foto_path });
-        tandaiBorderDriver('hijau');
+        tandaiBorderDriver('hijau');                   // wajah baru saja direkam -> terverifikasi
+        document.getElementById('statusScanWajah').textContent = 'Supir baru terdaftar & terverifikasi: ' + data.message;
+        setSupirTerverifikasi(true);
     }
 }
 
@@ -232,14 +349,18 @@ function bukaModalUpdate() {
     resetFotoUpdate();
 
     setModeUpdate('cari');
+    document.getElementById('updJudulPlat').textContent = '';
+    muatDataKendaraan(document.getElementById('formNoPlat').value);   // untuk tab Supir Truk & Kontrak Truk
     openModal('modalUpdateData');
 }
 
+const MODE_UPDATE = { cari: 'Cari', edit: 'Edit', truk: 'Truk', kontrak: 'Kontrak' };
+
 function setModeUpdate(mode) {
-    document.getElementById('tabModeCari').className = 'modal-tab ' + (mode === 'cari' ? 'modal-tab-active' : '');
-    document.getElementById('tabModeEdit').className = 'modal-tab ' + (mode === 'edit' ? 'modal-tab-active' : '');
-    document.getElementById('panelModeCari').classList.toggle('hidden', mode !== 'cari');
-    document.getElementById('panelModeEdit').classList.toggle('hidden', mode !== 'edit');
+    Object.entries(MODE_UPDATE).forEach(([m, nama]) => {
+        document.getElementById(`tabMode${nama}`).className = 'modal-tab ' + (m === mode ? 'modal-tab-active' : '');
+        document.getElementById(`panelMode${nama}`).classList.toggle('hidden', m !== mode);
+    });
 }
 
 function resetFotoUpdate() {
@@ -289,10 +410,15 @@ async function cariSupirByNik(inputEl) {
 }
 
 function pakaiSupirIni() {
-    if (!driverHasilCari) return;
-    isiDriver(driverHasilCari);
-    tandaiBorderDriver('biru');      // biru = supir diganti dari riwayat, wajib scan wajah ulang
+    if (driverHasilCari) gantiSupirTiket(driverHasilCari);
+}
+
+// Ganti supir untuk tiket ini (dari Cari NIK atau daftar Supir Truk). Wajib scan wajah ulang.
+function gantiSupirTiket(dr) {
+    isiDriver(dr);
+    tandaiBorderDriver('biru');      // biru = supir dipilih manual, belum terverifikasi wajah
     document.getElementById('statusScanWajah').textContent = 'Supir diganti. Lakukan scan wajah untuk verifikasi.';
+    setSupirTerverifikasi(false);
     tutupModalUpdate();
 }
 
@@ -325,6 +451,7 @@ async function simpanEditIdentitas() {
 
     alert(data.message);
     isiDriver(data.driver);
+    perbaruiTombolSubmit();
     document.getElementById('infoSupir').value = data.driver.nama;
     tampilkanFotoDriver(data.driver.foto_path);
     tampilkanPengemudiTerakhir(data.driver);
@@ -349,6 +476,7 @@ async function submitCreateTiket() {
         muatListTicketAktif();
         muatHistoryDriver();
         lookupPlat(document.getElementById('formNoPlat').value);  // base bar jadi ADA_TIKET lengkap
+        if (confirm('Cetak QR tiket sekarang?')) bukaHalamanCetak(data.no_tiket);
     } else {
         alert(data.error);
     }
@@ -389,7 +517,9 @@ async function lookupPlatUntukQR(inputEl) {
     const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
     const data = await res.json();
 
+    if (data.error) { alert(data.error); return; }
     if (data.status === 'ADA_TIKET') {
+        inputEl.value = data.no_plat;
         document.getElementById('qrNama').textContent = data.driver.nama;
         document.getElementById('qrNik').textContent = data.driver.nik;
         document.getElementById('qrSim').textContent = data.driver.no_sim;
@@ -398,15 +528,25 @@ async function lookupPlatUntukQR(inputEl) {
 
         document.getElementById('printAreaQR').classList.remove('hidden');
         document.getElementById('qrTiketText').textContent = data.no_tiket;
-
-        const container = document.getElementById('qrcodeContainer');
-        container.innerHTML = '';
-        new QRCode(container, { text: data.no_tiket, width: 150, height: 150 });
+        // QR dibuat di server (tidak butuh internet / CDN)
+        document.getElementById('qrcodeContainer').innerHTML =
+            `<img src="/api/qr/${encodeURIComponent(data.no_tiket)}" alt="QR ${data.no_tiket}" width="150" height="150">`;
+        qrTiketAktif = data.no_tiket;
     } else {
+        qrTiketAktif = null;
+        document.getElementById('printAreaQR').classList.add('hidden');
         alert('Plat tidak ditemukan / belum ada tiket aktif');
     }
 }
 
+let qrTiketAktif = null;
+
+function bukaHalamanCetak(noTiket) {
+    const w = window.open(`/cetak/tiket/${encodeURIComponent(noTiket)}`, '_blank', 'width=420,height=720');
+    if (!w) alert('Pop-up diblokir browser. Izinkan pop-up untuk alamat ini, lalu klik Cetak QR lagi.');
+}
+
 function cetakQR() {
-    window.print();
+    if (!qrTiketAktif) { alert('Ketik plat lalu tekan Tab dulu'); return; }
+    bukaHalamanCetak(qrTiketAktif);
 }

@@ -51,7 +51,7 @@
                 </div>
                 <div>
                     <label class="info-field-label">No. Plat</label>
-                    <input type="text" id="infoPlat" placeholder="Ketik plat lalu Tab"
+                    <input type="text" id="infoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab"
                         class="info-field-input uppercase" onkeydown="handlePlatKey(event)">
                 </div>
                 <div>
@@ -95,6 +95,7 @@
 </div>
 
 {% block modals %}{% endblock %}
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/base.js') }}"></script>
 {% block extra_scripts %}{% endblock %}
 </body>
