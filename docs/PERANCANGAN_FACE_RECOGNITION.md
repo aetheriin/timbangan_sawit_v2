@@ -14,7 +14,7 @@ Draf SQL-nya ada di `database/migrations/002_personel_blacklist.sql`.
 |---|---|---|
 | Subjek wajah | Supir saja (`driver`) | Semua personel (`personel`): **DRIVER**, **SECURITY**, **EMPLOYEE** (orang HO) |
 | Tahapan | Security → Timbang 1 → Sortasi/Lab → Timbang 2 | Hanya **Security / Validasi Wajah** |
-| Role login | ADMIN, SECURITY, OPERATOR_TIMBANG, SORTASI, LAB | **HO** dan **SECURITY** |
+| Role login | ADMIN, SECURITY, OPERATOR_TIMBANG, SORTASI, LAB | Dipakai **HO** dulu, semua menu tampil. Role **HO** / **SECURITY** disiapkan untuk pembatasan nanti |
 | Blacklist | Tidak ada | Ada, untuk **personel** dan **kendaraan**, ditetapkan HO dengan surat |
 | Audit | `driver_audit_logs` | `personel_audit_logs` + `security_audit_logs` (aktivitas security dipantau HO) |
 | Master data | plat, supplier, produk, kontrak | **Tetap ada**, karena tiket supir tetap mencatat truk, supplier, dan produk |
@@ -29,14 +29,32 @@ tidak dipakai lagi.
 
 ## 2. Aktor dan hak akses
 
-| Aktor | Login? | Bisa apa |
+**Tahap sekarang: aplikasi dipakai HO dan semua menu/data ditampilkan tanpa pembatasan role.**
+Kolom `users.role` tetap ada supaya pembatasan per role bisa ditambahkan di pengembangan
+berikutnya tanpa mengubah database. Rencana pembagiannya nanti:
+
+| Aktor | Login? | Rencana hak akses (tahap berikutnya) |
 |---|---|---|
-| **SECURITY** (user) | Ya | Input plat, scan wajah, buat tiket supir, daftar personel baru (kategori DRIVER), ganti supir, cetak QR |
-| **HO** (user) | Ya | Semua yang bisa Security, plus: isi/ubah **kode_personel**, ubah kategori, **menetapkan blacklist**, melihat **audit log** security & personel |
-| **Personel** | Tidak | Orang yang wajahnya dipindai: supir, petugas security, karyawan HO |
+| **HO** (user) | Ya | Semua menu (sekarang semua user memakai tampilan ini) |
+| **SECURITY** (user) | Ya | Validasi Wajah dan Daftar Tiket saja |
+| **Personel** | Tidak | Orang yang wajahnya terdaftar: supir (DRIVER), petugas security (SECURITY), karyawan HO baru (EMPLOYEE) |
 
 Catatan: satu akun `users` bisa dihubungkan ke satu data `personel` lewat `users.id_personel`
 (misalnya petugas security yang login juga terdaftar wajahnya sebagai personel SECURITY).
+
+### 2.1 Dua identitas personel: ID dan Kode
+
+| | `id_personel` | `kode_personel` |
+|---|---|---|
+| Contoh | `006` | `PRGBS-001` |
+| Dibuat oleh | Database (IDENTITY, otomatis) | HO, diisi/diubah lewat menu Personel |
+| Bisa berubah? | **Tidak pernah** | Ya, setiap perubahan tercatat di `personel_audit_logs` |
+| Wajib? | Ya | Boleh kosong dulu (misal personel baru didaftarkan dari pos), unik bila diisi |
+| Dipakai untuk | **Semua relasi**: tiket, blacklist, audit, supir truk, akun login | Tampilan dan pencarian |
+
+Karena semua FK memakai `id_personel`, HO bisa mengganti kode (misal dari `PRGBS-010` menjadi
+`PRGBS-001`) tanpa memutus riwayat tiket atau blacklist. Kode **jangan** dipakai sebagai FK.
+Format tampilan di seluruh UI: `Kode · Nama`, atau `ID 014 · Nama` bila kode masih kosong.
 
 ---
 
@@ -341,7 +359,7 @@ ERD usulan sudah bagus; ada beberapa penyesuaian supaya cocok dengan kode dan da
 8. **`kendaraan_driver` dan `kontrak_kendaraan` dari migrasi 001 tetap dipakai**
    (saran supir utama dan kontrak truk–supplier). Kolom `id_driver` di tabel ini tidak diganti
    nama supaya perubahan kode tidak terlalu besar; isinya ID personel kategori DRIVER.
-9. **`users.role`**: akun aktif hanya boleh HO atau SECURITY. ADMIN lama menjadi HO.
+9. **`users.role`** (disiapkan untuk pembatasan nanti): akun aktif hanya boleh HO atau SECURITY. ADMIN lama menjadi HO.
    Akun LAB / SORTASI / OPERATOR_TIMBANG dinonaktifkan (role lamanya tetap tersimpan).
 
 ### 5.3 Relasi
@@ -366,42 +384,47 @@ ERD usulan sudah bagus; ada beberapa penyesuaian supaya cocok dengan kode dan da
 
 ## 6. Rancangan tampilan (sesimpel mungkin)
 
-Deretan 4 tab di `base.html` dihapus. Hanya ada **satu halaman** (`partials/validasi_tab.html`,
-turunan `security_tab.html`). Pindah tampilan lewat sidebar yang sudah ada (`setSidebarView`),
-isi per bagian dibuka/ditutup dengan `toggleSection` yang juga sudah ada.
+Desain Figma: <https://www.figma.com/design/MYtNtlrszccggmaS5iUIus> (halaman
+"UI · Face Recognition (show/hide)", 7 layar + kartu catatan ID vs Kode).
+
+Prinsipnya sama dengan v2: sidebar gelap, topbar hitam, kotak abu-abu yang bisa dibuka/ditutup
+(`toggleSection`). Deretan 4 tab di `base.html` diganti **satu tab saja** yang judulnya mengikuti
+menu aktif. Pindah halaman lewat sidebar (`setSidebarView`). Untuk sekarang **semua menu tampil**.
 
 ```
-┌ Sidebar ───────┐ ┌ Topbar: Face Recognition            Budi (SECURITY) ⏻ ┐
-│ ▸ Validasi     │ ├──────────────────────────────────────────────────────────┤
-│ ▸ Daftar Tiket │ │ Info bar: No Tiket | No Plat | Supplier | Supir | [foto] │
-│ ── HO saja ──  │ ├──────────────────────────────────────────────────────────┤
-│ ▸ Personel     │ │ ▼ 1. Kendaraan        (plat, STNK, supplier, produk, DO) │
-│ ▸ Blacklist    │ │ ▼ 2. Scan Wajah       (kamera, hasil, identitas)         │
-│ ▸ Audit Log    │ │ ▶ 3. Ganti / Tambah Supir   (tertutup, dibuka jika perlu) │
-└────────────────┘ │ [!] Banner merah BLACKLIST muncul di atas jika terkena   │
-                   │                                  [Submit] [Cetak QR]     │
-                   └──────────────────────────────────────────────────────────┘
+┌ Sidebar ────────┐ ┌ Topbar: Face Recognition               Andi (HO) ⏻ ┐
+│ OPERASIONAL     │ ├──────────────────────────────────────────────────────┤
+│ ▸ Validasi Wajah│ │ Info bar: No Tiket | Plat | DO | Supplier | Supir | [foto] │
+│ ▸ Daftar Tiket  │ ├ [ Validasi Wajah ] ──────────────────────────────────┤
+│ DATA            │ │ [!] Banner merah BLACKLIST (hanya jika terkena)       │
+│ ▸ Personel      │ │ ▼ 1. Informasi Kendaraan (plat, STNK, DO, supplier…)  │
+│ ▸ Master Data   │ │ ▼ 2. Scan Wajah & Identitas Personel (ID + Kode)      │
+│ ▸ Blacklist     │ │ ▶ 3. Ganti Supir / Supir & Kontrak Truk (tertutup)    │
+│ ▸ Audit Log     │ │                          [Tambah] [Update] [Submit]  │
+└─────────────────┘ └──────────────────────────────────────────────────────┘
 ```
 
-| View (sidebar) | Siapa | Isi |
-|---|---|---|
-| **Validasi** | SECURITY, HO | Form tiket 3 bagian di atas. Bagian 2 terkunci sampai plat valid & tidak blacklist |
-| **Daftar Tiket** | SECURITY, HO | Tiket aktif + riwayat supir (isi view "List" yang sekarang) |
-| **Personel** | HO | Tabel personel, filter kategori, edit kode/identitas/foto, badge blacklist |
-| **Blacklist** | HO | Form penetapan (entitas, no surat, alasan, tanggal, upload surat) + tabel riwayat |
-| **Audit Log** | HO | Tab kecil: Security (`security_audit_logs`) dan Personel (`personel_audit_logs`) |
+| Layar Figma | Isi (setiap baris = section show/hide) |
+|---|---|
+| 01 Validasi Wajah | 1. Informasi Kendaraan · 2. Scan Wajah & Identitas Personel (ID terkunci, Kode, kategori, status blacklist) · 3. Ganti Supir / Supir & Kontrak Truk |
+| 02 Validasi — Blacklist | Banner merah + no. surat, plat bertanda merah, bagian 2 terkunci, Submit nonaktif |
+| 03 Daftar Tiket | List Tiket Aktif · Riwayat Personel · Tiket Selesai/Ditolak (tertutup) |
+| 04 Personel | Filter kategori (Driver / Security / Employee HO / Blacklist) · Daftar Personel (kolom ID dan Kode terpisah) · Edit Personel (ID terkunci, Kode bisa diubah) |
+| 05 Master Data | Kendaraan · Supplier/Buyer · Produk · Kontrak Truk · Supir per Truk |
+| 06 Blacklist | Tetapkan Blacklist (Personel/Kendaraan, no. surat, tanggal, alasan, upload surat, peringatan permanen) · Riwayat Blacklist |
+| 07 Audit Log | Aktivitas Security · Perubahan Data Personel (termasuk kode lama → baru) |
 
-Menu khusus HO disembunyikan dengan Jinja (`{% if current_user.role == 'HO' %}`) **dan**
-endpoint-nya dijaga `@role_required('HO')`, jadi bukan hanya tersembunyi di tampilan.
+Modal yang tetap: Tambah Personel (dulu Tambah Supir, sekarang ada pilihan kategori),
+Update (Ganti Supir, Edit Data, Supir Truk, Kontrak Truk), Cetak QR.
 
-Modal yang tetap: Tambah Personel (dulu Tambah Supir), Update (Ganti Supir, Edit Data,
-Supir Truk, Kontrak Truk), Cetak QR.
+**Tahap berikutnya (role):** menu di bawah grup DATA disembunyikan untuk SECURITY dengan Jinja
+(`{% if current_user.role == 'HO' %}`) **dan** endpoint-nya dijaga `@role_required('HO')`.
 
 ---
 
 ## 7. Daftar API
 
-| Metode | Endpoint | Role | Keterangan |
+| Metode | Endpoint | Role (tahap berikutnya) | Keterangan |
 |---|---|---|---|
 | POST | `/api/plat/lookup` | semua | + `kendaraan_blacklist` di respons |
 | POST | `/api/security/buat-tiket` | SECURITY, HO | + cek blacklist server-side, `is_driver_changed`, `prev_driver_id`, snapshot foto, `hash_keamanan` |
@@ -416,6 +439,9 @@ Supir Truk, Kontrak Truk), Cetak QR.
 | POST | `/api/blacklist/tambah` | HO | **baru**, multipart (file surat) |
 | GET | `/api/audit/security` | HO | **baru** |
 | GET | `/api/audit/personel` | HO | **baru** |
+| GET | `/api/master/kendaraan`, `/api/master/supplier`, `/api/master/produk` | HO | **baru**: menu Master Data |
+
+Sekarang semua endpoint cukup `@login_required`; kolom Role adalah rencana pembatasan nanti.
 | — | `/api/timbang/*`, `/api/sortasi/*`, `/api/lab/*` | — | **dihapus** |
 
 ---
@@ -431,17 +457,24 @@ Supir Truk, Kontrak Truk), Cetak QR.
 4. **Blacklist**: `routes/blacklist.py`, cek di `plat/lookup`, `verifikasi-wajah`, `buat-tiket`, `personel/tambah`.
 5. **Audit**: `utils/audit_utils.py` (`catat_aktivitas(user_id, action_type, details, no_tiket=None)`),
    panggil di titik TRY_SCAN_BLACKLIST / OVERRIDE_DRIVER / MANUAL_INPUT.
-6. **Tampilan**: sidebar baru + panel HO (Personel, Blacklist, Audit Log).
+6. **Tampilan**: ikuti desain Figma: sidebar baru, satu tab, panel Personel, Master Data, Blacklist, Audit Log.
 7. **Tes**: tambah unit test untuk aturan blacklist & hash tiket (`tests/`).
 
 ---
 
-## 9. Yang perlu dikonfirmasi
+## 9. Keputusan & yang masih perlu dikonfirmasi
 
-1. **Wajah personel SECURITY / EMPLOYEE dipakai untuk apa?** Saat ini dirancang hanya untuk
-   identifikasi (tampil identitas, dan menautkan akun login ke wajahnya). Kalau maksudnya
-   absensi atau akses masuk karyawan HO, perlu satu tabel log kunjungan tambahan.
-2. **Blacklist benar-benar permanen?** Dirancang tidak bisa dicabut sama sekali. Kalau suatu saat
+Sudah diputuskan:
+
+- Aplikasi dipakai HO dulu dan menampilkan semua data. Pembatasan role menyusul.
+- Personel mencakup orang HO baru (kategori EMPLOYEE), bukan hanya supir.
+- Dua identitas: `id_personel` tetap (misal 006), `kode_personel` bisa diubah HO (misal PRGBS-001).
+
+Masih perlu dikonfirmasi:
+
+1. **Blacklist benar-benar permanen?** Dirancang tidak bisa dicabut sama sekali. Kalau suatu saat
    HO perlu mencabut (misalnya salah input), perlu kolom `is_revoked`, `revoked_by`, dan `revoked_at`.
-3. **Kapan tiket `SELESAI`?** Tanpa tahap timbang, diusulkan Security menutup tiket saat truk keluar
-   (tombol "Tutup Tiket"), atau otomatis saat `qr_expired_at` lewat.
+2. **Kapan tiket `SELESAI`?** Tanpa tahap timbang, diusulkan tombol "Tutup Tiket" saat truk keluar,
+   atau otomatis saat `qr_expired_at` lewat.
+3. **Format kode personel** selalu `PRGBS-###`? Kalau ya, bisa diberi CHECK di database dan
+   saran nomor berikutnya otomatis di form.
