@@ -13,7 +13,8 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>const WAJIB_SCAN_WAJAH = {{ 'true' if wajib_scan_wajah else 'false' }};</script>
+<script src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/security.js') }}"></script>
 <script src="{{ url_for('static', filename='js/kendaraan.js') }}"></script>
 <script src="{{ url_for('static', filename='js/timbangan.js') }}"></script>

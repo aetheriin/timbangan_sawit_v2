@@ -1,4 +1,5 @@
 import io
+import os
 from datetime import datetime
 import qrcode
 import qrcode.image.svg
@@ -18,7 +19,8 @@ main_bp = Blueprint('main', __name__)
 @login_required
 def weighbridge():
     return render_template("weighbridge.html",
-                           supplier_list=get_semua_supplier(), produk_list=get_semua_produk())
+                           supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
+                           wajib_scan_wajah=os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true")
 
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required

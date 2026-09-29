@@ -48,17 +48,6 @@ def kendaraan_detail():
     return jsonify(_data_kendaraan(no_plat))
 
 
-@kendaraan_bp.route("/api/kendaraan/simpan", methods=["POST"])
-@login_required
-@role_required('SECURITY')
-def kendaraan_simpan():
-    no_plat, error = _plat_dari_form()
-    if error:
-        return jsonify({"error": error}), 400
-    get_or_create_kendaraan(no_plat, request.form.get("no_stnk", "").strip() or None)
-    return jsonify({"message": f"Data truk {no_plat} tersimpan", **_data_kendaraan(no_plat)})
-
-
 # ===== SUPIR TRUK =====
 
 @kendaraan_bp.route("/api/kendaraan/supir/tambah", methods=["POST"])

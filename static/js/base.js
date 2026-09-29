@@ -10,9 +10,9 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('sidebar-collapsed');
 }
 
-// Sidebar "Form" / "Update Truk" dari tab manapun selalu membawa ke tab Security
+// Sidebar "Form" dari tab manapun selalu membawa ke Create Ticket (tab Security)
 function setSidebarView(view) {
-    if (view !== 'list' && getTabAktif() !== 'security') {
+    if (view === 'form' && getTabAktif() !== 'security') {
         switchTab('security', false);
     }
     document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('sidebar-link-active'));
@@ -66,9 +66,26 @@ function handlePlatKey(e) {
     }
 }
 
+// No. Tiket (hasil scanner barcode / QR) -> cari tiket aktif
+async function lookupTiket(noTiket) {
+    const formData = new FormData();
+    formData.append('no_tiket', noTiket);
+    let data;
+    try {
+        data = await (await fetch('/api/timbang/scan-qr', { method: 'POST', body: formData })).json();
+    } catch (err) {
+        alert('Gagal menghubungi server');
+        return;
+    }
+    if (data.status === 'ADA_TIKET') terapkanHasilLookup(data);
+    else alert(data.error || 'Tiket tidak ditemukan');
+}
+
 async function lookupPlat(noPlatRaw) {
     const noPlat = (noPlatRaw || '').trim().toUpperCase();
     if (!noPlat) return;
+    // Scanner barcode yang diarahkan ke kolom plat akan mengetik No. Tiket
+    if (noPlat.startsWith('TKT-')) { await lookupTiket(noPlat); return; }
 
     const formData = new FormData();
     formData.append('no_plat', noPlat);

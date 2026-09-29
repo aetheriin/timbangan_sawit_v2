@@ -3,6 +3,11 @@ let beratAcuanSortasi = null;   // netto; null = belum timbang kedua
 
 window.addEventListener('platLookup', (e) => {
     const data = e.detail;
+    // Tiket lain (PKS / belum ada tiket) -> kosongkan, supaya sortasi tidak tersimpan ke tiket sebelumnya
+    noTiketSortasiAktif = null;
+    beratAcuanSortasi = null;
+    document.getElementById('srBeratAcuan').textContent = '-';
+    hitungPotongan();
     if (data.status === 'ADA_TIKET' && data.kategori_produk === 'TBS') {
         noTiketSortasiAktif = data.no_tiket;
         fetch(`/api/timbang/data/${data.no_tiket}`).then(r => r.json()).then(tb => {
