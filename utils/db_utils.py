@@ -198,26 +198,29 @@ def generate_no_tiket(no_plat):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"TKT-{plat_bersih}-{timestamp}"
 
-def cari_transaksi_aktif_by_plat(no_plat):
-    """Cari transaksi yang belum SELESAI/REJECTED untuk plat ini."""
+def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
-               s.nama_supplier, p.nama_produk, p.kategori,
+               t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
                k.no_plat, k.no_stnk,
-               d.id_driver, d.nik, d.nama_driver, d.no_sim, d.is_updated
+               d.id_driver, d.nik, d.nama_driver, d.no_sim, d.is_updated, d.foto_path
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN driver d ON t.id_driver = d.id_driver
-        WHERE (k.no_plat = ? OR t.no_tiket = ?) AND t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED')
+          AND (k.no_plat = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
-    """, (no_plat, no_plat),)
+    """, no_plat or '', no_tiket or '')
     row = cursor.fetchone()
     conn.close()
     return row
+
+def cari_transaksi_aktif_by_plat(no_plat):
+    return cari_transaksi_aktif(no_plat=no_plat)
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
@@ -320,13 +323,45 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
+        SELECT s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
+        JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN timbangan tb ON t.no_tiket = tb.no_tiket
-        WHERE t.id_supplier = ? AND t.created_at >= DATEADD(day, -?, GETDATE())
+        WHERE t.id_supplier = ? AND t.created_at >= DATEADD(day, ?, GETDATE())
         ORDER BY t.created_at DESC
-    """, id_supplier, hari)
+    """, id_supplier, -hari)
+    columns = [c[0] for c in cursor.description]
+    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+    return data
+
+def get_list_tiket_aktif():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN supplier s ON t.id_supplier = s.id_supplier
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        ORDER BY t.created_at DESC
+    """)
+    columns = [c[0] for c in cursor.description]
+    data = [dict(zip(columns, row)) for row in cursor.fetchall()]
+    conn.close()
+    return data
+
+def get_history_driver(limit=20):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        SELECT TOP {int(limit)} k.no_plat, d.nama_driver, d.nik, d.no_sim
+        FROM transaksi t
+        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN driver d ON t.id_driver = d.id_driver
+        ORDER BY t.created_at DESC
+    """)
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()

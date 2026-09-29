@@ -10,9 +10,13 @@
             </div>
             <div class="mt-4">
                 <label class="field-label">Status Kelayakan Mutu</label>
-                <div class="flex gap-3">
-                    <button onclick="setKeputusan('APPROVE')" id="btnApprove" class="flex-1 border rounded-lg py-2 text-sm text-emerald-600 border-emerald-300"><i class="fa-solid fa-check mr-1"></i>Approve</button>
-                    <button onclick="setKeputusan('REJECT')" id="btnReject" class="flex-1 border rounded-lg py-2 text-sm text-red-600 border-red-300"><i class="fa-solid fa-xmark mr-1"></i>Reject</button>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="btnApprove" onclick="setKeputusan('APPROVE')" class="border-2 rounded-lg py-3 text-base font-semibold text-emerald-600 border-emerald-300 hover:bg-emerald-50 transition">
+                        <i class="fa-solid fa-check mr-1"></i> Approve
+                    </button>
+                    <button id="btnReject" onclick="setKeputusan('REJECT')" class="border-2 rounded-lg py-3 text-base font-semibold text-red-600 border-red-300 hover:bg-red-50 transition">
+                        <i class="fa-solid fa-xmark mr-1"></i> Reject
+                    </button>
                 </div>
             </div>
             <button onclick="submitLab()" class="btn-primary mt-4 w-full">Submit</button>

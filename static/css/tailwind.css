@@ -554,6 +554,10 @@ video {
   display: none;
 }
 
+html {
+  font-size: 75%;
+}
+
 .container {
   width: 100%;
 }
@@ -654,6 +658,10 @@ video {
   overflow-y: auto;
 }
 
+.main-area > * {
+  flex-shrink: 0;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -731,6 +739,7 @@ video {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   border-radius: 0.5rem;
   border-width: 2px;
   border-style: dashed;
@@ -1021,6 +1030,34 @@ video {
   color: rgb(255 255 255 / var(--tw-text-opacity, 1));
 }
 
+.modal-tab {
+  border-bottom-width: 2px;
+  border-color: transparent;
+  --tw-bg-opacity: 1;
+  background-color: rgb(241 245 249 / var(--tw-bg-opacity, 1));
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  --tw-text-opacity: 1;
+  color: rgb(100 116 139 / var(--tw-text-opacity, 1));
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-backdrop-filter;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+.modal-tab-active {
+  --tw-border-opacity: 1;
+  border-color: rgb(37 99 235 / var(--tw-border-opacity, 1));
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 255 255 / var(--tw-bg-opacity, 1));
+  --tw-text-opacity: 1;
+  color: rgb(29 78 216 / var(--tw-text-opacity, 1));
+}
+
 /* Status badge */
 
 .badge-status {
@@ -1061,6 +1098,12 @@ video {
   opacity: 0.4;
 }
 
+/* Video */
+
+.video-mirror {
+  transform: scaleX(-1);
+}
+
 .static {
   position: static;
 }
@@ -1096,6 +1139,10 @@ video {
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
+}
+
+.mb-0 {
+  margin-bottom: 0px;
 }
 
 .mb-1\.5 {
@@ -1182,6 +1229,10 @@ video {
   height: 100%;
 }
 
+.max-h-\[90vh\] {
+  max-height: 90vh;
+}
+
 .min-h-screen {
   min-height: 100vh;
 }
@@ -1210,6 +1261,10 @@ video {
   max-width: 24rem;
 }
 
+.flex-1 {
+  flex: 1 1 0%;
+}
+
 .flex-shrink-0 {
   flex-shrink: 0;
 }
@@ -1225,6 +1280,10 @@ video {
 
 .grid-cols-1 {
   grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .grid-cols-3 {
@@ -1249,6 +1308,10 @@ video {
 
 .gap-3 {
   gap: 0.75rem;
+}
+
+.gap-4 {
+  gap: 1rem;
 }
 
 .gap-5 {
@@ -1312,8 +1375,16 @@ video {
   border-color: rgb(51 65 85 / 0.5);
 }
 
+.overflow-hidden {
+  overflow: hidden;
+}
+
 .overflow-x-auto {
   overflow-x: auto;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
 }
 
 .whitespace-nowrap {
@@ -1356,13 +1427,17 @@ video {
   border-top-width: 1px;
 }
 
+.border-solid {
+  border-style: solid;
+}
+
 .border-dashed {
   border-style: dashed;
 }
 
-.border-blue-200 {
+.border-amber-200 {
   --tw-border-opacity: 1;
-  border-color: rgb(191 219 254 / var(--tw-border-opacity, 1));
+  border-color: rgb(253 230 138 / var(--tw-border-opacity, 1));
 }
 
 .border-blue-500 {
@@ -1374,6 +1449,11 @@ video {
   border-color: rgb(59 130 246 / 0.2);
 }
 
+.border-emerald-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(110 231 183 / var(--tw-border-opacity, 1));
+}
+
 .border-emerald-500 {
   --tw-border-opacity: 1;
   border-color: rgb(16 185 129 / var(--tw-border-opacity, 1));
@@ -1383,8 +1463,23 @@ video {
   border-color: rgb(16 185 129 / 0.2);
 }
 
+.border-emerald-600 {
+  --tw-border-opacity: 1;
+  border-color: rgb(5 150 105 / var(--tw-border-opacity, 1));
+}
+
+.border-red-300 {
+  --tw-border-opacity: 1;
+  border-color: rgb(252 165 165 / var(--tw-border-opacity, 1));
+}
+
 .border-red-500\/30 {
   border-color: rgb(239 68 68 / 0.3);
+}
+
+.border-red-600 {
+  --tw-border-opacity: 1;
+  border-color: rgb(220 38 38 / var(--tw-border-opacity, 1));
 }
 
 .border-slate-100 {
@@ -1422,14 +1517,14 @@ video {
   background-color: rgb(254 243 199 / var(--tw-bg-opacity, 1));
 }
 
+.bg-amber-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(255 251 235 / var(--tw-bg-opacity, 1));
+}
+
 .bg-black {
   --tw-bg-opacity: 1;
   background-color: rgb(0 0 0 / var(--tw-bg-opacity, 1));
-}
-
-.bg-blue-50 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(239 246 255 / var(--tw-bg-opacity, 1));
 }
 
 .bg-blue-500\/10 {
@@ -1457,6 +1552,11 @@ video {
 
 .bg-red-500\/10 {
   background-color: rgb(239 68 68 / 0.1);
+}
+
+.bg-red-600 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(220 38 38 / var(--tw-bg-opacity, 1));
 }
 
 .bg-slate-100 {
@@ -1606,10 +1706,6 @@ video {
   padding-top: 1rem;
 }
 
-.pt-6 {
-  padding-top: 1.5rem;
-}
-
 .text-left {
   text-align: left;
 }
@@ -1705,11 +1801,6 @@ video {
   color: rgb(37 99 235 / var(--tw-text-opacity, 1));
 }
 
-.text-blue-700 {
-  --tw-text-opacity: 1;
-  color: rgb(29 78 216 / var(--tw-text-opacity, 1));
-}
-
 .text-cyan-400 {
   --tw-text-opacity: 1;
   color: rgb(34 211 238 / var(--tw-text-opacity, 1));
@@ -1733,6 +1824,11 @@ video {
 .text-red-500 {
   --tw-text-opacity: 1;
   color: rgb(239 68 68 / var(--tw-text-opacity, 1));
+}
+
+.text-red-600 {
+  --tw-text-opacity: 1;
+  color: rgb(220 38 38 / var(--tw-text-opacity, 1));
 }
 
 .text-slate-300 {
@@ -1800,9 +1896,19 @@ video {
   background-color: rgb(29 78 216 / var(--tw-bg-opacity, 1));
 }
 
+.hover\:bg-emerald-50:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(236 253 245 / var(--tw-bg-opacity, 1));
+}
+
 .hover\:bg-emerald-700:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(4 120 87 / var(--tw-bg-opacity, 1));
+}
+
+.hover\:bg-red-50:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 242 242 / var(--tw-bg-opacity, 1));
 }
 
 .hover\:bg-slate-50:hover {
@@ -1857,6 +1963,10 @@ video {
 .focus\:ring-emerald-500:focus {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(16 185 129 / var(--tw-ring-opacity, 1));
+}
+
+.disabled\:cursor-not-allowed:disabled {
+  cursor: not-allowed;
 }
 
 .disabled\:bg-slate-300:disabled {

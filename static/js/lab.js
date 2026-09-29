@@ -29,8 +29,11 @@ function cekStandar() {
 
 function setKeputusan(val) {
     keputusanDipilih = val;
-    document.getElementById('btnApprove').classList.toggle('bg-emerald-50', val === 'APPROVE');
-    document.getElementById('btnReject').classList.toggle('bg-red-50', val === 'REJECT');
+    const dasar = 'border-2 rounded-lg py-3 text-base font-semibold transition ';
+    document.getElementById('btnApprove').className = dasar + (val === 'APPROVE'
+        ? 'bg-emerald-600 text-white border-emerald-600' : 'text-emerald-600 border-emerald-300 hover:bg-emerald-50');
+    document.getElementById('btnReject').className = dasar + (val === 'REJECT'
+        ? 'bg-red-600 text-white border-red-600' : 'text-red-600 border-red-300 hover:bg-red-50');
 }
 
 async function submitLab() {

@@ -52,7 +52,7 @@
                 <div>
                     <label class="info-field-label">No. Plat</label>
                     <input type="text" id="infoPlat" placeholder="Ketik plat lalu Tab"
-                        class="info-field-input" onkeydown="if(event.key==='Tab') lookupPlat(this)">
+                        class="info-field-input uppercase" onkeydown="handlePlatKey(event)">
                 </div>
                 <div>
                     <label class="info-field-label">Nomor DO</label>
@@ -69,7 +69,7 @@
             </div>
 
             <div class="text-center">
-                <div class="info-photo-box">
+                <div id="infoFotoBox" class="info-photo-box">
                     <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
                 </div>
                 <button id="btnValidasi" onclick="klikValidasi()" class="btn-primary mt-2 text-xs hidden">

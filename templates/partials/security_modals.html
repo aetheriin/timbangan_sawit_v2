@@ -35,48 +35,56 @@
 
 <!-- MODAL: Update Data -->
 <div id="modalUpdateData" class="modal-overlay">
-    <div class="modal-box">
+    <div class="modal-box max-h-[90vh] overflow-y-auto">
         <div class="modal-header">
-            <h3 class="font-bold">Update Data</h3>
-            <button onclick="closeModal('modalUpdateData')"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="font-bold">Update Data Supir</h3>
+            <button onclick="tutupModalUpdate()"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="p-6 space-y-4">
 
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 flex justify-between items-center">
-                <span>Mode: <b id="updateModeLabel">Mutasi Truk (data supir terkunci)</b></span>
-                <button onclick="toggleEditModeUpdate()" class="text-blue-700 hover:underline">
-                    <i class="fa-solid fa-pen mr-1"></i> Edit Data Diri / SIM
-                </button>
-            </div>
+        <div class="grid grid-cols-2">
+            <button id="tabModeCari" onclick="setModeUpdate('cari')" class="modal-tab modal-tab-active">Ganti Supir (Cari NIK)</button>
+            <button id="tabModeEdit" onclick="setModeUpdate('edit')" class="modal-tab">Edit Data Diri / SIM</button>
+        </div>
 
+        <!-- MODE: GANTI SUPIR -->
+        <div id="panelModeCari" class="p-6 space-y-4">
+            <p class="text-xs text-slate-500">Dipakai kalau yang datang bukan supir saran. Data supir lain tidak diubah, hanya tiket ini yang memakainya.</p>
             <div>
-                <label class="field-label">Nama Lengkap</label>
-                <input type="text" id="updateNama" readonly class="input-field bg-slate-50">
+                <label class="field-label">NIK supir yang datang hari ini</label>
+                <input type="text" id="cariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
+                    onkeydown="if(event.key==='Tab'||event.key==='Enter'){event.preventDefault();cariSupirByNik(this)}">
             </div>
-            <div>
-                <label class="field-label">NIK</label>
-                <input type="text" id="updateNik" readonly class="input-field bg-slate-50">
+            <div id="hasilCariNik" class="hidden border border-slate-200 rounded-lg p-4 space-y-1 text-sm">
+                <p>Nama: <b id="hasilNama"></b></p>
+                <p>NIK: <span id="hasilNik"></span></p>
+                <p>SIM: <span id="hasilSim"></span></p>
+                <p id="hasilBadgeUpdate" class="text-amber-600 text-xs hidden">⚠ Data Pernah Diperbarui</p>
             </div>
-            <div>
-                <label class="field-label">SIM</label>
-                <input type="text" id="updateSim" readonly class="input-field bg-slate-50">
-            </div>
+            <p id="tidakDitemukan" class="hidden text-sm text-red-500">Tidak ditemukan. Gunakan tombol "Tambah" untuk daftar baru.</p>
+            <button id="btnPakaiSupirIni" onclick="pakaiSupirIni()" disabled
+                class="btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed">Gunakan Supir Ini</button>
+        </div>
 
-            <div id="updatePlatBaruWrapper">
-                <label class="field-label">No. Plat Truk Baru</label>
-                <input type="text" id="updatePlatBaru" placeholder="Truk yang dibawa hari ini" class="input-field uppercase">
+        <!-- MODE: EDIT IDENTITAS -->
+        <div id="panelModeEdit" class="p-6 space-y-4 hidden">
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+                Perubahan identitas tercatat di audit log dan supir ditandai "Pernah Diperbarui".
             </div>
+            <p id="editTanpaDriver" class="hidden text-sm text-red-500">Belum ada supir terpilih. Pilih atau scan supir dulu.</p>
+            <div><label class="field-label">Nama Lengkap</label><input type="text" id="updateNama" class="input-field"></div>
+            <div><label class="field-label">NIK</label><input type="text" id="updateNik" class="input-field"></div>
+            <div><label class="field-label">SIM</label><input type="text" id="updateSim" class="input-field"></div>
 
-            <div id="updateFotoWrapper" class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hidden">
-                <div id="updateFotoPreview" class="photo-circle mb-3">
-                    <i class="fa-solid fa-camera text-slate-300 text-2xl"></i>
-                </div>
-                <video id="updateVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+            <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                <div id="updateFotoPreview" class="photo-circle mb-3"><i class="fa-solid fa-camera text-slate-300 text-2xl"></i></div>
+                <video id="updateVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3 video-mirror"></video>
                 <canvas id="updateCanvas" class="hidden"></canvas>
                 <button id="btnRekamUpdate" onclick="toggleRekamWajah('update')" class="btn-success">Rekam Wajah</button>
+                <p class="text-xs text-slate-400 mt-2">Opsional, hanya jika wajah perlu direkam ulang</p>
             </div>
 
-            <button onclick="simpanUpdateData()" class="btn-primary w-full">Simpan Data</button>
+            <button id="btnSimpanEdit" onclick="simpanEditIdentitas()"
+                class="btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed">Simpan Perubahan</button>
         </div>
     </div>
 </div>
@@ -102,7 +110,7 @@
             <div>
                 <label class="field-label">Nomor Plat Kendaraan</label>
                 <input type="text" id="qrNoPlat" placeholder="Press Tab →" class="input-field uppercase"
-                    onkeydown="if(event.key==='Tab') lookupPlatUntukQR(this)">
+                    onkeydown="if(event.key==='Tab') {event.preventDefault(); lookupPlatUntukQR(this)}">
             </div>
 
             <div class="border border-slate-200 rounded-lg p-4">

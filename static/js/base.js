@@ -1,110 +1,154 @@
-// ===== SIDEBAR TOGGLE (show/hide) =====
+let statusValidasi = 'none'; // none | draft | done
+const TAB_VALID = ['security', 'timbangan', 'sortasi', 'lab'];
+const ICON_USER = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
+
+function getTabAktif() {
+    return document.querySelector('.tab-btn-active').dataset.tab;
+}
+
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('sidebar-collapsed');
 }
 
-// ===== SIDEBAR: LIST vs FORM VIEW (per tab aktif) =====
+// Sidebar "Form" dari tab manapun selalu membawa ke Create Ticket (tab Security)
 function setSidebarView(view) {
+    if (view === 'form' && getTabAktif() !== 'security') {
+        switchTab('security', false);
+    }
     document.querySelectorAll('.sidebar-link').forEach(el => el.classList.remove('sidebar-link-active'));
     document.querySelector(`.sidebar-link[data-view="${view}"]`).classList.add('sidebar-link-active');
-
-    const tabAktif = document.querySelector('.tab-btn-active').dataset.tab;
-    document.querySelectorAll(`[data-tab-content="${tabAktif}"] [data-view-panel]`).forEach(el => {
+    document.querySelectorAll(`[data-tab-content="${getTabAktif()}"] [data-view-panel]`).forEach(el => {
         el.classList.toggle('hidden', el.dataset.viewPanel !== view);
     });
 }
 
-// ===== TAB SWITCH (Security/Timbangan/Sortasi/Lab) =====
-function switchTab(tabName) {
+function switchTab(tabName, resetView = true) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('tab-btn-active'));
     document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('tab-btn-active');
-
     document.querySelectorAll('[data-tab-content]').forEach(el => {
         el.classList.toggle('hidden', el.dataset.tabContent !== tabName);
     });
+    perbaruiTombolValidasi();
 
-    // Validasi button cuma tampil di tab Security
-    const btnValidasi = document.getElementById('btnValidasi');
-    if (btnValidasi) btnValidasi.classList.toggle('hidden', tabName !== 'security');
-
-    // sinkronkan URL supaya bisa reload di tab yang sama
     const url = new URL(window.location);
     url.searchParams.set('tab', tabName);
     window.history.replaceState({}, '', url);
 
-    setSidebarView('list'); // default balik ke List tiap ganti tab
+    if (resetView) setSidebarView('list');
 }
 
-// ===== COLLAPSIBLE SECTION (chevron) =====
+// Semua role bebas pindah tab; role hanya menentukan tab pertama saat login (?tab=...)
+document.addEventListener('DOMContentLoaded', () => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    switchTab(TAB_VALID.includes(tab) ? tab : 'security');
+});
+
 function toggleSection(id) {
-    const body = document.getElementById(`body-${id}`);
-    const chevron = document.getElementById(`chevron-${id}`);
-    body.classList.toggle('section-body-hidden');
-    chevron.classList.toggle('section-chevron-collapsed');
+    document.getElementById(`body-${id}`).classList.toggle('section-body-hidden');
+    document.getElementById(`chevron-${id}`).classList.toggle('section-chevron-collapsed');
 }
 
-// ===== INFO BAR: LOOKUP PLAT (tekan Tab) =====
-async function lookupPlat(inputEl) {
-    const noPlat = inputEl.value.trim().toUpperCase();
+// Tombol Validasi: hanya di tab Security, hilang setelah tervalidasi
+function perbaruiTombolValidasi() {
+    const btn = document.getElementById('btnValidasi');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !(getTabAktif() === 'security' && statusValidasi !== 'done'));
+}
+
+// ===== INPUT PLAT: Tab / Enter =====
+function handlePlatKey(e) {
+    if (e.key === 'Tab' && e.shiftKey) return;
+    if (e.key === 'Tab' || e.key === 'Enter') {
+        const val = e.target.value.trim();
+        if (!val) return;
+        e.preventDefault();          // cegah fokus loncat ke kotak lain
+        lookupPlat(val);
+    }
+}
+
+async function lookupPlat(noPlatRaw) {
+    const noPlat = (noPlatRaw || '').trim().toUpperCase();
     if (!noPlat) return;
 
     const formData = new FormData();
     formData.append('no_plat', noPlat);
 
-    const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
-    const data = await res.json();
+    let data;
+    try {
+        const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
+        data = await res.json();
+    } catch (err) {
+        alert('Gagal menghubungi server');
+        return;
+    }
+    if (data.error) { alert(data.error); return; }
+
+    data.no_plat = noPlat;
+    terapkanHasilLookup(data);
+}
+
+function terapkanHasilLookup(data) {
+    const tab = getTabAktif();
+
+    // Tiket hanya boleh dibuat di Security
+    if (data.status === 'DRAFT' && tab !== 'security') {
+        kosongkanInfoBar();
+        document.getElementById('infoPlat').value = data.no_plat;
+        alert('Plat ini belum punya tiket aktif. Daftarkan dulu di tab Security.');
+        window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
+        return;
+    }
+
+    document.getElementById('infoPlat').value = data.no_plat;
 
     if (data.status === 'ADA_TIKET') {
-        isiInfoBar(data);
-    } else if (data.status === 'DRAFT') {
-        isiInfoBarDraft(data, noPlat);
+        document.getElementById('infoNoTiket').value = data.no_tiket || '';
+        document.getElementById('infoNoDO').value = data.no_do || '';
+        document.getElementById('infoSupplier').value = data.supplier || '';
+        statusValidasi = 'done';
+    } else {
+        document.getElementById('infoNoTiket').value = data.no_tiket_reserved || '';
+        document.getElementById('infoNoDO').value = '';
+        document.getElementById('infoSupplier').value = '';
+        statusValidasi = 'draft';
     }
+    document.getElementById('infoSupir').value = data.driver ? data.driver.nama : '';
+    tampilkanFotoDriver(data.driver ? data.driver.foto_path : null);
+    perbaruiTombolValidasi();
 
     window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
 }
 
-function isiInfoBar(data) {
-    document.getElementById('infoNoTiket').value = data.no_tiket || '';
-    document.getElementById('infoNoDO').value = data.no_do || '';
-    document.getElementById('infoSupplier').value = data.supplier || '';
-    document.getElementById('infoSupir').value = data.driver ? data.driver.nama : '';
-    document.getElementById('btnValidasi').classList.add('hidden'); // sudah ada tiket, tidak perlu validasi lagi
+function kosongkanInfoBar() {
+    ['infoNoTiket', 'infoNoDO', 'infoSupplier', 'infoSupir'].forEach(id => document.getElementById(id).value = '');
+    tampilkanFotoDriver(null);
+    statusValidasi = 'none';
+    perbaruiTombolValidasi();
 }
 
-function isiInfoBarDraft(data, noPlat) {
-    document.getElementById('infoNoTiket').value = data.no_tiket_reserved || '';
-    document.getElementById('infoNoDO').value = '';
-    document.getElementById('infoSupplier').value = '';
-    document.getElementById('infoSupir').value = data.driver ? data.driver.nama : '';
-
-    const tabAktif = document.querySelector('.tab-btn-active').dataset.tab;
-    if (tabAktif === 'security') {
-        document.getElementById('btnValidasi').classList.remove('hidden');
-    }
+function tampilkanFotoDriver(path) {
+    const box = document.getElementById('infoFotoBox');
+    box.innerHTML = path
+        ? `<img src="/static/${path}" class="w-full h-full object-cover">`
+        : ICON_USER;
 }
 
-function kosongkanInfoBar(noPlat) {
-    document.getElementById('infoNoTiket').value = '';
-    document.getElementById('infoNoDO').value = '';
-    document.getElementById('infoSupplier').value = '';
-    document.getElementById('infoSupir').value = '';
-}
-
-// ===== TOMBOL VALIDASI DI INFO BAR =====
-function klikValidasi() {
-    const noTiket = document.getElementById('infoNoTiket').value;
-    if (!noTiket) {
-        // Belum ada tiket untuk plat ini -> arahkan ke Create Ticket (jalur 1)
-        setSidebarView('form');
+// ===== 3 JALUR MENUJU CREATE FORM =====
+// Jalur 1: tombol Validasi di bawah foto
+async function klikValidasi() {
+    const plat = document.getElementById('infoPlat').value.trim();
+    if (!plat) {
+        alert('Ketik nomor plat dulu');
+        document.getElementById('infoPlat').focus();
         return;
     }
-    // Sudah ada tiket -> trigger scan wajah (dipakai lagi di fase berikutnya)
-    alert('Memulai verifikasi wajah untuk tiket: ' + noTiket);
-}
-
-// ===== JALUR 2: TOMBOL AKSI DI TABEL LIST TIKET AKTIF =====
-function bukaFormDariTabel(noPlat) {
-    document.getElementById('infoPlat').value = noPlat;
-    lookupPlat(document.getElementById('infoPlat'));
+    if (!document.getElementById('infoNoTiket').value) await lookupPlat(plat);
     setSidebarView('form');
 }
+
+// Jalur 2: tombol Aksi di tabel List Ticket Aktif
+async function bukaFormDariTabel(noPlat) {
+    await lookupPlat(noPlat);
+    setSidebarView('form');
+}
+// Jalur 3: menu "Form" di sidebar (langsung setSidebarView('form'))

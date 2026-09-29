@@ -11,6 +11,11 @@ window.addEventListener('platLookup', (e) => {
         document.getElementById('tbProduk').value = data.produk;
         muatHistorySupplier(data.id_supplier);
         muatDataTimbanganTersimpan(data.no_tiket);
+    } else {
+        noTiketAktif = null;
+        idSupplierAktif = null;
+        ['tbJenisTransaksi', 'tbSupplier', 'tbProduk'].forEach(id => document.getElementById(id).value = '');
+        ['tbBruto', 'tbTara', 'tbNetto'].forEach(id => document.getElementById(id).textContent = '-');
     }
 });
 
@@ -28,6 +33,7 @@ async function simpanHasilTimbangan() {
     const res = await fetch('/api/timbang/simpan', { method: 'POST', body: formData });
     const data = await res.json();
     alert(data.message || data.error);
+    if (data.message) muatDataTimbanganTersimpan(noTiketAktif);
 }
 
 async function muatDataTimbanganTersimpan(noTiket) {
@@ -48,7 +54,7 @@ async function muatHistorySupplier(idSupplier) {
         return;
     }
     tbody.innerHTML = data.map(r => `
-        <tr><td class="table-cell">${r.no_plat}</td><td class="table-cell">${r.berat_bruto ?? '-'}</td>
+        <tr><td class="table-cell">${r.nama_supplier}</td><td class="table-cell">${r.berat_bruto ?? '-'}</td>
         <td class="table-cell">${r.berat_tara ?? '-'}</td><td class="table-cell">${r.berat_netto ?? '-'}</td></tr>
     `).join('');
 }
@@ -65,7 +71,7 @@ async function bukaScanQRTimbangan() {
         formData.append('no_tiket', decodedText.trim());
         const res = await fetch('/api/timbang/scan-qr', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.status === 'ADA_TIKET') window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
+        if (data.status === 'ADA_TIKET') terapkanHasilLookup(data);
         else alert(data.error || 'Tiket tidak ditemukan');
     });
 }
