@@ -38,8 +38,16 @@ FACE RECOGNITION
   No Tiket, No. Plat [ketik lalu Tab], Nomor DO / Supplier, Supir + kotak foto 112 putus-putus + tombol Validasi) ·
   **Tab header** (slate-900, tab aktif = sel penuh putih teks biru, bukan pil) · **Tab body** abu `slate-100` berisi section putih.
   Halaman hanya mengisi `{% block tab_content %}`. Frame Figma `00 · Base (base.html)` menunjukkan kerangka ini.
-- List & Form memakai info bar + 4 tab site. Halaman face recognition memakai base yang sama; info bar dikosongkan
-  (block di-override) dan tab header berisi satu tab judul halaman.
+- Sidebar: **List · Form · Face Recognition** (3 menu).
+  - List: info bar + tab Security | Timbangan | Sortasi | Laboratorium.
+  - Form: info bar + form Create Ticket, **tanpa tab**.
+  - Face Recognition: satu halaman tanpa info bar, tab **Absensi | Personel | Blacklist | Audit Log**.
+- Modal (frame `M01`–`M13`, ditumpuk di atas layar asalnya):
+  - Site, meniru `security_modals.html` / `cetak_tiket.html` / `lab.js` main: Cetak QR Code, Cetak Tiket 80 mm,
+    Tambah Supir Baru, Update Supir & Truk (Ganti Supir / Edit Data Supir / Supir Truk / Kontrak Truk),
+    Update Standar Mutu, Cetak COA.
+  - Face Recognition: Personel Tambah / Update / Hapus; Blacklist hanya Tambah (permanen, tanpa Update/Hapus).
+    Absensi & Audit Log tidak punya tambah/update/hapus.
 - Aksi List Ticket Aktif mengikuti main: link **Buka** (biru, membuka Form) dan **Cetak QR** (hijau); status = badge amber `status_alur`
   (SECURITY_REGISTER, TIMBANG_1, TIMBANG_2).
 - History Timbangan = **per supplier, 7 hari terakhir** (supplier dari tiket di info bar): Tanggal, No. Ticket, No. Plat, Produk,
