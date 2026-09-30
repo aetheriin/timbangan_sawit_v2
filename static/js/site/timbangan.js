@@ -19,26 +19,29 @@ window.addEventListener('platLookup', (e) => {
     }
 });
 
-setInterval(async () => {
-    if (document.querySelector('.tab-btn-active').dataset.tab !== 'timbangan') return;
-    const res = await fetch('/api/timbang/status');
-    const data = await res.json();
-    document.getElementById('beratLiveDisplay').textContent = `${data.berat} Kg`;
+// ===== BERAT LIVE =====
+// Polling berurutan (tidak menumpuk), hanya saat tab Timbangan dibuka dan tab browser terlihat.
+const pollingBerat = new Poller(async () => {
+    const r = await Api.get('/api/timbang/status', { timeout: 3000 });
+    const el = document.getElementById('beratLiveDisplay');
+    el.textContent = r.ok ? `${r.data.berat} Kg` : '— Kg';
+    el.classList.toggle('opacity-40', !r.ok);         // koneksi timbangan / server terputus
 }, 500);
 
-async function simpanHasilTimbangan() {
-    if (!noTiketAktif) { alert('Pilih plat/tiket dulu di kolom atas'); return; }
-    const formData = new FormData();
-    formData.append('no_tiket', noTiketAktif);
-    const res = await fetch('/api/timbang/simpan', { method: 'POST', body: formData });
-    const data = await res.json();
-    alert(data.message || data.error);
-    if (data.message) muatDataTimbanganTersimpan(noTiketAktif);
+window.addEventListener('tabChange', e => {
+    if (e.detail === 'timbangan') pollingBerat.start();
+    else pollingBerat.stop();
+});
+
+async function simpanHasilTimbangan(btn) {
+    if (!noTiketAktif) { Notif.peringatan('Pilih plat/tiket dulu di kolom atas'); return; }
+    const data = await denganTombol(btn, () => kirimForm('/api/timbang/simpan', { no_tiket: noTiketAktif }));
+    if (tampilkanHasil(data)) muatDataTimbanganTersimpan(noTiketAktif);
 }
 
 async function muatDataTimbanganTersimpan(noTiket) {
-    const res = await fetch(`/api/timbang/data/${noTiket}`);
-    const data = await res.json();
+    const data = await ambilJson(`/api/timbang/data/${encodeURIComponent(noTiket)}`);
+    if (data.error) { Notif.gagal(data.error); return; }
     document.getElementById('tbBruto').textContent = data.berat_bruto ?? '-';
     document.getElementById('tbTara').textContent = data.berat_tara ?? '-';
     document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
@@ -48,9 +51,9 @@ async function muatDataTimbanganTersimpan(noTiket) {
 
 async function muatHistorySupplier(idSupplier) {
     if (!idSupplier) return;
-    const res = await fetch(`/api/history-timbangan-supplier?id_supplier=${idSupplier}`);
-    const data = await res.json();
+    const data = await ambilJson(`/api/history-timbangan-supplier?id_supplier=${encodeURIComponent(idSupplier)}`);
     const tbody = document.getElementById('tabelHistoryTimbangan');
+    if (data.error) { tbody.innerHTML = barisKosong(4, data.error); return; }
     if (!data.length) {
         tbody.innerHTML = `<tr><td colspan="4" class="table-cell text-slate-400 text-center py-6">Belum ada riwayat</td></tr>`;
         return;

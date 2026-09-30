@@ -45,6 +45,7 @@ async function muatAuditSecurity() {
             <td class="table-cell">${escapeHtml(r.details.keterangan || Object.entries(r.details).map(([k, v]) => `${k}: ${v}`).join(', '))}</td>
             <td class="table-cell">${escapeHtml(r.ip_address || '-')}</td>
         </tr>`).join('') || barisKosong(6, 'Tidak ada aktivitas pada rentang ini');
+    catatanBatas(tbody, data.length, 300, 6);
 }
 
 async function muatAuditPersonel() {
@@ -65,4 +66,5 @@ async function muatAuditPersonel() {
             <td class="table-cell">${escapeHtml(r.oleh)}</td>
         </tr>`;
     }).join('') || barisKosong(5, 'Tidak ada perubahan pada rentang ini');
+    catatanBatas(tbody, data.length, 300, 5);
 }

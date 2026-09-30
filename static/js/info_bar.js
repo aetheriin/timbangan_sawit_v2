@@ -25,17 +25,9 @@ function handlePlatKey(e) {
 
 // No. Tiket (hasil scanner barcode / QR) -> cari tiket aktif
 async function lookupTiket(noTiket) {
-    const formData = new FormData();
-    formData.append('no_tiket', noTiket);
-    let data;
-    try {
-        data = await (await fetch('/api/timbang/scan-qr', { method: 'POST', body: formData })).json();
-    } catch (err) {
-        alert('Gagal menghubungi server');
-        return;
-    }
+    const data = await kirimForm('/api/timbang/scan-qr', { no_tiket: noTiket });
     if (data.status === 'ADA_TIKET') terapkanHasilLookup(data);
-    else alert(data.error || 'Tiket tidak ditemukan');
+    else Notif.gagal(data.error || 'Tiket tidak ditemukan');
 }
 
 async function lookupPlat(noPlatRaw) {
@@ -44,18 +36,8 @@ async function lookupPlat(noPlatRaw) {
     // Scanner barcode yang diarahkan ke kolom plat akan mengetik No. Tiket
     if (noPlat.startsWith('TKT-')) { await lookupTiket(noPlat); return; }
 
-    const formData = new FormData();
-    formData.append('no_plat', noPlat);
-
-    let data;
-    try {
-        const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
-        data = await res.json();
-    } catch (err) {
-        alert('Gagal menghubungi server');
-        return;
-    }
-    if (data.error) { alert(data.error); return; }
+    const data = await kirimForm('/api/plat/lookup', { no_plat: noPlat });
+    if (data.error) { Notif.gagal(data.error); return; }
 
     data.no_plat = data.no_plat || noPlat;   // server mengembalikan format baku, mis. 'BM 1455 JJ'
     terapkanHasilLookup(data);
@@ -68,7 +50,7 @@ function terapkanHasilLookup(data) {
     if (data.status === 'DRAFT' && tab !== 'security') {
         kosongkanInfoBar();
         document.getElementById('infoPlat').value = data.no_plat;
-        alert('Plat ini belum punya tiket aktif. Daftarkan dulu di tab Security.');
+        Notif.peringatan('Plat ini belum punya tiket aktif. Daftarkan dulu di tab Security.');
         window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
         return;
     }
@@ -116,7 +98,7 @@ function tampilkanFotoDriver(path) {
 async function klikValidasi() {
     const plat = document.getElementById('infoPlat').value.trim();
     if (!plat) {
-        alert('Ketik nomor plat dulu');
+        Notif.peringatan('Ketik nomor plat dulu');
         document.getElementById('infoPlat').focus();
         return;
     }

@@ -14,23 +14,6 @@ function escapeHtml(teks) {
     return String(teks ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// POST form sederhana (data = objek), hasil JSON
-function kirimForm(url, data) {
-    const formData = new FormData();
-    Object.entries(data).forEach(([k, v]) => formData.append(k, v ?? ''));
-    return fetch(url, { method: 'POST', body: formData }).then(r => r.json());
-}
-
-// GET JSON; kembalikan { error } bila server / jaringan gagal
-async function ambilJson(url) {
-    try {
-        const res = await fetch(url);
-        return await res.json();
-    } catch (err) {
-        return { error: 'Gagal menghubungi server' };
-    }
-}
-
 // ===== FORMAT PERSONEL =====
 // ID tidak pernah berubah (006), Kode diisi HO (PRGBS-001). Tampilan: "Kode · Nama" atau "ID 014 · Nama".
 function formatIdPersonel(id) {
@@ -66,6 +49,13 @@ function badgeKategori(kategori) {
 
 function kodeAtauKosong(kode) {
     return kode ? escapeHtml(kode) : '<span class="text-amber-700 font-medium">— belum ada kode</span>';
+}
+
+// Daftar dibatasi server (mis. 200 baris terbaru) supaya ringan; beri tahu user bila batas tercapai
+function catatanBatas(tbody, jumlah, batas, kolom) {
+    if (jumlah < batas) return;
+    tbody.insertAdjacentHTML('beforeend', `<tr><td colspan="${kolom}" class="table-cell text-center text-xs text-slate-500 py-3">
+        Menampilkan ${batas} data terbaru. Gunakan pencarian / filter untuk data lain.</td></tr>`);
 }
 
 function barisKosong(kolom, teks) {

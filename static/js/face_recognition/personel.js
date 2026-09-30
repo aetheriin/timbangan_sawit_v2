@@ -55,6 +55,7 @@ async function muatPersonel() {
                 ${p.is_blacklisted ? '' : `<button type="button" onclick="bukaHapusPersonel(${p.id_personel})" class="link-aksi text-red-600">Hapus</button>`}
             </td>
         </tr>`).join('') || barisKosong(8, 'Belum ada personel');
+    catatanBatas(tbody, data.length, 200, 8);
 }
 
 // ===== MODAL TAMBAH / UPDATE =====
@@ -64,6 +65,7 @@ function resetFormPersonel() {
     document.getElementById('personelFile').value = '';
     document.getElementById('personelCekPesan').textContent = '';
     fotoPersonel = null;
+    lepasPreviewPersonel();
     tampilkanPreviewPersonel(null);
     setSemuaCek(null);
     setSumberFoto('UPLOAD');
@@ -119,6 +121,8 @@ async function bukaEditPersonel(id) {
 
 function tutupModalPersonel() {
     Kamera.stop();
+    lepasPreviewPersonel();
+    fotoPersonel = null;
     closeModal('modalPersonel');
 }
 
@@ -138,12 +142,26 @@ async function setSumberFoto(sumber) {
         try {
             await Kamera.mulai(document.getElementById('personelVideo'));
         } catch (err) {
-            alert('Kamera tidak bisa dibuka. Izinkan akses kamera atau gunakan Upload Foto.');
+            Notif.gagal('Kamera tidak bisa dibuka. Izinkan akses kamera atau gunakan Upload Foto.');
             setSumberFoto('UPLOAD');
         }
     } else {
         Kamera.stop();
     }
+}
+
+// Object URL preview dilepas setiap ganti foto / tutup modal supaya tidak menumpuk di memori
+let urlPreviewPersonel = null;
+
+function lepasPreviewPersonel() {
+    if (urlPreviewPersonel) URL.revokeObjectURL(urlPreviewPersonel);
+    urlPreviewPersonel = null;
+}
+
+function tampilkanPreviewBlob(blob) {
+    lepasPreviewPersonel();
+    urlPreviewPersonel = URL.createObjectURL(blob);
+    tampilkanPreviewPersonel(urlPreviewPersonel);
 }
 
 function tampilkanPreviewPersonel(src) {
@@ -152,10 +170,11 @@ function tampilkanPreviewPersonel(src) {
         : '<i class="fa-solid fa-user text-slate-400 text-3xl"></i>';
 }
 
-function pilihFotoPersonel(file) {
+async function pilihFotoPersonel(file) {
     if (!file) return;
-    fotoPersonel = file;
-    tampilkanPreviewPersonel(URL.createObjectURL(file));
+    if (file.size > 10 * 1024 * 1024) { Notif.peringatan('Ukuran foto maksimal 10 MB'); return; }
+    fotoPersonel = await kecilkanFoto(file);          // dikompres di browser sebelum dikirim
+    tampilkanPreviewBlob(fotoPersonel);
     cekFotoPersonel();
 }
 
@@ -165,9 +184,9 @@ function dropFotoPersonel(e) {
 }
 
 async function ambilFotoKamera() {
-    const blob = await Kamera.ambilFrame(document.getElementById('personelVideo'));
+    const blob = await Kamera.ambilFrame(document.getElementById('personelVideo'), 0.9, 1024);
     fotoPersonel = new File([blob], 'kamera.jpg', { type: 'image/jpeg' });
-    tampilkanPreviewPersonel(URL.createObjectURL(blob));
+    tampilkanPreviewBlob(fotoPersonel);
     cekFotoPersonel();
 }
 
@@ -192,13 +211,8 @@ async function cekFotoPersonel() {
     formData.append('foto', fotoPersonel, fotoPersonel.name || 'foto.jpg');
     if (idPersonelEdit) formData.append('id_personel', idPersonelEdit);
 
-    let hasil;
-    try {
-        hasil = await (await fetch('/api/personel/cek-foto', { method: 'POST', body: formData })).json();
-    } catch (err) {
-        hasil = { error: 'Gagal menghubungi server' };
-    }
-    if (hasil.error) {
+    const hasil = await kirimForm('/api/personel/cek-foto', formData, { timeout: TIMEOUT_WAJAH_MS });
+    if (hasil.error && hasil.satu_wajah === undefined) {
         setSemuaCek(null);
         document.getElementById('personelCekPesan').textContent = hasil.error;
         return;
@@ -210,7 +224,7 @@ async function cekFotoPersonel() {
 }
 
 async function simpanPersonel() {
-    if (modePersonel === 'tambah' && !fotoPersonel) { alert('Foto wajah wajib diisi (upload atau kamera)'); return; }
+    if (modePersonel === 'tambah' && !fotoPersonel) { Notif.peringatan('Foto wajah wajib diisi (upload atau kamera)'); return; }
     const formData = new FormData();
     [['kode_personel', 'personelKode'], ['nama', 'personelNama'], ['nik', 'personelNik'],
      ['kategori', 'personelKategori'], ['no_sim', 'personelSim']]
@@ -220,24 +234,17 @@ async function simpanPersonel() {
 
     const url = modePersonel === 'tambah' ? '/api/personel/tambah' : `/api/personel/${idPersonelEdit}/update`;
     const btn = document.getElementById('btnSimpanPersonel');
-    btn.disabled = true;
-    let data;
-    try {
-        data = await (await fetch(url, { method: 'POST', body: formData })).json();
-    } catch (err) {
-        data = { error: 'Gagal menghubungi server' };
-    }
-    btn.disabled = false;
+    const data = await denganTombol(btn, () => kirimForm(url, formData, { timeout: TIMEOUT_WAJAH_MS }), 'Menyimpan...');
     if (data.error) {
         if (data.cek) {
             setCek('satu_wajah', data.cek.satu_wajah);
             setCek('tidak_mirip_personel', data.cek.tidak_mirip_personel ?? null);
             setCek('tidak_mirip_blacklist', data.cek.tidak_mirip_blacklist ?? null);
         }
-        alert(data.error);
+        Notif.gagal(data.error);
         return;
     }
-    alert(data.message);
+    Notif.sukses(data.message);
     tutupModalPersonel();
     muatPersonel();
 }
@@ -254,9 +261,9 @@ function bukaHapusPersonel(id) {
 }
 
 async function konfirmasiHapusPersonel() {
-    const data = await kirimForm(`/api/personel/${idPersonelHapus}/hapus`, {});
-    alert(data.message || data.error);
-    if (data.message) {
+    const btn = document.getElementById('btnKonfirmasiHapus');
+    const data = await denganTombol(btn, () => kirimForm(`/api/personel/${idPersonelHapus}/hapus`, {}), 'Menghapus...');
+    if (tampilkanHasil(data)) {
         closeModal('modalHapusPersonel');
         muatPersonel();
     }

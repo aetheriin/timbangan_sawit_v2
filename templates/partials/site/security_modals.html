@@ -28,7 +28,7 @@
                 <button id="btnRekamTambah" onclick="toggleRekamWajah('tambah')" class="btn-success">Rekam Wajah</button>
             </div>
 
-            <button onclick="simpanSupirBaru()" class="btn-primary w-full">Simpan Data</button>
+            <button onclick="simpanSupirBaru(this)" class="btn-primary w-full">Simpan Data</button>
         </div>
     </div>
 </div>
@@ -85,7 +85,7 @@
                 <p class="text-xs text-slate-400 mt-2">Opsional, hanya jika wajah perlu direkam ulang</p>
             </div>
 
-            <button id="btnSimpanEdit" onclick="simpanEditIdentitas()"
+            <button id="btnSimpanEdit" onclick="simpanEditIdentitas(this)"
                 class="btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed">Simpan Perubahan</button>
         </div>
 
@@ -189,7 +189,7 @@
         <div><label class="field-label">Maks Kotoran (%)</label><input type="number" id="stdInputKotoran" class="input-field"></div>
         <div class="flex gap-3">
             <button onclick="closeModal('modalStandarMutu')" class="btn-secondary flex-1">Batal</button>
-            <button onclick="simpanStandarMutu()" class="btn-primary flex-1">Simpan</button>
+            <button onclick="simpanStandarMutu(this)" class="btn-primary flex-1">Simpan</button>
         </div>
     </div>
 </div>

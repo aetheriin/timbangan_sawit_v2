@@ -6,9 +6,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function muatHistoryDriver() {
-    const res = await fetch('/api/security/history-driver');
-    const data = await res.json();
-    document.getElementById('tabelHistoryDriver').innerHTML = data.map(r => `
+    const data = await ambilJson('/api/security/history-driver');
+    const tbody = document.getElementById('tabelHistoryDriver');
+    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
+    tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell">${escapeHtml(r.no_plat)}</td>
             <td class="table-cell">${formatIdPersonel(r.id_driver)}</td>
@@ -211,10 +212,9 @@ window.addEventListener('platLookup', (e) => {
 });
 
 async function muatListTicketAktif() {
-    const res = await fetch('/api/security/list-tiket-aktif');
-    const data = await res.json();
-
+    const data = await ambilJson('/api/security/list-tiket-aktif');
     const tbody = document.getElementById('tabelTicketAktif');
+    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
     if (!data.length) {
         tbody.innerHTML = `<tr><td colspan="5" class="table-cell text-slate-400 text-center py-8">Belum ada tiket aktif</td></tr>`;
         return;
@@ -240,7 +240,7 @@ function mulaiValidasiAwal() {
     const wajib = ['formNoPlat', 'formNoTiket', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
     for (const id of wajib) {
         if (!document.getElementById(id).value.trim()) {
-            alert('Lengkapi plat (tekan Tab), jenis transaksi, supplier, dan produk dulu');
+            Notif.peringatan('Lengkapi plat (tekan Tab), jenis transaksi, supplier, dan produk dulu');
             return;
         }
     }
@@ -255,58 +255,74 @@ function mulaiValidasiAwal() {
 }
 
 // ===== SCAN WAJAH (reuse pola kiosk trigger dari project sebelumnya) =====
-// ===== SCAN WAJAH =====
+// ===== SCAN WAJAH (kamera kiosk) =====
+// Polling berurutan tiap 1 detik, maksimal 90 detik, berhenti saat form ditinggal.
+const BATAS_SCAN_WAJAH_MS = 90000;
 let pollingScanWajah = null;
+
+function hentikanScanWajah(pesan) {
+    if (pollingScanWajah) pollingScanWajah.stop();
+    pollingScanWajah = null;
+    document.getElementById('btnScanWajah').disabled = statusForm !== 'validasi';
+    if (pesan) document.getElementById('statusScanWajah').textContent = pesan;
+}
 
 async function mulaiScanWajah() {
     const status = document.getElementById('statusScanWajah');
     const btn = document.getElementById('btnScanWajah');
+    const mulai = await kirimForm('/api/kamera/start', {});
+    if (mulai.error) { Notif.gagal(mulai.error); return; }
     btn.disabled = true;
     status.textContent = 'Menunggu kamera kiosk... minta supir menghadap kamera.';
-    await fetch('/api/kamera/start', { method: 'POST' });
 
-    const cekVerifikasi = async () => (await fetch('/api/status-verifikasi')).json();
-
-    if (pollingScanWajah) clearInterval(pollingScanWajah);
-    pollingScanWajah = setInterval(async () => {
-        let data = await cekVerifikasi();
-
+    if (pollingScanWajah) pollingScanWajah.stop();
+    pollingScanWajah = new Poller(async () => {
+        let data = await ambilJson('/api/status-verifikasi', { timeout: 5000 });
+        if (data.error) return;                      // coba lagi di putaran berikutnya
         if (!data.terverifikasi) {
-            const kamera = await (await fetch('/api/kamera/status')).json();
-            if (kamera.is_active) return;            // kiosk masih bekerja
-            data = await cekVerifikasi();            // cek ulang supaya tidak kalah cepat dengan server
+            const kamera = await ambilJson('/api/kamera/status', { timeout: 5000 });
+            if (kamera.error || kamera.is_active) return;     // kiosk masih bekerja
+            data = await ambilJson('/api/status-verifikasi', { timeout: 5000 });   // cek ulang supaya tidak kalah cepat
             if (!data.terverifikasi) {
-                clearInterval(pollingScanWajah);
-                btn.disabled = false;
-                status.textContent = 'Tidak dikenali atau dibatalkan. Klik "Tambah" untuk daftar supir baru.';
+                hentikanScanWajah('Tidak dikenali atau dibatalkan. Klik "Tambah" untuk daftar supir baru.');
                 return;
             }
         }
+        hentikanScanWajah();
+        terapkanHasilScanWajah(data);
+    }, 1000, {
+        aktif: () => statusForm === 'validasi',
+        maksDurasiMs: BATAS_SCAN_WAJAH_MS,
+        onHabis: () => {
+            hentikanScanWajah('Waktu scan habis. Klik "Mulai Scan Wajah" untuk mencoba lagi.');
+            kirimForm('/api/kamera/batal', {});
+        },
+    });
+    pollingScanWajah.start();
+}
 
-        clearInterval(pollingScanWajah);
-        btn.disabled = false;
-
-        const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
-        if (data.is_blacklisted) {
-            status.innerHTML = `<span class="text-red-600 font-semibold">${escapeHtml(nama)} masuk BLACKLIST. Tiket tidak dapat dibuat.</span>`;
-            tampilkanBannerBlacklist({ judul: `SUPIR ${nama} MASUK BLACKLIST — tiket tidak dapat dibuat`, detail: 'Tercatat di Audit Log (TRY_SCAN_BLACKLIST).' });
-            setSupirTerverifikasi(false);
-            return;
-        }
-        if (data.kategori && data.kategori !== 'DRIVER') {
-            status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml(data.kategori)}, bukan supir.</span>`;
-            return;
-        }
-        const dipilih = document.getElementById('driverIdDriver').value;
-        if (dipilih && String(dipilih) !== String(data.id_driver)) {
-            status.innerHTML = `<span class="text-red-600">Wajah terbaca sebagai <b>${data.nama}</b>, tidak cocok dengan supir terpilih. Pilih supir yang benar lewat "Update", lalu scan ulang.</span>`;
-            return;
-        }
-        isiDriver(data);
-        tandaiBorderDriver('hijau');
-        status.textContent = 'Terverifikasi: ' + nama;
-        setSupirTerverifikasi(true);
-    }, 1000);
+function terapkanHasilScanWajah(data) {
+    const status = document.getElementById('statusScanWajah');
+    const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
+    if (data.is_blacklisted) {
+        status.innerHTML = `<span class="text-red-600 font-semibold">${escapeHtml(nama)} masuk BLACKLIST. Tiket tidak dapat dibuat.</span>`;
+        tampilkanBannerBlacklist({ judul: `SUPIR ${nama} MASUK BLACKLIST — tiket tidak dapat dibuat`, detail: 'Tercatat di Audit Log (TRY_SCAN_BLACKLIST).' });
+        setSupirTerverifikasi(false);
+        return;
+    }
+    if (data.kategori && data.kategori !== 'DRIVER') {
+        status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml(data.kategori)}, bukan supir.</span>`;
+        return;
+    }
+    const dipilih = document.getElementById('driverIdDriver').value;
+    if (dipilih && String(dipilih) !== String(data.id_driver)) {
+        status.innerHTML = `<span class="text-red-600">Wajah terbaca sebagai <b>${escapeHtml(nama)}</b>, tidak cocok dengan supir terpilih. Pilih supir yang benar lewat "Update", lalu scan ulang.</span>`;
+        return;
+    }
+    isiDriver(data);
+    tandaiBorderDriver('hijau');
+    status.textContent = 'Terverifikasi: ' + nama;
+    setSupirTerverifikasi(true);
 }
 
 
@@ -359,7 +375,7 @@ function bukaTambahSupir(konteks) {
     openModal('modalTambahSupir');
 }
 
-async function simpanSupirBaru() {
+async function simpanSupirBaru(btn) {
     const formData = new FormData();
     formData.append('nama', document.getElementById('tambahNama').value.trim());
     formData.append('nik', document.getElementById('tambahNik').value.trim());
@@ -368,10 +384,9 @@ async function simpanSupirBaru() {
         formData.append('foto', streamState['tambahBlob'], 'capture.jpg');
     }
 
-    const res = await fetch('/api/driver/tambah', { method: 'POST', body: formData });
-    const data = await res.json();
-    alert(data.message || data.error);
-    if (data.message) {
+    const data = await denganTombol(btn, () => kirimForm('/api/driver/tambah', formData, { timeout: TIMEOUT_WAJAH_MS }),
+                                    'Memeriksa wajah...');
+    if (tampilkanHasil(data)) {
         closeModal('modalTambahSupir');
         if (konteksTambahSupir === 'kendaraan') {      // dari modal Update -> tab Supir Truk
             await daftarkanSupirKeTruk(data.id_driver);
@@ -444,9 +459,8 @@ let driverHasilCari = null;
 async function cariSupirByNik(inputEl) {
     const nik = inputEl.value.trim();
     if (!nik) return;
-    const formData = new FormData();
-    formData.append('nik', nik);
-    const data = await (await fetch('/api/driver/cari-by-nik', { method: 'POST', body: formData })).json();
+    const data = await kirimForm('/api/driver/cari-by-nik', { nik });
+    if (data.error) { Notif.gagal(data.error); return; }
 
     if (data.status === 'DITEMUKAN') {
         driverHasilCari = data;             // id_driver, kode_personel, nik, nama, no_sim, is_blacklisted, ...
@@ -479,21 +493,23 @@ function gantiSupirTiket(dr) {
 }
 
 // --- mode Edit Data Diri / SIM ---
-async function simpanEditIdentitas() {
+async function simpanEditIdentitas(btn) {
     const idDriver = document.getElementById('driverIdDriver').value;
     if (!idDriver) return;
 
     const nama = document.getElementById('updateNama').value.trim();
     const nik = document.getElementById('updateNik').value.trim();
     const sim = document.getElementById('updateSim').value.trim();
-    if (!nama || !nik || !sim) { alert('Nama, NIK, dan SIM wajib diisi'); return; }
+    if (!nama || !nik || !sim) { Notif.peringatan('Nama, NIK, dan SIM wajib diisi'); return; }
 
     const berubah = nama !== document.getElementById('driverNama').value
         || nik !== document.getElementById('driverNik').value
         || sim !== document.getElementById('driverSim').value
         || streamState['updateBlob'];
-    if (!berubah) { alert('Tidak ada perubahan untuk disimpan'); return; }
-    if (!confirm('Perubahan identitas tercatat permanen di audit log. Lanjutkan?')) return;
+    if (!berubah) { Notif.info('Tidak ada perubahan untuk disimpan'); return; }
+    const ok = await Dialog.konfirmasi({ judul: 'Simpan perubahan identitas?', teksYa: 'Simpan',
+        pesan: 'Perubahan identitas supir tercatat permanen di Audit Log dan supir ditandai "Pernah Diperbarui".' });
+    if (!ok) return;
 
     const formData = new FormData();
     formData.append('id_driver', idDriver);
@@ -502,10 +518,10 @@ async function simpanEditIdentitas() {
     formData.append('no_sim', sim);
     if (streamState['updateBlob']) formData.append('foto', streamState['updateBlob'], 'capture.jpg');
 
-    const data = await (await fetch('/api/driver/update-identitas', { method: 'POST', body: formData })).json();
-    if (!data.driver) { alert(data.error); return; }
+    const data = await denganTombol(btn, () => kirimForm('/api/driver/update-identitas', formData, { timeout: TIMEOUT_WAJAH_MS }));
+    if (!data.driver) { Notif.gagal(data.error || 'Gagal menyimpan perubahan'); return; }
 
-    alert(data.message);
+    Notif.sukses(data.message);
     isiDriver(data.driver);
     perbaruiTombolSubmit();
     document.getElementById('infoSupir').value = data.driver.nama;
@@ -515,9 +531,9 @@ async function simpanEditIdentitas() {
 }
 
 // ===== SUBMIT CREATE TICKET =====
-async function submitCreateTiket() {
+async function submitCreateTiket(btn) {
     const idDriver = document.getElementById('driverIdDriver').value;
-    if (!idDriver) { alert('Scan wajah / pilih supir dulu'); return; }
+    if (!idDriver) { Notif.peringatan('Scan wajah / pilih supir dulu'); return; }
 
     const formData = new FormData();
     ['no_tiket:formNoTiket', 'no_plat:formNoPlat', 'no_stnk:formNoStnk', 'no_do:formNoDo',
@@ -526,17 +542,17 @@ async function submitCreateTiket() {
     formData.append('id_driver', idDriver);
     if (saranDriver) formData.append('id_driver_saran', saranDriver.id_driver);   // beda supir -> OVERRIDE_DRIVER
 
-    const res = await fetch('/api/security/buat-tiket', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.no_tiket) {
-        alert(data.message);
-        muatListTicketAktif();
-        muatHistoryDriver();
-        lookupPlat(document.getElementById('formNoPlat').value);  // base bar jadi ADA_TIKET lengkap
-        if (confirm('Cetak QR tiket sekarang?')) bukaHalamanCetak(data.no_tiket);
-    } else {
-        alert(data.error);
-    }
+    const data = await denganTombol(btn, () => kirimForm('/api/security/buat-tiket', formData), 'Membuat tiket...');
+    perbaruiTombolSubmit();                  // kembalikan status aktif/nonaktif tombol Submit
+    if (!data.no_tiket) { Notif.gagal(data.error || 'Tiket gagal dibuat'); return; }
+
+    Notif.sukses(data.message);
+    muatListTicketAktif();
+    muatHistoryDriver();
+    lookupPlat(document.getElementById('formNoPlat').value);  // base bar jadi ADA_TIKET lengkap
+    const cetak = await Dialog.konfirmasi({ judul: 'Tiket berhasil dibuat', teksYa: 'Cetak QR', teksBatal: 'Nanti',
+        pesan: `No. tiket ${data.no_tiket}. Cetak QR tiket sekarang?` });
+    if (cetak) bukaHalamanCetak(data.no_tiket);
 }
 
 // ===== TAMPILAN DRIVER (Section 2) =====
@@ -572,13 +588,8 @@ function openCetakQRDariTabel(noPlat) {
 
 async function lookupPlatUntukQR(inputEl) {
     const noPlat = inputEl.value.trim().toUpperCase();
-    const formData = new FormData();
-    formData.append('no_plat', noPlat);
-
-    const res = await fetch('/api/plat/lookup', { method: 'POST', body: formData });
-    const data = await res.json();
-
-    if (data.error) { alert(data.error); return; }
+    const data = await kirimForm('/api/plat/lookup', { no_plat: noPlat });
+    if (data.error) { Notif.gagal(data.error); return; }
     if (data.status === 'ADA_TIKET') {
         inputEl.value = data.no_plat;
         document.getElementById('qrNama').textContent = data.driver.nama;
@@ -596,7 +607,7 @@ async function lookupPlatUntukQR(inputEl) {
     } else {
         qrTiketAktif = null;
         document.getElementById('printAreaQR').classList.add('hidden');
-        alert('Plat tidak ditemukan / belum ada tiket aktif');
+        Notif.peringatan('Plat tidak ditemukan / belum ada tiket aktif');
     }
 }
 
@@ -604,10 +615,10 @@ let qrTiketAktif = null;
 
 function bukaHalamanCetak(noTiket) {
     const w = window.open(`/cetak/tiket/${encodeURIComponent(noTiket)}`, '_blank', 'width=420,height=720');
-    if (!w) alert('Pop-up diblokir browser. Izinkan pop-up untuk alamat ini, lalu klik Cetak QR lagi.');
+    if (!w) Notif.peringatan('Pop-up diblokir browser. Izinkan pop-up untuk alamat ini, lalu klik Cetak QR lagi.');
 }
 
 function cetakQR() {
-    if (!qrTiketAktif) { alert('Ketik plat lalu tekan Tab dulu'); return; }
+    if (!qrTiketAktif) { Notif.peringatan('Ketik plat lalu tekan Tab dulu'); return; }
     bukaHalamanCetak(qrTiketAktif);
 }

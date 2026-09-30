@@ -1,0 +1,15 @@
+{# Wadah toast & dialog konfirmasi (dipakai ui.js: Notif, Dialog) #}
+<div id="notifWadah" class="notif-wadah" aria-live="polite"></div>
+
+<div id="dialogKonfirmasi" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dialogJudul">
+    <div class="modal-box">
+        <div class="p-6 space-y-3">
+            <h3 id="dialogJudul" class="font-bold text-slate-800 text-base"></h3>
+            <p id="dialogPesan" class="text-sm text-slate-600 whitespace-pre-line"></p>
+            <div class="flex gap-3 pt-2">
+                <button type="button" id="dialogBatal" class="btn-secondary flex-1" onclick="Dialog.jawab(false)">Batal</button>
+                <button type="button" id="dialogYa" class="btn-primary flex-1" onclick="Dialog.jawab(true)">Ya</button>
+            </div>
+        </div>
+    </div>
+</div>

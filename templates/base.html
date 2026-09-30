@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Weighbridge{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/inter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
     {% block extra_head %}{% endblock %}
 </head>
@@ -41,11 +41,15 @@
 </div>
 
 {% block modals %}{% endblock %}
+{% include "partials/layout/notifikasi.html" %}
 
-<script src="{{ url_for('static', filename='js/common.js') }}"></script>
-<script src="{{ url_for('static', filename='js/base.js') }}"></script>
+{# Semua script defer: diunduh paralel, dijalankan berurutan setelah HTML selesai dibaca #}
+<script defer src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/base.js') }}"></script>
 {% block info_bar_script %}
-<script src="{{ url_for('static', filename='js/info_bar.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/info_bar.js') }}"></script>
 {% endblock %}
 {% block extra_scripts %}{% endblock %}
 </body>

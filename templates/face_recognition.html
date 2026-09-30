@@ -24,9 +24,9 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
-<script src="{{ url_for('static', filename='js/face_recognition/absensi.js') }}"></script>
-<script src="{{ url_for('static', filename='js/face_recognition/personel.js') }}"></script>
-<script src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
-<script src="{{ url_for('static', filename='js/face_recognition/audit.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/absensi.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/personel.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/audit.js') }}"></script>
 {% endblock %}

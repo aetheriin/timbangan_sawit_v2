@@ -21,13 +21,19 @@ window.addEventListener('platLookup', (e) => {
     keputusanDipilih = null;
     setKeputusan(null);
     if (tiketPks) {
-        fetch(`/api/lab/standar/${data.id_produk}`).then(r => r.json()).then(tampilkanStandar);
+        muatStandar(data.id_produk);
     } else {
         tampilkanStandar({});
         document.getElementById('labStatusLive').textContent = '-';
     }
     muatHistoryLab();
 });
+
+async function muatStandar(idProduk) {
+    const std = await ambilJson(`/api/lab/standar/${idProduk}`);
+    if (std.error) { Notif.gagal(std.error); return; }
+    tampilkanStandar(std);
+}
 
 function cekStandar() {
     if (standarAktif.maks_ffa == null) return;
@@ -48,9 +54,9 @@ function setKeputusan(val) {
         ? 'bg-red-600 text-white border-red-600' : 'text-red-600 border-red-300 hover:bg-red-50');
 }
 
-async function submitLab() {
-    if (!noTiketLabAktif) { alert('Pilih plat/tiket dulu'); return; }
-    if (!keputusanDipilih) { alert('Pilih Approve/Reject dulu'); return; }
+async function submitLab(btn) {
+    if (!noTiketLabAktif) { Notif.peringatan('Pilih plat/tiket dulu'); return; }
+    if (!keputusanDipilih) { Notif.peringatan('Pilih Approve/Reject dulu'); return; }
     const formData = new FormData();
     formData.append('no_tiket', noTiketLabAktif);
     formData.append('ffa', document.getElementById('labFfa').value);
@@ -58,33 +64,29 @@ async function submitLab() {
     formData.append('kadar_kotoran', document.getElementById('labKotoran').value);
     formData.append('warna_locis', document.getElementById('labWarna').value);
     formData.append('keputusan', keputusanDipilih);
-    const res = await fetch('/api/lab/simpan', { method: 'POST', body: formData });
-    const data = await res.json();
-    alert(data.message || data.error);
-    if (data.message) muatHistoryLab();
+    const data = await denganTombol(btn, () => kirimForm('/api/lab/simpan', formData));
+    if (tampilkanHasil(data)) muatHistoryLab();
 }
 
 function bukaStandarMutu() {
-    if (!idProdukLabAktif) { alert('Pilih tiket produk PKS dulu (ketik plat lalu Tab)'); return; }
+    if (!idProdukLabAktif) { Notif.peringatan('Pilih tiket produk PKS dulu (ketik plat lalu Tab)'); return; }
     document.getElementById('stdInputFfa').value = standarAktif.maks_ffa ?? '';
     document.getElementById('stdInputAir').value = standarAktif.maks_air ?? '';
     document.getElementById('stdInputKotoran').value = standarAktif.maks_kotoran ?? '';
     openModal('modalStandarMutu');
 }
 
-async function simpanStandarMutu() {
+async function simpanStandarMutu(btn) {
     if (!idProdukLabAktif) return;
     const formData = new FormData();
     formData.append('id_produk', idProdukLabAktif);
     formData.append('maks_ffa', document.getElementById('stdInputFfa').value);
     formData.append('maks_air', document.getElementById('stdInputAir').value);
     formData.append('maks_kotoran', document.getElementById('stdInputKotoran').value);
-    const res = await fetch('/api/lab/standar/update', { method: 'POST', body: formData });
-    const data = await res.json();
-    alert(data.message || data.error);
-    if (!data.message) return;
+    const data = await denganTombol(btn, () => kirimForm('/api/lab/standar/update', formData));
+    if (!tampilkanHasil(data)) return;
     closeModal('modalStandarMutu');
-    fetch(`/api/lab/standar/${idProdukLabAktif}`).then(r => r.json()).then(tampilkanStandar);
+    muatStandar(idProdukLabAktif);
 }
 
 function cetakCOA() {
@@ -98,10 +100,11 @@ function cetakCOA() {
 }
 
 async function muatHistoryLab() {
-    const res = await fetch('/api/history/lab');
-    const data = await res.json();
-    document.getElementById('tabelHistoryLab').innerHTML = data.map(r => `
-        <tr><td class="table-cell">${r.no_plat}</td><td class="table-cell">${r.nama_produk}</td>
-        <td class="table-cell">${r.nama_supplier}</td><td class="table-cell">${r.status_val || '-'}</td></tr>
-    `).join('') || `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Belum ada data</td></tr>`;
+    const data = await ambilJson('/api/history/lab');
+    const tbody = document.getElementById('tabelHistoryLab');
+    if (data.error) { tbody.innerHTML = barisKosong(4, data.error); return; }
+    tbody.innerHTML = data.map(r => `
+        <tr><td class="table-cell">${escapeHtml(r.no_plat)}</td><td class="table-cell">${escapeHtml(r.nama_produk)}</td>
+        <td class="table-cell">${escapeHtml(r.nama_supplier)}</td><td class="table-cell">${escapeHtml(r.status_val || '-')}</td></tr>
+    `).join('') || barisKosong(4, 'Belum ada data');
 }

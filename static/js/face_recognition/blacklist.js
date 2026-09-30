@@ -48,6 +48,7 @@ async function muatBlacklist() {
             <td class="table-cell text-right">${r.file_surat_blacklist
                 ? `<a href="/static/${escapeHtml(r.file_surat_blacklist)}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>` : '-'}</td>
         </tr>`).join('') || barisKosong(7, 'Belum ada blacklist');
+    catatanBatas(tbody, data.length, 200, 7);
 }
 
 // ===== MODAL TAMBAH =====
@@ -119,14 +120,16 @@ function pilihTargetBlacklist(index) {
         </div>`;
 }
 
-async function simpanBlacklist() {
-    if (!targetBlacklist) { alert('Pilih target blacklist dulu'); return; }
+async function simpanBlacklist(btn) {
+    if (!targetBlacklist) { Notif.peringatan('Pilih target blacklist dulu'); return; }
     const file = document.getElementById('blFile').files[0];
     const noSurat = document.getElementById('blNoSurat').value.trim();
     const alasan = document.getElementById('blAlasan').value.trim();
-    if (!noSurat || !alasan || !file) { alert('No. surat, alasan, dan file surat wajib diisi'); return; }
+    if (!noSurat || !alasan || !file) { Notif.peringatan('No. surat, alasan, dan file surat wajib diisi'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
-    if (!confirm(`Blacklist ${nama} bersifat PERMANEN dan tidak bisa dicabut. Lanjutkan?`)) return;
+    const ok = await Dialog.konfirmasi({ judul: 'Tetapkan blacklist permanen?', teksYa: 'Tetapkan Blacklist', bahaya: true,
+        pesan: `${nama} akan masuk blacklist secara PERMANEN dan tidak bisa dicabut.\nWajah / kendaraan ini ditolak di semua site.` });
+    if (!ok) return;
 
     const formData = new FormData();
     formData.append('tipe_entitas', tipeBlacklistBaru);
@@ -136,19 +139,9 @@ async function simpanBlacklist() {
     formData.append('alasan', alasan);
     formData.append('file_surat', file);
 
-    const btn = document.getElementById('btnSimpanBlacklist');
-    btn.disabled = true;
-    let data;
-    try {
-        data = await (await fetch('/api/blacklist/tambah', { method: 'POST', body: formData })).json();
-    } catch (err) {
-        data = { error: 'Gagal menghubungi server' };
-    }
-    btn.disabled = false;
-    alert(data.message || data.error);
-    if (data.message) {
-        closeModal('modalBlacklist');
-        muatBlacklist();
-        if (typeof muatPersonel === 'function' && personelDimuat) muatPersonel();
-    }
+    const data = await denganTombol(btn, () => kirimForm('/api/blacklist/tambah', formData), 'Menyimpan...');
+    if (!tampilkanHasil(data)) return;
+    closeModal('modalBlacklist');
+    muatBlacklist();
+    if (typeof muatPersonel === 'function' && personelDimuat) muatPersonel();
 }

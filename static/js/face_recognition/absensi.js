@@ -4,7 +4,7 @@ const TANTANGAN_ABSEN = [
     ['MENOLEH_KIRI', 'MENOLEH KE KIRI'],
     ['MENOLEH_KANAN', 'MENOLEH KE KANAN'],
 ];
-const JUMLAH_FRAME_ABSEN = 12;
+const JUMLAH_FRAME_ABSEN = 10;
 const JEDA_FRAME_MS = 200;
 
 let absensiDimuat = false;
@@ -65,12 +65,8 @@ async function mulaiScanAbsen() {
     formData.append('tantangan', kode);
     formData.append('perangkat', 'Web');
 
-    let data;
-    try {
-        data = await (await fetch('/api/absensi/scan', { method: 'POST', body: formData })).json();
-    } catch (err) {
-        data = { error: 'Gagal menghubungi server' };
-    }
+    const data = await kirimForm('/api/absensi/scan', formData, { timeout: TIMEOUT_WAJAH_MS });
+    frames.length = 0;                               // lepas frame dari memori
     tampilkanHasilAbsen(data);
     status.textContent = data.status === 'BERHASIL' ? 'Absensi tercatat.' : '';
     selesaiScanAbsen();

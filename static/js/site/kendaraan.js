@@ -15,8 +15,8 @@ async function muatDataKendaraan(plat) {
     renderSupirTruk([]);
     renderKontrakTruk([]);
     if (!plat.trim()) return;
-    const data = await (await fetch(`/api/kendaraan?no_plat=${encodeURIComponent(plat)}`)).json();
-    if (data.error) { alert(data.error); return; }
+    const data = await ambilJson(`/api/kendaraan?no_plat=${encodeURIComponent(plat)}`);
+    if (data.error) { Notif.gagal(data.error); return; }
     tampilkanDataKendaraan(data);
 }
 
@@ -70,12 +70,12 @@ function renderKontrakTruk(list) {
 }
 
 function pastikanTrukDipilih() {
-    if (!platTrukAktif) { alert('Isi No. Plat di form lalu tekan Tab dulu'); return false; }
+    if (!platTrukAktif) { Notif.peringatan('Isi No. Plat di form lalu tekan Tab dulu'); return false; }
     return true;
 }
 
 function prosesHasil(data) {
-    if (data.error) { alert(data.error); return false; }
+    if (data.error) { Notif.gagal(data.error); return false; }
     tampilkanDataKendaraan(data);
     return true;
 }
@@ -107,7 +107,7 @@ async function daftarkanSupirKeTruk(idDriverBaru = null) {
         is_utama: document.getElementById('updJadikanUtama').checked ? '1' : '0',
     });
     if (!prosesHasil(data)) return false;
-    alert(data.message);
+    Notif.sukses(data.message);
     supirDitemukan = null;
     document.getElementById('updCariNik').value = '';
     document.getElementById('updJadikanUtama').checked = false;
@@ -122,7 +122,9 @@ async function jadikanSupirUtama(idDriver) {
 
 async function lepasSupirTruk(idDriver) {
     const s = supirTrukTerakhir.find(x => x.id_driver === idDriver);
-    if (!confirm(`Lepas ${s ? s.nama_driver : 'supir ini'} dari truk ${platTrukAktif}? Data supir tidak dihapus.`)) return;
+    const ok = await Dialog.konfirmasi({ judul: 'Lepas supir dari truk?', teksYa: 'Lepas', bahaya: true,
+        pesan: `${s ? s.nama_driver : 'Supir ini'} dilepas dari truk ${platTrukAktif}. Data supir tidak dihapus.` });
+    if (!ok) return;
     prosesHasil(await kirimForm('/api/kendaraan/supir/hapus', { no_plat: platTrukAktif, id_driver: idDriver }));
 }
 
@@ -144,13 +146,15 @@ async function simpanKontrak() {
         tanggal_mulai: nilai('kkMulai'), tanggal_selesai: nilai('kkSelesai'), keterangan: nilai('kkKeterangan'),
     });
     if (prosesHasil(data)) {
-        alert(data.message);
+        Notif.sukses(data.message);
         ['kkSupplier', 'kkProduk', 'kkJenis', 'kkNoKontrak', 'kkSelesai', 'kkKeterangan']
             .forEach(id => document.getElementById(id).value = '');
     }
 }
 
 async function akhiriKontrak(idKontrak) {
-    if (!confirm('Akhiri kontrak ini mulai hari ini?')) return;
+    const ok = await Dialog.konfirmasi({ judul: 'Akhiri kontrak?', teksYa: 'Akhiri kontrak', bahaya: true,
+        pesan: 'Kontrak truk ini diakhiri mulai hari ini dan tidak lagi mengisi otomatis form tiket.' });
+    if (!ok) return;
     prosesHasil(await kirimForm('/api/kendaraan/kontrak/akhiri', { no_plat: platTrukAktif, id_kontrak: idKontrak }));
 }

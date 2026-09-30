@@ -10,7 +10,8 @@ window.addEventListener('platLookup', (e) => {
     hitungPotongan();
     if (data.status === 'ADA_TIKET' && data.kategori_produk === 'TBS') {
         noTiketSortasiAktif = data.no_tiket;
-        fetch(`/api/timbang/data/${data.no_tiket}`).then(r => r.json()).then(tb => {
+        ambilJson(`/api/timbang/data/${data.no_tiket}`).then(tb => {
+            if (tb.error) { Notif.gagal(tb.error); return; }
             // Potongan dihitung dari netto (berat buah saja, tanpa truk)
             beratAcuanSortasi = tb.berat_netto;
             document.getElementById('srBeratAcuan').textContent = beratAcuanSortasi ?? 'menunggu timbang kedua';
@@ -33,25 +34,24 @@ function hitungPotongan() {
 }
 function round2(n) { return Math.round(n * 100) / 100; }
 
-async function submitSortasi() {
-    if (!noTiketSortasiAktif) { alert('Pilih plat/tiket dulu'); return; }
+async function submitSortasi(btn) {
+    if (!noTiketSortasiAktif) { Notif.peringatan('Pilih plat/tiket dulu'); return; }
     const formData = new FormData();
     formData.append('no_tiket', noTiketSortasiAktif);
     ['mentah', 'busuk', 'tangkai', 'sampah', 'matang', 'brondolan'].forEach(k => {
         formData.append(k, document.getElementById(`sr${k.charAt(0).toUpperCase() + k.slice(1)}`).value || 0);
     });
     formData.append('catatan', document.getElementById('srCatatan').value);
-    const res = await fetch('/api/sortasi/simpan', { method: 'POST', body: formData });
-    const data = await res.json();
-    alert(data.message || data.error);
-    if (data.message) muatHistorySortasi();
+    const data = await denganTombol(btn, () => kirimForm('/api/sortasi/simpan', formData));
+    if (tampilkanHasil(data)) muatHistorySortasi();
 }
 
 async function muatHistorySortasi() {
-    const res = await fetch('/api/history/sortasi');
-    const data = await res.json();
-    document.getElementById('tabelHistorySortasi').innerHTML = data.map(r => `
-        <tr><td class="table-cell">${r.no_plat}</td><td class="table-cell">${r.nama_produk}</td>
-        <td class="table-cell">${r.nama_supplier}</td><td class="table-cell">${r.status_val}</td></tr>
-    `).join('') || `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Belum ada data</td></tr>`;
+    const data = await ambilJson('/api/history/sortasi');
+    const tbody = document.getElementById('tabelHistorySortasi');
+    if (data.error) { tbody.innerHTML = barisKosong(4, data.error); return; }
+    tbody.innerHTML = data.map(r => `
+        <tr><td class="table-cell">${escapeHtml(r.no_plat)}</td><td class="table-cell">${escapeHtml(r.nama_produk)}</td>
+        <td class="table-cell">${escapeHtml(r.nama_supplier)}</td><td class="table-cell">${escapeHtml(r.status_val)}</td></tr>
+    `).join('') || barisKosong(4, 'Belum ada data');
 }

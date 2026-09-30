@@ -16,10 +16,10 @@
 
 {% block extra_scripts %}
 <script>const WAJIB_SCAN_WAJAH = {{ 'true' if wajib_scan_wajah else 'false' }};</script>
-<script src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/site/security.js') }}"></script>
-<script src="{{ url_for('static', filename='js/site/kendaraan.js') }}"></script>
-<script src="{{ url_for('static', filename='js/site/timbangan.js') }}"></script>
-<script src="{{ url_for('static', filename='js/site/sortasi.js') }}"></script>
-<script src="{{ url_for('static', filename='js/site/lab.js') }}"></script>
+<script defer src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/security.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/kendaraan.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/timbangan.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/sortasi.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/lab.js') }}"></script>
 {% endblock %}
