@@ -2,6 +2,7 @@
 from datetime import datetime
 from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver
 from utils.personel_utils import PREFIX_KODE, kode_berikutnya
+from utils.face_cache import invalidate as reset_cache_wajah
 
 KOLOM_PERSONEL = """p.id_personel, p.kode_personel, p.nik, p.nama_personel, p.no_sim, p.kategori,
                     p.is_blacklisted, p.foto_path, p.foto_sumber, p.is_updated, p.is_active, p.updated_at"""
@@ -16,9 +17,9 @@ def _normalisasi(r):
     return r
 
 
-def get_daftar_personel(kategori=None, cari=None, hanya_blacklist=False):
-    sql = f"SELECT {KOLOM_PERSONEL} FROM personel p WHERE p.is_active = 1"
-    params = []
+def get_daftar_personel(kategori=None, cari=None, hanya_blacklist=False, batas=200):
+    sql = f"SELECT TOP (?) {KOLOM_PERSONEL} FROM personel p WHERE p.is_active = 1"
+    params = [batas]
     if kategori:
         sql += " AND p.kategori = ?"
         params.append(kategori)
@@ -93,6 +94,7 @@ def insert_personel(nik, nama, no_sim, kategori, kode, embedding_binary, foto_pa
                      {"kode_personel": kode or None, "nik": nik, "nama": nama, "no_sim": no_sim or None}, user_id)
     conn.commit()
     conn.close()
+    reset_cache_wajah()
     return id_personel
 
 
@@ -116,6 +118,8 @@ def update_personel(id_personel, kode, nik, nama, no_sim, kategori, user_id,
     _catat_audit(cursor, id_personel, "UPDATE", lama, baru, user_id)
     conn.commit()
     conn.close()
+    if embedding_binary is not None:
+        reset_cache_wajah()
 
 
 def hapus_personel(id_personel, user_id):
@@ -131,13 +135,14 @@ def hapus_personel(id_personel, user_id):
     _catat_audit(cursor, id_personel, "HAPUS", data, data, user_id)
     conn.commit()
     conn.close()
+    reset_cache_wajah()
 
 
-def get_riwayat_perubahan_personel(hari=7):
+def get_riwayat_perubahan_personel(hari=7, batas=300):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT a.id_log, a.id_personel, a.aksi, a.kode_personel_lama, a.kode_personel_baru, a.nik_lama, a.nik_baru,
+        SELECT TOP (?) a.id_log, a.id_personel, a.aksi, a.kode_personel_lama, a.kode_personel_baru, a.nik_lama, a.nik_baru,
                a.nama_lama, a.nama_baru, a.no_sim_lama, a.no_sim_baru, a.updated_at, u.nama AS oleh, u.role AS role_oleh,
                p.kode_personel, p.nama_personel
         FROM personel_audit_logs a
@@ -145,7 +150,7 @@ def get_riwayat_perubahan_personel(hari=7):
         JOIN personel p ON a.id_personel = p.id_personel
         WHERE a.updated_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY a.updated_at DESC
-    """, -(hari - 1))
+    """, batas, -(hari - 1))
     data = _rows_to_dicts(cursor)
     conn.close()
     return data

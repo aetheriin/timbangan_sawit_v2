@@ -4,17 +4,18 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import role_required, UPLOAD_FOLDER, camera_trigger_state
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
-                              binary_to_embedding, compare_faces, verifikasi_liveness)
+                              verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
 from utils.verifikasi_state import set_terverifikasi, get_verifikasi, reset_verifikasi
 from utils.db_utils import (
     cari_transaksi_aktif, buat_transaksi_full, get_list_tiket_aktif, get_history_driver,
     get_driver_by_id, cari_driver_by_nik, cek_nik_ada, cari_wajah_mirip_driver,
-    insert_driver, update_driver_dengan_audit, get_all_driver_embeddings, get_kendaraan_by_plat
+    insert_driver, update_driver_dengan_audit, get_kendaraan_by_plat
 )
 from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
 from utils.personel_utils import format_nama_personel
+from utils.face_cache import slot_proses_wajah, cari_terdekat
 
 security_bp = Blueprint('security', __name__)
 
@@ -123,7 +124,8 @@ def driver_tambah():
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
 
     filepath, filename = _simpan_foto(file)
-    embedding, jumlah_wajah = extract_embedding_tunggal(filepath)
+    with slot_proses_wajah():
+        embedding, jumlah_wajah = extract_embedding_tunggal(filepath)
     if embedding is None:
         os.remove(filepath)
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah_wajah == 0
@@ -163,7 +165,8 @@ def driver_update_identitas():
     embedding_binary, foto_path = None, None
     if file and file.filename:
         filepath, filename = _simpan_foto(file)
-        embedding = extract_embedding(filepath)
+        with slot_proses_wajah():
+            embedding = extract_embedding(filepath)
         if embedding is None:
             os.remove(filepath)
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
@@ -212,21 +215,15 @@ def verifikasi_wajah():
             file.save(path)
             filepaths.append(path)
 
-        if not verifikasi_liveness(filepaths, tantangan):
-            return jsonify({"error": "Liveness tidak terverifikasi"}), 400
-
-        embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
+        with slot_proses_wajah():
+            if not verifikasi_liveness(filepaths, tantangan):
+                return jsonify({"error": "Liveness tidak terverifikasi"}), 400
+            embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
         if embedding_baru is None:
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
 
-        match = None
-        for driver_id, nama, emb_bin in get_all_driver_embeddings():
-            if emb_bin is None:
-                continue
-            ok, _ = compare_faces(binary_to_embedding(emb_bin), embedding_baru, threshold=0.55)
-            if ok:
-                match = (driver_id, nama)
-                break
+        id_cocok, nama_cocok, _ = cari_terdekat(embedding_baru, 0.55)
+        match = (id_cocok, nama_cocok) if id_cocok is not None else None
         if not match:
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
 

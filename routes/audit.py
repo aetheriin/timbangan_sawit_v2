@@ -11,6 +11,7 @@ from utils.personel_utils import daftar_perubahan, format_id
 audit_bp = Blueprint('audit', __name__)
 
 RENTANG_VALID = (1, 7, 30)
+BATAS_EXPORT = 10000
 
 
 def _hari():
@@ -18,9 +19,9 @@ def _hari():
     return hari if hari in RENTANG_VALID else 1
 
 
-def _perubahan_personel(hari):
+def _perubahan_personel(hari, batas=300):
     hasil = []
-    for r in get_riwayat_perubahan_personel(hari):
+    for r in get_riwayat_perubahan_personel(hari, batas):
         hasil.append({"waktu": r["updated_at"].strftime("%Y-%m-%d %H:%M"), "id_personel": format_id(r["id_personel"]),
                       "kode_personel": r["kode_personel"], "nama_personel": r["nama_personel"], "aksi": r["aksi"],
                       "perubahan": [{"kolom": k, "lama": lama, "baru": baru} for k, lama, baru in daftar_perubahan(r)],
@@ -49,13 +50,13 @@ def audit_export():
     tulis = csv.writer(buf, delimiter=';')
     tulis.writerow(["AKTIVITAS SECURITY"])
     tulis.writerow(["Waktu", "User", "Role", "Aksi", "No. Tiket", "Detail", "IP"])
-    for r in get_security_audit(hari):
+    for r in get_security_audit(hari, BATAS_EXPORT):
         tulis.writerow([r["created_at"], r["nama_user"], r["role"], r["action_type"], r["no_tiket"] or "",
                         json.dumps(r["details"], ensure_ascii=False), r["ip_address"] or ""])
     tulis.writerow([])
     tulis.writerow(["PERUBAHAN DATA PERSONEL"])
     tulis.writerow(["Waktu", "ID", "Kode", "Aksi", "Perubahan", "Oleh"])
-    for r in _perubahan_personel(hari):
+    for r in _perubahan_personel(hari, BATAS_EXPORT):
         ubah = ", ".join(f"{p['kolom']}: {p['lama'] or '-'} -> {p['baru'] or '-'}" for p in r["perubahan"])
         tulis.writerow([r["waktu"], r["id_personel"], r["kode_personel"] or "", r["aksi"], ubah, r["oleh"]])
     return Response("﻿" + buf.getvalue(), mimetype="text/csv",

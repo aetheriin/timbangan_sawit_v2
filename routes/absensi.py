@@ -6,8 +6,8 @@ from datetime import datetime, date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import UPLOAD_FOLDER
-from utils.face_utils import extract_embedding, binary_to_embedding, compare_faces, verifikasi_liveness
-from utils.db_utils import get_all_driver_embeddings
+from utils.face_utils import extract_embedding, verifikasi_liveness
+from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.db_personel import get_personel
 from utils.db_absensi import (get_jadwal_kerja, get_jadwal_hari, get_scan_terakhir, insert_absensi,
                               get_absensi_harian, get_rekap_bulanan)
@@ -23,14 +23,8 @@ TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
 
 def _personel_terdekat(embedding):
     """(id_personel, jarak) terdekat yang masih di bawah ambang, atau (None, jarak_terdekat)."""
-    terbaik, jarak_min = None, None
-    for id_personel, _, emb_bin in get_all_driver_embeddings():
-        if emb_bin is None:
-            continue
-        _, jarak = compare_faces(binary_to_embedding(emb_bin), embedding, AMBANG_JARAK)
-        if jarak_min is None or jarak < jarak_min:
-            terbaik, jarak_min = id_personel, float(jarak)
-    return (terbaik if jarak_min is not None and jarak_min <= AMBANG_JARAK else None), jarak_min
+    id_personel, _, jarak = cari_terdekat(embedding, AMBANG_JARAK)
+    return id_personel, jarak
 
 
 def _jam(t):
@@ -56,10 +50,11 @@ def absensi_scan():
             f.save(path)
             paths.append(path)
 
-        if not verifikasi_liveness(paths, tantangan):          # gagal liveness tidak dicatat (bisa diulang)
-            return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
         tengah = paths[len(paths) // 2]
-        embedding = extract_embedding(tengah)
+        with slot_proses_wajah():
+            if not verifikasi_liveness(paths, tantangan):      # gagal liveness tidak dicatat (bisa diulang)
+                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
+            embedding = extract_embedding(tengah)
         if embedding is None:
             return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan"}), 400
 

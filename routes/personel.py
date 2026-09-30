@@ -9,6 +9,7 @@ from utils.db_personel import (get_daftar_personel, get_personel, cek_kode_ada, 
 from utils.personel_utils import KATEGORI_VALID, validasi_personel, format_nama_personel
 from utils.upload_utils import simpan_upload, hapus_file
 from utils.audit_utils import catat_security_audit
+from utils.face_cache import slot_proses_wajah
 
 personel_bp = Blueprint('personel', __name__)
 
@@ -19,7 +20,8 @@ def _cek_foto(file, exclude_id=None):
     """Simpan foto lalu jalankan 3 pengecekan. Kembalikan (hasil, embedding, path_disk, path_relatif).
     hasil = {satu_wajah, tidak_mirip_personel, tidak_mirip_blacklist, jumlah_wajah, pesan}."""
     path_disk, relatif = simpan_upload(file, "personel")
-    embedding, jumlah = extract_embedding_tunggal(path_disk)
+    with slot_proses_wajah():
+        embedding, jumlah = extract_embedding_tunggal(path_disk)
     hasil = {"jumlah_wajah": jumlah, "satu_wajah": jumlah == 1,
              "tidak_mirip_personel": None, "tidak_mirip_blacklist": None, "pesan": None}
     if jumlah != 1:

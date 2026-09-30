@@ -14,9 +14,9 @@ def _format(r):
     return r
 
 
-def get_riwayat_blacklist(tipe=None, cari=None):
+def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
     sql = """
-        SELECT b.id_blacklist, b.tipe_entitas, b.no_surat_blacklist, b.alasan_blacklist, b.file_surat_blacklist,
+        SELECT TOP (?) b.id_blacklist, b.tipe_entitas, b.no_surat_blacklist, b.alasan_blacklist, b.file_surat_blacklist,
                b.tgl_blacklist, b.created_at, u.nama AS oleh, u.role AS role_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat
         FROM blacklist b
@@ -24,7 +24,7 @@ def get_riwayat_blacklist(tipe=None, cari=None):
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
         WHERE 1 = 1"""
-    params = []
+    params = [batas]
     if tipe:
         sql += " AND b.tipe_entitas = ?"
         params.append(tipe)

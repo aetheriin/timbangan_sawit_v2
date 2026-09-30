@@ -1,4 +1,5 @@
 import io
+import os
 import random
 import time
 import cv2
@@ -7,9 +8,10 @@ import mediapipe as mp
 import numpy as np
 import requests
 
-SERVER_URL = "http://127.0.0.1:5000/timbang/verifikasi-wajah"
-URL_TRIGGER = "http://127.0.0.1:5000/api/kamera/status"
-URL_BATAL = "http://127.0.0.1:5000/api/kamera/batal"
+BASE_URL = os.getenv("WEIGHBRIDGE_URL", "http://127.0.0.1:5000")
+SERVER_URL = f"{BASE_URL}/api/verifikasi-wajah"
+URL_TRIGGER = f"{BASE_URL}/api/kamera/status"
+URL_BATAL = f"{BASE_URL}/api/kamera/batal"
 KAMERA_INDEX = 0
 JUMLAH_FRAME_LIVENESS = 12
 JEDA_ANTAR_FRAME = 0.20
@@ -42,7 +44,7 @@ def kirim_ke_server(frames, tantangan):
 
   try:
     response = requests.post(
-        SERVER_URL, files=files, data={'tantangan': tantangan}, timeout=10
+        SERVER_URL, files=files, data={'tantangan': tantangan}, timeout=60
     )
     return response.json()
   except Exception as e:

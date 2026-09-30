@@ -1,6 +1,7 @@
 """Query tabel absensi & jadwal_kerja (menu Face Recognition > Absensi)."""
 from datetime import datetime, time, date
 from utils.db_utils import get_connection, _rows_to_dicts
+from utils.cache import cache_ttl
 
 
 def _jam(v):
@@ -16,6 +17,7 @@ def _jadwal_dict(r):
             "toleransi_menit": r["toleransi_menit"] or 0}
 
 
+@cache_ttl(300)
 def get_jadwal_kerja():
     conn = get_connection()
     cursor = conn.cursor()

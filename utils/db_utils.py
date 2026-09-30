@@ -4,11 +4,25 @@ import hashlib
 from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
 from config import get_connection_string
+from utils.cache import cache_ttl
 
 load_dotenv()
 
+# Connection pooling ODBC: koneksi yang di-close() dikembalikan ke pool, bukan diputus.
+# Harus di-set sebelum koneksi pertama dibuat.
+pyodbc.pooling = True
+
 def get_connection():
-    return pyodbc.connect(get_connection_string())
+    return pyodbc.connect(get_connection_string(), timeout=10)
+
+def cek_koneksi_db():
+    """Dipakai /health: True bila database bisa dijangkau."""
+    conn = get_connection()
+    try:
+        conn.cursor().execute("SELECT 1").fetchone()
+        return True
+    finally:
+        conn.close()
 
 # ===== USERS =====
 
@@ -37,6 +51,7 @@ def insert_user(username, password_hash, nama, role):
 
 # ===== SUPPLIER / PRODUK =====
 
+@cache_ttl(300)
 def get_semua_supplier():
     conn = get_connection()
     cursor = conn.cursor()
@@ -45,6 +60,7 @@ def get_semua_supplier():
     conn.close()
     return rows
 
+@cache_ttl(300)
 def get_semua_produk():
     conn = get_connection()
     cursor = conn.cursor()
@@ -263,19 +279,10 @@ def cek_nik_ada(nik, exclude_id=None):
     return row is not None
 
 def cari_wajah_mirip_driver(embedding_baru, threshold=0.55, exclude_id=None):
-    from utils.face_utils import binary_to_embedding, compare_faces
-    driver_list = get_all_driver_embeddings()
-    for row in driver_list:
-        driver_id, nama, embedding_binary = row
-        if exclude_id and driver_id == exclude_id:
-            continue
-        if embedding_binary is None:
-            continue
-        embedding_tersimpan = binary_to_embedding(embedding_binary)
-        is_match, _ = compare_faces(embedding_tersimpan, embedding_baru, threshold)
-        if is_match:
-            return (driver_id, nama)
-    return None
+    """Personel aktif paling mirip (dari cache embedding di memori), atau None."""
+    from utils.face_cache import cari_terdekat
+    id_personel, nama, _ = cari_terdekat(embedding_baru, threshold, exclude_id)
+    return (id_personel, nama) if id_personel is not None else None
 
 def insert_driver(nik, nama, no_sim, embedding_binary, foto_path=None, user_id=None, foto_sumber='KAMERA'):
     """Supir baru dari modal Tambah di Form Create Ticket = personel kategori DRIVER."""
@@ -309,6 +316,9 @@ def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated
             nik_baru, nama_baru, sim_baru, hash_baru, driver_id
         )
 
+    if embedding_binary is not None:
+        from utils.face_cache import invalidate
+        invalidate()
     cursor.execute(
         """INSERT INTO personel_audit_logs
            (id_personel, aksi, kode_personel_lama, kode_personel_baru, nik_lama, nik_baru, nama_lama, nama_baru,
@@ -433,7 +443,8 @@ def get_data_timbangan(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT tb.*, s.total_potongan_kg
+        SELECT tb.no_tiket, tb.berat_bruto, tb.waktu_bruto, tb.berat_tara, tb.waktu_tara, tb.berat_netto,
+               tb.operator_timbang_id, s.total_potongan_kg
         FROM timbangan tb
         LEFT JOIN sortasi s ON s.no_tiket = tb.no_tiket
         WHERE tb.no_tiket = ?
@@ -507,7 +518,7 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
+        SELECT TOP 200 s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
@@ -556,7 +567,10 @@ def get_history_driver(limit=20):
 def get_data_sortasi(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM sortasi WHERE no_tiket = ?", no_tiket)
+    cursor.execute("""SELECT no_tiket, persen_buah_mentah, persen_buah_busuk, persen_tangkai_panjang,
+                             persen_sampah_kotoran, persen_buah_matang, persen_brondolan, total_potongan_kg,
+                             catatan, waktu_sortasi
+                      FROM sortasi WHERE no_tiket = ?""", no_tiket)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -594,15 +608,18 @@ def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, 
     conn.close()
     return total_persen_potongan, total_potongan_kg
 
+SQL_STANDAR = "SELECT id_produk, maks_ffa, maks_air, maks_kotoran FROM standar_mutu WHERE id_produk = ?"
+
+@cache_ttl(300)
 def get_standar_mutu(id_produk):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM standar_mutu WHERE id_produk = ?", id_produk)
+    cursor.execute(SQL_STANDAR, id_produk)
     row = cursor.fetchone()
     if not row:
         cursor.execute("INSERT INTO standar_mutu (id_produk) VALUES (?)", id_produk)
         conn.commit()
-        cursor.execute("SELECT * FROM standar_mutu WHERE id_produk = ?", id_produk)
+        cursor.execute(SQL_STANDAR, id_produk)
         row = cursor.fetchone()
     conn.close()
     return row
@@ -614,6 +631,7 @@ def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran):
                    maks_ffa, maks_air, maks_kotoran, id_produk)
     conn.commit()
     conn.close()
+    get_standar_mutu.hapus()
 
 def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id):
     conn = get_connection()

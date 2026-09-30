@@ -23,18 +23,18 @@ def catat_security_audit(user_id, action_type, no_tiket=None, details=None, ip_a
         print(f"[AUDIT] gagal mencatat {action_type}: {e}")
 
 
-def get_security_audit(hari=1):
+def get_security_audit(hari=1, batas=300):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT s.id_log, s.created_at, s.action_type, s.no_tiket, s.details, s.ip_address,
+        SELECT TOP (?) s.id_log, s.created_at, s.action_type, s.no_tiket, s.details, s.ip_address,
                u.nama AS nama_user, u.role, p.kode_personel
         FROM security_audit_logs s
         JOIN users u ON s.user_id = u.id_user
         LEFT JOIN personel p ON u.id_personel = p.id_personel
         WHERE s.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY s.created_at DESC
-    """, -(hari - 1))
+    """, batas, -(hari - 1))
     data = _rows_to_dicts(cursor)
     conn.close()
     for r in data:
