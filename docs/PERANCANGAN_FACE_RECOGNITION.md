@@ -3,8 +3,9 @@
 Fitur face recognition **digabung ke aplikasi Weighbridge (main)**. Komposisi dan desain main
 menjadi acuan: fitur baru menyesuaikan diri ke main, bukan sebaliknya.
 
-- Desain Figma: <https://www.figma.com/design/MYtNtlrszccggmaS5iUIus>, halaman
-  **"Weighbridge + Face Recognition (ikut main)"**. Halaman "Arsip · rancangan terpisah" tidak dipakai lagi.
+- Desain Figma: <https://www.figma.com/design/wrygHwLrs9aZjCDDCul5CJ>, file & halaman
+  **"Weighbridge + Face Recognition"** (10 layar, sidebar menu per fitur; lihat bagian 9).
+  File lama (`MYtNtlrszccggmaS5iUIus`) tidak dipakai lagi.
 - Draf SQL: `database/migrations/002_personel_blacklist.sql` (hanya menambah ke skema main).
 
 ---
@@ -462,4 +463,7 @@ Sidebar kembali seperti rancangan face recognition awal (menu per fitur), tidak 
 - **Form**: tetap, disesuaikan gabungan main + face recognition (Create Ticket dengan ID/Kode personel dan cek blacklist).
 - Menu face recognition di sidebar: Absensi, Personel, Blacklist, Audit Log.
 
-Desain Figma untuk revisi ini dibuat setelah akun Figma diganti.
+Desain Figma revisi ini: <https://www.figma.com/design/wrygHwLrs9aZjCDDCul5CJ>
+(halaman "Weighbridge + Face Recognition"), berisi layar:
+01 List · Security, 02 List · Timbangan, 03 List · Sortasi, 04 List · Laboratorium,
+05 Form · Create Ticket, 06 Form · Kendaraan blacklist, 07 Absensi, 08 Personel, 09 Blacklist, 10 Audit Log.
