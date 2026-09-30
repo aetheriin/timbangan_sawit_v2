@@ -1,0 +1,16 @@
+<header class="topbar">
+    <div class="flex items-center gap-3">
+        <button type="button" onclick="toggleSidebar()" class="text-white" title="Tampilkan / sembunyikan menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <h1 class="font-bold text-lg">Weighbridge</h1>
+    </div>
+    {% if current_user.is_authenticated %}
+    <div class="flex items-center gap-3 text-sm">
+        <span>{{ current_user.nama_lengkap }} <span class="text-slate-400">({{ current_user.role }})</span></span>
+        <a href="{{ url_for('auth.logout') }}" class="text-slate-300 hover:text-red-400" title="Keluar">
+            <i class="fa-solid fa-right-from-bracket"></i>
+        </a>
+    </div>
+    {% endif %}
+</header>

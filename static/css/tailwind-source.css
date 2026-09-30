@@ -12,7 +12,8 @@
   .sidebar { @apply bg-slate-900 text-slate-300 w-56 flex-shrink-0 transition-all duration-200 overflow-hidden; }
   .sidebar-collapsed { @apply w-0; }
   .sidebar-link { @apply w-full text-left px-5 py-3 text-sm font-medium hover:bg-slate-800 transition flex items-center gap-2; }
-  .sidebar-link-active { @apply bg-blue-600 text-white; }
+  .sidebar-link-active { @apply bg-blue-600 text-white hover:bg-blue-600; }
+  .sidebar-title { @apply px-5 py-5 text-white font-bold text-sm border-b border-slate-800; }
   .main-area { @apply flex-1 flex flex-col overflow-y-auto; }
   .main-area > * { flex-shrink: 0; }
   .topbar { @apply bg-black text-white px-6 py-4 flex items-center justify-between; }
@@ -27,7 +28,7 @@
   /* Tabs */
   .tab-header { @apply flex bg-slate-900 mx-4 rounded-t-xl overflow-hidden; }
   .tab-btn { @apply flex-1 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition text-center; }
-  .tab-btn-active { @apply bg-white text-blue-700; }
+  .tab-btn-active { @apply bg-white text-blue-700 hover:bg-white; }
   .tab-body { @apply bg-slate-100 mx-4 mb-4 rounded-b-xl; }
 
   /* Collapsible section */
@@ -43,6 +44,26 @@
   .btn-primary { @apply bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
   .btn-secondary { @apply bg-slate-500 hover:bg-slate-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
   .btn-success { @apply bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
+  .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition disabled:bg-slate-300 disabled:cursor-not-allowed; }
+  .btn-outline-danger { @apply bg-white border border-red-600 text-red-600 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg text-sm transition; }
+  .link-aksi { @apply text-xs font-medium hover:underline; }
+
+  /* Kartu putih di dalam section / tab body */
+  .card { @apply bg-white rounded-xl border border-slate-200 p-5; }
+  .card-title { @apply text-sm font-semibold text-slate-700 mb-4 pb-2 border-b; }
+
+  /* Filter chip & segmented control (menu Face Recognition) */
+  .chip { @apply px-3.5 py-1.5 rounded-full text-xs font-medium border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition; }
+  .chip-active { @apply bg-slate-900 border-slate-900 text-white hover:bg-slate-900; }
+  .seg { @apply inline-flex bg-slate-200 rounded-lg p-1 gap-1; }
+  .seg-item { @apply px-4 py-1.5 rounded-md text-xs font-medium text-slate-500 transition; }
+  .seg-item-active { @apply bg-white text-blue-700 font-semibold shadow-sm; }
+
+  /* Catatan & upload */
+  .note-warning { @apply bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700; }
+  .note-danger { @apply bg-red-50 border border-red-500 rounded-xl p-4 text-sm text-red-700; }
+  .drop-zone { @apply border-2 border-dashed border-slate-300 rounded-lg p-4 text-center bg-slate-50 cursor-pointer hover:border-blue-400 transition; }
+  .field-hint { @apply text-xs text-slate-500 mt-1; }
 
   /* Form */
   .input-field { @apply w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500; }
@@ -55,6 +76,7 @@
   /* Modal */
   .modal-overlay { @apply fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 p-4; }
   .modal-box { @apply bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl; }
+  .modal-box-lg { @apply max-w-3xl max-h-[90vh] overflow-y-auto; }
   .modal-header { @apply bg-slate-600 text-white px-6 py-4 flex justify-between items-center; }
   .modal-tab { @apply py-2.5 text-sm font-medium text-slate-500 bg-slate-100 border-b-2 border-transparent transition; }
   .modal-tab-active { @apply bg-white text-blue-700 border-blue-600; }

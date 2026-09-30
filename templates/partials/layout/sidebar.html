@@ -1,0 +1,18 @@
+{# Sidebar: List & Form = halaman site (/weighbridge), Face Recognition = /face-recognition.
+   Di halaman site, klik List / Form tidak memuat ulang halaman (ditangani base.js). #}
+<aside id="sidebar" class="sidebar">
+    <div class="sidebar-title">MENU</div>
+    <nav>
+        <a href="{{ url_for('main.weighbridge', view='list') }}" data-view="list"
+           class="sidebar-link{% if halaman == 'site' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-list w-4"></i> List
+        </a>
+        <a href="{{ url_for('main.weighbridge', view='form') }}" data-view="form" class="sidebar-link">
+            <i class="fa-solid fa-file-pen w-4"></i> Form
+        </a>
+        <a href="{{ url_for('main.face_recognition') }}"
+           class="sidebar-link{% if halaman == 'face' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-face-smile w-4"></i> Face Recognition
+        </a>
+    </nav>
+</aside>

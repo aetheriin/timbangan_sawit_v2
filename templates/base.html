@@ -10,84 +10,29 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="font-sans antialiased">
+{% from "partials/layout/_macros.html" import tab_header %}
 
+{# Kerangka default semua halaman:
+   sidebar + topbar (selalu), info bar & header tab (block, bisa diganti / dikosongkan per halaman),
+   isi tab di block tab_content. #}
 <div class="app-shell">
 
-    <!-- SIDEBAR -->
-    <aside id="sidebar" class="sidebar">
-        <div class="px-5 py-5 text-white font-bold text-sm border-b border-slate-800">MENU</div>
-        <nav>
-            <button class="sidebar-link sidebar-link-active" data-view="list" onclick="setSidebarView('list')">
-                <i class="fa-solid fa-list"></i> List
-            </button>
-            <button class="sidebar-link" data-view="form" onclick="setSidebarView('form')">
-                <i class="fa-solid fa-file-pen"></i> Form
-            </button>
-        </nav>
-    </aside>
+    {% include "partials/layout/sidebar.html" %}
 
     <div class="main-area">
 
-        <!-- TOPBAR -->
-        <header class="topbar">
-            <div class="flex items-center gap-3">
-                <button onclick="toggleSidebar()" class="text-white"><i class="fa-solid fa-bars"></i></button>
-                <h1 class="font-bold text-lg">Weighbridge</h1>
-            </div>
-            {% if current_user.is_authenticated %}
-            <div class="flex items-center gap-3 text-sm">
-                <span>{{ current_user.nama }} <span class="text-slate-400">({{ current_user.role }})</span></span>
-                <a href="/logout" class="text-slate-300 hover:text-red-400"><i class="fa-solid fa-right-from-bracket"></i></a>
-            </div>
-            {% endif %}
-        </header>
+        {% include "partials/layout/topbar.html" %}
 
-        <!-- INFO BAR (parent) -->
-        <div class="info-bar">
-            <div class="info-grid">
-                <div>
-                    <label class="info-field-label">No Tiket</label>
-                    <input type="text" id="infoNoTiket" readonly class="info-field-input">
-                </div>
-                <div>
-                    <label class="info-field-label">No. Plat</label>
-                    <input type="text" id="infoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab"
-                        class="info-field-input uppercase" onkeydown="handlePlatKey(event)">
-                </div>
-                <div>
-                    <label class="info-field-label">Nomor DO</label>
-                    <input type="text" id="infoNoDO" readonly class="info-field-input">
-                </div>
-                <div>
-                    <label class="info-field-label">Supplier</label>
-                    <input type="text" id="infoSupplier" readonly class="info-field-input">
-                </div>
-                <div>
-                    <label class="info-field-label">Supir</label>
-                    <input type="text" id="infoSupir" readonly class="info-field-input">
-                </div>
-            </div>
+        {% block info_bar %}
+            {% include "partials/layout/info_bar.html" %}
+        {% endblock %}
 
-            <div class="text-center">
-                <div id="infoFotoBox" class="info-photo-box">
-                    <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
-                </div>
-                <button id="btnValidasi" onclick="klikValidasi()" class="btn-primary mt-2 text-xs hidden">
-                    Validasi
-                </button>
-            </div>
-        </div>
+        {% block tab_header %}
+            {{ tab_header([('security', 'Security'), ('timbangan', 'Timbangan'),
+                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')]) }}
+        {% endblock %}
 
-        <!-- TABS -->
-        <div class="tab-header">
-            <button class="tab-btn tab-btn-active" data-tab="security" onclick="switchTab('security')">Security</button>
-            <button class="tab-btn" data-tab="timbangan" onclick="switchTab('timbangan')">Timbangan</button>
-            <button class="tab-btn" data-tab="sortasi" onclick="switchTab('sortasi')">Sortasi</button>
-            <button class="tab-btn" data-tab="lab" onclick="switchTab('lab')">Laboratorium</button>
-        </div>
-
-        <!-- TAB BODY -->
-        <div class="tab-body p-5">
+        <div id="tabBody" class="tab-body p-5">
             {% block tab_content %}{% endblock %}
         </div>
 
@@ -95,8 +40,12 @@
 </div>
 
 {% block modals %}{% endblock %}
+
 <script src="{{ url_for('static', filename='js/common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/base.js') }}"></script>
+{% block info_bar_script %}
+<script src="{{ url_for('static', filename='js/info_bar.js') }}"></script>
+{% endblock %}
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

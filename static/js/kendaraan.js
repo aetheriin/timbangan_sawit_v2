@@ -10,16 +10,6 @@ const LABEL_STATUS_KONTRAK = {
     NONAKTIF: ['Diakhiri', 'bg-red-100 text-red-700'],
 };
 
-function kirimForm(url, data) {
-    const formData = new FormData();
-    Object.entries(data).forEach(([k, v]) => formData.append(k, v ?? ''));
-    return fetch(url, { method: 'POST', body: formData }).then(r => r.json());
-}
-
-function escapeHtml(teks) {
-    return String(teks ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 async function muatDataKendaraan(plat) {
     platTrukAktif = null;
     renderSupirTruk([]);
@@ -44,7 +34,7 @@ function tampilkanDataKendaraan(data) {
 function renderSupirTruk(list) {
     document.getElementById('tabelSupirTruk').innerHTML = list.map(s => `
         <tr class="hover:bg-slate-50">
-            <td class="table-cell">${escapeHtml(s.nama_driver)}${s.is_updated ? ' <span class="text-amber-600 text-xs">⚠</span>' : ''}
+            <td class="table-cell">${escapeHtml(formatNamaPersonel(s.kode_personel, s.id_driver, s.nama_driver))}${s.is_updated ? ' <span class="text-amber-600 text-xs">⚠</span>' : ''}${s.is_blacklisted ? ' ' + badge('BLACKLIST', WARNA_BADGE.merah) : ''}
                 <div class="text-xs text-slate-400">SIM ${escapeHtml(s.no_sim)}</div></td>
             <td class="table-cell">${escapeHtml(s.nik)}</td>
             <td class="table-cell">${s.is_utama
@@ -140,8 +130,8 @@ async function lepasSupirTruk(idDriver) {
 function pakaiSupirDariTruk(idDriver) {
     const s = supirTrukTerakhir.find(x => x.id_driver === idDriver);
     if (!s) return;
-    gantiSupirTiket({ id_driver: s.id_driver, nik: s.nik, nama: s.nama_driver, no_sim: s.no_sim,
-                      is_updated: s.is_updated, foto_path: s.foto_path });
+    gantiSupirTiket({ id_driver: s.id_driver, kode_personel: s.kode_personel, nik: s.nik, nama: s.nama_driver,
+                      no_sim: s.no_sim, is_blacklisted: s.is_blacklisted, is_updated: s.is_updated, foto_path: s.foto_path });
 }
 
 // ----- Kontrak -----

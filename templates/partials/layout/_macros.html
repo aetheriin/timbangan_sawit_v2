@@ -1,0 +1,20 @@
+{# Header tab (dipakai halaman site & Face Recognition). tabs = [(key, label), ...] #}
+{% macro tab_header(tabs, kelas="") %}
+<div id="tabHeader" class="tab-header {{ kelas }}">
+    {% for key, label in tabs %}
+    <button type="button" class="tab-btn{% if loop.first %} tab-btn-active{% endif %}" data-tab="{{ key }}"
+            onclick="switchTab('{{ key }}')">{{ label }}</button>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{# Header section abu-abu yang bisa dibuka / ditutup (toggleSection di base.js) #}
+{% macro section_header(id, judul, tertutup=false) %}
+<div class="section-header" onclick="toggleSection('{{ id }}')">
+    <span class="section-header-text">
+        <i id="chevron-{{ id }}" class="fa-solid fa-chevron-down section-chevron{% if tertutup %} section-chevron-collapsed{% endif %}"></i>
+        {{ judul }}
+    </span>
+    {{ caller() if caller else '' }}
+</div>
+{% endmacro %}
