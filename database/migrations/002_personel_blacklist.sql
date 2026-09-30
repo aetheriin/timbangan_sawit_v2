@@ -5,7 +5,7 @@
    Prinsip: skema main TETAP. Tahap Security, Timbangan, Sortasi, Lab, status_alur tiket,
    dan role lama tidak diubah. Migrasi ini hanya MENAMBAH:
    - driver               -> personel (+ kode_personel, kategori, is_blacklisted, foto_sumber)
-   - driver_audit_logs    -> personel_audit_logs (+ kode_personel_lama/baru)
+   - driver_audit_logs    -> personel_audit_logs (+ kode_personel_lama/baru, aksi TAMBAH/UPDATE/HAPUS)
    - kendaraan            + is_blacklisted
    - users                + role HO, + id_personel
    - transaksi            + is_driver_changed, prev_driver_id, driver_photo_path
@@ -69,6 +69,15 @@ GO
 IF COL_LENGTH('dbo.personel_audit_logs', 'kode_personel_lama') IS NULL
     ALTER TABLE dbo.personel_audit_logs ADD kode_personel_lama VARCHAR(20) NULL,
                                            kode_personel_baru VARCHAR(20) NULL;
+GO
+-- Jenis perubahan. Hapus personel = soft delete (personel.is_active = 0), riwayat tetap ada.
+IF COL_LENGTH('dbo.personel_audit_logs', 'aksi') IS NULL
+    ALTER TABLE dbo.personel_audit_logs ADD aksi VARCHAR(10) NOT NULL
+        CONSTRAINT DF_PersonelAudit_Aksi DEFAULT ('UPDATE');
+GO
+IF OBJECT_ID('CK_PersonelAudit_Aksi', 'C') IS NULL
+    ALTER TABLE dbo.personel_audit_logs ADD CONSTRAINT CK_PersonelAudit_Aksi
+        CHECK (aksi IN ('TAMBAH', 'UPDATE', 'HAPUS'));
 GO
 
 /* ---------- 3. kendaraan + is_blacklisted ---------- */
