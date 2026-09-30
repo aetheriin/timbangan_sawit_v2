@@ -243,6 +243,8 @@ Menjalankan di database dummy:
 4. `python -m pytest tests` untuk unit test.
 5. Development: `python app.py`. Dipakai di site: `python serve.py` (waitress). Migrasi index: `003_index_optimasi.sql`.
    Rincian optimasi & cache: [docs/OPTIMASI_WEB.md](OPTIMASI_WEB.md).
+6. **Wajib** isi `SECRET_KEY` & `HASH_SECRET_KEY` (acak, >= 32 karakter) di `.env`; aplikasi menolak start bila kosong.
+   Keamanan, akses LAN, HTTPS, kiosk: [docs/KEAMANAN_WEB.md](KEAMANAN_WEB.md).
 
 ---
 
