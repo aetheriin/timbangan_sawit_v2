@@ -216,14 +216,15 @@ Face Recognition = tab Absensi | Personel | Blacklist | Audit Log tanpa info bar
 templates/
   base.html                         kerangka: sidebar, topbar, block info_bar, block tab_header, block tab_content
   partials/layout/                  sidebar, topbar, info_bar, _macros (tab_header, section_header)
-  weighbridge.html                  halaman site (List / Form), partial security/timbangan/sortasi/lab
+  weighbridge.html                  halaman site (List / Form; ?view=form dirender server tanpa kedip)
+  partials/site/                    tab security, timbangan, sortasi, lab + modal security
   face_recognition.html             halaman Face Recognition (info_bar dikosongkan)
   partials/face_recognition/        tab absensi, personel, blacklist, audit + modal personel & blacklist
 static/js/
   common.js                         helper bersama (modal, escapeHtml, format personel, badge)
   base.js                           layout: sidebar List/Form, tab, section
   info_bar.js                       kontainer atas site (plat, validasi)
-  security.js, kendaraan.js, ...    tab site
+  site/                             security, kendaraan, timbangan, sortasi, lab
   face_recognition/                 kamera, absensi, personel, blacklist, audit
 static/css/tailwind-source.css      komponen (@apply) → build ke tailwind.css
 routes/                             main, security, ..., personel, blacklist, absensi, audit

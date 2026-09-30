@@ -1,23 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Weighbridge{% endblock %}
 
+{# Halaman site: List (tab Security, Timbangan, Sortasi, Laboratorium) dan Form (Create Ticket).
+   `view` dari server (?view=form) supaya halaman langsung tampil sebagai Form tanpa berkedip ke List. #}
 {% block tab_content %}
-{% include "partials/security_tab.html" %}
-{% include "partials/timbangan_tab.html" %}
-{% include "partials/sortasi_tab.html" %}
-{% include "partials/lab_tab.html" %}
+    {% include "partials/site/security_tab.html" %}
+    {% include "partials/site/timbangan_tab.html" %}
+    {% include "partials/site/sortasi_tab.html" %}
+    {% include "partials/site/lab_tab.html" %}
 {% endblock %}
 
 {% block modals %}
-{% include "partials/security_modals.html" %}
+    {% include "partials/site/security_modals.html" %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>const WAJIB_SCAN_WAJAH = {{ 'true' if wajib_scan_wajah else 'false' }};</script>
 <script src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/security.js') }}"></script>
-<script src="{{ url_for('static', filename='js/kendaraan.js') }}"></script>
-<script src="{{ url_for('static', filename='js/timbangan.js') }}"></script>
-<script src="{{ url_for('static', filename='js/sortasi.js') }}"></script>
-<script src="{{ url_for('static', filename='js/lab.js') }}"></script>
+<script src="{{ url_for('static', filename='js/site/security.js') }}"></script>
+<script src="{{ url_for('static', filename='js/site/kendaraan.js') }}"></script>
+<script src="{{ url_for('static', filename='js/site/timbangan.js') }}"></script>
+<script src="{{ url_for('static', filename='js/site/sortasi.js') }}"></script>
+<script src="{{ url_for('static', filename='js/site/lab.js') }}"></script>
 {% endblock %}

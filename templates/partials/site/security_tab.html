@@ -1,7 +1,7 @@
 <div data-tab-content="security">
 
     <!-- ===== VIEW: LIST ===== -->
-    <div data-view-panel="list">
+    <div data-view-panel="list"{% if view == 'form' %} class="hidden"{% endif %}>
 
         <div class="flex justify-end gap-3 mb-4">
             <div class="relative">
@@ -67,7 +67,7 @@
     </div>
 
     <!-- ===== VIEW: FORM (Create Ticket) ===== -->
-    <div data-view-panel="form" class="hidden">
+    <div data-view-panel="form"{% if view != 'form' %} class="hidden"{% endif %}>
 
         <!-- Banner merah: kendaraan / supir masuk blacklist (diisi security.js) -->
         <div id="bannerBlacklist" class="note-danger hidden mb-4 items-center gap-4">

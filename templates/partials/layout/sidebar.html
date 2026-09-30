@@ -4,10 +4,11 @@
     <div class="sidebar-title">MENU</div>
     <nav>
         <a href="{{ url_for('main.weighbridge', view='list') }}" data-view="list"
-           class="sidebar-link{% if halaman == 'site' %} sidebar-link-active{% endif %}">
+           class="sidebar-link{% if halaman == 'site' and view != 'form' %} sidebar-link-active{% endif %}">
             <i class="fa-solid fa-list w-4"></i> List
         </a>
-        <a href="{{ url_for('main.weighbridge', view='form') }}" data-view="form" class="sidebar-link">
+        <a href="{{ url_for('main.weighbridge', view='form') }}" data-view="form"
+           class="sidebar-link{% if halaman == 'site' and view == 'form' %} sidebar-link-active{% endif %}">
             <i class="fa-solid fa-file-pen w-4"></i> Form
         </a>
         <a href="{{ url_for('main.face_recognition') }}"

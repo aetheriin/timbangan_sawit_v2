@@ -20,7 +20,8 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route("/weighbridge")
 @login_required
 def weighbridge():
-    return render_template("weighbridge.html", halaman="site",
+    view = "form" if request.args.get("view") == "form" else "list"
+    return render_template("weighbridge.html", halaman="site", view=view,
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true")
 

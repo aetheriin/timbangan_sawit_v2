@@ -75,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tabs.length) return;
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
-    switchTab(tabs.includes(tab) ? tab : tabs[0]);
-    if (params.get('view') === 'form') setSidebarView('form');
+    // ?view=form sudah dirender server sebagai Form: jangan reset ke List dulu (mencegah kedip)
+    const bukaForm = adaPanelView() && params.get('view') === 'form';
+    switchTab(bukaForm ? 'security' : (tabs.includes(tab) ? tab : tabs[0]), !bukaForm);
+    if (bukaForm) setSidebarView('form');
 });
