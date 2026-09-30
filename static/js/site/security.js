@@ -50,13 +50,14 @@ function tampilkanBannerBlacklist(info) {
     document.getElementById('bannerBlacklistDetail').textContent = info.detail || '';
     const surat = document.getElementById('bannerBlacklistSurat');
     surat.classList.toggle('hidden', !info.file);
-    if (info.file) surat.href = `/static/${info.file}`;
+    if (info.file) surat.href = urlBerkas(info.file);
 }
 
 function infoBlacklistKendaraan(noPlat, bl) {
     return {
-        judul: `KENDARAAN ${noPlat} MASUK BLACKLIST — tiket tidak dapat dibuat`,
-        detail: `No. surat ${bl.no_surat_blacklist} · ditetapkan ${bl.tgl_blacklist} oleh ${bl.oleh} · permanen`,
+        judul: `PERINGATAN: KENDARAAN ${noPlat} MASUK BLACKLIST`,
+        detail: `No. surat ${bl.no_surat_blacklist} · ditetapkan ${bl.tgl_blacklist} oleh ${bl.oleh} · permanen. ` +
+                'Tiket tetap bisa dibuat, dan tercatat di Audit Log untuk HO.',
         file: bl.file_surat_blacklist,
     };
 }
@@ -65,7 +66,7 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
     const barisUtama = utama && (!dr || String(utama.id_driver) !== String(dr.id_driver))
-        ? `<p class="text-xs text-blue-600">Supir utama: ${utama.nama}</p>` : '';
+        ? `<p class="text-xs text-blue-600">Supir utama: ${escapeHtml(utama.nama)}</p>` : '';
     if (!dr) {
         info.innerHTML = 'Belum ada riwayat' + barisUtama;
         foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
@@ -76,7 +77,7 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
         (dr.is_blacklisted ? `<p>${badge('BLACKLIST', WARNA_BADGE.merah)}</p>` : '') +
         (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
-        ? `<img src="/static/${dr.foto_path}" class="w-full h-full object-cover">`
+        ? `<img src="${escapeHtml(urlBerkas(dr.foto_path))}" class="w-full h-full object-cover" alt="">`
         : '<i class="fa-solid fa-user text-slate-300"></i>';
 }
 
@@ -92,12 +93,12 @@ const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTrans
 function aturStatusForm(status) {
     statusForm = status;
     FIELD_KENDARAAN.forEach(id => {
-        document.getElementById(id).disabled = !(status === 'draft' || (status === 'blacklist' && id === 'formNoPlat'));
+        document.getElementById(id).disabled = status !== 'draft';
     });
-    document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft' || status === 'blacklist');
+    document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft');
 
     const btn = document.getElementById('btnMulaiValidasi');
-    const beku = status === 'validasi' || status === 'blacklist';      // validasi: beku sampai scan wajah + Submit
+    const beku = status === 'validasi';      // beku sampai scan wajah + Submit
     btn.textContent = status === 'selesai' ? 'Sudah Validasi' : 'Mulai Validasi Awal';
     btn.disabled = status !== 'draft';
     btn.classList.toggle('btn-primary', status !== 'selesai');
@@ -175,7 +176,7 @@ function terapkanKontrak(idSupplier) {
 
 window.addEventListener('platLookup', (e) => {
     const d = e.detail;
-    if (!['ADA_TIKET', 'DRAFT', 'BLACKLIST'].includes(d.status)) return;
+    if (!['ADA_TIKET', 'DRAFT'].includes(d.status)) return;
 
     document.getElementById('formNoPlat').value = d.no_plat;
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
@@ -183,12 +184,6 @@ window.addEventListener('platLookup', (e) => {
     tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
     tampilkanBannerBlacklist(d.kendaraan_blacklist && d.status !== 'ADA_TIKET'
         ? infoBlacklistKendaraan(d.no_plat, d.kendaraan_blacklist) : null);
-
-    if (d.status === 'BLACKLIST') {
-        resetValidasiForm();
-        aturStatusForm('blacklist');
-        return;
-    }
 
     if (d.status === 'ADA_TIKET') {
         kontrakAktif = [];
@@ -222,13 +217,13 @@ async function muatListTicketAktif() {
 
     tbody.innerHTML = data.map(t => `
         <tr class="hover:bg-slate-50">
-            <td class="table-cell font-mono text-xs">${t.no_tiket}</td>
-            <td class="table-cell">${t.no_plat}</td>
-            <td class="table-cell">${t.supplier}</td>
-            <td class="table-cell"><span class="badge-status bg-amber-100 text-amber-700">${t.status_alur}</span></td>
+            <td class="table-cell font-mono text-xs">${escapeHtml(t.no_tiket)}</td>
+            <td class="table-cell">${escapeHtml(t.no_plat)}</td>
+            <td class="table-cell">${escapeHtml(t.supplier)}</td>
+            <td class="table-cell"><span class="badge-status bg-amber-100 text-amber-700">${escapeHtml(t.status_alur)}</span></td>
             <td class="table-cell text-right space-x-2">
-                <button onclick="bukaFormDariTabel('${t.no_plat}')" class="text-blue-600 hover:underline text-xs">Buka</button>
-                <button onclick="openCetakQRDariTabel('${t.no_plat}')" class="text-emerald-600 hover:underline text-xs">Cetak QR</button>
+                <button type="button" data-plat="${escapeHtml(t.no_plat)}" onclick="bukaFormDariTabel(this.dataset.plat)" class="text-blue-600 hover:underline text-xs">Buka</button>
+                <button type="button" data-plat="${escapeHtml(t.no_plat)}" onclick="openCetakQRDariTabel(this.dataset.plat)" class="text-emerald-600 hover:underline text-xs">Cetak QR</button>
             </td>
         </tr>
     `).join('');
@@ -277,12 +272,12 @@ async function mulaiScanWajah() {
 
     if (pollingScanWajah) pollingScanWajah.stop();
     pollingScanWajah = new Poller(async () => {
-        let data = await ambilJson('/api/status-verifikasi', { timeout: 5000 });
+        let data = await ambilJson('/api/status-verifikasi', { timeout: 5000, polling: true });
         if (data.error) return;                      // coba lagi di putaran berikutnya
         if (!data.terverifikasi) {
-            const kamera = await ambilJson('/api/kamera/status', { timeout: 5000 });
+            const kamera = await ambilJson('/api/kamera/status', { timeout: 5000, polling: true });
             if (kamera.error || kamera.is_active) return;     // kiosk masih bekerja
-            data = await ambilJson('/api/status-verifikasi', { timeout: 5000 });   // cek ulang supaya tidak kalah cepat
+            data = await ambilJson('/api/status-verifikasi', { timeout: 5000, polling: true });   // cek ulang supaya tidak kalah cepat
             if (!data.terverifikasi) {
                 hentikanScanWajah('Tidak dikenali atau dibatalkan. Klik "Tambah" untuk daftar supir baru.');
                 return;
@@ -305,10 +300,10 @@ function terapkanHasilScanWajah(data) {
     const status = document.getElementById('statusScanWajah');
     const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
     if (data.is_blacklisted) {
-        status.innerHTML = `<span class="text-red-600 font-semibold">${escapeHtml(nama)} masuk BLACKLIST. Tiket tidak dapat dibuat.</span>`;
-        tampilkanBannerBlacklist({ judul: `SUPIR ${nama} MASUK BLACKLIST — tiket tidak dapat dibuat`, detail: 'Tercatat di Audit Log (TRY_SCAN_BLACKLIST).' });
-        setSupirTerverifikasi(false);
-        return;
+        // Blacklist = peringatan: supir tetap terverifikasi, tiket tetap bisa dibuat (tercatat di Audit Log)
+        tampilkanBannerBlacklist({ judul: `PERINGATAN: SUPIR ${nama} MASUK BLACKLIST`,
+            detail: 'Tiket tetap bisa dibuat, dan tercatat di Audit Log (TRY_SCAN_BLACKLIST) untuk HO.' });
+        Notif.peringatan(`${nama} masuk daftar blacklist`);
     }
     if (data.kategori && data.kategori !== 'DRIVER') {
         status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml(data.kategori)}, bukan supir.</span>`;
@@ -574,7 +569,7 @@ function isiDriver(dr) {
     document.getElementById('driverNik').value = dr.nik;
     document.getElementById('driverSim').value = dr.no_sim;
     document.getElementById('fotoDriverBox').innerHTML = dr.foto_path
-        ? `<img src="/static/${dr.foto_path}" class="w-full h-full object-cover">`
+        ? `<img src="${escapeHtml(urlBerkas(dr.foto_path))}" class="w-full h-full object-cover" alt="">`
         : '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
     document.getElementById('driverBadgeUpdate').classList.toggle('hidden', !dr.is_updated);
 }
@@ -602,7 +597,7 @@ async function lookupPlatUntukQR(inputEl) {
         document.getElementById('qrTiketText').textContent = data.no_tiket;
         // QR dibuat di server (tidak butuh internet / CDN)
         document.getElementById('qrcodeContainer').innerHTML =
-            `<img src="/api/qr/${encodeURIComponent(data.no_tiket)}" alt="QR ${data.no_tiket}" width="150" height="150">`;
+            `<img src="/api/qr/${encodeURIComponent(data.no_tiket)}" alt="QR ${escapeHtml(data.no_tiket)}" width="150" height="150">`;
         qrTiketAktif = data.no_tiket;
     } else {
         qrTiketAktif = null;

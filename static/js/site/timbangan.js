@@ -22,7 +22,7 @@ window.addEventListener('platLookup', (e) => {
 // ===== BERAT LIVE =====
 // Polling berurutan (tidak menumpuk), hanya saat tab Timbangan dibuka dan tab browser terlihat.
 const pollingBerat = new Poller(async () => {
-    const r = await Api.get('/api/timbang/status', { timeout: 3000 });
+    const r = await Api.get('/api/timbang/status', { timeout: 3000, polling: true });
     const el = document.getElementById('beratLiveDisplay');
     el.textContent = r.ok ? `${r.data.berat} Kg` : '— Kg';
     el.classList.toggle('opacity-40', !r.ok);         // koneksi timbangan / server terputus
@@ -59,8 +59,8 @@ async function muatHistorySupplier(idSupplier) {
         return;
     }
     tbody.innerHTML = data.map(r => `
-        <tr><td class="table-cell">${r.nama_supplier}</td><td class="table-cell">${r.berat_bruto ?? '-'}</td>
-        <td class="table-cell">${r.berat_tara ?? '-'}</td><td class="table-cell">${r.berat_netto ?? '-'}</td></tr>
+        <tr><td class="table-cell">${escapeHtml(r.nama_supplier)}</td><td class="table-cell">${escapeHtml(r.berat_bruto ?? '-')}</td>
+        <td class="table-cell">${escapeHtml(r.berat_tara ?? '-')}</td><td class="table-cell">${escapeHtml(r.berat_netto ?? '-')}</td></tr>
     `).join('');
 }
 

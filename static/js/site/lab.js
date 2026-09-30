@@ -91,10 +91,11 @@ async function simpanStandarMutu(btn) {
 
 function cetakCOA() {
     const area = document.getElementById('printAreaCOA');
-    area.innerHTML = `<h2>Certificate of Analysis</h2><p>No. Tiket: ${noTiketLabAktif}</p>
-        <p>FFA: ${document.getElementById('labFfa').value}%</p>
-        <p>Kadar Air: ${document.getElementById('labAir').value}%</p>
-        <p>Kadar Kotoran: ${document.getElementById('labKotoran').value}%</p>`;
+    const nilai = id => escapeHtml(document.getElementById(id).value);
+    area.innerHTML = `<h2>Certificate of Analysis</h2><p>No. Tiket: ${escapeHtml(noTiketLabAktif)}</p>
+        <p>FFA: ${nilai('labFfa')}%</p>
+        <p>Kadar Air: ${nilai('labAir')}%</p>
+        <p>Kadar Kotoran: ${nilai('labKotoran')}%</p>`;
     area.id = 'printArea';
     window.print();
 }

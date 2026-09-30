@@ -106,7 +106,7 @@ function tampilkanHasilAbsen(d) {
     box.innerHTML = `
         <div class="flex items-center gap-4 mb-3">
             <div class="w-24 h-28 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0">
-                ${foto ? `<img src="/static/${escapeHtml(foto)}" class="w-full h-full object-cover" alt="">` : ''}
+                ${foto ? `<img src="${escapeHtml(urlBerkas(foto))}" class="w-full h-full object-cover" alt="">` : ''}
             </div>
             <div class="space-y-1.5">
                 <p class="text-lg font-bold text-slate-800">${escapeHtml(d.nama_personel)}</p>

@@ -107,7 +107,7 @@ async function bukaEditPersonel(id) {
     document.getElementById('personelNik').value = p.nik;
     document.getElementById('personelKategori').value = p.kategori;
     document.getElementById('personelSim').value = p.no_sim || '';
-    tampilkanPreviewPersonel(p.foto_path ? `/static/${p.foto_path}` : null);
+    tampilkanPreviewPersonel(p.foto_path ? urlBerkas(p.foto_path) : null);
     perbaruiHintSim();
     openModal('modalPersonel');
 

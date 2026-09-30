@@ -15,17 +15,27 @@ const PESAN_STATUS = {
     503: 'Server sedang sibuk. Coba beberapa saat lagi.',
 };
 
+function tokenCsrf() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.content : '';
+}
+
+// Waktu aktivitas terakhir (request non-polling) untuk peringatan sesi idle di ui.js
+let aktivitasTerakhir = Date.now();
+
 const Api = {
-    // Hasil selalu { ok, status, data, error }; tidak pernah melempar exception
-    async request(url, { method = 'GET', body = null, timeout = TIMEOUT_DEFAULT_MS } = {}) {
+    // Hasil selalu { ok, status, data, error }; tidak pernah melempar exception.
+    // polling: true -> request otomatis, tidak dihitung sebagai aktivitas user.
+    async request(url, { method = 'GET', body = null, timeout = TIMEOUT_DEFAULT_MS, polling = false } = {}) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeout);
+        const headers = { 'Accept': 'application/json', 'X-Requested-With': 'fetch' };
+        if (method !== 'GET') headers['X-CSRFToken'] = tokenCsrf();
+        if (!polling) aktivitasTerakhir = Date.now();
         try {
-            const res = await fetch(url, {
-                method, body, signal: ctrl.signal, credentials: 'same-origin',
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'fetch' },
-            });
-            if (res.redirected && new URL(res.url).pathname === '/login') {
+            const res = await fetch(url, { method, body, headers, signal: ctrl.signal, credentials: 'same-origin' });
+            if (res.status === 401 || (res.redirected && new URL(res.url).pathname === '/login')) {
+                sesiBerakhir();
                 return { ok: false, status: 401, data: null, error: PESAN_STATUS[401] };
             }
             const jenis = res.headers.get('content-type') || '';
@@ -52,6 +62,15 @@ const Api = {
         return this.request(url, { ...opsi, method: 'POST', body: keFormData(data) });
     },
 };
+
+// Sesi habis (idle / logout di tab lain): arahkan ke login sekali saja
+let sudahDiarahkanLogin = false;
+function sesiBerakhir() {
+    if (sudahDiarahkanLogin) return;
+    sudahDiarahkanLogin = true;
+    if (typeof Notif !== 'undefined') Notif.peringatan(PESAN_STATUS[401]);
+    setTimeout(() => { window.location.href = '/login?habis=1'; }, 1500);
+}
 
 function keFormData(data) {
     if (data instanceof FormData) return data;

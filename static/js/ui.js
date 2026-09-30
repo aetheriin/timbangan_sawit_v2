@@ -76,6 +76,47 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && Dialog._selesai) Dialog.jawab(false);
 });
 
+// ===== SESI IDLE =====
+// Server mengeluarkan user setelah SESI_IDLE_MENIT tanpa aktivitas. 2 menit sebelumnya muncul peringatan
+// dengan tombol "Tetap masuk"; bila tidak ditanggapi, halaman diarahkan ke login.
+const SesiIdle = {
+    PERINGATAN_DETIK: 120,
+    sudahDiperingatkan: false,
+
+    mulai() {
+        const meta = document.querySelector('meta[name="sesi-idle"]');
+        this.batas = meta ? Number(meta.content) : 0;
+        if (!this.batas) return;
+        ['click', 'keydown'].forEach(ev => document.addEventListener(ev, () => this.aktivitasLokal(), { passive: true }));
+        setInterval(() => this.cek(), 15000);
+    },
+
+    // Klik / ketik tanpa request: perpanjang sesi di server paling sering 1x per 5 menit
+    aktivitasLokal() {
+        if (Date.now() - aktivitasTerakhir > 5 * 60 * 1000) Api.post('/api/sesi/perpanjang', {});
+    },
+
+    cek() {
+        const sisa = this.batas - (Date.now() - aktivitasTerakhir) / 1000;
+        if (sisa <= 0) { sesiBerakhir(); return; }
+        if (sisa <= this.PERINGATAN_DETIK && !this.sudahDiperingatkan) {
+            this.sudahDiperingatkan = true;
+            Dialog.konfirmasi({ judul: 'Sesi hampir berakhir', teksYa: 'Tetap masuk', teksBatal: 'Keluar',
+                pesan: 'Tidak ada aktivitas. Anda akan keluar otomatis dalam 2 menit.' })
+                .then(async tetap => {
+                    this.sudahDiperingatkan = false;
+                    if (tetap) { await Api.post('/api/sesi/perpanjang', {}); return; }
+                    document.querySelector('form[action="/logout"]')?.submit();
+                });
+        }
+    },
+};
+
+document.addEventListener('DOMContentLoaded', () => SesiIdle.mulai());
+
+// Halaman dipulihkan dari cache tombol Back / Forward -> muat ulang dari server (cek sesi masih berlaku)
+window.addEventListener('pageshow', e => { if (e.persisted) window.location.reload(); });
+
 // Tombol sibuk: nonaktif + teks proses, mencegah klik ganda selama request berjalan
 function setBusy(btn, sibuk, teksProses = 'Memproses...') {
     if (!btn) return;

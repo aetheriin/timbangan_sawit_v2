@@ -89,7 +89,7 @@ function kosongkanInfoBar() {
 function tampilkanFotoDriver(path) {
     const box = document.getElementById('infoFotoBox');
     box.innerHTML = path
-        ? `<img src="/static/${path}" class="w-full h-full object-cover">`
+        ? `<img src="${escapeHtml(urlBerkas(path))}" class="w-full h-full object-cover" alt="">`
         : ICON_USER;
 }
 

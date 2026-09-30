@@ -41,9 +41,9 @@ function renderSupirTruk(list) {
                 ? '<span class="badge-status bg-blue-100 text-blue-700">Utama</span>'
                 : '<span class="badge-status bg-slate-200 text-slate-600">Cadangan</span>'}</td>
             <td class="table-cell text-right space-x-2 whitespace-nowrap">
-                <button onclick="pakaiSupirDariTruk(${s.id_driver})" class="text-emerald-600 hover:underline text-xs">Pakai</button>
-                ${s.is_utama ? '' : `<button onclick="jadikanSupirUtama(${s.id_driver})" class="text-blue-600 hover:underline text-xs">Jadikan Utama</button>`}
-                <button onclick="lepasSupirTruk(${s.id_driver})" class="text-red-600 hover:underline text-xs">Lepas</button>
+                <button onclick="pakaiSupirDariTruk(${Number(s.id_driver)})" class="text-emerald-600 hover:underline text-xs">Pakai</button>
+                ${s.is_utama ? '' : `<button onclick="jadikanSupirUtama(${Number(s.id_driver)})" class="text-blue-600 hover:underline text-xs">Jadikan Utama</button>`}
+                <button onclick="lepasSupirTruk(${Number(s.id_driver)})" class="text-red-600 hover:underline text-xs">Lepas</button>
             </td>
         </tr>`).join('')
         || `<tr><td colspan="4" class="table-cell text-slate-400 text-center py-6">Belum ada supir terdaftar untuk truk ini</td></tr>`;
@@ -60,11 +60,11 @@ function renderKontrakTruk(list) {
             <td class="table-cell">${escapeHtml(k.no_kontrak || '-')}</td>
             <td class="table-cell">${escapeHtml(k.nama_supplier)}</td>
             <td class="table-cell">${escapeHtml(k.nama_produk || 'Semua')}
-                <div class="text-xs text-slate-400">${k.jenis_transaksi ? k.jenis_transaksi.replace('_', ' ') : 'Semua jenis'}</div></td>
-            <td class="table-cell whitespace-nowrap">${k.tanggal_mulai} s/d ${k.tanggal_selesai || '...'}</td>
+                <div class="text-xs text-slate-400">${k.jenis_transaksi ? escapeHtml(k.jenis_transaksi.replace('_', ' ')) : 'Semua jenis'}</div></td>
+            <td class="table-cell whitespace-nowrap">${escapeHtml(k.tanggal_mulai)} s/d ${escapeHtml(k.tanggal_selesai || '...')}</td>
             <td class="table-cell"><span class="badge-status ${warna}">${label}</span></td>
             <td class="table-cell text-right">${bisaDiakhiri
-                ? `<button onclick="akhiriKontrak(${k.id_kontrak})" class="text-red-600 hover:underline text-xs">Akhiri</button>` : ''}</td>
+                ? `<button onclick="akhiriKontrak(${Number(k.id_kontrak)})" class="text-red-600 hover:underline text-xs">Akhiri</button>` : ''}</td>
         </tr>`;
     }).join('') || `<tr><td colspan="6" class="table-cell text-slate-400 text-center py-6">Belum ada kontrak</td></tr>`;
 }

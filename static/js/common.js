@@ -14,6 +14,11 @@ function escapeHtml(teks) {
     return String(teks ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// File upload (foto wajah, surat) disimpan privat: dibuka lewat /berkas/... yang wajib login
+function urlBerkas(path) {
+    return path ? `/berkas/${String(path).split('/').map(encodeURIComponent).join('/')}` : '';
+}
+
 // ===== FORMAT PERSONEL =====
 // ID tidak pernah berubah (006), Kode diisi HO (PRGBS-001). Tampilan: "Kode · Nama" atau "ID 014 · Nama".
 function formatIdPersonel(id) {

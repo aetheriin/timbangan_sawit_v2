@@ -46,7 +46,7 @@ async function muatBlacklist() {
             <td class="table-cell max-w-xs truncate" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</td>
             <td class="table-cell">${escapeHtml(r.oleh)} (${escapeHtml(r.role_oleh)})</td>
             <td class="table-cell text-right">${r.file_surat_blacklist
-                ? `<a href="/static/${escapeHtml(r.file_surat_blacklist)}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>` : '-'}</td>
+                ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>` : '-'}</td>
         </tr>`).join('') || barisKosong(7, 'Belum ada blacklist');
     catatanBatas(tbody, data.length, 200, 7);
 }
@@ -105,7 +105,7 @@ function pilihTargetBlacklist(index) {
     box.className = 'border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm flex items-center gap-4';
     box.innerHTML = tipeBlacklistBaru === 'PERSONEL' ? `
         <div class="w-14 h-16 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0">
-            ${t.foto_path ? `<img src="/static/${escapeHtml(t.foto_path)}" class="w-full h-full object-cover" alt="">` : ''}
+            ${t.foto_path ? `<img src="${escapeHtml(urlBerkas(t.foto_path))}" class="w-full h-full object-cover" alt="">` : ''}
         </div>
         <div class="flex-1">
             <p class="font-semibold text-slate-800">${escapeHtml(t.nama_personel)}</p>
