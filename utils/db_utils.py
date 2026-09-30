@@ -37,7 +37,8 @@ def get_user_by_username(username):
 def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_user, username, nama, role FROM users WHERE id_user = ?", user_id)
+    # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
+    cursor.execute("SELECT id_user, username, nama, role FROM users WHERE id_user = ? AND is_active = 1", user_id)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -658,9 +659,11 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
 def get_history_umum(tabel, limit=10):
     conn = get_connection()
     cursor = conn.cursor()
+    if tabel not in ("lab_hasil", "sortasi"):          # nama tabel disisipkan ke SQL -> hanya daftar tetap
+        raise ValueError(f"Tabel tidak diizinkan: {tabel}")
     kolom_status = "sr.keputusan" if tabel == 'lab_hasil' else "t.status_alur"
     cursor.execute(f"""
-        SELECT TOP {limit} k.no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
+        SELECT TOP {int(limit)} k.no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
         FROM {tabel} sr
         JOIN transaksi t ON sr.no_tiket = t.no_tiket
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan

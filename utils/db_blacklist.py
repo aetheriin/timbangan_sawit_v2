@@ -73,6 +73,8 @@ def cari_target(tipe, kata, batas=8):
 
 def tambah_blacklist(tipe, id_target, no_surat, alasan, file_surat, tgl_blacklist, user_id):
     """INSERT blacklist + set is_blacklisted = 1 dalam satu transaksi. Error bila target sudah diblacklist."""
+    if tipe not in TIPE_VALID:                        # nama tabel disisipkan ke SQL -> hanya daftar tetap
+        raise ValueError("Tipe blacklist tidak valid")
     tabel, kolom = ("personel", "id_personel") if tipe == "PERSONEL" else ("kendaraan", "id_kendaraan")
     conn = get_connection()
     cursor = conn.cursor()

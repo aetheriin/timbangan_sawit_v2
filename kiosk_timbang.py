@@ -7,11 +7,16 @@ import face_recognition
 import mediapipe as mp
 import numpy as np
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_URL = os.getenv("WEIGHBRIDGE_URL", "http://127.0.0.1:5000")
 SERVER_URL = f"{BASE_URL}/api/verifikasi-wajah"
 URL_TRIGGER = f"{BASE_URL}/api/kamera/status"
 URL_BATAL = f"{BASE_URL}/api/kamera/batal"
+# Token perangkat (sama dengan KIOSK_TOKEN di .env server). Kosong = kiosk di PC yang sama dengan server.
+HEADER_KIOSK = {"X-Kiosk-Token": os.getenv("KIOSK_TOKEN", ""), "X-Kiosk-Id": os.getenv("KIOSK_ID", "UTAMA")}
 KAMERA_INDEX = 0
 JUMLAH_FRAME_LIVENESS = 12
 JEDA_ANTAR_FRAME = 0.20
@@ -44,7 +49,7 @@ def kirim_ke_server(frames, tantangan):
 
   try:
     response = requests.post(
-        SERVER_URL, files=files, data={'tantangan': tantangan}, timeout=60
+        SERVER_URL, files=files, data={'tantangan': tantangan}, headers=HEADER_KIOSK, timeout=60
     )
     return response.json()
   except Exception as e:
@@ -185,7 +190,7 @@ def jendela_masih_terbuka():
 def notify_batal_to_server():
     """Memberitahu server Flask bahwa scan dibatalkan agar status camera_trigger_state di-reset."""
     try:
-        requests.post(URL_BATAL, timeout=2)
+        requests.post(URL_BATAL, headers=HEADER_KIOSK, timeout=2)
         print("[!] Scan dibatalkan oleh pengguna. Mengirim sinyal reset ke server...")
     except Exception:
         pass
@@ -357,7 +362,7 @@ def main():
     while True:
       try:
         # Pengecekan status trigger ke server Flask
-        res = requests.get(URL_TRIGGER, timeout=2).json()
+        res = requests.get(URL_TRIGGER, headers=HEADER_KIOSK, timeout=2).json()
 
         if res.get("is_active") is True:
           print("\n[!] Sinyal diterima dari Security! Membuka kamera...")

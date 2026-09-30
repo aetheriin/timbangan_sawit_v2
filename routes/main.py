@@ -50,13 +50,11 @@ def api_plat_lookup():
     riwayat = cari_riwayat_driver_by_plat(no_plat)
     driver_info = serialisasi_driver(riwayat)
 
-    if blacklist:      # truk diblacklist HO: form dikunci, percobaan dicatat untuk HO
+    if blacklist:      # truk diblacklist HO: hanya PERINGATAN (tiket tetap bisa dibuat), tercatat untuk HO
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
-                             details={"keterangan": f"Plat {no_plat} terdeteksi blacklist, tiket ditolak",
+                             details={"keterangan": f"Plat {no_plat} terdeteksi blacklist (peringatan)",
                                       "no_plat": no_plat, "no_surat": blacklist["no_surat_blacklist"]},
                              ip_address=request.remote_addr)
-        return jsonify({"status": "BLACKLIST", "no_plat": no_plat, "kendaraan_blacklist": blacklist,
-                        "no_stnk": kendaraan.no_stnk, "driver": driver_info}), 200
 
     # Data dari menu Update: supir terdaftar & kontrak aktif truk ini
     supir_terdaftar = get_supir_kendaraan(kendaraan.id_kendaraan) if kendaraan else []
@@ -78,7 +76,8 @@ def api_plat_lookup():
         "driver": driver_info,             # supir transaksi terakhir
         "driver_utama": driver_utama,      # supir utama dari menu Update
         "supir_terdaftar": supir_terdaftar,
-        "kontrak_aktif": kontrak_aktif
+        "kontrak_aktif": kontrak_aktif,
+        "kendaraan_blacklist": blacklist,  # None = tidak blacklist
     }), 200
 
 # ===== QR CODE TIKET (dibuat di server, tidak butuh internet) =====

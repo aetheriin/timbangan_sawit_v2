@@ -14,6 +14,7 @@ from utils.db_absensi import (get_jadwal_kerja, get_jadwal_hari, get_scan_terakh
 from utils.absensi_rules import tentukan_jenis, is_duplikat, hitung_status_waktu, hari_iso
 from utils.personel_utils import KATEGORI_VALID, format_nama_personel
 from utils.audit_utils import catat_security_audit
+from utils.upload_utils import simpan_frames, hapus_file
 
 absensi_bp = Blueprint('absensi', __name__)
 
@@ -38,17 +39,11 @@ def absensi_scan():
     tantangan = request.form.get("tantangan", "KEDIP")
     if tantangan not in TANTANGAN_VALID:
         return jsonify({"error": "Tantangan liveness tidak valid"}), 400
-    if len(files) < 3:
-        return jsonify({"error": "Frame kamera tidak cukup, ulangi scan"}), 400
-
-    folder_tmp = os.path.join(UPLOAD_FOLDER, "tmp")
-    os.makedirs(folder_tmp, exist_ok=True)
-    paths = []
     try:
-        for f in files:
-            path = os.path.join(folder_tmp, f"abs_{uuid.uuid4().hex}.jpg")
-            f.save(path)
-            paths.append(path)
+        paths = simpan_frames(files, maks=20)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    try:
 
         tengah = paths[len(paths) // 2]
         with slot_proses_wajah():

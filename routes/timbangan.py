@@ -11,6 +11,7 @@ from utils.serializers import serialisasi_tiket
 timbangan_bp = Blueprint('timbangan', __name__)
 
 @timbangan_bp.route("/api/timbang/status")
+@login_required
 def timbang_status():
     return jsonify(baca_status_asli())
 

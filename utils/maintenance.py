@@ -47,3 +47,25 @@ def mulai_pembersihan_berkala():
                 log.warning("Pembersihan uploads gagal: %s", e)
             time.sleep(INTERVAL_DETIK)
     threading.Thread(target=loop, daemon=True, name="pembersihan-uploads").start()
+
+
+def pindahkan_upload_lama():
+    """Sekali saat start: pindahkan file dari static/uploads (lama, publik) ke folder upload privat.
+    Path di database tidak berubah ('uploads/...'), hanya lokasi filenya."""
+    import shutil
+    from extensions import UPLOAD_LAMA
+    if not os.path.isdir(UPLOAD_LAMA) or os.path.abspath(UPLOAD_LAMA) == os.path.abspath(UPLOAD_FOLDER):
+        return
+    jumlah = 0
+    for akar, _, files in os.walk(UPLOAD_LAMA):
+        for nama in files:
+            if nama == ".gitkeep":
+                continue
+            asal = os.path.join(akar, nama)
+            tujuan = os.path.join(UPLOAD_FOLDER, os.path.relpath(asal, UPLOAD_LAMA))
+            os.makedirs(os.path.dirname(tujuan), exist_ok=True)
+            if not os.path.exists(tujuan):
+                shutil.move(asal, tujuan)
+                jumlah += 1
+    if jumlah:
+        log.info("%d file upload dipindah dari static/uploads ke %s (privat)", jumlah, UPLOAD_FOLDER)

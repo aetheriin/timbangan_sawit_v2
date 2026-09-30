@@ -43,7 +43,7 @@ def pasang_header_cache(app):
     """Halaman & API berisi data operasional: jangan disimpan browser / proxy."""
     @app.after_request
     def header_cache(resp):
-        if not request.path.startswith("/static/"):
+        if not request.path.startswith(("/static/", "/berkas/")):
             resp.headers["Cache-Control"] = "no-store"
         return resp
 
@@ -67,6 +67,17 @@ def pasang_error_handler(app):
     @app.errorhandler(ServerSibuk)
     def server_sibuk(e):
         return jsonify({"error": "Server sedang memproses wajah lain. Coba lagi beberapa detik."}), 503
+
+    from flask_wtf.csrf import CSRFError
+
+    @app.errorhandler(CSRFError)
+    def csrf_gagal(e):
+        from utils.keamanan import log_keamanan
+        log_keamanan("CSRF_GAGAL", request.path)
+        pesan = "Sesi form kedaluwarsa. Muat ulang halaman (F5) lalu coba lagi."
+        if _minta_json():
+            return jsonify({"error": pesan}), 400
+        return render_template("error.html", kode=400, pesan=pesan), 400
     @app.errorhandler(HTTPException)
     def http_error(e):
         pesan = PESAN_ERROR.get(e.code, e.description)

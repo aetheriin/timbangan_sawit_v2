@@ -1,0 +1,16 @@
+# HTTPS di jaringan site (docs/KEAMANAN_WEB.md #23)
+# Caddy menerima HTTPS di port 443 lalu meneruskan ke waitress (serve.py) di port 5000.
+# 1. Download caddy.exe (https://caddyserver.com/download), taruh di folder ini.
+# 2. Ganti 192.168.1.10 dengan IP LAN PC server.
+# 3. .env: BEHIND_PROXY=1, COOKIE_SECURE=1, HOST=127.0.0.1  (waitress hanya menerima dari Caddy)
+# 4. Jalankan: caddy run --config Caddyfile
+# 5. PC lain membuka https://192.168.1.10 . Sertifikat dibuat Caddy sendiri ("tls internal");
+#    agar browser tidak memperingatkan, pasang root CA Caddy di tiap PC
+#    (caddy trust, atau salin %AppData%\Caddy\pki\authorities\local\root.crt lalu import ke
+#    "Trusted Root Certification Authorities").
+
+192.168.1.10 {
+    tls internal
+    encode gzip
+    reverse_proxy 127.0.0.1:5000
+}
