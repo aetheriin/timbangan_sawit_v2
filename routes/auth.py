@@ -7,7 +7,7 @@ from utils.db_utils import get_user_by_username
 auth_bp = Blueprint('auth', __name__)
 
 TAB_DEFAULT = {'SECURITY': 'security', 'OPERATOR_TIMBANG': 'timbangan',
-               'SORTASI': 'sortasi', 'LAB': 'lab', 'ADMIN': 'security'}
+               'SORTASI': 'sortasi', 'LAB': 'lab', 'ADMIN': 'security', 'HO': 'security'}
 
 @auth_bp.route("/")
 def index():

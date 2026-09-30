@@ -4,13 +4,15 @@ from datetime import datetime
 import qrcode
 import qrcode.image.svg
 from flask import Blueprint, request, jsonify, render_template, Response, abort
-from flask_login import login_required
+from flask_login import login_required, current_user
 from utils.db_utils import (
     get_semua_supplier, get_semua_produk, cari_transaksi_aktif,
     cari_riwayat_driver_by_plat, generate_no_tiket,
     get_kendaraan_by_plat, get_supir_kendaraan, get_kontrak_kendaraan, catat_cetak_qr
 )
-from utils.serializers import serialisasi_tiket
+from utils.serializers import serialisasi_tiket, serialisasi_driver
+from utils.db_blacklist import get_surat_blacklist
+from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 
 main_bp = Blueprint('main', __name__)
@@ -18,9 +20,15 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route("/weighbridge")
 @login_required
 def weighbridge():
-    return render_template("weighbridge.html",
+    return render_template("weighbridge.html", halaman="site",
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true")
+
+@main_bp.route("/face-recognition")
+@login_required
+def face_recognition():
+    """Satu halaman, tab Absensi | Personel | Blacklist | Audit Log (tanpa info bar)."""
+    return render_template("face_recognition.html", halaman="face")
 
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required
@@ -29,27 +37,36 @@ def api_plat_lookup():
     if error:
         return jsonify({"error": error}), 400
 
+    kendaraan = get_kendaraan_by_plat(no_plat)
+    blacklist = (get_surat_blacklist("KENDARAAN", kendaraan.id_kendaraan)
+                 if kendaraan and kendaraan.is_blacklisted else None)
+
     row = cari_transaksi_aktif(no_plat=no_plat)
     if row:
-        return jsonify(serialisasi_tiket(row)), 200
+        return jsonify({**serialisasi_tiket(row), "kendaraan_blacklist": blacklist}), 200
 
     # Belum ada tiket aktif: nomor tiket cuma "dipesan", belum di-INSERT
     riwayat = cari_riwayat_driver_by_plat(no_plat)
-    driver_info = None
-    if riwayat:
-        driver_info = {"id_driver": riwayat.id_driver, "nik": riwayat.nik, "nama": riwayat.nama_driver,
-                       "no_sim": riwayat.no_sim, "is_updated": bool(riwayat.is_updated),
-                       "foto_path": riwayat.foto_path}
+    driver_info = serialisasi_driver(riwayat)
+
+    if blacklist:      # truk diblacklist HO: form dikunci, percobaan dicatat untuk HO
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
+                             details={"keterangan": f"Plat {no_plat} terdeteksi blacklist, tiket ditolak",
+                                      "no_plat": no_plat, "no_surat": blacklist["no_surat_blacklist"]},
+                             ip_address=request.remote_addr)
+        return jsonify({"status": "BLACKLIST", "no_plat": no_plat, "kendaraan_blacklist": blacklist,
+                        "no_stnk": kendaraan.no_stnk, "driver": driver_info}), 200
+
     # Data dari menu Update: supir terdaftar & kontrak aktif truk ini
-    kendaraan = get_kendaraan_by_plat(no_plat)
     supir_terdaftar = get_supir_kendaraan(kendaraan.id_kendaraan) if kendaraan else []
     kontrak_aktif = get_kontrak_kendaraan(kendaraan.id_kendaraan, hanya_aktif=True) if kendaraan else []
     utama = next((s for s in supir_terdaftar if s["is_utama"]), None)
     driver_utama = None
     if utama:
-        driver_utama = {"id_driver": utama["id_driver"], "nik": utama["nik"], "nama": utama["nama_driver"],
-                        "no_sim": utama["no_sim"], "is_updated": utama["is_updated"],
-                        "foto_path": utama["foto_path"]}
+        driver_utama = {"id_driver": utama["id_driver"], "kode_personel": utama["kode_personel"],
+                        "nik": utama["nik"], "nama": utama["nama_driver"], "no_sim": utama["no_sim"],
+                        "kategori": "DRIVER", "is_blacklisted": utama["is_blacklisted"],
+                        "is_updated": utama["is_updated"], "foto_path": utama["foto_path"]}
 
     return jsonify({
         "status": "DRAFT",

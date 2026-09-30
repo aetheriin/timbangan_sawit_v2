@@ -9,6 +9,12 @@ def extract_embedding(image_path):
         return None
     return encodings[0]
 
+def extract_embedding_tunggal(image_path):
+    """Untuk pendaftaran personel: foto wajib berisi tepat 1 wajah. Kembalikan (embedding | None, jumlah_wajah)."""
+    image = face_recognition.load_image_file(image_path)
+    encodings = face_recognition.face_encodings(image)
+    return (encodings[0] if len(encodings) == 1 else None), len(encodings)
+
 def embedding_to_binary(embedding):
     # Convert embedding (numpy array) jadi bytes
     return embedding.astype(np.float64).tobytes()

@@ -13,6 +13,10 @@ from routes.timbangan import timbangan_bp
 from routes.sortasi import sortasi_bp
 from routes.lab import lab_bp
 from routes.kendaraan import kendaraan_bp
+from routes.personel import personel_bp
+from routes.blacklist import blacklist_bp
+from routes.absensi import absensi_bp
+from routes.audit import audit_bp
 
 load_dotenv()
 
@@ -25,7 +29,8 @@ def load_user(user_id):
     row = get_user_by_id(user_id)
     return User(row.id_user, row.username, row.nama, row.role) if row else None
 
-for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp):
+for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
+           personel_bp, blacklist_bp, absensi_bp, audit_bp):
     app.register_blueprint(bp)
 
 if __name__ == "__main__":

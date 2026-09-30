@@ -3,15 +3,18 @@ import uuid
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import role_required, UPLOAD_FOLDER, camera_trigger_state
-from utils.face_utils import (extract_embedding, embedding_to_binary, binary_to_embedding,
-                              compare_faces, verifikasi_liveness)
+from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
+                              binary_to_embedding, compare_faces, verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
 from utils.verifikasi_state import set_terverifikasi, get_verifikasi, reset_verifikasi
 from utils.db_utils import (
     cari_transaksi_aktif, buat_transaksi_full, get_list_tiket_aktif, get_history_driver,
     get_driver_by_id, cari_driver_by_nik, cek_nik_ada, cari_wajah_mirip_driver,
-    insert_driver, update_driver_dengan_audit, get_all_driver_embeddings
+    insert_driver, update_driver_dengan_audit, get_all_driver_embeddings, get_kendaraan_by_plat
 )
+from utils.serializers import serialisasi_driver
+from utils.audit_utils import catat_security_audit
+from utils.personel_utils import format_nama_personel
 
 security_bp = Blueprint('security', __name__)
 
@@ -44,14 +47,47 @@ def buat_tiket():
     if existing:
         return jsonify({"error": f"Plat ini sudah punya tiket aktif: {existing.no_tiket}"}), 400
 
-    if os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true":
-        v = get_verifikasi()
-        if not v or str(v["id_driver"]) != str(id_driver):
-            return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
+    # Blacklist dicek di server, bukan hanya di tampilan
+    ip = request.remote_addr
+    kendaraan = get_kendaraan_by_plat(no_plat)
+    if kendaraan and kendaraan.is_blacklisted:
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=ip,
+                             details={"keterangan": f"Submit tiket ditolak: plat {no_plat} blacklist", "no_plat": no_plat})
+        return jsonify({"error": f"Kendaraan {no_plat} masuk BLACKLIST. Tiket tidak dapat dibuat."}), 403
+    driver = get_driver_by_id(id_driver) if str(id_driver).isdigit() else None
+    if not driver:
+        return jsonify({"error": "Supir tidak ditemukan"}), 404
+    nama_driver = format_nama_personel(driver.kode_personel, driver.id_driver, driver.nama_driver)
+    if driver.is_blacklisted:
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=ip,
+                             details={"keterangan": f"Submit tiket ditolak: supir {nama_driver} blacklist",
+                                      "no_plat": no_plat, "id_personel": driver.id_driver})
+        return jsonify({"error": f"Supir {nama_driver} masuk BLACKLIST. Tiket tidak dapat dibuat."}), 403
+    if driver.kategori != 'DRIVER':
+        return jsonify({"error": f"{nama_driver} terdaftar sebagai {driver.kategori}, bukan supir"}), 400
+
+    v = get_verifikasi()
+    terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)
+    if os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true" and not terverifikasi:
+        return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
+
+    # Supir berbeda dari saran (supir utama / terakhir truk ini) -> dicatat
+    saran = f.get("id_driver_saran", "").strip()
+    prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
     buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
                         id_supplier, id_produk, id_driver, f.get("no_do", "").strip() or None,
-                        current_user.id)
+                        current_user.id, prev_driver_id)
+
+    if prev_driver_id:
+        lama = get_driver_by_id(prev_driver_id)
+        nama_lama = format_nama_personel(lama.kode_personel, lama.id_driver, lama.nama_driver) if lama else prev_driver_id
+        catat_security_audit(current_user.id, "OVERRIDE_DRIVER", no_tiket, ip_address=ip,
+                             details={"keterangan": f"Supir diganti: {nama_lama} → {nama_driver}",
+                                      "prev_driver_id": prev_driver_id, "id_driver": driver.id_driver})
+    if not terverifikasi:
+        catat_security_audit(current_user.id, "MANUAL_INPUT", no_tiket, ip_address=ip,
+                             details={"keterangan": f"Tiket dibuat tanpa scan wajah (supir {nama_driver})"})
 
     reset_verifikasi()
     return jsonify({"message": "Tiket berhasil dibuat & tervalidasi", "no_tiket": no_tiket}), 200
@@ -64,9 +100,7 @@ def driver_cari_nik():
     row = cari_driver_by_nik(request.form.get("nik", "").strip())
     if not row:
         return jsonify({"status": "TIDAK_DITEMUKAN"}), 200
-    return jsonify({"status": "DITEMUKAN", "id_driver": row.id_driver, "nik": row.nik,
-                    "nama": row.nama_driver, "no_sim": row.no_sim,
-                    "is_updated": bool(row.is_updated), "foto_path": row.foto_path}), 200
+    return jsonify({"status": "DITEMUKAN", **serialisasi_driver(row)}), 200
 
 def _simpan_foto(file):
     filename = f"{uuid.uuid4().hex}{os.path.splitext(file.filename)[1]}"
@@ -89,18 +123,26 @@ def driver_tambah():
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
 
     filepath, filename = _simpan_foto(file)
-    embedding = extract_embedding(filepath)
+    embedding, jumlah_wajah = extract_embedding_tunggal(filepath)
     if embedding is None:
         os.remove(filepath)
-        return jsonify({"error": "Wajah tidak terdeteksi"}), 400
+        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah_wajah == 0
+                        else f"Terdeteksi {jumlah_wajah} wajah, foto harus berisi 1 orang"}), 400
     mirip = cari_wajah_mirip_driver(embedding)
     if mirip:
         os.remove(filepath)
-        return jsonify({"error": f"Wajah sudah terdaftar sebagai '{mirip[1]}'"}), 400
+        lama = get_driver_by_id(mirip[0])
+        nama_lama = format_nama_personel(lama.kode_personel, lama.id_driver, lama.nama_driver)
+        if lama.is_blacklisted:
+            catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
+                                 details={"keterangan": f"Tambah supir ditolak: wajah cocok dengan {nama_lama} (blacklist)",
+                                          "id_personel": lama.id_driver})
+            return jsonify({"error": f"Wajah cocok dengan personel BLACKLIST: {nama_lama}"}), 403
+        return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama}"}), 400
 
     foto_path = f"uploads/{filename}"
-    driver_id = insert_driver(nik, nama, no_sim, embedding_to_binary(embedding), foto_path)
-    set_terverifikasi(driver_id, nama, nik, no_sim, False, foto_path)  
+    driver_id = insert_driver(nik, nama, no_sim, embedding_to_binary(embedding), foto_path, current_user.id)
+    set_terverifikasi(driver_id, nama, nik, no_sim, False, foto_path)
     return jsonify({"message": f"Supir '{nama}' berhasil ditambahkan",
                     "id_driver": driver_id, "foto_path": foto_path}), 200
 
@@ -131,11 +173,11 @@ def driver_update_identitas():
     d = get_driver_by_id(int(id_driver))
     v = get_verifikasi()
     if v and str(v["id_driver"]) == str(id_driver):
-        set_terverifikasi(d.id_driver, d.nama_driver, d.nik, d.no_sim, True, d.foto_path)
+        set_terverifikasi(d.id_driver, d.nama_driver, d.nik, d.no_sim, True, d.foto_path,
+                          d.kode_personel, d.kategori, bool(d.is_blacklisted))
     return jsonify({
         "message": f"Data '{nama}' diperbarui, tercatat di audit log",
-        "driver": {"id_driver": d.id_driver, "nik": d.nik, "nama": d.nama_driver,
-                   "no_sim": d.no_sim, "is_updated": True, "foto_path": d.foto_path}
+        "driver": serialisasi_driver(d)
     }), 200
 
 # ===== KAMERA KIOSK & VERIFIKASI WAJAH =====
@@ -188,10 +230,17 @@ def verifikasi_wajah():
         if not match:
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
 
-        detail = get_driver_by_id(match[0])
-        set_terverifikasi(match[0], match[1], detail.nik, detail.no_sim, bool(detail.is_updated))
+        # Status blacklist & kategori ikut disimpan; form Security yang menolak dan mencatat audit
+        d = get_driver_by_id(match[0])
+        set_terverifikasi(d.id_driver, d.nama_driver, d.nik, d.no_sim, bool(d.is_updated), d.foto_path,
+                          d.kode_personel, d.kategori, bool(d.is_blacklisted))
         camera_trigger_state["is_active"] = False
-        return jsonify({"message": f"Terverifikasi: {match[1]}", "id_driver": match[0]}), 200
+        nama = format_nama_personel(d.kode_personel, d.id_driver, d.nama_driver)
+        if d.is_blacklisted:
+            return jsonify({"error": f"{nama} masuk BLACKLIST", "id_driver": d.id_driver}), 403
+        if d.kategori != 'DRIVER':
+            return jsonify({"error": f"{nama} terdaftar sebagai {d.kategori}, bukan supir", "id_driver": d.id_driver}), 400
+        return jsonify({"message": f"Terverifikasi: {nama}", "id_driver": d.id_driver}), 200
     finally:
         for path in filepaths:
             if os.path.exists(path):
@@ -205,4 +254,10 @@ def status_verifikasi():
     v = get_verifikasi()
     if v is None:
         return jsonify({"terverifikasi": False})
-    return jsonify({"terverifikasi": True, **v})
+    # Kiosk tidak login, jadi percobaan scan supir blacklist dicatat saat form Security membaca hasilnya
+    if v["is_blacklisted"] and not v["dilog"] and current_user.is_authenticated:
+        v["dilog"] = True
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
+                             details={"keterangan": f"Scan wajah: {format_nama_personel(v['kode_personel'], v['id_driver'], v['nama'])} blacklist",
+                                      "id_personel": v["id_driver"]})
+    return jsonify({"terverifikasi": True, **{k: val for k, val in v.items() if k != "dilog"}})
