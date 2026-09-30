@@ -22,11 +22,11 @@ menjadi acuan: fitur baru menyesuaikan diri ke main, bukan sebaliknya.
 
 Yang **ditambahkan**:
 
-1. **Tab baru** di kanan, dipisah garis: **Absensi**, **Personel**, **Blacklist**. Pola sama dengan
-   tab lain: sidebar *List* = tabel/rekap, sidebar *Form* = input.
-2. **Tab Security** (bagian "2. Informasi Driver"): tampil **ID Personel + Kode Personel**, status
-   blacklist, dan banner merah bila kendaraan/supir diblacklist.
-3. **Modal Tambah Supir** menjadi Tambah Personel dengan pilihan **Upload Foto** atau Kamera.
+1. **Menu Face Recognition** di sidebar (List · Form · Face Recognition): satu halaman dengan tab
+   **Absensi | Personel | Blacklist | Audit Log**, tanpa info bar.
+2. **Form Create Ticket** (tanpa header tab): "2. Informasi Driver" menampilkan **ID Personel + Kode Personel**,
+   status blacklist, dan banner merah bila kendaraan / supir diblacklist.
+3. **Personel** dikelola HO: Tambah / Update / Hapus (soft delete) dengan foto **Upload** atau **Kamera**.
 
 Untuk sekarang semua tab tampil (dipakai HO). Pembatasan per role menyusul.
 
@@ -182,53 +182,62 @@ ERD lengkap (gambar, tabel relasi, kode Mermaid & DBML) ada di **[docs/ERD.md](E
 
 ## 5. Tampilan (Figma, ikut main)
 
-Tab: `Security | Timbangan | Sortasi | Laboratorium ‖ Absensi | Personel | Blacklist`
-
-| Layar Figma | Isi |
-|---|---|
-| 01 Security — List | Sama dengan main; History Driver + kolom ID, Kode, status blacklist |
-| 02 Security — Form | Sama dengan main; "2. Informasi Driver" menampilkan ID (terkunci) + Kode + status blacklist |
-| 03 Security — Form, blacklist | Banner merah, plat bertanda merah, bagian 2 terkunci |
-| 04 Timbangan | **Tetap seperti main** |
-| 05 Sortasi | **Tetap seperti main** |
-| 06 Laboratorium | **Tetap seperti main** |
-| 07 Absensi — Form | Kartu Scan Wajah (kamera + liveness), kartu Hasil (Masuk/Pulang, Terlambat/Tepat), kartu Jadwal Kerja, History hari ini |
-| 08 Absensi — List | Filter, Absensi Hari Ini (masuk/pulang/keterangan), Rekap Bulanan, Jadwal Kerja |
-| 09 Personel — List | Filter kategori, Daftar Personel (ID & Kode terpisah, sumber foto), Riwayat Perubahan |
-| 10 Personel — Form | Kartu Foto Wajah (Upload / Kamera, hasil cek), kartu Data Personel (ID terkunci, Kode diubah HO) |
-| 11 Blacklist | Form Penetapan + kartu Target, Riwayat Blacklist, Aktivitas Security (audit) |
-
----
+Desain terbaru ada di bagian 9. Ringkasnya: sidebar **List · Form · Face Recognition**; List = info bar + tab
+Security | Timbangan | Sortasi | Laboratorium; Form = info bar + form Create Ticket tanpa tab;
+Face Recognition = tab Absensi | Personel | Blacklist | Audit Log tanpa info bar.
 
 ## 6. API
 
 | Metode | Endpoint | Keterangan |
 |---|---|---|
-| POST | `/api/plat/lookup` | + `kendaraan_blacklist` |
-| POST | `/api/security/buat-tiket` | + cek blacklist server-side, `is_driver_changed`, `prev_driver_id`, snapshot |
-| POST | `/api/personel/cari-by-nik` | dulu `/api/driver/cari-by-nik` |
-| POST | `/api/personel/tambah` | dulu `/api/driver/tambah`; `foto` dari upload/kamera + `foto_sumber` + `kategori` |
-| POST | `/api/personel/update-identitas` | + `kode_personel`, `kategori` |
-| GET | `/api/personel` | **baru**, daftar + filter |
-| POST | `/api/absensi/scan` | **baru**, frames + tantangan → MASUK/PULANG + status waktu |
-| GET | `/api/absensi` | **baru**, harian & rekap bulanan |
-| GET / POST | `/api/jadwal-kerja` | **baru**, lihat/ubah jadwal |
-| GET / POST | `/api/blacklist`, `/api/blacklist/tambah` | **baru** |
-| GET | `/api/audit/security` | **baru** |
-| — | `/api/timbang/*`, `/api/sortasi/*`, `/api/lab/*` | **tetap seperti main** |
+| GET | `/face-recognition` | Halaman Face Recognition (`?tab=absensi\|personel\|blacklist\|audit`) |
+| POST | `/api/plat/lookup` | + `kendaraan_blacklist`; status `BLACKLIST` bila truk diblacklist (dicatat TRY_SCAN_BLACKLIST) |
+| POST | `/api/security/buat-tiket` | + cek blacklist truk & supir di server, `id_driver_saran` → `prev_driver_id` + OVERRIDE_DRIVER, MANUAL_INPUT |
+| POST | `/api/driver/tambah`, `/api/driver/update-identitas`, `/api/driver/cari-by-nik` | Tetap (supir = personel DRIVER), respons + `kode_personel`, `is_blacklisted` |
+| GET | `/api/personel` | Daftar + filter `kategori`, `blacklist=1`, `cari` |
+| GET | `/api/personel/saran-kode` | Saran kode berikutnya (`PRGBS-###`) |
+| POST | `/api/personel/cek-foto` | Cek foto: tepat 1 wajah, tidak mirip personel lain, tidak mirip blacklist |
+| POST | `/api/personel/tambah` | Role HO. Multipart: kode, nik, nama, kategori, no_sim, foto, foto_sumber |
+| POST | `/api/personel/<id>/update` | Role HO. Foto opsional, tercatat di `personel_audit_logs` (UPDATE) |
+| POST | `/api/personel/<id>/hapus` | Role HO. Soft delete, ditolak bila blacklist, tercatat (HAPUS) |
+| POST | `/api/absensi/scan` | Frames + tantangan liveness → MASUK / PULANG + status waktu |
+| GET | `/api/absensi/harian`, `/api/absensi/rekap` | Absensi hari ini (`tanggal`, `kategori`) & rekap bulanan (`bulan=YYYY-MM`) |
+| GET | `/api/jadwal-kerja` | Jadwal kerja 7 hari |
+| GET | `/api/blacklist`, `/api/blacklist/cari-target` | Riwayat & pencarian target (personel / plat) |
+| POST | `/api/blacklist/tambah` | Role HO. Permanen, wajib no. surat + upload surat |
+| GET | `/api/audit/security`, `/api/audit/personel`, `/api/audit/export` | `hari=1\|7\|30`; export CSV |
+| — | `/api/timbang/*`, `/api/sortasi/*`, `/api/lab/*` | **Tetap seperti main** |
 
 ---
 
-## 7. Rencana implementasi
+## 7. Struktur kode & cara menjalankan
 
-1. Jalankan `002_personel_blacklist.sql` di database salinan, cek aplikasi main tetap jalan.
-2. Rename driver → personel di `utils/db_utils.py`, `routes/security.py`, `serializers.py`,
-   `verifikasi_state.py`, `static/js/security.js`, `supir.js`, `kendaraan.js`.
-3. Tab Security: ID + Kode + banner blacklist; modal Tambah dengan Upload Foto.
-4. Tab baru Absensi, Personel, Blacklist (`routes/absensi.py`, `routes/personel.py`, `routes/blacklist.py`)
-   memakai partial + pola List/Form yang sama dengan tab lain.
-5. `utils/audit_utils.py` untuk `security_audit_logs`.
-6. Unit test: aturan status waktu absensi (jadwal Senin–Sabtu), blacklist, 1 wajah per foto.
+```
+templates/
+  base.html                         kerangka: sidebar, topbar, block info_bar, block tab_header, block tab_content
+  partials/layout/                  sidebar, topbar, info_bar, _macros (tab_header, section_header)
+  weighbridge.html                  halaman site (List / Form), partial security/timbangan/sortasi/lab
+  face_recognition.html             halaman Face Recognition (info_bar dikosongkan)
+  partials/face_recognition/        tab absensi, personel, blacklist, audit + modal personel & blacklist
+static/js/
+  common.js                         helper bersama (modal, escapeHtml, format personel, badge)
+  base.js                           layout: sidebar List/Form, tab, section
+  info_bar.js                       kontainer atas site (plat, validasi)
+  security.js, kendaraan.js, ...    tab site
+  face_recognition/                 kamera, absensi, personel, blacklist, audit
+static/css/tailwind-source.css      komponen (@apply) → build ke tailwind.css
+routes/                             main, security, ..., personel, blacklist, absensi, audit
+utils/                              db_utils (inti), db_personel, db_blacklist, db_absensi, audit_utils,
+                                    personel_utils & absensi_rules (aturan murni, ada unit test)
+```
+
+Menjalankan di database dummy:
+
+1. Jalankan `database/migrations/001_kendaraan_driver_kontrak.sql` lalu `002_personel_blacklist.sql`
+   di `DbSistemTimbangan_Test` (SSMS). Set `DB_NAME=DbSistemTimbangan_Test` di `.env`.
+2. Buat user role **HO** (atau pakai ADMIN) untuk Tambah/Update/Hapus personel dan Tambah blacklist.
+3. `npm run build-css` setiap mengubah kelas Tailwind / `tailwind-source.css`.
+4. `python -m pytest tests` untuk unit test.
 
 ---
 
@@ -241,14 +250,17 @@ Tab: `Security | Timbangan | Sortasi | Laboratorium ‖ Absensi | Personel | Bla
 4. **Format kode personel sementara**: `PRGBS-###` (misal `PRGBS-001`), nomor berikutnya disarankan
    otomatis di form. Format **tidak** dikunci dengan CHECK di database, jadi bisa diganti nanti
    tanpa migrasi; cukup ubah fungsi pembuat saran kode.
+5. **Hapus personel = soft delete** (`is_active = 0`): wajah tidak dikenali lagi dan dilepas dari truk,
+   riwayat tiket/absensi tetap, tercatat di `personel_audit_logs` (`aksi = HAPUS`). Personel blacklist tidak bisa dihapus.
+6. **Tombol Validasi** di info bar hanya tampil di tab Security dan hilang setelah plat tervalidasi (perilaku main, tetap).
 
-## 9. Rencana revisi tampilan (berikutnya)
+## 9. Revisi tampilan (sudah diterapkan di kode)
 
 Sidebar kembali seperti rancangan face recognition awal (menu per fitur), tidak semua dijadikan tab:
 
 - **List**: isi site seperti main, yaitu tab Security, Timbangan, Sortasi, Laboratorium.
-- **Form**: tetap, disesuaikan gabungan main + face recognition (Create Ticket dengan ID/Kode personel dan cek blacklist).
-- Menu face recognition di sidebar: Absensi, Personel, Blacklist, Audit Log.
+- **Form**: Create Ticket tanpa header tab, disesuaikan gabungan main + face recognition (ID/Kode personel, cek blacklist).
+- **Face Recognition**: satu menu, tab Absensi | Personel | Blacklist | Audit Log.
 
 Desain Figma revisi ini: <https://www.figma.com/design/wrygHwLrs9aZjCDDCul5CJ>
 (halaman "Weighbridge + Face Recognition"), berisi layar:
@@ -256,7 +268,8 @@ Desain Figma revisi ini: <https://www.figma.com/design/wrygHwLrs9aZjCDDCul5CJ>
 normal & kendaraan blacklist), 07–10 Face Recognition (satu halaman, tab Absensi | Personel | Blacklist | Audit Log),
 M01–M09 modal/cetak site (tiru main) dan M10–M13 modal face recognition (Personel Tambah/Update/Hapus, Blacklist Tambah).
 
-Rencana kode (menyusul): sidebar, topbar, info bar (kontainer atas) dan tab header tetap di `templates/base.html`
-sebagai tampilan default; menu "Face Recognition" ditambahkan ke sidebar base. Info bar & tab header dibungkus
-`{% block info_bar %}` / `{% block tab_header %}` agar Form bisa menghilangkan tab header dan halaman Face Recognition
-mengosongkan info bar serta memakai tab Absensi | Personel | Blacklist | Audit Log, sedangkan isi halaman tetap di `{% block tab_content %}`.
+Kode: sidebar & topbar selalu dari `templates/base.html` (partial di `templates/partials/layout/`).
+Info bar dan header tab adalah block default (`{% block info_bar %}`, `{% block tab_header %}`):
+halaman Face Recognition mengosongkan info bar dan mengganti header tab dengan Absensi | Personel | Blacklist | Audit Log.
+Form memakai halaman site yang sama; `base.js` (`setSidebarView('form')`) menyembunyikan header tab
+dan membuka panel Create Ticket. Isi halaman di `{% block tab_content %}`.
