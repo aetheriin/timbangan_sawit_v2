@@ -444,9 +444,22 @@ Tab: `Security | Timbangan | Sortasi | Laboratorium ‖ Absensi | Personel | Bla
 
 ---
 
-## 8. Masih perlu dikonfirmasi
+## 8. Keputusan
 
-1. **Toleransi terlambat**: dirancang 0 menit (08:01 sudah terlambat). Perlu toleransi, misal 5 menit?
-2. **Security shift**: jadwal di atas berlaku untuk semua kategori. Security yang shift malam perlu jadwal sendiri?
-3. **Blacklist permanen**: benar-benar tidak bisa dicabut, termasuk bila HO salah input?
-4. **Format kode personel** selalu `PRGBS-###`?
+1. **Tidak ada toleransi terlambat**: 08:01 sudah dihitung terlambat (`jadwal_kerja.toleransi_menit = 0`).
+2. **Jadwal security (shift) menyusul**. Tahap sekarang fokus ke face recognition untuk mengenali orang;
+   jadwal di atas dipakai untuk semua kategori sampai jadwal shift dibuat.
+3. **Blacklist permanen**, tidak bisa dicabut (dijaga trigger di database).
+4. **Format kode personel sementara**: `PRGBS-###` (misal `PRGBS-001`), nomor berikutnya disarankan
+   otomatis di form. Format **tidak** dikunci dengan CHECK di database, jadi bisa diganti nanti
+   tanpa migrasi; cukup ubah fungsi pembuat saran kode.
+
+## 9. Rencana revisi tampilan (berikutnya)
+
+Sidebar kembali seperti rancangan face recognition awal (menu per fitur), tidak semua dijadikan tab:
+
+- **List**: isi site seperti main, yaitu tab Security, Timbangan, Sortasi, Laboratorium.
+- **Form**: tetap, disesuaikan gabungan main + face recognition (Create Ticket dengan ID/Kode personel dan cek blacklist).
+- Menu face recognition di sidebar: Absensi, Personel, Blacklist, Audit Log.
+
+Desain Figma untuk revisi ini dibuat setelah akun Figma diganti.
