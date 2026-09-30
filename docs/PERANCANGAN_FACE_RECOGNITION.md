@@ -222,6 +222,8 @@ templates/
   partials/face_recognition/        tab absensi, personel, blacklist, audit + modal personel & blacklist
 static/js/
   common.js                         helper bersama (modal, escapeHtml, format personel, badge)
+  api.js                            Api (fetch + timeout + pesan error), Poller (polling berurutan)
+  ui.js                             Notif (toast), Dialog.konfirmasi, tombol sibuk
   base.js                           layout: sidebar List/Form, tab, section
   info_bar.js                       kontainer atas site (plat, validasi)
   site/                             security, kendaraan, timbangan, sortasi, lab
@@ -239,6 +241,8 @@ Menjalankan di database dummy:
 2. Buat user role **HO** (atau pakai ADMIN) untuk Tambah/Update/Hapus personel dan Tambah blacklist.
 3. `npm run build-css` setiap mengubah kelas Tailwind / `tailwind-source.css`.
 4. `python -m pytest tests` untuk unit test.
+5. Development: `python app.py`. Dipakai di site: `python serve.py` (waitress). Migrasi index: `003_index_optimasi.sql`.
+   Rincian optimasi & cache: [docs/OPTIMASI_WEB.md](OPTIMASI_WEB.md).
 
 ---
 
