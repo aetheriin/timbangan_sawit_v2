@@ -465,5 +465,10 @@ Sidebar kembali seperti rancangan face recognition awal (menu per fitur), tidak 
 
 Desain Figma revisi ini: <https://www.figma.com/design/wrygHwLrs9aZjCDDCul5CJ>
 (halaman "Weighbridge + Face Recognition"), berisi layar:
-01 List · Security, 02 List · Timbangan, 03 List · Sortasi, 04 List · Laboratorium,
+00 Base (base.html), 01 List · Security, 02 List · Timbangan, 03 List · Sortasi, 04 List · Laboratorium,
 05 Form · Create Ticket, 06 Form · Kendaraan blacklist, 07 Absensi, 08 Personel, 09 Blacklist, 10 Audit Log.
+
+Rencana kode (menyusul): sidebar, topbar, info bar (kontainer atas) dan tab header tetap di `templates/base.html`
+sebagai tampilan default; menu face recognition ditambahkan ke sidebar base. Info bar & tab header dibungkus
+`{% block info_bar %}` / `{% block tab_header %}` agar halaman face recognition bisa mengosongkan info bar dan
+menampilkan satu tab judul, sedangkan isi halaman tetap di `{% block tab_content %}`.
