@@ -1,0 +1,62 @@
+<!-- MODAL: Tambah Blacklist (permanen) -->
+<div id="modalBlacklist" class="modal-overlay">
+    <div class="modal-box max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="modal-header">
+            <h3 class="font-bold">Tambah Blacklist</h3>
+            <button type="button" onclick="closeModal('modalBlacklist')" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="seg">
+                    <button type="button" id="segBlPersonel" class="seg-item seg-item-active" onclick="setTipeBlacklist('PERSONEL')">Personel</button>
+                    <button type="button" id="segBlKendaraan" class="seg-item" onclick="setTipeBlacklist('KENDARAAN')">Kendaraan</button>
+                </div>
+                <div class="relative flex-1">
+                    <input type="text" id="blCari" placeholder="Cari kode / NIK / nama" class="input-field pl-9"
+                           oninput="cariTargetTunda()">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <ul id="blHasilCari" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto text-sm"></ul>
+                </div>
+            </div>
+
+            <div id="blTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm text-slate-400">
+                Belum ada target dipilih.
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="blNoSurat">No. Surat</label>
+                    <input type="text" id="blNoSurat" placeholder="017/HO-SEC/VIII/2026" class="input-field">
+                </div>
+                <div>
+                    <label class="field-label" for="blTanggal">Tanggal Surat</label>
+                    <input type="date" id="blTanggal" class="input-field">
+                </div>
+            </div>
+            <div>
+                <label class="field-label" for="blAlasan">Alasan</label>
+                <textarea id="blAlasan" rows="3" maxlength="500" class="input-field"></textarea>
+            </div>
+
+            <div class="drop-zone flex items-center gap-3 text-left" onclick="document.getElementById('blFile').click()">
+                <i class="fa-solid fa-file-arrow-up text-xl text-slate-500"></i>
+                <div>
+                    <p class="text-sm font-medium text-slate-700">Upload Surat (PDF / JPG / PNG, maks 5 MB), wajib</p>
+                    <p id="blFileNama" class="text-xs text-blue-700"></p>
+                </div>
+                <input type="file" id="blFile" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
+                       onchange="document.getElementById('blFileNama').textContent = this.files[0] ? this.files[0].name : ''">
+            </div>
+
+            <div class="note-warning">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                Blacklist bersifat <b>PERMANEN</b>, tidak bisa diubah atau dihapus. Wajah & kendaraan terkait ditolak di semua site.
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="closeModal('modalBlacklist')" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSimpanBlacklist" onclick="simpanBlacklist()" class="btn-danger">Tetapkan Blacklist Permanen</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -45,7 +45,7 @@
 
         <table>
             <tr><td>No. Plat</td><td class="plat">{{ t.no_plat }}</td></tr>
-            <tr><td>Supir</td><td>{{ t.nama_driver }}</td></tr>
+            <tr><td>Supir</td><td>{% if t.kode_personel %}{{ t.kode_personel }} &middot; {% endif %}{{ t.nama_driver }}</td></tr>
             <tr><td>NIK</td><td>{{ t.nik }}</td></tr>
             <tr><td>Jenis</td><td>{{ t.jenis_transaksi | replace('_', ' ') }}</td></tr>
             <tr><td>Supplier</td><td>{{ t.nama_supplier }}</td></tr>

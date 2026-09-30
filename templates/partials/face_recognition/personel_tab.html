@@ -1,0 +1,39 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div data-tab-content="personel" class="hidden">
+
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        <div id="chipKategoriPersonel" class="flex gap-1.5">
+            <button type="button" class="chip chip-active" data-filter="" onclick="filterPersonel(this)">Semua</button>
+            <button type="button" class="chip" data-filter="DRIVER" onclick="filterPersonel(this)">Driver</button>
+            <button type="button" class="chip" data-filter="SECURITY" onclick="filterPersonel(this)">Security</button>
+            <button type="button" class="chip" data-filter="EMPLOYEE" onclick="filterPersonel(this)">Employee HO</button>
+            <button type="button" class="chip" data-filter="BLACKLIST" onclick="filterPersonel(this)">Blacklist</button>
+        </div>
+        <div class="flex-1"></div>
+        <div class="relative">
+            <input type="text" id="cariPersonel" placeholder="Cari ID, kode, nama, NIK" class="input-field pl-9 w-64"
+                   oninput="cariPersonelTunda()">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        </div>
+        <button type="button" onclick="bukaTambahPersonel()" class="btn-primary">
+            <i class="fa-solid fa-plus mr-1"></i> Tambah Personel
+        </button>
+    </div>
+
+    <div class="section-box">
+        {{ section_header('daftar-personel', 'Daftar Personel') }}
+        <div id="body-daftar-personel" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr>
+                        <th class="table-cell">ID</th><th class="table-cell">Kode</th><th class="table-cell">Nama</th>
+                        <th class="table-cell">NIK</th><th class="table-cell">Kategori</th><th class="table-cell">Sumber Foto</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelPersonel" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-xs text-slate-500">Personel yang di-blacklist tidak bisa dihapus (blacklist permanen).</p>
+</div>

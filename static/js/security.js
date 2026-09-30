@@ -10,9 +10,13 @@ async function muatHistoryDriver() {
     const data = await res.json();
     document.getElementById('tabelHistoryDriver').innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
-            <td class="table-cell">${r.no_plat}</td><td class="table-cell">${r.nama_driver}</td>
-            <td class="table-cell">${r.nik}</td><td class="table-cell">${r.no_sim}</td>
-        </tr>`).join('') || `<tr><td colspan="4" class="table-cell text-slate-400 text-center py-8">Belum ada riwayat</td></tr>`;
+            <td class="table-cell">${escapeHtml(r.no_plat)}</td>
+            <td class="table-cell">${formatIdPersonel(r.id_driver)}</td>
+            <td class="table-cell">${kodeAtauKosong(r.kode_personel)}</td>
+            <td class="table-cell">${escapeHtml(r.nama_driver)}</td>
+            <td class="table-cell">${escapeHtml(r.nik)}</td><td class="table-cell">${escapeHtml(r.no_sim || '-')}</td>
+            <td class="table-cell">${badgeStatusPersonel(r.is_blacklisted)}</td>
+        </tr>`).join('') || barisKosong(7, 'Belum ada riwayat');
     saringTabel(document.getElementById('searchTiket').value);
 }
 
@@ -30,6 +34,32 @@ function saringTabel(kata) {
 // ===== SINKRON FORM DENGAN HASIL LOOKUP PLAT =====
 let saranDriver = null;
 
+function badgeStatusPersonel(isBlacklisted) {
+    return isBlacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau);
+}
+
+// Banner merah di atas form: info = { judul, detail, file } atau null untuk menyembunyikan
+function tampilkanBannerBlacklist(info) {
+    const banner = document.getElementById('bannerBlacklist');
+    banner.classList.toggle('hidden', !info);
+    banner.classList.toggle('flex', !!info);
+    document.getElementById('formNoPlat').classList.toggle('border-red-500', !!info);
+    if (!info) return;
+    document.getElementById('bannerBlacklistJudul').textContent = info.judul;
+    document.getElementById('bannerBlacklistDetail').textContent = info.detail || '';
+    const surat = document.getElementById('bannerBlacklistSurat');
+    surat.classList.toggle('hidden', !info.file);
+    if (info.file) surat.href = `/static/${info.file}`;
+}
+
+function infoBlacklistKendaraan(noPlat, bl) {
+    return {
+        judul: `KENDARAAN ${noPlat} MASUK BLACKLIST — tiket tidak dapat dibuat`,
+        detail: `No. surat ${bl.no_surat_blacklist} · ditetapkan ${bl.tgl_blacklist} oleh ${bl.oleh} · permanen`,
+        file: bl.file_surat_blacklist,
+    };
+}
+
 function tampilkanPengemudiTerakhir(dr, utama = null) {
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
@@ -40,7 +70,9 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
         foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
         return;
     }
-    info.innerHTML = `<p class="font-semibold text-slate-700">${dr.nama}</p><p>NIK: ${dr.nik}</p>` +
+    info.innerHTML = `<p class="text-xs text-slate-500">${escapeHtml(dr.kode_personel || 'belum ada kode')} · ID ${formatIdPersonel(dr.id_driver)}</p>` +
+        `<p class="font-semibold text-slate-700">${escapeHtml(dr.nama)}</p><p>NIK: ${escapeHtml(dr.nik)}</p>` +
+        (dr.is_blacklisted ? `<p>${badge('BLACKLIST', WARNA_BADGE.merah)}</p>` : '') +
         (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
         ? `<img src="/static/${dr.foto_path}" class="w-full h-full object-cover">`
@@ -55,18 +87,22 @@ let statusForm = 'draft';
 let supirTerverifikasi = false;
 const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
 
+// blacklist: plat masuk blacklist, hanya kolom plat yang bisa diganti
 function aturStatusForm(status) {
     statusForm = status;
-    FIELD_KENDARAAN.forEach(id => document.getElementById(id).disabled = status !== 'draft');
-    document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft');
+    FIELD_KENDARAAN.forEach(id => {
+        document.getElementById(id).disabled = !(status === 'draft' || (status === 'blacklist' && id === 'formNoPlat'));
+    });
+    document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft' || status === 'blacklist');
 
     const btn = document.getElementById('btnMulaiValidasi');
+    const beku = status === 'validasi' || status === 'blacklist';      // validasi: beku sampai scan wajah + Submit
     btn.textContent = status === 'selesai' ? 'Sudah Validasi' : 'Mulai Validasi Awal';
     btn.disabled = status !== 'draft';
     btn.classList.toggle('btn-primary', status !== 'selesai');
     btn.classList.toggle('btn-secondary', status === 'selesai');
-    btn.classList.toggle('opacity-60', status === 'validasi');          // beku sampai scan wajah + Submit
-    btn.classList.toggle('cursor-not-allowed', status === 'validasi');
+    btn.classList.toggle('opacity-60', beku);
+    btn.classList.toggle('cursor-not-allowed', beku);
 
     ['btnTambahSupir', 'btnUpdateSupir', 'btnScanWajah']
         .forEach(id => document.getElementById(id).disabled = status !== 'validasi');
@@ -95,7 +131,9 @@ function setSupirTerverifikasi(ok) {
 
 function resetValidasiForm() {
     saranDriver = null;
-    ['driverIdDriver', 'driverNama', 'driverNik', 'driverSim'].forEach(id => document.getElementById(id).value = '');
+    ['driverIdDriver', 'driverIdTampil', 'driverKode', 'driverNama', 'driverNik', 'driverSim']
+        .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('driverStatusBadge').innerHTML = '';
     document.getElementById('fotoDriverBox').innerHTML = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
     document.getElementById('statusScanWajah').textContent = '';
     tandaiBorderDriver(null);
@@ -136,12 +174,20 @@ function terapkanKontrak(idSupplier) {
 
 window.addEventListener('platLookup', (e) => {
     const d = e.detail;
-    if (d.status !== 'ADA_TIKET' && d.status !== 'DRAFT') return;
+    if (!['ADA_TIKET', 'DRAFT', 'BLACKLIST'].includes(d.status)) return;
 
     document.getElementById('formNoPlat').value = d.no_plat;
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
     document.getElementById('formNoStnk').value = d.no_stnk || '';
     tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
+    tampilkanBannerBlacklist(d.kendaraan_blacklist && d.status !== 'ADA_TIKET'
+        ? infoBlacklistKendaraan(d.no_plat, d.kendaraan_blacklist) : null);
+
+    if (d.status === 'BLACKLIST') {
+        resetValidasiForm();
+        aturStatusForm('blacklist');
+        return;
+    }
 
     if (d.status === 'ADA_TIKET') {
         kontrakAktif = [];
@@ -240,6 +286,17 @@ async function mulaiScanWajah() {
         clearInterval(pollingScanWajah);
         btn.disabled = false;
 
+        const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
+        if (data.is_blacklisted) {
+            status.innerHTML = `<span class="text-red-600 font-semibold">${escapeHtml(nama)} masuk BLACKLIST. Tiket tidak dapat dibuat.</span>`;
+            tampilkanBannerBlacklist({ judul: `SUPIR ${nama} MASUK BLACKLIST — tiket tidak dapat dibuat`, detail: 'Tercatat di Audit Log (TRY_SCAN_BLACKLIST).' });
+            setSupirTerverifikasi(false);
+            return;
+        }
+        if (data.kategori && data.kategori !== 'DRIVER') {
+            status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml(data.kategori)}, bukan supir.</span>`;
+            return;
+        }
         const dipilih = document.getElementById('driverIdDriver').value;
         if (dipilih && String(dipilih) !== String(data.id_driver)) {
             status.innerHTML = `<span class="text-red-600">Wajah terbaca sebagai <b>${data.nama}</b>, tidak cocok dengan supir terpilih. Pilih supir yang benar lewat "Update", lalu scan ulang.</span>`;
@@ -247,7 +304,7 @@ async function mulaiScanWajah() {
         }
         isiDriver(data);
         tandaiBorderDriver('hijau');
-        status.textContent = 'Terverifikasi: ' + data.nama;
+        status.textContent = 'Terverifikasi: ' + nama;
         setSupirTerverifikasi(true);
     }, 1000);
 }
@@ -392,9 +449,8 @@ async function cariSupirByNik(inputEl) {
     const data = await (await fetch('/api/driver/cari-by-nik', { method: 'POST', body: formData })).json();
 
     if (data.status === 'DITEMUKAN') {
-        driverHasilCari = { id_driver: data.id_driver, nik: data.nik, nama: data.nama,
-                            no_sim: data.no_sim, is_updated: data.is_updated, foto_path: data.foto_path };
-        document.getElementById('hasilNama').textContent = data.nama;
+        driverHasilCari = data;             // id_driver, kode_personel, nik, nama, no_sim, is_blacklisted, ...
+        document.getElementById('hasilNama').textContent = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
         document.getElementById('hasilNik').textContent = data.nik;
         document.getElementById('hasilSim').textContent = data.no_sim;
         document.getElementById('hasilBadgeUpdate').classList.toggle('hidden', !data.is_updated);
@@ -468,6 +524,7 @@ async function submitCreateTiket() {
      'jenis_transaksi:formJenisTransaksi', 'id_supplier:formSupplier', 'id_produk:formProduk']
         .forEach(p => { const [k, id] = p.split(':'); formData.append(k, document.getElementById(id).value.trim()); });
     formData.append('id_driver', idDriver);
+    if (saranDriver) formData.append('id_driver_saran', saranDriver.id_driver);   // beda supir -> OVERRIDE_DRIVER
 
     const res = await fetch('/api/security/buat-tiket', { method: 'POST', body: formData });
     const data = await res.json();
@@ -493,6 +550,10 @@ function tandaiBorderDriver(warna) {   // 'biru' | 'hijau' | null
 
 function isiDriver(dr) {
     document.getElementById('driverIdDriver').value = dr.id_driver;
+    document.getElementById('driverIdTampil').value = formatIdPersonel(dr.id_driver);
+    document.getElementById('driverKode').value = dr.kode_personel || '';
+    document.getElementById('driverKode').placeholder = dr.kode_personel ? '' : '— belum ada kode';
+    document.getElementById('driverStatusBadge').innerHTML = badgeStatusPersonel(dr.is_blacklisted);
     document.getElementById('driverNama').value = dr.nama;
     document.getElementById('driverNik').value = dr.nik;
     document.getElementById('driverSim').value = dr.no_sim;

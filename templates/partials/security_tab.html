@@ -50,13 +50,16 @@
                     <thead class="table-header-row">
                         <tr>
                             <th class="table-cell">No. Plat</th>
+                            <th class="table-cell">ID</th>
+                            <th class="table-cell">Kode</th>
                             <th class="table-cell">Nama</th>
                             <th class="table-cell">NIK</th>
                             <th class="table-cell">SIM</th>
+                            <th class="table-cell">Status</th>
                         </tr>
                     </thead>
                     <tbody id="tabelHistoryDriver" class="divide-y divide-slate-100">
-                        <tr><td colspan="4" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
+                        <tr><td colspan="7" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -65,6 +68,16 @@
 
     <!-- ===== VIEW: FORM (Create Ticket) ===== -->
     <div data-view-panel="form" class="hidden">
+
+        <!-- Banner merah: kendaraan / supir masuk blacklist (diisi security.js) -->
+        <div id="bannerBlacklist" class="note-danger hidden mb-4 items-center gap-4">
+            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-600"></i>
+            <div class="flex-1">
+                <p id="bannerBlacklistJudul" class="font-bold text-red-700"></p>
+                <p id="bannerBlacklistDetail" class="text-xs text-slate-700"></p>
+            </div>
+            <a id="bannerBlacklistSurat" href="#" target="_blank" class="btn-outline-danger hidden">Lihat surat</a>
+        </div>
 
         <div class="section-box">
             <div class="bg-slate-800 text-white px-5 py-3 flex justify-between items-center">
@@ -186,9 +199,19 @@
 
                             <!-- Data driver -->
                             <div class="border border-slate-200 rounded-lg p-5 space-y-3">
-                                <div>
-                                    <label class="field-label">ID Driver</label>
-                                    <input type="text" id="driverIdDriver" readonly class="input-field bg-slate-50">
+                                <input type="hidden" id="driverIdDriver">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="field-label">ID Personel <span class="text-xs text-slate-400">otomatis</span></label>
+                                        <div class="relative">
+                                            <input type="text" id="driverIdTampil" readonly class="input-field bg-slate-50 pr-8">
+                                            <i class="fa-solid fa-lock absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="field-label">Kode Personel</label>
+                                        <input type="text" id="driverKode" readonly class="input-field bg-slate-50">
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="field-label">Nama Driver</label>
@@ -201,6 +224,9 @@
                                 <div>
                                     <label class="field-label">SIM</label>
                                     <input type="text" id="driverSim" readonly class="input-field bg-slate-50">
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-slate-700">
+                                    Status <span id="driverStatusBadge"></span>
                                 </div>
                             </div>
                         </div>
