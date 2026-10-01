@@ -1,4 +1,4 @@
-USE DbSistemTimbangan;
-GO
+USE DbSistemTimbangan_Test;
 
-SELECT nama_driver, DATALENGTH(face_embedding_data) AS ukuran_byte FROM driver;
+SELECT username, role, LEFT(password, 20) AS awal_hash, LEN(password) AS panjang
+FROM users WHERE username = 'ho';

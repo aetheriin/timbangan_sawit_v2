@@ -82,9 +82,6 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
 }
 
 // ===== STATUS FORM PENDAFTARAN TIKET =====
-// draft    : isi data kendaraan, tombol "Mulai Validasi Awal" aktif
-// validasi : data kendaraan dikunci, tombol validasi beku, Informasi Driver aktif (scan wajah -> Submit)
-// selesai  : tiket sudah dibuat, tombol berubah jadi "Sudah Validasi"
 let statusForm = 'draft';
 let supirTerverifikasi = false;
 const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
