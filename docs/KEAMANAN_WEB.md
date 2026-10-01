@@ -17,7 +17,7 @@ Poin yang ditandai **Ditunda** sengaja belum dikerjakan (keputusan rapat).
 | 8 | P2 | User nonaktif langsung kehilangan sesi | Selesai | `get_user_by_id` cek `is_active` |
 | 9 | P1 | Endpoint tanpa login ditutup: kamera & verifikasi → login atau token kiosk; status timbangan & status verifikasi → wajib login | Selesai | `routes/security.py`, `routes/timbangan.py` |
 | 10 | P1 | State scan wajah per pos, hanya untuk user yang meminta, kedaluwarsa 5 menit | Selesai | `utils/verifikasi_state.py` |
-| 11 | P2 | Pembatasan menu per role | **Ditunda** | semua menu tetap tampil (dipakai HO) |
+| 11 | P2 | Pembatasan menu per role | **Ditunda** | usulan matriks: [HAK_AKSES_ROLE.md](HAK_AKSES_ROLE.md) |
 | 12 | P2 | Endpoint data sensitif per role | **Ditunda** (ikut #11) | |
 | 13 | P1 | Proteksi CSRF semua `POST` (form & `fetch`) | Selesai | Flask-WTF `CSRFProtect`, `api.js` (header `X-CSRFToken`) |
 | 14 | P1 | Header keamanan: CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, COOP, HSTS (bila HTTPS) | Selesai | `utils/keamanan.py` |
