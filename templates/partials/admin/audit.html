@@ -1,0 +1,27 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex items-center gap-2 mb-4">
+    <div class="flex gap-1.5">
+        <button type="button" class="chip" data-hari="1" data-on-click="filterAuditAdmin" data-arg="$el">Hari Ini</button>
+        <button type="button" class="chip chip-active" data-hari="7" data-on-click="filterAuditAdmin" data-arg="$el">7 Hari</button>
+        <button type="button" class="chip" data-hari="30" data-on-click="filterAuditAdmin" data-arg="$el">30 Hari</button>
+        <button type="button" class="chip" data-hari="90" data-on-click="filterAuditAdmin" data-arg="$el">90 Hari</button>
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="cariAuditAdmin" placeholder="Cari aksi / target / admin" class="input-field pl-9 w-60" data-on-input="cariAuditAdmin" data-arg="$value">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+</div>
+
+<div class="section-box">
+    {{ section_header('audit-admin', 'Perubahan oleh Admin') }}
+    <div id="body-audit-admin" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">Admin</th><th class="table-cell">Aksi</th>
+                    <th class="table-cell">Target</th><th class="table-cell">Detail</th><th class="table-cell">IP</th></tr>
+            </thead>
+            <tbody id="tabelAuditAdmin" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

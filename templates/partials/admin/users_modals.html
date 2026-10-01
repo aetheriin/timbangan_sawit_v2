@@ -1,0 +1,69 @@
+<!-- MODAL: Tambah / Ubah User -->
+<div id="modalUser" class="modal-overlay">
+    <form id="formUser" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalUser" class="font-bold">Tambah User</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_user">
+            <div>
+                <label class="field-label" for="userNama">Nama Lengkap</label>
+                <input type="text" id="userNama" name="nama" required maxlength="100" class="input-field">
+            </div>
+            <div>
+                <label class="field-label" for="userUsername">Username</label>
+                <input type="text" id="userUsername" name="username" required maxlength="50" class="input-field lowercase"
+                       pattern="[a-z0-9._]{3,50}" title="3-50 karakter: huruf kecil, angka, titik, garis bawah">
+                <p class="field-hint">Huruf kecil, angka, titik, garis bawah. Tidak bisa diubah setelah dibuat.</p>
+            </div>
+            <div>
+                <label class="field-label" for="userRole">Role</label>
+                <select id="userRole" name="role" required class="input-field">
+                    {% for r in role_list %}<option value="{{ r }}">{{ 'HO' if r == 'HO' else r.replace('_', ' ').title() }}</option>{% endfor %}
+                </select>
+            </div>
+            <div id="blokPasswordUser" class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="userPassword">Password</label>
+                    <input type="password" id="userPassword" name="password" minlength="{{ password_min }}" class="input-field" autocomplete="new-password">
+                </div>
+                <div>
+                    <label class="field-label" for="userPasswordUlang">Ulangi Password</label>
+                    <input type="password" id="userPasswordUlang" name="password_ulang" minlength="{{ password_min }}" class="input-field" autocomplete="new-password">
+                </div>
+                <p class="field-hint col-span-2">Minimal {{ password_min }} karakter.</p>
+            </div>
+            <div id="noteRoleUser" class="note-warning hidden">Mengganti role akan mengakhiri sesi user ini. Ia perlu login ulang.</div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalUser" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Reset Password -->
+<div id="modalResetPassword" class="modal-overlay">
+    <form id="formResetPassword" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Reset Password</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalResetPassword" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p class="text-sm text-slate-600">Password baru untuk <b id="resetUsername"></b>. Sesi user yang sedang login akan diakhiri.</p>
+            <div>
+                <label class="field-label" for="resetPassword">Password Baru</label>
+                <input type="password" id="resetPassword" name="password" required minlength="{{ password_min }}" class="input-field" autocomplete="new-password">
+            </div>
+            <div>
+                <label class="field-label" for="resetPasswordUlang">Ulangi Password Baru</label>
+                <input type="password" id="resetPasswordUlang" name="password_ulang" required minlength="{{ password_min }}" class="input-field" autocomplete="new-password">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalResetPassword" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Reset Password</button>
+        </div>
+    </form>
+</div>

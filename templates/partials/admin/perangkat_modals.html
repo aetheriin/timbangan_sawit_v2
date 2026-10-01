@@ -1,0 +1,47 @@
+<!-- MODAL: Tambah / Ubah Pos -->
+<div id="modalPos" class="modal-overlay">
+    <form id="formPos" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalPos" class="font-bold">Tambah Pos Kiosk</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalPos" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <div>
+                <label class="field-label" for="posId">ID Pos</label>
+                <input type="text" id="posId" name="id_pos" required maxlength="30" pattern="[A-Za-z0-9_\-]{2,30}" class="input-field uppercase font-mono">
+                <p class="field-hint">Contoh: POS-DEPAN. Sama dengan KIOSK_ID di .env PC kiosk. Tidak bisa diubah.</p>
+            </div>
+            <div>
+                <label class="field-label" for="posNama">Nama</label>
+                <input type="text" id="posNama" name="nama" required maxlength="100" class="input-field" placeholder="Kiosk Pos Security Depan">
+            </div>
+            <div>
+                <label class="field-label" for="posLokasi">Lokasi (opsional)</label>
+                <input type="text" id="posLokasi" name="lokasi" maxlength="100" class="input-field" placeholder="Gerbang utama">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalPos" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Token baru (tampil sekali) -->
+<div id="modalToken" class="modal-overlay">
+    <div class="modal-box max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-bold">Token Kiosk</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalToken" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <div class="note-warning">Token ini <b>hanya ditampilkan sekali</b>. Salin ke file .env di PC kiosk sekarang.</div>
+            <p class="text-sm text-slate-600">Isi .env di PC kiosk:</p>
+            <pre id="isiEnvKiosk" class="token-box whitespace-pre-wrap"></pre>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="salinTokenKiosk" class="btn-secondary"><i class="fa-solid fa-copy mr-1"></i> Salin</button>
+            <button type="button" data-on-click="closeModal" data-arg="modalToken" class="btn-primary">Sudah Disalin</button>
+        </div>
+    </div>
+</div>

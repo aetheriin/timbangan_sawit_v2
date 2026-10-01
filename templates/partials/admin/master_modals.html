@@ -1,0 +1,59 @@
+<!-- MODAL: Tambah / Ubah Supplier -->
+<div id="modalSupplier" class="modal-overlay">
+    <form id="formSupplier" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalSupplier" class="font-bold">Tambah Supplier</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalSupplier" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_supplier">
+            <div>
+                <label class="field-label" for="supKode">Kode</label>
+                <input type="text" id="supKode" name="kode_supplier" required maxlength="20" class="input-field uppercase">
+            </div>
+            <div>
+                <label class="field-label" for="supNama">Nama</label>
+                <input type="text" id="supNama" name="nama_supplier" required maxlength="100" class="input-field">
+            </div>
+            <div>
+                <label class="field-label" for="supTipe">Tipe</label>
+                <select id="supTipe" name="tipe" class="input-field">
+                    {% for t in tipe_supplier %}<option value="{{ t }}">{{ t.replace('_', ' ').title() }}</option>{% endfor %}
+                </select>
+                <p class="field-hint">Supplier Pembelian = penjual TBS ke pabrik. Buyer Penjualan = pembeli produk PKS.</p>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalSupplier" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Tambah / Ubah Produk -->
+<div id="modalProduk" class="modal-overlay">
+    <form id="formProduk" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalProduk" class="font-bold">Tambah Produk</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalProduk" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_produk">
+            <div>
+                <label class="field-label" for="prodNama">Nama Produk</label>
+                <input type="text" id="prodNama" name="nama_produk" required maxlength="100" class="input-field">
+            </div>
+            <div>
+                <label class="field-label" for="prodKategori">Kategori</label>
+                <select id="prodKategori" name="kategori" class="input-field">
+                    {% for k in kategori_produk %}<option value="{{ k }}">{{ k.replace('_', ' ').title() }}</option>{% endfor %}
+                </select>
+                <p class="field-hint">TBS diperiksa di tab Sortasi, Produk PKS diperiksa di tab Laboratorium.</p>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalProduk" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

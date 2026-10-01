@@ -1,0 +1,39 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div class="stat-card">
+        <p class="stat-label"><i class="fa-solid fa-weight-scale mr-1"></i> Timbangan (serial)</p>
+        <p id="statTimbangan" class="stat-value">-</p>
+        <p id="statTimbanganInfo" class="text-xs text-slate-500 mt-1"></p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label"><i class="fa-solid fa-camera mr-1"></i> Pos kiosk terdaftar</p>
+        <p id="statJumlahPos" class="stat-value">-</p>
+        <p id="statPosAktif" class="text-xs text-slate-500 mt-1"></p>
+    </div>
+    <div class="stat-card">
+        <p class="stat-label"><i class="fa-solid fa-key mr-1"></i> KIOSK_TOKEN di .env</p>
+        <p id="statTokenEnv" class="stat-value">-</p>
+        <p class="text-xs text-slate-500 mt-1">Token bersama cara lama. Setelah semua kiosk memakai token per pos, kosongkan.</p>
+    </div>
+</div>
+
+<div class="section-box">
+    {% call section_header('pos-kiosk', 'Pos Kiosk Kamera') %}
+    <div class="flex items-center gap-2" data-henti-klik>
+        <button type="button" class="btn-secondary py-1.5" data-on-click="muatPerangkat"><i class="fa-solid fa-rotate"></i></button>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaPos"><i class="fa-solid fa-plus mr-1"></i> Tambah Pos</button>
+    </div>
+    {% endcall %}
+    <div id="body-pos-kiosk" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">ID Pos</th><th class="table-cell">Nama</th><th class="table-cell">Lokasi</th>
+                    <th class="table-cell">Status</th><th class="table-cell">Terakhir Terhubung</th><th class="table-cell">IP</th>
+                    <th class="table-cell">Kamera</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelPos" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<p class="text-xs text-slate-500">Token hanya ditampilkan sekali saat pos dibuat / token diganti. Simpan ke file .env di PC kiosk
+    (KIOSK_ID dan KIOSK_TOKEN). "Terakhir terhubung" dihitung sejak server terakhir dinyalakan.</p>

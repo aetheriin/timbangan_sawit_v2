@@ -1,0 +1,38 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex items-center gap-2 mb-4">
+    <p class="text-xs text-slate-500">Data saat halaman dibuka. Tekan Muat Ulang untuk melihat yang terbaru.</p>
+    <div class="flex-1"></div>
+    <button type="button" class="btn-secondary" data-on-click="muatSesi"><i class="fa-solid fa-rotate mr-1"></i> Muat Ulang</button>
+</div>
+
+<div class="section-box">
+    {{ section_header('sesi-login', 'Sedang Login') }}
+    <div id="body-sesi-login" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr>
+                    <th class="table-cell">User</th><th class="table-cell">Role</th><th class="table-cell">IP</th>
+                    <th class="table-cell">Login Sejak</th><th class="table-cell">Tidak Aktif</th><th class="table-cell">Browser</th>
+                    <th class="table-cell text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabelSesi" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section-box">
+    {{ section_header('login-terkunci', 'Login Terkunci (salah password berulang)') }}
+    <div id="body-login-terkunci" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr>
+                    <th class="table-cell">Jenis</th><th class="table-cell">Username / IP</th><th class="table-cell">Terbuka Lagi Dalam</th>
+                    <th class="table-cell text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabelTerkunci" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<p class="text-xs text-slate-500">Paksa keluar mengakhiri semua sesi user tersebut di semua PC. Lama kunci login diatur di menu Pengaturan Site.</p>

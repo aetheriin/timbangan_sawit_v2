@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ judul }} · Admin{% endblock %}
+
+{# Halaman Admin (super admin): tanpa info bar & tanpa tab. Satu menu sidebar = satu halaman.
+   Isi halaman di partials/admin/<halaman>.html, modal di <halaman>_modals.html, logika di js/admin/<halaman>.js #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+<div class="page-header">
+    <div class="page-header-icon"><i class="fa-solid {{ ikon }}"></i></div>
+    <div>
+        <h1 class="text-sm font-semibold">{{ judul }}</h1>
+        <p class="page-header-sub">{{ keterangan }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/admin/" ~ admin_aktif ~ ".html" %}
+{% endblock %}
+
+{% block modals %}
+    {% include "partials/admin/" ~ admin_aktif ~ "_modals.html" ignore missing %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/admin/admin.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/admin/' ~ admin_aktif ~ '.js') }}"></script>
+{% endblock %}

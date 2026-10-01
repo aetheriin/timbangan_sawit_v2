@@ -1,0 +1,33 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex gap-1.5 flex-wrap">
+        <button type="button" class="chip chip-active" data-filter="" data-on-click="filterRoleUser" data-arg="$el">Semua</button>
+        {% for r in role_list %}
+        <button type="button" class="chip" data-filter="{{ r }}" data-on-click="filterRoleUser" data-arg="$el">{{ 'HO' if r == 'HO' else r.replace('_', ' ').title() }}</button>
+        {% endfor %}
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="cariUser" placeholder="Cari username / nama" class="input-field pl-9 w-60" data-on-input="cariUser" data-arg="$value">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+    <button type="button" class="btn-primary" data-on-click="bukaTambahUser"><i class="fa-solid fa-user-plus mr-1"></i> Tambah User</button>
+</div>
+
+<div class="section-box">
+    {{ section_header('daftar-user', 'Daftar User') }}
+    <div id="body-daftar-user" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr>
+                    <th class="table-cell">Username</th><th class="table-cell">Nama</th><th class="table-cell">Role</th>
+                    <th class="table-cell">Status</th><th class="table-cell">Login Terakhir</th><th class="table-cell">Dibuat</th>
+                    <th class="table-cell text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabelUser" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<p class="text-xs text-slate-500">User tidak dihapus, cukup dinonaktifkan supaya riwayat transaksinya tetap utuh. Reset password,
+    ganti role, dan nonaktifkan langsung mengakhiri sesi user tersebut.</p>

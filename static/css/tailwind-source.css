@@ -31,6 +31,16 @@
   .tab-btn-active { @apply bg-white text-blue-700 hover:bg-white; }
   .tab-body { @apply bg-slate-100 mx-4 mb-4 rounded-b-xl; }
 
+  /* Halaman Admin: judul halaman di posisi header tab (tanpa tab), menu di sidebar */
+  .page-header { @apply flex items-center gap-3 bg-slate-900 text-white mx-4 mt-4 px-5 py-3.5 rounded-t-xl; }
+  .page-header-icon { @apply w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-sm; }
+  .page-header-sub { @apply text-xs text-slate-400; }
+  .sidebar-section { @apply px-5 pt-4 pb-1 text-[10px] font-semibold tracking-wider text-slate-500 uppercase; }
+  .stat-card { @apply bg-white rounded-xl border border-slate-200 p-4; }
+  .stat-label { @apply text-xs font-medium text-slate-500; }
+  .stat-value { @apply text-xl font-semibold text-slate-800 mt-1; }
+  .token-box { @apply font-mono text-xs bg-slate-900 text-emerald-300 rounded-lg p-3 break-all select-all; }
+
   /* Collapsible section */
   .section-box { @apply bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden; }
   .section-header { @apply bg-slate-200 px-5 py-3 flex items-center justify-between cursor-pointer select-none; }

@@ -1,0 +1,38 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="section-box">
+    {% call section_header('master-supplier', 'Supplier / Buyer') %}
+    <div class="flex items-center gap-2" data-henti-klik>
+        <div class="relative">
+            <input type="text" id="cariSupplier" placeholder="Cari kode / nama" class="input-field py-1.5 pl-9 w-56" data-on-input="cariSupplier" data-arg="$value">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        </div>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaSupplier"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+    </div>
+    {% endcall %}
+    <div id="body-master-supplier" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Tipe</th>
+                    <th class="table-cell">Status</th><th class="table-cell">Dibuat</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelSupplier" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section-box">
+    {% call section_header('master-produk', 'Produk') %}
+    <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaProduk"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+    {% endcall %}
+    <div id="body-master-produk" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Nama Produk</th><th class="table-cell">Kategori</th><th class="table-cell">Standar Mutu</th>
+                    <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelProduk" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<p class="text-xs text-slate-500">Data tidak dihapus agar riwayat tiket tetap utuh; yang nonaktif tidak muncul lagi di pilihan Form.
+    Standar mutu produk PKS diatur oleh Lab di tab Laboratorium.</p>
