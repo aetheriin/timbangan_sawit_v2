@@ -6,6 +6,7 @@ from datetime import datetime, date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import UPLOAD_FOLDER
+from utils import pengaturan
 from utils.face_utils import extract_embedding, verifikasi_liveness
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.db_personel import get_personel
@@ -18,13 +19,12 @@ from utils.upload_utils import simpan_frames, hapus_file
 
 absensi_bp = Blueprint('absensi', __name__)
 
-AMBANG_JARAK = 0.55
 TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
 
 
 def _personel_terdekat(embedding):
     """(id_personel, jarak) terdekat yang masih di bawah ambang, atau (None, jarak_terdekat)."""
-    id_personel, _, jarak = cari_terdekat(embedding, AMBANG_JARAK)
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
     return id_personel, jarak
 
 
@@ -91,7 +91,7 @@ def absensi_scan():
             "selisih_menit": selisih, "waktu": sekarang.strftime("%Y-%m-%d %H:%M:%S"),
             "jadwal": None if not jadwal or jadwal["is_libur"] else
             {"nama_hari": jadwal["nama_hari"], "jam_masuk": _jam(jadwal["jam_masuk"]), "jam_pulang": _jam(jadwal["jam_pulang"])},
-            "jarak_wajah": round(jarak, 3), "ambang": AMBANG_JARAK, "tantangan": tantangan,
+            "jarak_wajah": round(jarak, 3), "ambang": pengaturan.nilai("AMBANG_WAJAH"), "tantangan": tantangan,
         })
     finally:
         for path in paths:

@@ -1,5 +1,4 @@
 import io
-import os
 from datetime import datetime
 import qrcode
 import qrcode.image.svg
@@ -14,6 +13,7 @@ from utils.serializers import serialisasi_tiket, serialisasi_driver
 from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
+from utils import pengaturan
 
 main_bp = Blueprint('main', __name__)
 
@@ -23,7 +23,7 @@ def weighbridge():
     view = "form" if request.args.get("view") == "form" else "list"
     return render_template("weighbridge.html", halaman="site", view=view,
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
-                           wajib_scan_wajah=os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true")
+                           wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"))
 
 @main_bp.route("/face-recognition")
 @login_required

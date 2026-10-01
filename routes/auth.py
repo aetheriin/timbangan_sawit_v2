@@ -2,17 +2,20 @@ from flask import Blueprint, request, render_template, redirect, session, jsonif
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from utils.auth import User
-from utils.db_utils import get_user_by_username
-from utils.keamanan import log_keamanan, tandai_aktif
+from utils.db_utils import get_user_by_username, catat_login_terakhir
+from utils.keamanan import log_keamanan, mulai_sesi
+from utils import sesi_aktif
 from utils.login_guard import sisa_kunci, catat_gagal, catat_berhasil
 
 auth_bp = Blueprint('auth', __name__)
 
 TAB_DEFAULT = {'SECURITY': 'security', 'OPERATOR_TIMBANG': 'timbangan',
-               'SORTASI': 'sortasi', 'LAB': 'lab', 'ADMIN': 'security', 'HO': 'security'}
+               'SORTASI': 'sortasi', 'LAB': 'lab', 'HO': 'security'}
 
 
 def _halaman_awal(role):
+    if role == 'ADMIN':                 # super admin hanya punya halaman Admin
+        return "/admin"
     return f"/weighbridge?tab={TAB_DEFAULT.get(role, 'security')}"
 
 
@@ -48,8 +51,10 @@ def login():
     catat_berhasil(username, ip)
     session.clear()                 # cegah session fixation: sesi lama dibuang, dibuat baru
     session.permanent = True
-    login_user(User(row.id_user, row.username, row.nama, row.role))
-    tandai_aktif()
+    user = User(row.id_user, row.username, row.nama, row.role)
+    login_user(user)
+    mulai_sesi(user, row.sesi_versi or 0)
+    catat_login_terakhir(row.id_user)
     log_keamanan("LOGIN", f"username={row.username} role={row.role}")
     return redirect(_halaman_awal(row.role))
 
@@ -58,6 +63,7 @@ def login():
 @login_required
 def logout():
     log_keamanan("LOGOUT")
+    sesi_aktif.hapus(session.get("_sid"))
     logout_user()
     session.clear()
     return redirect("/login")

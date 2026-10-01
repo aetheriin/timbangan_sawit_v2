@@ -1,10 +1,10 @@
-import os
 from flask import Blueprint, request, jsonify, g
 from flask_login import login_required, current_user
 from extensions import role_required, UPLOAD_FOLDER
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
+from utils import pengaturan
 from utils import verifikasi_state as verif
 from utils.keamanan import perangkat_atau_login, id_pos
 from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
@@ -67,7 +67,7 @@ def buat_tiket():
 
     v = verif.ambil(id_pos(), current_user.id)
     terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)
-    if os.getenv("WAJIB_SCAN_WAJAH", "true").lower() == "true" and not terverifikasi:
+    if pengaturan.nilai("WAJIB_SCAN_WAJAH") and not terverifikasi:
         return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
 
     # Supir berbeda dari saran (supir utama / terakhir truk ini) -> dicatat
@@ -244,7 +244,7 @@ def verifikasi_wajah():
         if embedding_baru is None:
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
 
-        id_cocok, _, _ = cari_terdekat(embedding_baru, 0.55)
+        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH"))
         if id_cocok is None:
             verif.batal(pos)
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404

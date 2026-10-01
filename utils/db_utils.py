@@ -29,7 +29,7 @@ def cek_koneksi_db():
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_user, username, password, nama, role FROM users WHERE username = ? AND is_active = 1", username)
+    cursor.execute("SELECT id_user, username, password, nama, role, sesi_versi FROM users WHERE username = ? AND is_active = 1", username)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -38,10 +38,18 @@ def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
-    cursor.execute("SELECT id_user, username, nama, role FROM users WHERE id_user = ? AND is_active = 1", user_id)
+    cursor.execute("SELECT id_user, username, nama, role, sesi_versi FROM users WHERE id_user = ? AND is_active = 1", user_id)
     row = cursor.fetchone()
     conn.close()
     return row
+
+def catat_login_terakhir(user_id):
+    conn = get_connection()
+    try:
+        conn.cursor().execute("UPDATE users SET last_login = GETDATE() WHERE id_user = ?", user_id)
+        conn.commit()
+    finally:
+        conn.close()
 
 def insert_user(username, password_hash, nama, role):
     conn = get_connection()
@@ -279,9 +287,12 @@ def cek_nik_ada(nik, exclude_id=None):
     conn.close()
     return row is not None
 
-def cari_wajah_mirip_driver(embedding_baru, threshold=0.55, exclude_id=None):
+def cari_wajah_mirip_driver(embedding_baru, threshold=None, exclude_id=None):
     """Personel aktif paling mirip (dari cache embedding di memori), atau None."""
     from utils.face_cache import cari_terdekat
+    if threshold is None:
+        from utils import pengaturan          # import di sini: pengaturan juga memakai db_utils
+        threshold = pengaturan.nilai("AMBANG_WAJAH")
     id_personel, nama, _ = cari_terdekat(embedding_baru, threshold, exclude_id)
     return (id_personel, nama) if id_personel is not None else None
 

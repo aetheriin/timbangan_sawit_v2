@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request, redirect, session
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
@@ -24,6 +24,7 @@ from routes.blacklist import blacklist_bp
 from routes.absensi import absensi_bp
 from routes.audit import audit_bp
 from routes.sistem import sistem_bp
+from routes.admin import admin_bp
 
 load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"),
@@ -41,7 +42,13 @@ pasang_semua(app)
 @login_manager.user_loader
 def load_user(user_id):
     row = get_user_by_id(user_id)
-    return User(row.id_user, row.username, row.nama, row.role) if row else None
+    if row is None:
+        return None
+    # Admin menekan "Paksa keluar" / reset password / ubah role -> sesi_versi naik, sesi lama ditolak
+    if (row.sesi_versi or 0) != session.get("_versi", 0):
+        log_keamanan("SESI_DICABUT", f"username={row.username}")
+        return None
+    return User(row.id_user, row.username, row.nama, row.role)
 
 @login_manager.unauthorized_handler
 def belum_login():
@@ -52,7 +59,7 @@ def belum_login():
     return redirect("/login")
 
 for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
-           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp):
+           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp):
     app.register_blueprint(bp)
 
 # Endpoint yang dipanggil kiosk kamera (tanpa sesi browser) dilindungi token perangkat, bukan CSRF

@@ -20,7 +20,7 @@ def role_required(*roles):
         def wrapped(*args, **kwargs):
             if not current_user.is_authenticated:
                 return jsonify({"error": "Belum login"}), 401
-            if current_user.role != 'ADMIN' and current_user.role not in roles:
+            if current_user.role not in roles:          # ADMIN tidak lagi lolos otomatis: hanya area Admin
                 from utils.keamanan import log_keamanan
                 log_keamanan("AKSES_DITOLAK", f"role {current_user.role} ke {f.__name__}")
                 return jsonify({"error": "Akses ditolak untuk role Anda"}), 403
