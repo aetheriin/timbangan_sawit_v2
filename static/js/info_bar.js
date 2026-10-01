@@ -1,6 +1,4 @@
 // ===== INFO BAR (kontainer atas halaman site) =====
-// Input plat / No. Tiket, foto supir, dan tombol Validasi.
-// Tombol Validasi hanya tampil di tab Security dan hilang setelah plat tervalidasi (sudah punya tiket).
 let statusValidasi = 'none'; // none | draft | done
 const ICON_USER = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
 
@@ -111,4 +109,3 @@ async function bukaFormDariTabel(noPlat) {
     await lookupPlat(noPlat);
     setSidebarView('form');
 }
-// Jalur 3: menu "Form" di sidebar (langsung setSidebarView('form'))

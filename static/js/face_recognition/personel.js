@@ -5,9 +5,9 @@ let timerCariPersonel = null;
 let daftarPersonel = [];
 
 // state modal Tambah / Update
-let modePersonel = 'tambah';          // tambah | update
+let modePersonel = 'tambah';          
 let idPersonelEdit = null;
-let fotoPersonel = null;              // File (upload) atau Blob (kamera)
+let fotoPersonel = null;              
 let sumberFotoPersonel = 'UPLOAD';
 let idPersonelHapus = null;
 
@@ -173,7 +173,7 @@ function tampilkanPreviewPersonel(src) {
 async function pilihFotoPersonel(file) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { Notif.peringatan('Ukuran foto maksimal 10 MB'); return; }
-    fotoPersonel = await kecilkanFoto(file);          // dikompres di browser sebelum dikirim
+    fotoPersonel = await kecilkanFoto(file);         
     tampilkanPreviewBlob(fotoPersonel);
     cekFotoPersonel();
 }

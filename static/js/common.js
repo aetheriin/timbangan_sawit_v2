@@ -20,7 +20,6 @@ function urlBerkas(path) {
 }
 
 // ===== FORMAT PERSONEL =====
-// ID tidak pernah berubah (006), Kode diisi HO (PRGBS-001). Tampilan: "Kode · Nama" atau "ID 014 · Nama".
 function formatIdPersonel(id) {
     return String(id ?? '').padStart(3, '0');
 }

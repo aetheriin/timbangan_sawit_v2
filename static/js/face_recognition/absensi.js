@@ -140,8 +140,8 @@ async function muatAbsensiHarian() {
             <td class="table-cell">${r.kode_personel ? escapeHtml(r.kode_personel) : `<span class="text-amber-700 font-medium">ID ${formatIdPersonel(r.id_personel)}</span>`}</td>
             <td class="table-cell">${escapeHtml(r.nama_personel)}</td>
             <td class="table-cell">${badgeKategori(r.kategori)}</td>
-            <td class="table-cell">${r.jam_masuk || '—'}</td>
-            <td class="table-cell">${r.jam_pulang || '—'}</td>
+            <td class="table-cell">${r.jam_masuk || '-'}</td>
+            <td class="table-cell">${r.jam_pulang || '-'}</td>
             <td class="table-cell space-x-1">${ket}</td>
         </tr>`;
     }).join('') || barisKosong(6, 'Belum ada personel');
@@ -170,8 +170,8 @@ async function muatJadwalKerja() {
     if (data.error) { tbody.innerHTML = barisKosong(4, data.error); return; }
     tbody.innerHTML = data.map(j => `<tr>
             <td class="table-cell">${escapeHtml(j.nama_hari)}</td>
-            <td class="table-cell">${j.is_libur ? '—' : j.jam_masuk}</td>
-            <td class="table-cell">${j.is_libur ? '—' : j.jam_pulang}</td>
+            <td class="table-cell">${j.is_libur ? '-' : j.jam_masuk}</td>
+            <td class="table-cell">${j.is_libur ? '-' : j.jam_pulang}</td>
             <td class="table-cell">${j.is_libur ? badge('Libur', WARNA_BADGE.abu) : `Semua kategori · toleransi ${j.toleransi_menit} menit`}</td>
         </tr>`).join('');
 }

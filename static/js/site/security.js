@@ -560,7 +560,7 @@ function isiDriver(dr) {
     document.getElementById('driverIdDriver').value = dr.id_driver;
     document.getElementById('driverIdTampil').value = formatIdPersonel(dr.id_driver);
     document.getElementById('driverKode').value = dr.kode_personel || '';
-    document.getElementById('driverKode').placeholder = dr.kode_personel ? '' : '— belum ada kode';
+    document.getElementById('driverKode').placeholder = dr.kode_personel ? '' : 'belum ada kode';
     document.getElementById('driverStatusBadge').innerHTML = badgeStatusPersonel(dr.is_blacklisted);
     document.getElementById('driverNama').value = dr.nama;
     document.getElementById('driverNik').value = dr.nik;
