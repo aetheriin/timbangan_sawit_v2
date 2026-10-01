@@ -107,6 +107,17 @@ Satu baris `blacklist` hanya untuk **satu** target: `tipe_entitas = PERSONEL` �
 | kendaraan_driver | `created_by` | 1 : N (opsional) |
 | kontrak_kendaraan | `created_by` | 1 : N (opsional) |
 
+### Admin (migrasi 004)
+
+| Tabel | Kolom penting | Relasi | Arti |
+|---|---|---|---|
+| users (+kolom) | `last_login`, `sesi_versi` | – | Login terakhir; `sesi_versi` naik = semua sesi user itu dicabut |
+| pengaturan | `kunci` (PK), `nilai`, `updated_by` | `updated_by` → users 1 : N | Pengaturan site dari Admin › Pengaturan Site |
+| perangkat_kiosk | `id_pos` (PK), `nama`, `lokasi`, `token_hash`, `is_active` | – | Pos kiosk kamera + hash token per pos |
+| admin_audit_logs | `aksi`, `target`, `detail`, `ip_address`, `created_at` | `user_id` → users 1 : N | Jejak aksi admin |
+
+Gambar `erd.png` / `erd.svg` belum memuat tabel 004 (tabel pendukung, tidak berelasi dengan alur tiket).
+
 ## Kode diagram (untuk di-copy)
 
 ### Mermaid
