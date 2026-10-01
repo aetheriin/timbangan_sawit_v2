@@ -10,6 +10,8 @@ from utils import pengaturan
 _lock = threading.Lock()
 _gagal = {}        # kunci -> [waktu gagal ...]
 _terkunci = {}     # kunci -> waktu buka
+_dicoba = {}       # ip -> username terakhir yang dicoba dari IP itu (ditampilkan di Admin)
+MAKS_DICOBA = 5
 
 
 def _kunci(username, ip):
@@ -31,6 +33,8 @@ def catat_gagal(username, ip, sekarang=None):
     lama_kunci = pengaturan.nilai("LOGIN_KUNCI_MENIT") * 60
     terkunci = False
     with _lock:
+        dicoba = [u for u in _dicoba.get(ip, []) if u != username] + [username or "-"]
+        _dicoba[ip] = dicoba[-MAKS_DICOBA:]
         for k in _kunci(username, ip):
             daftar = [t for t in _gagal.get(k, []) if sekarang - t < jendela] + [sekarang]
             _gagal[k] = daftar
@@ -53,7 +57,8 @@ def daftar_terkunci(sekarang=None):
     sekarang = sekarang or time.time()
     with _lock:
         hasil = [{"kunci": k, "jenis": "Username" if k.startswith("u:") else "IP", "nama": k.split(":", 1)[1],
-                  "sisa_detik": int(buka - sekarang)}
+                  "sisa_detik": int(buka - sekarang),
+                  "dicoba": list(reversed(_dicoba.get(k[3:], []))) if k.startswith("ip:") else []}
                  for k, buka in _terkunci.items() if buka > sekarang]
     return sorted(hasil, key=lambda r: -r["sisa_detik"])
 
@@ -62,4 +67,21 @@ def buka_kunci(kunci):
     """Admin membuka kunci lebih cepat. Kembalikan True bila memang sedang terkunci."""
     with _lock:
         _gagal.pop(kunci, None)
+        if kunci.startswith("ip:"):
+            _dicoba.pop(kunci[3:], None)
         return _terkunci.pop(kunci, None) is not None
+
+
+def buka_kunci_teks(teks):
+    """Admin mengetik username ATAU IP. Hitungan salah & kuncinya dihapus. Kembalikan jumlah kunci yang dibuka."""
+    teks = (teks or "").strip()
+    return sum(buka_kunci(k) for k in (f"u:{teks.lower()}", f"ip:{teks}"))
+
+
+def buka_semua():
+    with _lock:
+        jumlah = len(_terkunci)
+        _terkunci.clear()
+        _gagal.clear()
+        _dicoba.clear()
+    return jumlah

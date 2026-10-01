@@ -31,7 +31,7 @@ function statusBackup(db) {
 async function muatKesehatan() {
     const d = await ambilJson('/api/admin/kesehatan');
     const wadah = document.getElementById('kartuKesehatan');
-    if (d.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(d.error)}</p>`; return; }
+    if (d.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(d.error)}</p>`; return false; }
     const db = d.database;
     const [nilaiBackup, infoBackup, stBackup] = db.ok ? statusBackup(db) : ['-', 'Database tidak terhubung', 'gagal'];
     const disk = d.disk;

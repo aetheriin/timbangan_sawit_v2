@@ -223,11 +223,28 @@ def sesi_paksa_keluar():
 @admin_bp.route("/api/admin/sesi/buka-kunci", methods=["POST"])
 @_admin
 def sesi_buka_kunci():
-    kunci = request.form.get("kunci") or ""
-    if not login_guard.buka_kunci(kunci):
-        return jsonify({"error": "Kunci sudah tidak berlaku"}), 400
-    _audit("BUKA_KUNCI_LOGIN", kunci)
-    return jsonify({"message": "Kunci login dibuka"})
+    """Dari baris tabel (kunci "u:joko" / "ip:10.0.0.7") atau dari form (username ATAU IP diketik admin)."""
+    kunci, teks = request.form.get("kunci") or "", (request.form.get("teks") or "").strip()
+    if teks:
+        dibuka = login_guard.buka_kunci_teks(teks)
+        target = teks
+    else:
+        dibuka = int(login_guard.buka_kunci(kunci))
+        target = kunci
+    if not dibuka:
+        return jsonify({"error": f"{target or 'Data'} tidak sedang terkunci"}), 400
+    _audit("BUKA_KUNCI_LOGIN", target)
+    return jsonify({"message": f"Kunci login {target} dibuka"})
+
+
+@admin_bp.route("/api/admin/sesi/buka-semua", methods=["POST"])
+@_admin
+def sesi_buka_semua():
+    jumlah = login_guard.buka_semua()
+    if not jumlah:
+        return jsonify({"error": "Tidak ada login yang terkunci"}), 400
+    _audit("BUKA_KUNCI_LOGIN", "SEMUA", f"{jumlah} kunci")
+    return jsonify({"message": f"{jumlah} kunci login dibuka"})
 
 
 # ===== SUPPLIER & PRODUK =====

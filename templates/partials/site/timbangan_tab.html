@@ -76,10 +76,13 @@
                 <p id="statusScanQR" class="text-xs text-slate-500"></p>
                 <div>
                     <label class="field-label">Scanner barcode / ketik No. Tiket</label>
-                    <input type="text" id="inputScanTiket" placeholder="TKT-... lalu Enter" class="input-field uppercase"
+                    <input type="text" id="inputScanTiket" placeholder="Ketik / scan No. Tiket, mis. TKT-BM1455JJ-..." class="input-field uppercase"
                         data-on-enter="prosesScanTiket" data-arg="$value">
                 </div>
-                <button data-on-click="tutupScanQR" class="btn-secondary w-full">Batal</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" data-on-click="tutupScanQR" class="btn-secondary">Batal</button>
+                    <button type="button" data-on-click="kirimScanTiket" class="btn-primary"><i class="fa-solid fa-magnifying-glass mr-1"></i> Cari Tiket</button>
+                </div>
             </div>
         </div>
     </div>

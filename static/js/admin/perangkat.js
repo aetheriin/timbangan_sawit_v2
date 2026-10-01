@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', muatPerangkat);
 async function muatPerangkat() {
     const data = await ambilJson('/api/admin/perangkat');
     const tbody = document.getElementById('tabelPos');
-    if (data.error) { tbody.innerHTML = barisKosong(8, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(8, data.error); return false; }
     daftarPos = data.perangkat;
 
     const t = data.timbangan;

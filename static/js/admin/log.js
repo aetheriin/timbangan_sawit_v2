@@ -18,7 +18,7 @@ function filterLog(el) {
 async function muatLog() {
     const data = await ambilJson(`/api/admin/log-keamanan?jenis=${encodeURIComponent(jenisLog)}`);
     const tbody = document.getElementById('tabelLog');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return false; }
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50" data-cari="${escapeHtml(`${r.user} ${r.ip} ${r.detail} ${r.kejadian}`.toLowerCase())}">
             <td class="table-cell whitespace-nowrap">${escapeHtml(r.waktu)}</td>

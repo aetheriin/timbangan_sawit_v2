@@ -1,8 +1,8 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div class="flex items-center gap-2 mb-4">
-    <p class="text-xs text-slate-500">Data saat halaman dibuka. Tekan Muat Ulang untuk melihat yang terbaru.</p>
+    <p id="infoSesiOtomatis" class="text-xs text-slate-500"></p>
     <div class="flex-1"></div>
-    <button type="button" class="btn-secondary" data-on-click="muatSesi"><i class="fa-solid fa-rotate mr-1"></i> Muat Ulang</button>
+    <button type="button" class="btn-secondary" data-on-click="muatUlang" data-arg="$el|muatSesi"><i class="fa-solid fa-rotate mr-1"></i> Muat Ulang</button>
 </div>
 
 <div class="section-box">
@@ -22,12 +22,18 @@
 </div>
 
 <div class="section-box">
-    {{ section_header('login-terkunci', 'Login Terkunci (salah password berulang)') }}
+    {% call section_header('login-terkunci', 'Login Terkunci (salah password berulang)') %}
+    <button type="button" class="btn-outline-danger py-1.5 whitespace-nowrap" data-henti-klik data-on-click="bukaSemuaKunci">Buka Semua</button>
+    {% endcall %}
     <div id="body-login-terkunci" class="section-body overflow-x-auto">
+        <form id="formBukaKunci" class="flex items-center gap-2 px-5 py-3 border-b border-slate-100" autocomplete="off">
+            <input type="text" name="teks" required maxlength="60" placeholder="Username atau IP, mis. joko / 10.10.2.44" class="input-field py-1.5 max-w-sm">
+            <button type="submit" class="btn-primary py-1.5 whitespace-nowrap"><i class="fa-solid fa-lock-open mr-1"></i> Buka Kunci</button>
+        </form>
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
                 <tr>
-                    <th class="table-cell">Jenis</th><th class="table-cell">Username / IP</th><th class="table-cell">Terbuka Lagi Dalam</th>
+                    <th class="table-cell">Jenis</th><th class="table-cell">Username / IP</th><th class="table-cell">Username yang Dicoba</th><th class="table-cell">Terbuka Lagi Dalam</th>
                     <th class="table-cell text-right">Aksi</th>
                 </tr>
             </thead>

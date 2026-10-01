@@ -25,7 +25,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 | Menu | Isi | Berlaku |
 |---|---|---|
 | Kelola User | Tambah user, ubah nama / role, reset password, aktif / nonaktif. User tidak dihapus | Ganti role, reset password, nonaktif → semua sesi user itu langsung berakhir |
-| Sesi Aktif | Siapa yang login, IP, sejak kapan, berapa lama tidak aktif. Paksa keluar. Daftar login terkunci + Buka Kunci | Langsung |
+| Sesi Aktif | Siapa yang login, IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
 | Supplier & Produk | Tambah / ubah / aktif / nonaktif supplier (Supplier Pembelian / Buyer Penjualan) dan produk (TBS / Produk PKS) | Langsung muncul / hilang di pilihan Form |
 | Jadwal Kerja | Libur, jam masuk, jam pulang, toleransi per hari | Scan absensi berikutnya |
 | Pengaturan Site | Wajib scan wajah, ambang kemiripan wajah, sesi idle, umur sesi, kunci login | ±30 detik, tanpa restart |

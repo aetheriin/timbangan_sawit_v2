@@ -89,7 +89,8 @@ def cek_secret(app):
 # Cookie sendiri dibatasi 24 jam; batas yang berlaku dicek di cek_idle().
 BATAS_COOKIE_JAM = 24
 # Request otomatis (polling) tidak dihitung sebagai aktivitas, supaya layar yang ditinggal tetap logout
-PATH_POLLING = ("/api/timbang/status", "/api/status-verifikasi", "/api/kamera/status", "/health")
+PATH_POLLING = ("/api/timbang/status", "/api/status-verifikasi", "/api/kamera/status", "/health",
+                "/api/admin/sesi")
 
 
 def pasang_cookie(app):

@@ -57,6 +57,25 @@ class TestLoginGuardAdmin(unittest.TestCase):
         self.assertFalse(login_guard.buka_kunci("u:joko"))
 
 
+    def test_username_asal_kunci_ip_lalu_dibuka_lewat_ip(self):
+        nilai = {"LOGIN_MAKS_GAGAL": 5, "LOGIN_JENDELA_MENIT": 15, "LOGIN_KUNCI_MENIT": 15}
+        with patch.object(pengaturan, "nilai", side_effect=nilai.get):
+            for i in range(5):
+                login_guard.catat_gagal(f"asal{i}", "10.0.0.7", 1000 + i)
+        terkunci = login_guard.daftar_terkunci(1005)
+        self.assertEqual([t["kunci"] for t in terkunci], ["ip:10.0.0.7"])
+        self.assertEqual(terkunci[0]["dicoba"], ["asal4", "asal3", "asal2", "asal1", "asal0"])
+        self.assertGreater(login_guard.sisa_kunci("ho", "10.0.0.7", 1005), 0)
+        self.assertEqual(login_guard.buka_kunci_teks("10.0.0.7"), 1)
+        self.assertEqual(login_guard.sisa_kunci("ho", "10.0.0.7", 1005), 0)
+        self.assertEqual(login_guard.buka_kunci_teks("10.0.0.7"), 0)
+
+    def test_buka_semua(self):
+        login_guard._terkunci.update({"u:a": time.time() + 60, "ip:1.1.1.1": time.time() + 60})
+        self.assertEqual(login_guard.buka_semua(), 2)
+        self.assertEqual(login_guard.daftar_terkunci(), [])
+
+
 class TestSesiAktif(unittest.TestCase):
     def test_catat_dan_kedaluwarsa(self):
         sesi_aktif._sesi.clear()

@@ -106,6 +106,17 @@ async function tutupScanQR() {
     closeModal('modalScanQRTimbangan');
 }
 
+// Tombol "Cari Tiket" (sama dengan menekan Enter di kotak No. Tiket)
+function kirimScanTiket() {
+    const input = document.getElementById('inputScanTiket');
+    if (!input.value.trim()) {
+        Notif.peringatan('Ketik atau scan No. Tiket dulu');
+        input.focus();
+        return;
+    }
+    prosesScanTiket(input.value);
+}
+
 async function prosesScanTiket(teks) {
     const noTiket = (teks || '').trim().toUpperCase();
     if (!noTiket || sedangProsesScan) return;     // kamera bisa membaca QR yang sama berkali-kali

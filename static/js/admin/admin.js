@@ -66,3 +66,20 @@ function saringBaris(tbodyId, teks) {
         tr.classList.toggle('hidden', q && !tr.dataset.cari.includes(q));
     });
 }
+
+// Tombol Muat Ulang / Cek Ulang: ikon berputar selama memuat, lalu konfirmasi.
+// <button data-on-click="muatUlang" data-arg="$el|muatSesi">
+async function muatUlang(btn, namaFungsi) {
+    const ikon = btn.querySelector('i');
+    btn.disabled = true;
+    if (ikon) ikon.classList.add('fa-spin');
+    const mulai = Date.now();
+    try {
+        const ok = await window[namaFungsi]();          // fungsi muat mengembalikan false bila gagal
+        await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - mulai))));   // putaran sempat terlihat
+        if (ok !== false) Notif.sukses(`Data sudah diperbarui (${new Date().toLocaleTimeString('id-ID')})`);
+    } finally {
+        btn.disabled = false;
+        if (ikon) ikon.classList.remove('fa-spin');
+    }
+}
