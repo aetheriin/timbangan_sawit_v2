@@ -104,3 +104,23 @@ class TestSecret(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTanpaScriptInline(unittest.TestCase):
+    """CSP script-src 'self': template tidak boleh berisi onclick="..." / <script> inline / javascript:."""
+    POLA = __import__("re").compile(r"""\son[a-z]+\s*=\s*["']|<script(?![^>]*\bsrc=)[^>]*>|javascript:""", __import__("re").I)
+
+    def test_csp_tanpa_unsafe_inline_script(self):
+        from utils.keamanan import CSP
+        script_src = next(b for b in CSP.split(";") if b.strip().startswith("script-src"))
+        self.assertNotIn("unsafe-inline", script_src)
+
+    def test_template_bersih(self):
+        akar = os.path.join(os.path.dirname(__file__), "..", "templates")
+        for dirpath, _, files in os.walk(akar):
+            for nama in files:
+                path = os.path.join(dirpath, nama)
+                with open(path, encoding="utf-8") as f:
+                    for no, baris in enumerate(f, 1):
+                        with self.subTest(file=nama, baris=no):
+                            self.assertIsNone(self.POLA.search(baris), baris.strip())

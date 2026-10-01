@@ -10,16 +10,32 @@ function perbaruiTombolValidasi() {
 
 window.addEventListener('tabChange', perbaruiTombolValidasi);
 
-// ===== INPUT PLAT: Tab / Enter =====
-function handlePlatKey(e) {
-    if (e.key === 'Tab' && e.shiftKey) return;
-    if (e.key === 'Tab' || e.key === 'Enter') {
-        const val = e.target.value.trim();
-        if (!val) return;
-        e.preventDefault();          // cegah fokus loncat ke kotak lain
-        lookupPlat(val);
-    }
+// ===== INPUT PLAT =====
+// Tab / Enter -> cari (data-on-enter di template, lihat aksi.js).
+// Selain itu plat juga otomatis dirapikan & dicari saat mouse meninggalkan kotak atau fokus pindah
+// (misal user lupa menekan Tab). Otomatis hanya bila format plat sudah lengkap, supaya ketikan yang
+// belum selesai tidak memunculkan pesan error.
+const POLA_PLAT = /^[A-Z]{1,2}[\s.\-]*[1-9][0-9]{0,3}[\s.\-]*[A-Z]{0,3}$/;
+let platTerakhirDicari = '';
+
+function platPerluDicari(input) {
+    const val = input.value.trim().toUpperCase();
+    if (!val || val === platTerakhirDicari) return false;
+    return val.startsWith('TKT-') || POLA_PLAT.test(val);
 }
+
+function cariPlatOtomatis(e) {
+    const input = e.target;
+    // mouseleave saat kotak tidak sedang diketik (tidak fokus) diabaikan
+    if (e.type === 'mouseleave' && document.activeElement !== input) return;
+    if (platPerluDicari(input)) lookupPlat(input.value);
+}
+
+document.querySelectorAll('[data-plat-otomatis]').forEach(input => {
+    input.addEventListener('mouseleave', cariPlatOtomatis);
+    input.addEventListener('blur', cariPlatOtomatis);
+    input.addEventListener('input', () => { platTerakhirDicari = ''; });   // diketik ulang -> boleh dicari lagi
+});
 
 // No. Tiket (hasil scanner barcode / QR) -> cari tiket aktif
 async function lookupTiket(noTiket) {
@@ -31,6 +47,7 @@ async function lookupTiket(noTiket) {
 async function lookupPlat(noPlatRaw) {
     const noPlat = (noPlatRaw || '').trim().toUpperCase();
     if (!noPlat) return;
+    platTerakhirDicari = noPlat;
     // Scanner barcode yang diarahkan ke kolom plat akan mengetik No. Tiket
     if (noPlat.startsWith('TKT-')) { await lookupTiket(noPlat); return; }
 
@@ -38,6 +55,7 @@ async function lookupPlat(noPlatRaw) {
     if (data.error) { Notif.gagal(data.error); return; }
 
     data.no_plat = data.no_plat || noPlat;   // server mengembalikan format baku, mis. 'BM 1455 JJ'
+    platTerakhirDicari = data.no_plat;
     terapkanHasilLookup(data);
 }
 

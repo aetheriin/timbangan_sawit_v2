@@ -51,8 +51,8 @@ async function muatPersonel() {
             <td class="table-cell">${LABEL_SUMBER_FOTO[p.foto_sumber] || '-'}</td>
             <td class="table-cell">${p.is_blacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau)}</td>
             <td class="table-cell text-right space-x-2 whitespace-nowrap">
-                <button type="button" onclick="bukaEditPersonel(${p.id_personel})" class="link-aksi text-blue-600">Edit</button>
-                ${p.is_blacklisted ? '' : `<button type="button" onclick="bukaHapusPersonel(${p.id_personel})" class="link-aksi text-red-600">Hapus</button>`}
+                <button type="button" data-on-click="bukaEditPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-blue-600">Edit</button>
+                ${p.is_blacklisted ? '' : `<button type="button" data-on-click="bukaHapusPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-red-600">Hapus</button>`}
             </td>
         </tr>`).join('') || barisKosong(8, 'Belum ada personel');
     catatanBatas(tbody, data.length, 200, 8);
@@ -256,7 +256,7 @@ function bukaHapusPersonel(id) {
     idPersonelHapus = id;
     document.getElementById('hapusTarget').innerHTML = `
         <p class="font-semibold text-slate-800">${escapeHtml(p.nama_personel)}</p>
-        <p class="text-xs text-slate-500">ID ${formatIdPersonel(p.id_personel)} · ${p.kode_personel ? escapeHtml(p.kode_personel) : 'belum ada kode'} · ${escapeHtml((LABEL_KATEGORI[p.kategori] || [p.kategori])[0])}</p>`;
+        <p class="text-xs text-slate-500">ID ${formatIdPersonel(p.id_personel)} · ${p.kode_personel ? escapeHtml(p.kode_personel) : 'Belum ada kode'} · ${escapeHtml((LABEL_KATEGORI[p.kategori] || [p.kategori])[0])}</p>`;
     openModal('modalHapusPersonel');
 }
 

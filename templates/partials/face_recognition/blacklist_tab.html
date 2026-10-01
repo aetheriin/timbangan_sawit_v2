@@ -3,17 +3,17 @@
 
     <div class="flex flex-wrap items-center gap-2 mb-4">
         <div id="chipTipeBlacklist" class="flex gap-1.5">
-            <button type="button" class="chip chip-active" data-tipe="" onclick="filterBlacklist(this)">Semua</button>
-            <button type="button" class="chip" data-tipe="PERSONEL" onclick="filterBlacklist(this)">Personel</button>
-            <button type="button" class="chip" data-tipe="KENDARAAN" onclick="filterBlacklist(this)">Kendaraan</button>
+            <button type="button" class="chip chip-active" data-tipe="" data-on-click="filterBlacklist" data-arg="$el">Semua</button>
+            <button type="button" class="chip" data-tipe="PERSONEL" data-on-click="filterBlacklist" data-arg="$el">Personel</button>
+            <button type="button" class="chip" data-tipe="KENDARAAN" data-on-click="filterBlacklist" data-arg="$el">Kendaraan</button>
         </div>
         <div class="flex-1"></div>
         <div class="relative">
             <input type="text" id="cariBlacklist" placeholder="Cari kode / NIK / plat / no. surat" class="input-field pl-9 w-72"
-                   oninput="cariBlacklistTunda()">
+                   data-on-input="cariBlacklistTunda">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
         </div>
-        <button type="button" onclick="bukaTambahBlacklist()" class="btn-danger">
+        <button type="button" data-on-click="bukaTambahBlacklist" class="btn-danger">
             <i class="fa-solid fa-plus mr-1"></i> Tambah Blacklist
         </button>
     </div>

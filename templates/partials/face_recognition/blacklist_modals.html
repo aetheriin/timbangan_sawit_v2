@@ -3,17 +3,17 @@
     <div class="modal-box max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="modal-header">
             <h3 class="font-bold">Tambah Blacklist</h3>
-            <button type="button" onclick="closeModal('modalBlacklist')" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" data-on-click="closeModal" data-arg="modalBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">
             <div class="flex items-center gap-3">
                 <div class="seg">
-                    <button type="button" id="segBlPersonel" class="seg-item seg-item-active" onclick="setTipeBlacklist('PERSONEL')">Personel</button>
-                    <button type="button" id="segBlKendaraan" class="seg-item" onclick="setTipeBlacklist('KENDARAAN')">Kendaraan</button>
+                    <button type="button" id="segBlPersonel" class="seg-item seg-item-active" data-on-click="setTipeBlacklist" data-arg="PERSONEL">Personel</button>
+                    <button type="button" id="segBlKendaraan" class="seg-item" data-on-click="setTipeBlacklist" data-arg="KENDARAAN">Kendaraan</button>
                 </div>
                 <div class="relative flex-1">
                     <input type="text" id="blCari" placeholder="Cari kode / NIK / nama" class="input-field pl-9"
-                           oninput="cariTargetTunda()">
+                           data-on-input="cariTargetTunda">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                     <ul id="blHasilCari" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto text-sm"></ul>
                 </div>
@@ -38,14 +38,14 @@
                 <textarea id="blAlasan" rows="3" maxlength="500" class="input-field"></textarea>
             </div>
 
-            <div class="drop-zone flex items-center gap-3 text-left" onclick="document.getElementById('blFile').click()">
+            <div class="drop-zone flex items-center gap-3 text-left" data-on-click="klikElemen" data-arg="blFile">
                 <i class="fa-solid fa-file-arrow-up text-xl text-slate-500"></i>
                 <div>
                     <p class="text-sm font-medium text-slate-700">Upload Surat (PDF / JPG / PNG, maks 5 MB), wajib</p>
                     <p id="blFileNama" class="text-xs text-blue-700"></p>
                 </div>
                 <input type="file" id="blFile" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
-                       onchange="document.getElementById('blFileNama').textContent = this.files[0] ? this.files[0].name : ''">
+                       data-on-change="tampilkanNamaFile" data-arg="$el|blFileNama">
             </div>
 
             <div class="note-warning">
@@ -54,8 +54,8 @@
             </div>
 
             <div class="flex justify-end gap-3">
-                <button type="button" onclick="closeModal('modalBlacklist')" class="btn-secondary">Batal</button>
-                <button type="button" id="btnSimpanBlacklist" onclick="simpanBlacklist(this)" class="btn-danger">Tetapkan Blacklist Permanen</button>
+                <button type="button" data-on-click="closeModal" data-arg="modalBlacklist" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSimpanBlacklist" data-on-click="simpanBlacklist" data-arg="$el" class="btn-danger">Tetapkan Blacklist Permanen</button>
             </div>
         </div>
     </div>

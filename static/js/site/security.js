@@ -1,3 +1,6 @@
+// Pengaturan site dari server (.env WAJIB_SCAN_WAJAH), dikirim lewat <meta> di weighbridge.html
+const WAJIB_SCAN_WAJAH = document.querySelector('meta[name="wajib-scan-wajah"]')?.content !== 'false';
+
 // ===== MUAT DATA LIST SAAT TAB SECURITY DIBUKA =====
 document.addEventListener('DOMContentLoaded', () => {
     aturStatusForm('draft');
@@ -72,7 +75,7 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
         foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
         return;
     }
-    info.innerHTML = `<p class="text-xs text-slate-500">${escapeHtml(dr.kode_personel || 'belum ada kode')} · ID ${formatIdPersonel(dr.id_driver)}</p>` +
+    info.innerHTML = `<p class="text-xs text-slate-500">${escapeHtml(dr.kode_personel || 'Belum ada kode')} · ID ${formatIdPersonel(dr.id_driver)}</p>` +
         `<p class="font-semibold text-slate-700">${escapeHtml(dr.nama)}</p><p>NIK: ${escapeHtml(dr.nik)}</p>` +
         (dr.is_blacklisted ? `<p>${badge('BLACKLIST', WARNA_BADGE.merah)}</p>` : '') +
         (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
@@ -119,7 +122,7 @@ function perbaruiTombolSubmit() {
     else if (statusForm === 'validasi' && !adaSupir) hint = 'Pilih supir: Mulai Scan Wajah, Tambah (supir baru), atau Update.';
     else if (statusForm === 'validasi' && !siap) hint = 'Scan wajah supir dulu, setelah terverifikasi tombol Submit aktif.';
     else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Submit untuk membuat tiket.'
-                                            : 'Scan wajah tidak diwajibkan (WAJIB_SCAN_WAJAH=false).';
+                                            : 'Scan wajah tidak diwajibkan di site ini.';
     document.getElementById('hintSubmit').textContent = hint;
 }
 
@@ -217,10 +220,10 @@ async function muatListTicketAktif() {
             <td class="table-cell font-mono text-xs">${escapeHtml(t.no_tiket)}</td>
             <td class="table-cell">${escapeHtml(t.no_plat)}</td>
             <td class="table-cell">${escapeHtml(t.supplier)}</td>
-            <td class="table-cell"><span class="badge-status bg-amber-100 text-amber-700">${escapeHtml(t.status_alur)}</span></td>
+            <td class="table-cell">${badgeStatusTiket(t.status_alur)}</td>
             <td class="table-cell text-right space-x-2">
-                <button type="button" data-plat="${escapeHtml(t.no_plat)}" onclick="bukaFormDariTabel(this.dataset.plat)" class="text-blue-600 hover:underline text-xs">Buka</button>
-                <button type="button" data-plat="${escapeHtml(t.no_plat)}" onclick="openCetakQRDariTabel(this.dataset.plat)" class="text-emerald-600 hover:underline text-xs">Cetak QR</button>
+                <button type="button" data-on-click="bukaFormDariTabel" data-arg="${escapeHtml(t.no_plat)}" class="text-blue-600 hover:underline text-xs">Buka</button>
+                <button type="button" data-on-click="openCetakQRDariTabel" data-arg="${escapeHtml(t.no_plat)}" class="text-emerald-600 hover:underline text-xs">Cetak QR</button>
             </td>
         </tr>
     `).join('');
@@ -303,7 +306,7 @@ function terapkanHasilScanWajah(data) {
         Notif.peringatan(`${nama} masuk daftar blacklist`);
     }
     if (data.kategori && data.kategori !== 'DRIVER') {
-        status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml(data.kategori)}, bukan supir.</span>`;
+        status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml((LABEL_KATEGORI[data.kategori] || [labelKode(data.kategori)])[0])}, bukan supir.</span>`;
         return;
     }
     const dipilih = document.getElementById('driverIdDriver').value;
@@ -560,7 +563,7 @@ function isiDriver(dr) {
     document.getElementById('driverIdDriver').value = dr.id_driver;
     document.getElementById('driverIdTampil').value = formatIdPersonel(dr.id_driver);
     document.getElementById('driverKode').value = dr.kode_personel || '';
-    document.getElementById('driverKode').placeholder = dr.kode_personel ? '' : 'belum ada kode';
+    document.getElementById('driverKode').placeholder = dr.kode_personel ? '' : 'Belum ada kode';
     document.getElementById('driverStatusBadge').innerHTML = badgeStatusPersonel(dr.is_blacklisted);
     document.getElementById('driverNama').value = dr.nama;
     document.getElementById('driverNik').value = dr.nik;
@@ -572,6 +575,11 @@ function isiDriver(dr) {
 }
 
 // ===== CETAK QR =====
+// Tombol Cetak QR di Form (setelah tiket dibuat)
+function cetakQRDariForm() {
+    openCetakQRDariTabel(document.getElementById('formNoPlat').value);
+}
+
 function openCetakQRDariTabel(noPlat) {
     document.getElementById('qrNoPlat').value = noPlat;
     lookupPlatUntukQR(document.getElementById('qrNoPlat'));
@@ -588,7 +596,7 @@ async function lookupPlatUntukQR(inputEl) {
         document.getElementById('qrNik').textContent = data.driver.nik;
         document.getElementById('qrSim').textContent = data.driver.no_sim;
         document.getElementById('qrStnk').textContent = data.no_stnk || '-';
-        document.getElementById('qrStatus').textContent = data.status_alur;
+        document.getElementById('qrStatus').textContent = labelStatusTiket(data.status_alur);
 
         document.getElementById('printAreaQR').classList.remove('hidden');
         document.getElementById('qrTiketText').textContent = data.no_tiket;

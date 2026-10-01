@@ -6,7 +6,7 @@ window.addEventListener('platLookup', (e) => {
     if (data.status === 'ADA_TIKET') {
         noTiketAktif = data.no_tiket;
         idSupplierAktif = data.id_supplier;
-        document.getElementById('tbJenisTransaksi').value = data.jenis_transaksi;
+        document.getElementById('tbJenisTransaksi').value = labelKode(data.jenis_transaksi);
         document.getElementById('tbSupplier').value = data.supplier;
         document.getElementById('tbProduk').value = data.produk;
         muatHistorySupplier(data.id_supplier);

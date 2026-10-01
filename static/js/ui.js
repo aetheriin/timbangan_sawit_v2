@@ -72,6 +72,11 @@ const Dialog = {
     },
 };
 
+// Tombol Ya / Batal di partials/layout/notifikasi.html (data-on-click)
+function jawabDialog(nilai) {
+    Dialog.jawab(nilai);
+}
+
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && Dialog._selesai) Dialog.jawab(false);
 });

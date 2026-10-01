@@ -3,9 +3,9 @@
 
     <div class="flex items-center gap-2 mb-4">
         <div id="chipRentangAudit" class="flex gap-1.5">
-            <button type="button" class="chip chip-active" data-hari="1" onclick="filterAudit(this)">Hari ini</button>
-            <button type="button" class="chip" data-hari="7" onclick="filterAudit(this)">7 hari</button>
-            <button type="button" class="chip" data-hari="30" onclick="filterAudit(this)">30 hari</button>
+            <button type="button" class="chip chip-active" data-hari="1" data-on-click="filterAudit" data-arg="$el">Hari ini</button>
+            <button type="button" class="chip" data-hari="7" data-on-click="filterAudit" data-arg="$el">7 hari</button>
+            <button type="button" class="chip" data-hari="30" data-on-click="filterAudit" data-arg="$el">30 hari</button>
         </div>
         <div class="flex-1"></div>
         <a id="btnExportAudit" href="/api/audit/export?hari=1" class="btn-secondary">

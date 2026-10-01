@@ -15,8 +15,8 @@
                         </span>
                     </div>
                     <div class="flex gap-3">
-                        <button type="button" id="btnMulaiAbsen" onclick="mulaiScanAbsen()" class="btn-primary flex-1">Mulai Scan Absen</button>
-                        <button type="button" onclick="batalScanAbsen()" class="btn-secondary">Batal</button>
+                        <button type="button" id="btnMulaiAbsen" data-on-click="mulaiScanAbsen" class="btn-primary flex-1">Mulai Scan Absen</button>
+                        <button type="button" data-on-click="batalScanAbsen" class="btn-secondary">Batal</button>
                     </div>
                     <p id="absenStatus" class="text-xs text-slate-400"></p>
                 </div>
@@ -32,14 +32,14 @@
     <!-- Absensi hari ini -->
     <div class="section-box">
         {% call section_header('absensi-harian', 'Absensi Hari Ini') %}
-        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+        <div class="flex items-center gap-2" data-henti-klik>
             <div id="chipKategoriAbsen" class="flex gap-1.5">
-                <button type="button" class="chip chip-active" data-kategori="" onclick="filterAbsensi(this)">Semua</button>
-                <button type="button" class="chip" data-kategori="DRIVER" onclick="filterAbsensi(this)">Driver</button>
-                <button type="button" class="chip" data-kategori="SECURITY" onclick="filterAbsensi(this)">Security</button>
-                <button type="button" class="chip" data-kategori="EMPLOYEE" onclick="filterAbsensi(this)">Employee HO</button>
+                <button type="button" class="chip chip-active" data-kategori="" data-on-click="filterAbsensi" data-arg="$el">Semua</button>
+                <button type="button" class="chip" data-kategori="DRIVER" data-on-click="filterAbsensi" data-arg="$el">Driver</button>
+                <button type="button" class="chip" data-kategori="SECURITY" data-on-click="filterAbsensi" data-arg="$el">Security</button>
+                <button type="button" class="chip" data-kategori="EMPLOYEE" data-on-click="filterAbsensi" data-arg="$el">Employee HO</button>
             </div>
-            <input type="date" id="absenTanggal" class="input-field w-40 py-1.5" onchange="muatAbsensiHarian()">
+            <input type="date" id="absenTanggal" class="input-field w-40 py-1.5" data-on-change="muatAbsensiHarian">
         </div>
         {% endcall %}
         <div id="body-absensi-harian" class="section-body">
@@ -58,7 +58,7 @@
     <!-- Rekap bulanan (tertutup) -->
     <div class="section-box">
         {% call section_header('rekap-absensi', 'Rekap Bulanan', tertutup=true) %}
-        <input type="month" id="rekapBulan" class="input-field w-44 py-1.5" onclick="event.stopPropagation()" onchange="muatRekapBulanan()">
+        <input type="month" id="rekapBulan" class="input-field w-44 py-1.5" data-henti-klik data-on-change="muatRekapBulanan">
         {% endcall %}
         <div id="body-rekap-absensi" class="section-body section-body-hidden">
             <table class="w-full text-left text-sm">

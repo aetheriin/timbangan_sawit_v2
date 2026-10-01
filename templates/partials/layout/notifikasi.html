@@ -7,8 +7,8 @@
             <h3 id="dialogJudul" class="font-bold text-slate-800 text-base"></h3>
             <p id="dialogPesan" class="text-sm text-slate-600 whitespace-pre-line"></p>
             <div class="flex gap-3 pt-2">
-                <button type="button" id="dialogBatal" class="btn-secondary flex-1" onclick="Dialog.jawab(false)">Batal</button>
-                <button type="button" id="dialogYa" class="btn-primary flex-1" onclick="Dialog.jawab(true)">Ya</button>
+                <button type="button" id="dialogBatal" class="btn-secondary flex-1" data-on-click="jawabDialog" data-arg="$false">Batal</button>
+                <button type="button" id="dialogYa" class="btn-primary flex-1" data-on-click="jawabDialog" data-arg="$true">Ya</button>
             </div>
         </div>
     </div>

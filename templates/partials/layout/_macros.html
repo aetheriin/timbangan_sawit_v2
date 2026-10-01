@@ -3,14 +3,14 @@
 <div id="tabHeader" class="tab-header {{ kelas }}">
     {% for key, label in tabs %}
     <button type="button" class="tab-btn{% if loop.first %} tab-btn-active{% endif %}" data-tab="{{ key }}"
-            onclick="switchTab('{{ key }}')">{{ label }}</button>
+            data-on-click="switchTab" data-arg="{{ key }}">{{ label }}</button>
     {% endfor %}
 </div>
 {% endmacro %}
 
 {# Header section abu-abu yang bisa dibuka / ditutup (toggleSection di base.js) #}
 {% macro section_header(id, judul, tertutup=false) %}
-<div class="section-header" onclick="toggleSection('{{ id }}')">
+<div class="section-header" data-on-click="toggleSection" data-arg="{{ id }}">
     <span class="section-header-text">
         <i id="chevron-{{ id }}" class="fa-solid fa-chevron-down section-chevron{% if tertutup %} section-chevron-collapsed{% endif %}"></i>
         {{ judul }}

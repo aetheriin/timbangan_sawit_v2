@@ -3,7 +3,7 @@
     <div class="modal-box">
         <div class="modal-header">
             <h3 class="font-bold">Pendaftaran Supir Baru & Perekaman Wajah</h3>
-            <button onclick="closeModal('modalTambahSupir')"><i class="fa-solid fa-xmark"></i></button>
+            <button data-on-click="closeModal" data-arg="modalTambahSupir"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">
             <div>
@@ -25,10 +25,10 @@
                 </div>
                 <video id="tambahVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
                 <canvas id="tambahCanvas" class="hidden"></canvas>
-                <button id="btnRekamTambah" onclick="toggleRekamWajah('tambah')" class="btn-success">Rekam Wajah</button>
+                <button id="btnRekamTambah" data-on-click="toggleRekamWajah" data-arg="tambah" class="btn-success">Rekam Wajah</button>
             </div>
 
-            <button onclick="simpanSupirBaru(this)" class="btn-primary w-full">Simpan Data</button>
+            <button data-on-click="simpanSupirBaru" data-arg="$el" class="btn-primary w-full">Simpan Data</button>
         </div>
     </div>
 </div>
@@ -38,14 +38,14 @@
     <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
         <div class="modal-header">
             <h3 class="font-bold">Update Supir & Truk <span id="updJudulPlat" class="font-normal text-slate-300"></span></h3>
-            <button onclick="tutupModalUpdate()" title="Tutup"><i class="fa-solid fa-xmark"></i> <span class="text-xs">Tutup</span></button>
+            <button data-on-click="tutupModalUpdate" title="Tutup"><i class="fa-solid fa-xmark"></i> <span class="text-xs">Tutup</span></button>
         </div>
 
         <div class="grid grid-cols-4">
-            <button id="tabModeCari" onclick="setModeUpdate('cari')" class="modal-tab modal-tab-active">Ganti Supir</button>
-            <button id="tabModeEdit" onclick="setModeUpdate('edit')" class="modal-tab">Edit Data Supir</button>
-            <button id="tabModeTruk" onclick="setModeUpdate('truk')" class="modal-tab">Supir Truk</button>
-            <button id="tabModeKontrak" onclick="setModeUpdate('kontrak')" class="modal-tab">Kontrak Truk</button>
+            <button id="tabModeCari" data-on-click="setModeUpdate" data-arg="cari" class="modal-tab modal-tab-active">Ganti Supir</button>
+            <button id="tabModeEdit" data-on-click="setModeUpdate" data-arg="edit" class="modal-tab">Edit Data Supir</button>
+            <button id="tabModeTruk" data-on-click="setModeUpdate" data-arg="truk" class="modal-tab">Supir Truk</button>
+            <button id="tabModeKontrak" data-on-click="setModeUpdate" data-arg="kontrak" class="modal-tab">Kontrak Truk</button>
         </div>
 
         <!-- MODE: GANTI SUPIR -->
@@ -54,7 +54,7 @@
             <div>
                 <label class="field-label">NIK supir yang datang hari ini</label>
                 <input type="text" id="cariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
-                    onkeydown="if(event.key==='Tab'||event.key==='Enter'){event.preventDefault();cariSupirByNik(this)}">
+                    data-on-enter="cariSupirByNik" data-arg="$el">
             </div>
             <div id="hasilCariNik" class="hidden border border-slate-200 rounded-lg p-4 space-y-1 text-sm">
                 <p>Nama: <b id="hasilNama"></b></p>
@@ -63,7 +63,7 @@
                 <p id="hasilBadgeUpdate" class="text-amber-600 text-xs hidden">⚠ Data Pernah Diperbarui</p>
             </div>
             <p id="tidakDitemukan" class="hidden text-sm text-red-500">Tidak ditemukan. Gunakan tombol "Tambah" untuk daftar baru.</p>
-            <button id="btnPakaiSupirIni" onclick="pakaiSupirIni()" disabled
+            <button id="btnPakaiSupirIni" data-on-click="pakaiSupirIni" disabled
                 class="btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed">Gunakan Supir Ini</button>
         </div>
 
@@ -81,11 +81,11 @@
                 <div id="updateFotoPreview" class="photo-circle mb-3"><i class="fa-solid fa-camera text-slate-300 text-2xl"></i></div>
                 <video id="updateVideo" autoplay playsinline class="hidden w-full rounded-lg mb-3 video-mirror"></video>
                 <canvas id="updateCanvas" class="hidden"></canvas>
-                <button id="btnRekamUpdate" onclick="toggleRekamWajah('update')" class="btn-success">Rekam Wajah</button>
+                <button id="btnRekamUpdate" data-on-click="toggleRekamWajah" data-arg="update" class="btn-success">Rekam Wajah</button>
                 <p class="text-xs text-slate-400 mt-2">Opsional, hanya jika wajah perlu direkam ulang</p>
             </div>
 
-            <button id="btnSimpanEdit" onclick="simpanEditIdentitas(this)"
+            <button id="btnSimpanEdit" data-on-click="simpanEditIdentitas" data-arg="$el"
                 class="btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed">Simpan Perubahan</button>
         </div>
 
@@ -103,7 +103,7 @@
                 <div>
                     <label class="field-label">Daftarkan supir (NIK)</label>
                     <input type="text" id="updCariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
-                        onkeydown="if(event.key==='Tab'||event.key==='Enter'){event.preventDefault();cariSupirUntukTruk(this.value)}">
+                        data-on-enter="cariSupirUntukTruk" data-arg="$value">
                 </div>
                 <div>
                     <p id="updHasilNik" class="text-sm text-slate-500">Cari supir yang sudah terdaftar lewat NIK.</p>
@@ -112,9 +112,9 @@
                     </label>
                 </div>
                 <div class="flex gap-3">
-                    <button id="btnDaftarkanSupir" onclick="daftarkanSupirKeTruk()" disabled
+                    <button id="btnDaftarkanSupir" data-on-click="daftarkanSupirKeTruk" disabled
                         class="btn-success flex-1 disabled:bg-slate-300 disabled:cursor-not-allowed">Daftarkan</button>
-                    <button onclick="bukaTambahSupir('kendaraan')" class="btn-secondary flex-1">Supir Baru</button>
+                    <button data-on-click="bukaTambahSupir" data-arg="kendaraan" class="btn-secondary flex-1">Supir Baru</button>
                 </div>
             </div>
         </div>
@@ -174,7 +174,7 @@
                     <input type="text" id="kkKeterangan" class="input-field">
                 </div>
                 <div class="flex items-end">
-                    <button onclick="simpanKontrak()" class="btn-primary w-full">Simpan Kontrak</button>
+                    <button data-on-click="simpanKontrak" class="btn-primary w-full">Simpan Kontrak</button>
                 </div>
             </div>
         </div>
@@ -188,8 +188,8 @@
         <div><label class="field-label">Maks Air (%)</label><input type="number" id="stdInputAir" class="input-field"></div>
         <div><label class="field-label">Maks Kotoran (%)</label><input type="number" id="stdInputKotoran" class="input-field"></div>
         <div class="flex gap-3">
-            <button onclick="closeModal('modalStandarMutu')" class="btn-secondary flex-1">Batal</button>
-            <button onclick="simpanStandarMutu(this)" class="btn-primary flex-1">Simpan</button>
+            <button data-on-click="closeModal" data-arg="modalStandarMutu" class="btn-secondary flex-1">Batal</button>
+            <button data-on-click="simpanStandarMutu" data-arg="$el" class="btn-primary flex-1">Simpan</button>
         </div>
     </div>
 </div>
@@ -199,13 +199,13 @@
     <div class="modal-box">
         <div class="modal-header">
             <h3 class="font-bold">Cetak QR Code</h3>
-            <button onclick="closeModal('modalCetakQR')"><i class="fa-solid fa-xmark"></i></button>
+            <button data-on-click="closeModal" data-arg="modalCetakQR"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">
             <div>
                 <label class="field-label">Nomor Plat Kendaraan</label>
                 <input type="text" id="qrNoPlat" placeholder="Press Tab →" class="input-field uppercase"
-                    onkeydown="if(event.key==='Tab') {event.preventDefault(); lookupPlatUntukQR(this)}">
+                    data-on-enter="lookupPlatUntukQR" data-arg="$el">
             </div>
 
             <div class="border border-slate-200 rounded-lg p-4">
@@ -222,7 +222,7 @@
                 <p id="qrTiketText" class="font-mono font-bold mt-2"></p>
             </div>
 
-            <button onclick="cetakQR()" class="btn-success w-full">
+            <button data-on-click="cetakQR" class="btn-success w-full">
                 <i class="fa-solid fa-print mr-1"></i> Print QR Code
             </button>
         </div>

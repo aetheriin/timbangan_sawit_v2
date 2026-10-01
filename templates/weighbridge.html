@@ -3,6 +3,10 @@
 
 {# Halaman site: List (tab Security, Timbangan, Sortasi, Laboratorium) dan Form (Create Ticket).
    `view` dari server (?view=form) supaya halaman langsung tampil sebagai Form tanpa berkedip ke List. #}
+{% block extra_head %}
+<meta name="wajib-scan-wajah" content="{{ 'true' if wajib_scan_wajah else 'false' }}">
+{% endblock %}
+
 {% block tab_content %}
     {% include "partials/site/security_tab.html" %}
     {% include "partials/site/timbangan_tab.html" %}
@@ -15,7 +19,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>const WAJIB_SCAN_WAJAH = {{ 'true' if wajib_scan_wajah else 'false' }};</script>
 <script defer src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/site/security.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/site/kendaraan.js') }}"></script>

@@ -39,8 +39,8 @@ async function muatAuditSecurity() {
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell whitespace-nowrap">${escapeHtml(hariAudit === 1 ? r.created_at.slice(11) : r.created_at)}</td>
-            <td class="table-cell">${escapeHtml(r.nama_user)}${r.kode_personel ? ` (${escapeHtml(r.kode_personel)})` : ` <span class="text-slate-400">${escapeHtml(r.role)}</span>`}</td>
-            <td class="table-cell">${badge(r.action_type, LABEL_AKSI_SECURITY[r.action_type] || WARNA_BADGE.abu)}</td>
+            <td class="table-cell">${escapeHtml(r.nama_user)}${r.kode_personel ? ` (${escapeHtml(r.kode_personel)})` : ` <span class="text-slate-400">${escapeHtml(labelKode(r.role))}</span>`}</td>
+            <td class="table-cell">${badge(labelKode(r.action_type), LABEL_AKSI_SECURITY[r.action_type] || WARNA_BADGE.abu)}</td>
             <td class="table-cell font-mono text-xs">${escapeHtml(r.no_tiket || '—')}</td>
             <td class="table-cell">${escapeHtml(r.details.keterangan || Object.entries(r.details).map(([k, v]) => `${k}: ${v}`).join(', '))}</td>
             <td class="table-cell">${escapeHtml(r.ip_address || '-')}</td>
@@ -61,7 +61,7 @@ async function muatAuditPersonel() {
         return `<tr class="hover:bg-slate-50 align-top">
             <td class="table-cell whitespace-nowrap">${escapeHtml(r.waktu)}</td>
             <td class="table-cell">${escapeHtml(r.id_personel)}</td>
-            <td class="table-cell">${badge(r.aksi, LABEL_AKSI_PERSONEL[r.aksi] || WARNA_BADGE.abu)}</td>
+            <td class="table-cell">${badge(labelKode(r.aksi), LABEL_AKSI_PERSONEL[r.aksi] || WARNA_BADGE.abu)}</td>
             <td class="table-cell">${perubahan}</td>
             <td class="table-cell">${escapeHtml(r.oleh)}</td>
         </tr>`;

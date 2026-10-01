@@ -87,7 +87,7 @@ async function cariTargetBlacklist() {
             : escapeHtml(t.no_plat);
         return t.is_blacklisted
             ? `<li class="px-3 py-2 text-slate-400">${nama} ${badge('BLACKLIST', WARNA_BADGE.merah)}</li>`
-            : `<li class="px-3 py-2 hover:bg-slate-50 cursor-pointer" onclick="pilihTargetBlacklist(${i})">${nama}</li>`;
+            : `<li class="px-3 py-2 hover:bg-slate-50 cursor-pointer" data-on-click="pilihTargetBlacklist" data-arg="${i}">${nama}</li>`;
     }).join('') || '<li class="px-3 py-2 text-slate-400">Tidak ditemukan</li>';
     list.classList.remove('hidden');
 }
@@ -109,7 +109,7 @@ function pilihTargetBlacklist(index) {
         </div>
         <div class="flex-1">
             <p class="font-semibold text-slate-800">${escapeHtml(t.nama_personel)}</p>
-            <p class="text-xs text-slate-500">${t.kode_personel ? escapeHtml(t.kode_personel) : 'belum ada kode'} · ID ${formatIdPersonel(t.id_target)} · ${escapeHtml((LABEL_KATEGORI[t.kategori] || [t.kategori])[0])} · NIK ${escapeHtml(t.nik)}</p>
+            <p class="text-xs text-slate-500">${t.kode_personel ? escapeHtml(t.kode_personel) : 'Belum ada kode'} · ID ${formatIdPersonel(t.id_target)} · ${escapeHtml((LABEL_KATEGORI[t.kategori] || [t.kategori])[0])} · NIK ${escapeHtml(t.nik)}</p>
             ${t.plat_terakhir ? `<p class="text-xs text-slate-500">Truk terakhir: ${escapeHtml(t.plat_terakhir)}</p>` : ''}
         </div>
         ${badge('Aktif', WARNA_BADGE.hijau)}` : `

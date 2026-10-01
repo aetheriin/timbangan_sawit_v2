@@ -100,8 +100,10 @@ def pasang_sesi_idle(app):
 
 # ===== HEADER KEAMANAN =====
 CSP = ("default-src 'self'; "
-       # 'unsafe-inline' masih diperlukan karena template memakai onclick="..." (lihat docs/KEAMANAN_WEB.md #15)
-       "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+       # Script hanya dari file .js server sendiri: onclick="..." / <script> inline ditolak browser.
+       # Tombol memanggil fungsi lewat data-on-click (static/js/aksi.js). Style inline masih diizinkan
+       # (atribut style="..." & library kamera), risikonya jauh lebih kecil daripada script.
+       "script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; "
        "worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
 

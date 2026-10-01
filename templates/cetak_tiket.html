@@ -32,8 +32,8 @@
 </head>
 <body>
     <div class="aksi">
-        <button onclick="window.print()">Cetak</button>
-        <button onclick="window.close()">Tutup</button>
+        <button id="btnCetak">Cetak</button>
+        <button id="btnTutup">Tutup</button>
     </div>
 
     <div class="struk">
@@ -58,9 +58,6 @@
         <div class="garis"></div>
         <p class="kaki">{% if cetakan_ke > 1 %}CETAK ULANG ke-{{ cetakan_ke - 1 }} &middot; {% endif %}Dicetak {{ now }}</p>
     </div>
-
-    <script>
-        window.addEventListener('load', () => window.print());
-    </script>
+    <script src="{{ url_for('static', filename='js/cetak_tiket.js') }}"></script>
 </body>
 </html>

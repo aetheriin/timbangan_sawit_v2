@@ -4,7 +4,7 @@
         <div class="modal-header">
             <h3 class="font-bold"><span id="personelJudul">Tambah Personel</span>
                 <span id="personelSubjudul" class="font-normal text-slate-300"></span></h3>
-            <button type="button" onclick="tutupModalPersonel()" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" data-on-click="tutupModalPersonel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <div class="p-6 space-y-4">
@@ -17,23 +17,23 @@
                 <div class="space-y-3">
                     <p class="text-sm font-semibold text-slate-700">Foto Wajah</p>
                     <div class="seg">
-                        <button type="button" id="segUpload" class="seg-item seg-item-active" onclick="setSumberFoto('UPLOAD')">Upload Foto</button>
-                        <button type="button" id="segKamera" class="seg-item" onclick="setSumberFoto('KAMERA')">Kamera</button>
+                        <button type="button" id="segUpload" class="seg-item seg-item-active" data-on-click="setSumberFoto" data-arg="UPLOAD">Upload Foto</button>
+                        <button type="button" id="segKamera" class="seg-item" data-on-click="setSumberFoto" data-arg="KAMERA">Kamera</button>
                     </div>
 
-                    <div id="panelUpload" class="drop-zone" onclick="document.getElementById('personelFile').click()"
-                         ondragover="event.preventDefault()" ondrop="dropFotoPersonel(event)">
+                    <div id="panelUpload" class="drop-zone" data-on-click="klikElemen" data-arg="personelFile"
+                         data-on-drop="dropFotoPersonel" data-arg="$event">
                         <div id="personelPreview" class="w-28 h-32 mx-auto mb-2 rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden">
                             <i class="fa-solid fa-user text-slate-400 text-3xl"></i>
                         </div>
                         <p id="personelDropTeks" class="text-xs font-medium text-slate-600">Seret foto ke sini atau klik untuk memilih</p>
                         <p class="text-xs text-slate-400">JPG / PNG, maks 5 MB, wajib tepat 1 wajah</p>
-                        <input type="file" id="personelFile" accept=".jpg,.jpeg,.png" class="hidden" onchange="pilihFotoPersonel(this.files[0])">
+                        <input type="file" id="personelFile" accept=".jpg,.jpeg,.png" class="hidden" data-on-change="pilihFotoPersonel" data-arg="$file">
                     </div>
 
                     <div id="panelKamera" class="hidden space-y-2">
                         <video id="personelVideo" autoplay playsinline muted class="w-full rounded-lg bg-black video-mirror"></video>
-                        <button type="button" id="btnAmbilFoto" onclick="ambilFotoKamera()" class="btn-success w-full">Ambil Foto</button>
+                        <button type="button" id="btnAmbilFoto" data-on-click="ambilFotoKamera" class="btn-success w-full">Ambil Foto</button>
                     </div>
 
                     <ul id="personelCek" class="space-y-1 text-xs font-medium">
@@ -70,7 +70,7 @@
                         </div>
                         <div>
                             <label class="field-label" for="personelKategori">Kategori</label>
-                            <select id="personelKategori" class="input-field" onchange="perbaruiHintSim()">
+                            <select id="personelKategori" class="input-field" data-on-change="perbaruiHintSim">
                                 <option value="DRIVER">DRIVER</option>
                                 <option value="SECURITY">SECURITY</option>
                                 <option value="EMPLOYEE">EMPLOYEE HO</option>
@@ -86,8 +86,8 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-                <button type="button" onclick="tutupModalPersonel()" class="btn-secondary">Batal</button>
-                <button type="button" id="btnSimpanPersonel" onclick="simpanPersonel()" class="btn-primary">Simpan</button>
+                <button type="button" data-on-click="tutupModalPersonel" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSimpanPersonel" data-on-click="simpanPersonel" class="btn-primary">Simpan</button>
             </div>
         </div>
     </div>
@@ -98,15 +98,15 @@
     <div class="modal-box">
         <div class="modal-header">
             <h3 class="font-bold">Hapus Personel</h3>
-            <button type="button" onclick="closeModal('modalHapusPersonel')" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" data-on-click="closeModal" data-arg="modalHapusPersonel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">
             <div id="hapusTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-3 text-sm"></div>
             <p class="text-sm text-slate-700">Hapus personel ini? Wajahnya tidak lagi dikenali saat scan absensi maupun Create Ticket.</p>
             <div class="note-warning">Riwayat absensi & tiket tetap tersimpan, dan penghapusan tercatat di Audit Log.</div>
             <div class="flex gap-3">
-                <button type="button" onclick="closeModal('modalHapusPersonel')" class="btn-secondary flex-1">Batal</button>
-                <button type="button" id="btnKonfirmasiHapus" onclick="konfirmasiHapusPersonel()" class="btn-danger flex-1">Hapus</button>
+                <button type="button" data-on-click="closeModal" data-arg="modalHapusPersonel" class="btn-secondary flex-1">Batal</button>
+                <button type="button" id="btnKonfirmasiHapus" data-on-click="konfirmasiHapusPersonel" class="btn-danger flex-1">Hapus</button>
             </div>
         </div>
     </div>

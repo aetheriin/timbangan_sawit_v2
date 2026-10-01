@@ -21,7 +21,7 @@ Poin yang ditandai **Ditunda** sengaja belum dikerjakan (keputusan rapat).
 | 12 | P2 | Endpoint data sensitif per role | **Ditunda** (ikut #11) | |
 | 13 | P1 | Proteksi CSRF semua `POST` (form & `fetch`) | Selesai | Flask-WTF `CSRFProtect`, `api.js` (header `X-CSRFToken`) |
 | 14 | P1 | Header keamanan: CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy, COOP, HSTS (bila HTTPS) | Selesai | `utils/keamanan.py` |
-| 15 | P2 | Audit XSS: data server di `innerHTML` lewat `escapeHtml`; plat di tombol lewat `data-plat` | Selesai | JS site & Face Recognition |
+| 15 | P2 | Audit XSS: data server di `innerHTML` lewat `escapeHtml`. CSP `script-src 'self'` (tanpa `unsafe-inline`): tidak ada `onclick="..."` / `<script>` inline, tombol memakai `data-on-click` | Selesai | `static/js/aksi.js`, semua template |
 | 16 | P1 | Validasi isi file (signature JPG/PNG/PDF), gambar dibuka ulang (buang metadata), batas resolusi | Selesai | `utils/upload_utils.py` |
 | 17 | P1 | File upload privat di `data/uploads`, dibuka lewat `/berkas/...` (wajib login); `/static/uploads` diblok | Selesai | `extensions.py`, `routes/sistem.py` |
 | 18 | P2 | Batas frame kamera (3–20 per request, maks 2 MB per frame) | Selesai | `simpan_frames` |
@@ -88,7 +88,24 @@ Docker **tidak** diperlukan.
 
 ## Batasan yang masih ada
 
-- CSP masih `script-src 'unsafe-inline'` karena template memakai `onclick="..."`. Tahap berikutnya: pindahkan
-  ke event listener di JS, lalu hapus `'unsafe-inline'`.
+- CSP masih `style-src 'unsafe-inline'` (atribut `style="..."` & library kamera). Risikonya kecil; script sudah ketat.
 - Pembatas login & state scan wajah disimpan di memori proses: berlaku untuk satu proses `serve.py`
   (restart = hitungan kembali nol).
+
+## Aturan menulis tombol / event baru (CSP)
+
+Browser menolak `onclick="..."`, `oninput="..."`, `<script>...</script>` dan `href="javascript:..."`.
+Pakai atribut data (dibaca `static/js/aksi.js`), dan fungsinya ditulis sebagai `function nama()` global di file `.js`:
+
+| Dulu | Sekarang |
+|---|---|
+| `onclick="simpan()"` | `data-on-click="simpan"` |
+| `onclick="switchTab('form')"` | `data-on-click="switchTab" data-arg="form"` |
+| `onclick="filter(this)"` | `data-on-click="filter" data-arg="$el"` |
+| `onclick="toggle(5, 1)"` | `data-on-click="toggle" data-arg="5\|1"` (angka otomatis jadi Number) |
+| `oninput="cari(this.value)"` | `data-on-input="cari" data-arg="$value"` |
+| `onchange="pilih(this.files[0])"` | `data-on-change="pilih" data-arg="$file"` |
+| `onkeydown="if(Tab/Enter) cari(this)"` | `data-on-enter="cari" data-arg="$el"` |
+| `ondrop="drop(event)"` | `data-on-drop="drop" data-arg="$event"` |
+| `onclick="event.stopPropagation()"` | `data-henti-klik` |
+| `<script>const X = {{ nilai }}</script>` | `<meta name="x" content="{{ nilai }}">` lalu dibaca di file `.js` |

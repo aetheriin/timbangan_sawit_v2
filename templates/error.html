@@ -12,7 +12,7 @@
         <p class="text-4xl font-bold text-slate-300">{{ kode }}</p>
         <h1 class="text-lg font-semibold text-slate-800">{{ pesan }}</h1>
         <div class="flex justify-center gap-3 pt-2">
-            <a href="javascript:history.back()" class="btn-secondary">Kembali</a>
+            <a href="{{ request.referrer or url_for('main.weighbridge') }}" class="btn-secondary">Kembali</a>
             <a href="{{ url_for('main.weighbridge') }}" class="btn-primary">Ke Beranda</a>
         </div>
     </div>

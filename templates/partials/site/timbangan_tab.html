@@ -30,8 +30,8 @@
                     <p id="tbNettoAkhir" class="font-bold text-sm text-emerald-600">-</p>
                 </div>
             </div>
-            <button onclick="simpanHasilTimbangan(this)" class="btn-primary w-full">Simpan Hasil Timbangan</button>
-            <button onclick="bukaScanQRTimbangan()" class="text-xs text-blue-600 hover:underline mt-2 block text-center">
+            <button data-on-click="simpanHasilTimbangan" data-arg="$el" class="btn-primary w-full">Simpan Hasil Timbangan</button>
+            <button data-on-click="bukaScanQRTimbangan" class="text-xs text-blue-600 hover:underline mt-2 block text-center">
                 atau Scan QR Code
             </button>
         </div>
@@ -47,7 +47,7 @@
     </div>
 
     <div class="section-box mt-5">
-        <div class="section-header" onclick="toggleSection('history-timbangan')">
+        <div class="section-header" data-on-click="toggleSection" data-arg="history-timbangan">
             <span class="section-header-text">
                 <i id="chevron-history-timbangan" class="fa-solid fa-chevron-down section-chevron"></i>
                 History Timbangan
@@ -69,7 +69,7 @@
         <div class="modal-box">
             <div class="modal-header">
                 <h3 class="font-bold">Scan QR Tiket</h3>
-                <button onclick="tutupScanQR()" title="Tutup"><i class="fa-solid fa-xmark"></i> <span class="text-xs">Tutup</span></button>
+                <button data-on-click="tutupScanQR" title="Tutup"><i class="fa-solid fa-xmark"></i> <span class="text-xs">Tutup</span></button>
             </div>
             <div class="p-4 space-y-3">
                 <div id="qr-reader-timbang"></div>
@@ -77,9 +77,9 @@
                 <div>
                     <label class="field-label">Scanner barcode / ketik No. Tiket</label>
                     <input type="text" id="inputScanTiket" placeholder="TKT-... lalu Enter" class="input-field uppercase"
-                        onkeydown="if(event.key==='Enter'){event.preventDefault();prosesScanTiket(this.value)}">
+                        data-on-enter="prosesScanTiket" data-arg="$value">
                 </div>
-                <button onclick="tutupScanQR()" class="btn-secondary w-full">Batal</button>
+                <button data-on-click="tutupScanQR" class="btn-secondary w-full">Batal</button>
             </div>
         </div>
     </div>

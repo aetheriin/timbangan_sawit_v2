@@ -3,15 +3,15 @@
         <div class="section-box p-5">
             <h3 class="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b">Form Input Grading & Mutu Buah</h3>
             <div class="grid grid-cols-2 gap-4">
-                <div><label class="field-label">Buah Mentah (%)</label><input type="number" id="srMentah" class="input-field" oninput="hitungPotongan()"></div>
-                <div><label class="field-label">Buah Busuk (%)</label><input type="number" id="srBusuk" class="input-field" oninput="hitungPotongan()"></div>
-                <div><label class="field-label">Tangkai Panjang (%)</label><input type="number" id="srTangkai" class="input-field" oninput="hitungPotongan()"></div>
-                <div><label class="field-label">Sampah/Kotoran (%)</label><input type="number" id="srSampah" class="input-field" oninput="hitungPotongan()"></div>
+                <div><label class="field-label">Buah Mentah (%)</label><input type="number" id="srMentah" class="input-field" data-on-input="hitungPotongan"></div>
+                <div><label class="field-label">Buah Busuk (%)</label><input type="number" id="srBusuk" class="input-field" data-on-input="hitungPotongan"></div>
+                <div><label class="field-label">Tangkai Panjang (%)</label><input type="number" id="srTangkai" class="input-field" data-on-input="hitungPotongan"></div>
+                <div><label class="field-label">Sampah/Kotoran (%)</label><input type="number" id="srSampah" class="input-field" data-on-input="hitungPotongan"></div>
                 <div><label class="field-label">Buah Matang (%)</label><input type="number" id="srMatang" class="input-field"></div>
                 <div><label class="field-label">Brondolan (%)</label><input type="number" id="srBrondolan" class="input-field"></div>
             </div>
             <div class="mt-4"><label class="field-label">Catatan</label><textarea id="srCatatan" class="input-field" rows="2"></textarea></div>
-            <button onclick="submitSortasi(this)" class="btn-primary mt-4 w-full">Submit</button>
+            <button data-on-click="submitSortasi" data-arg="$el" class="btn-primary mt-4 w-full">Submit</button>
         </div>
 
         <div class="section-box p-5">
@@ -26,7 +26,7 @@
     </div>
 
     <div class="section-box mt-5">
-        <div class="section-header" onclick="toggleSection('history-sortasi')">
+        <div class="section-header" data-on-click="toggleSection" data-arg="history-sortasi">
             <span class="section-header-text"><i id="chevron-history-sortasi" class="fa-solid fa-chevron-down section-chevron"></i> History Sortasi</span>
         </div>
         <div id="body-history-sortasi" class="section-body">
