@@ -20,7 +20,7 @@
                 <select id="supTipe" name="tipe" class="input-field">
                     {% for t in tipe_supplier %}<option value="{{ t }}">{{ t.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
-                <p class="field-hint">Supplier Pembelian = penjual TBS ke pabrik. Buyer Penjualan = pembeli produk PKS.</p>
+                <p class="field-hint">Customer = perusahaan yang membeli / menjual. Pengangkutan = angkutan pihak ketiga.</p>
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">

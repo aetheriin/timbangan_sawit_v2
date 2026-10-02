@@ -3,7 +3,7 @@ from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, g
 from utils.db_absensi import get_jadwal_kerja
 
 ROLE_VALID = ("ADMIN", "HO", "SECURITY", "OPERATOR_TIMBANG", "SORTASI", "LAB")
-TIPE_SUPPLIER = ("SUPPLIER_PEMBELIAN", "BUYER_PENJUALAN")
+TIPE_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")     # customer bisa membeli / menjual; pengangkutan = angkutan pihak ketiga
 KATEGORI_PRODUK = ("TBS", "PRODUK_PKS")
 
 
@@ -166,3 +166,24 @@ def info_database():
     except Exception:       # noqa: BLE001 - akun aplikasi tidak punya akses msdb
         info["backup_terakhir"] = "tidak bisa dibaca"
     return info
+
+
+# ===== VOID TIKET =====
+def daftar_tiket(cari="", hari=30, batas=500):
+    cari = f"%{cari.strip()}%"
+    return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.no_plat, s.nama_supplier AS customer, t.no_do, t.jenis_transaksi,
+                             t.status_alur, t.created_at, t.alasan_void, t.void_at, u.nama AS void_oleh
+                      FROM transaksi t
+                      JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
+                      JOIN supplier s ON s.id_supplier = t.id_supplier
+                      LEFT JOIN users u ON u.id_user = t.void_by
+                      WHERE t.created_at >= DATEADD(DAY, -?, GETDATE())
+                        AND (t.no_tiket LIKE ? OR k.no_plat LIKE ? OR t.no_do LIKE ?)
+                      ORDER BY t.created_at DESC""", int(hari), cari, cari, cari)
+
+
+def void_tiket(no_tiket, alasan, user_id):
+    """Tiket dibatalkan (tidak dihapus): keluar dari daftar aktif, QR tidak berlaku, timbang ditolak."""
+    _ubah("""UPDATE transaksi SET status_alur = 'VOID', is_qr_active = 0, alasan_void = ?, void_by = ?, void_at = GETDATE()
+             WHERE no_tiket = ? AND status_alur <> 'VOID'""", alasan, user_id, no_tiket,
+          pesan_kosong="Tiket tidak ditemukan atau sudah di-void")

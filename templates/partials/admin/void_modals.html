@@ -1,0 +1,23 @@
+<!-- MODAL: Void Tiket -->
+<div id="modalVoid" class="modal-overlay">
+    <form id="formVoid" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Void Tiket</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalVoid" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="no_tiket">
+            <div class="note-warning">Tiket <b id="voidNoTiket"></b> dibatalkan permanen: keluar dari daftar aktif, QR tidak berlaku,
+                dan tidak bisa ditimbang. Data tidak dihapus.</div>
+            <div>
+                <label class="field-label" for="voidAlasan">Alasan</label>
+                <textarea id="voidAlasan" name="alasan" required minlength="5" maxlength="255" rows="3" class="input-field"
+                          placeholder="Contoh: salah input plat, tiket dobel"></textarea>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalVoid" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-danger">Void Tiket</button>
+        </div>
+    </form>
+</div>

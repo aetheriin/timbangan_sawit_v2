@@ -5,6 +5,7 @@ from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embe
                               verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
+from utils.db_kontrak import get_do
 from utils import verifikasi_state as verif
 from utils.keamanan import perangkat_atau_login, id_pos
 from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
@@ -37,13 +38,17 @@ def buat_tiket():
     f = request.form
     no_tiket = f.get("no_tiket", "").strip()
     no_plat, error_plat = normalisasi_plat(f.get("no_plat"))
-    jenis = f.get("jenis_transaksi", "").strip()
-    id_supplier, id_produk, id_driver = f.get("id_supplier"), f.get("id_produk"), f.get("id_driver")
+    id_driver = f.get("id_driver")
 
     if error_plat:
         return jsonify({"error": error_plat}), 400
-    if not all([no_tiket, jenis, id_supplier, id_produk, id_driver]):
-        return jsonify({"error": "Semua field wajib diisi"}), 400
+    if not all([no_tiket, f.get("no_do", "").strip(), id_driver]):
+        return jsonify({"error": "No tiket, No DO, dan supir wajib diisi"}), 400
+    # Jenis transaksi, customer, produk, pengangkutan SELALU dari DO (diisi HO), bukan dari isian browser
+    do = get_do(f.get("no_do").strip().upper())
+    if not do:
+        return jsonify({"error": "DO belum terdaftar / tidak aktif. Hubungi HO."}), 400
+    jenis, id_supplier, id_produk = do["jenis_transaksi"], do["id_customer"], do["id_produk"]
 
     existing = cari_transaksi_aktif(no_plat=no_plat)
     if existing:
@@ -75,8 +80,8 @@ def buat_tiket():
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
     buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
-                        id_supplier, id_produk, id_driver, f.get("no_do", "").strip() or None,
-                        current_user.id, prev_driver_id)
+                        id_supplier, id_produk, id_driver, do["no_do"],
+                        current_user.id, prev_driver_id, do["id_pengangkutan"])
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

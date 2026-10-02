@@ -1,0 +1,29 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex gap-1.5">
+        <button type="button" class="chip chip-active" data-status="" data-on-click="filterStatusDO" data-arg="$el">Semua</button>
+        <button type="button" class="chip" data-status="1" data-on-click="filterStatusDO" data-arg="$el">Aktif</button>
+        <button type="button" class="chip" data-status="0" data-on-click="filterStatusDO" data-arg="$el">Nonaktif</button>
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="cariDO" placeholder="Cari No DO / Kontrak / Customer" class="input-field pl-9 w-64" data-on-input="cariDaftarDO" data-arg="$value">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+    <button type="button" class="btn-primary" data-on-click="bukaDO"><i class="fa-solid fa-plus mr-1"></i> Tambah DO</button>
+</div>
+
+<div class="section-box">
+    {{ section_header('daftar-do', 'Daftar DO') }}
+    <div id="body-daftar-do" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">No DO</th><th class="table-cell">No Kontrak</th><th class="table-cell">Jenis</th>
+                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Pengangkutan</th>
+                    <th class="table-cell">Tanggal</th><th class="table-cell">Berlaku s/d</th><th class="table-cell">Status</th>
+                    <th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelDO" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

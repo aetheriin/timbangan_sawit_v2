@@ -1,6 +1,6 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div class="section-box">
-    {% call section_header('master-supplier', 'Supplier / Buyer') %}
+    {% call section_header('master-supplier', 'Customer & Pengangkutan') %}
     <div class="flex items-center gap-2" data-henti-klik>
         <div class="relative">
             <input type="text" id="cariSupplier" placeholder="Cari kode / nama" class="input-field py-1.5 pl-9 w-56" data-on-input="cariSupplier" data-arg="$value">
@@ -15,7 +15,7 @@
                 <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Tipe</th>
                     <th class="table-cell">Status</th><th class="table-cell">Dibuat</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
-            <tbody id="tabelSupplier" class="divide-y divide-slate-100"></tbody>
+            <tbody data-per-halaman="20" id="tabelSupplier" class="divide-y divide-slate-100"></tbody>
         </table>
     </div>
 </div>
@@ -30,7 +30,7 @@
                 <tr><th class="table-cell">Nama Produk</th><th class="table-cell">Kategori</th><th class="table-cell">Standar Mutu</th>
                     <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
-            <tbody id="tabelProduk" class="divide-y divide-slate-100"></tbody>
+            <tbody data-per-halaman="20" id="tabelProduk" class="divide-y divide-slate-100"></tbody>
         </table>
     </div>
 </div>

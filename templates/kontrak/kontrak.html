@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Kontrak & DO · Weighbridge{% endblock %}
+
+{# Menu HO: daftar DO. Security cukup mengetik No DO di Form, data transaksi terisi dari sini. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+<div class="page-header">
+    <div class="page-header-icon"><i class="fa-solid fa-file-contract"></i></div>
+    <div>
+        <h1 class="text-sm font-semibold">Kontrak & DO</h1>
+        <p class="page-header-sub">No DO menentukan jenis transaksi, customer, produk, dan pengangkutan di Form Security</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/kontrak/daftar_do.html" %}
+{% endblock %}
+
+{% block modals %}
+    {% include "partials/kontrak/do_modal.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/admin/admin.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/kontrak/kontrak.js') }}"></script>
+{% endblock %}
