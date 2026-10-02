@@ -5,7 +5,7 @@ import qrcode.image.svg
 from flask import Blueprint, request, jsonify, render_template, Response, abort
 from flask_login import login_required, current_user
 from utils.db_utils import (
-    get_semua_supplier, get_semua_produk, cari_transaksi_aktif,
+    get_semua_supplier, get_semua_produk, get_history_produk, cari_transaksi_aktif,
     cari_riwayat_driver_by_plat, generate_no_tiket,
     get_kendaraan_by_plat, get_supir_kendaraan, get_kontrak_kendaraan, catat_cetak_qr
 )
@@ -17,13 +17,29 @@ from utils import pengaturan
 
 main_bp = Blueprint('main', __name__)
 
+# Tahap yang ditangani tiap role: halaman List default ke tahap ini, Form default ke tab ini
+TAHAP_ROLE = {"SECURITY": "security", "OPERATOR_TIMBANG": "timbangan", "SORTASI": "sortasi", "LAB": "lab"}
+
+
 @main_bp.route("/weighbridge")
 @login_required
 def weighbridge():
-    view = "form" if request.args.get("view") == "form" else "list"
-    return render_template("site/weighbridge.html", halaman="site", view=view,
+    """List = daftar tiket aktif per tahap (tanpa info bar & tab). Form = info bar + tab Security..Lab."""
+    if request.args.get("view") != "form":
+        return render_template("site/list.html", halaman="site", view="list", produk_list=get_semua_produk(),
+                               tahap_awal=TAHAP_ROLE.get(current_user.role, ""))
+    return render_template("site/weighbridge.html", halaman="site", view="form",
+                           tab_awal=TAHAP_ROLE.get(current_user.role, "security"),
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"))
+
+@main_bp.route("/api/list/history-produk")
+@login_required
+def history_produk():
+    id_produk = request.args.get("id_produk", "")
+    rows = get_history_produk(int(id_produk) if id_produk.isdigit() else None)
+    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M")} for r in rows])
+
 
 @main_bp.route("/face-recognition")
 @login_required

@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from logging.handlers import RotatingFileHandler
 
@@ -151,7 +151,7 @@ def pasang_sesi_idle(app):
 # ===== AREA ADMIN =====
 # ADMIN (super admin) hanya mengelola sistem: halaman lain tidak terbuka untuknya,
 # dan halaman admin hanya untuk ADMIN.
-PATH_UMUM = ("/static/", "/login", "/logout", "/api/sesi/perpanjang", "/health")
+PATH_UMUM = ("/static/", "/login", "/logout", "/api/sesi/perpanjang", "/health", "/ganti-password")
 
 
 def _area_admin(path):
@@ -242,10 +242,34 @@ def id_pos():
     return (request.headers.get("X-Kiosk-Id") or os.getenv("POS_DEFAULT", "UTAMA"))[:30]
 
 
+# ===== PASSWORD KEDALUWARSA =====
+def password_wajib_diganti(password_changed_at):
+    """Alasan wajib ganti password, atau None. NULL = baru dibuat / direset admin."""
+    if password_changed_at is None:
+        return "Password Anda baru dibuat / direset admin. Silakan buat password baru."
+    hari = pengaturan.nilai("PASSWORD_EXPIRED_HARI")
+    if hari and (datetime.now() - password_changed_at).days >= hari:
+        return f"Password Anda sudah lebih dari {hari} hari. Silakan buat password baru."
+    return None
+
+
+def pasang_wajib_ganti_password(app):
+    @app.before_request
+    def cek_wajib_ganti():
+        if not current_user.is_authenticated or not session.get("_wajib_ganti_pw"):
+            return None
+        if request.path.startswith(PATH_UMUM):
+            return None
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Ganti password dulu sebelum melanjutkan."}), 403
+        return redirect("/ganti-password")
+
+
 def pasang_keamanan(app):
     cek_secret(app)
     pasang_cookie(app)
     pasang_sesi_idle(app)
+    pasang_wajib_ganti_password(app)
     pasang_batas_admin(app)
     pasang_header_keamanan(app)
     pasang_blok_upload_publik(app)

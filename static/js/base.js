@@ -10,10 +10,6 @@ function daftarTab() {
     return [...document.querySelectorAll('.tab-btn')].map(btn => btn.dataset.tab);
 }
 
-// Halaman site punya panel List / Form (data-view-panel); halaman lain tidak
-function adaPanelView() {
-    return !!document.querySelector('[data-view-panel]');
-}
 
 function setUrlParam(key, value) {
     const url = new URL(window.location);
@@ -25,25 +21,12 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('sidebar-collapsed');
 }
 
-// List / Form di halaman site. Form = Create Ticket (tab Security) dan tampil tanpa header tab.
+// List & Form adalah dua halaman terpisah (List tanpa info bar & tab, Form dengan info bar + tab)
 function setSidebarView(view) {
-    if (!adaPanelView()) {                       // dipanggil dari halaman lain -> buka halaman site
-        window.location.href = `/weighbridge?view=${view}`;
-        return;
-    }
-    if (view === 'form' && getTabAktif() !== 'security') switchTab('security', false);
-
-    document.querySelectorAll('.sidebar-link[data-view]').forEach(el => {
-        el.classList.toggle('sidebar-link-active', el.dataset.view === view);
-    });
-    document.getElementById('tabHeader').classList.toggle('hidden', view === 'form');
-    document.querySelectorAll(`[data-tab-content="${getTabAktif()}"] [data-view-panel]`).forEach(el => {
-        el.classList.toggle('hidden', el.dataset.viewPanel !== view);
-    });
-    setUrlParam('view', view);
+    window.location.href = `/weighbridge?view=${view}`;
 }
 
-function switchTab(tabName, resetView = true) {
+function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(el => {
         el.classList.toggle('tab-btn-active', el.dataset.tab === tabName);
     });
@@ -52,8 +35,6 @@ function switchTab(tabName, resetView = true) {
     });
     setUrlParam('tab', tabName);
     window.dispatchEvent(new CustomEvent('tabChange', { detail: tabName }));
-
-    if (resetView && adaPanelView()) setSidebarView('list');
 }
 
 function toggleSection(id) {
@@ -61,22 +42,11 @@ function toggleSection(id) {
     document.getElementById(`chevron-${id}`).classList.toggle('section-chevron-collapsed');
 }
 
-// Semua role bebas pindah tab; role hanya menentukan tab pertama saat login (?tab=...)
+// Tab awal: ?tab=... atau <meta name="tab-awal"> (sesuai role), selain itu tab pertama
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.sidebar-link[data-view]').forEach(link => {
-        link.addEventListener('click', e => {
-            if (!adaPanelView()) return;          // halaman lain: ikuti href
-            e.preventDefault();
-            setSidebarView(link.dataset.view);
-        });
-    });
-
     const tabs = daftarTab();
     if (!tabs.length) return;
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab');
-    // ?view=form sudah dirender server sebagai Form: jangan reset ke List dulu (mencegah kedip)
-    const bukaForm = adaPanelView() && params.get('view') === 'form';
-    switchTab(bukaForm ? 'security' : (tabs.includes(tab) ? tab : tabs[0]), !bukaForm);
-    if (bukaForm) setSidebarView('form');
+    const minta = new URLSearchParams(window.location.search).get('tab')
+        || document.querySelector('meta[name="tab-awal"]')?.content;
+    switchTab(tabs.includes(minta) ? minta : tabs[0]);
 });

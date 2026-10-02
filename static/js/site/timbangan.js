@@ -53,13 +53,14 @@ async function muatHistorySupplier(idSupplier) {
     if (!idSupplier) return;
     const data = await ambilJson(`/api/history-timbangan-supplier?id_supplier=${encodeURIComponent(idSupplier)}`);
     const tbody = document.getElementById('tabelHistoryTimbangan');
-    if (data.error) { tbody.innerHTML = barisKosong(4, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
     if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="4" class="table-cell text-slate-400 text-center py-6">Belum ada riwayat</td></tr>`;
+        tbody.innerHTML = barisKosong(6, 'Belum ada riwayat 7 hari terakhir');
         return;
     }
     tbody.innerHTML = data.map(r => `
-        <tr><td class="table-cell">${escapeHtml(r.nama_supplier)}</td><td class="table-cell">${escapeHtml(r.berat_bruto ?? '-')}</td>
+        <tr><td class="table-cell whitespace-nowrap text-xs">${escapeHtml(r.created_at || '-')}</td><td class="table-cell">${escapeHtml(r.no_plat)}</td>
+        <td class="table-cell">${escapeHtml(r.nama_supplier)}</td><td class="table-cell">${escapeHtml(r.berat_bruto ?? '-')}</td>
         <td class="table-cell">${escapeHtml(r.berat_tara ?? '-')}</td><td class="table-cell">${escapeHtml(r.berat_netto ?? '-')}</td></tr>
     `).join('');
 }

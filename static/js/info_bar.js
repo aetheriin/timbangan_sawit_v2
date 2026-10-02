@@ -77,11 +77,13 @@ function terapkanHasilLookup(data) {
         document.getElementById('infoNoTiket').value = data.no_tiket || '';
         document.getElementById('infoNoDO').value = data.no_do || '';
         document.getElementById('infoSupplier').value = data.supplier || '';
+        document.getElementById('infoProduk').value = data.produk || '';
+        document.getElementById('infoJenis').value = labelKode(data.jenis_transaksi);
         statusValidasi = 'done';
     } else {
         document.getElementById('infoNoTiket').value = data.no_tiket_reserved || '';
         document.getElementById('infoNoDO').value = '';
-        document.getElementById('infoSupplier').value = '';
+        ['infoSupplier', 'infoProduk', 'infoJenis'].forEach(id => document.getElementById(id).value = '');
         statusValidasi = 'draft';
     }
     document.getElementById('infoSupir').value = data.driver
@@ -95,7 +97,7 @@ function terapkanHasilLookup(data) {
 }
 
 function kosongkanInfoBar() {
-    ['infoNoTiket', 'infoNoDO', 'infoSupplier', 'infoSupir'].forEach(id => document.getElementById(id).value = '');
+    ['infoNoTiket', 'infoNoDO', 'infoSupplier', 'infoProduk', 'infoJenis', 'infoSupir'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('infoPlat').classList.remove('border-red-500');
     tampilkanFotoDriver(null);
     statusValidasi = 'none';
@@ -119,11 +121,11 @@ async function klikValidasi() {
         return;
     }
     if (!document.getElementById('infoNoTiket').value) await lookupPlat(plat);
-    setSidebarView('form');
+    switchTab('security');
 }
 
-// Jalur 2: tombol Aksi di tabel List Ticket Aktif
-async function bukaFormDariTabel(noPlat) {
-    await lookupPlat(noPlat);
-    setSidebarView('form');
-}
+// Dari halaman List (tombol Buka): /weighbridge?view=form&tab=...&plat=BM 1455 JJ -> plat langsung dicari
+document.addEventListener('DOMContentLoaded', () => {
+    const plat = new URLSearchParams(window.location.search).get('plat');
+    if (plat) lookupPlat(plat);
+});

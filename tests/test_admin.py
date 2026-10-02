@@ -111,3 +111,15 @@ class TestAreaAdmin(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPasswordKedaluwarsa(unittest.TestCase):
+    def test_aturan(self):
+        from datetime import datetime, timedelta
+        from utils.keamanan import password_wajib_diganti
+        with patch.object(pengaturan, "nilai", return_value=90):
+            self.assertIsNotNone(password_wajib_diganti(None))                                   # baru / direset admin
+            self.assertIsNone(password_wajib_diganti(datetime.now() - timedelta(days=10)))
+            self.assertIsNotNone(password_wajib_diganti(datetime.now() - timedelta(days=91)))
+        with patch.object(pengaturan, "nilai", return_value=0):                                  # 0 = tidak kedaluwarsa
+            self.assertIsNone(password_wajib_diganti(datetime.now() - timedelta(days=999)))

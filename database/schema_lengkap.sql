@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA LENGKAP Sistem Timbangan Sawit (Weighbridge + Face Recognition)
-   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-005 dalam satu file.
-   Database yang SUDAH ada cukup menjalankan migrasi 001-005 berurutan.
+   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-006 dalam satu file.
+   Database yang SUDAH ada cukup menjalankan migrasi 001-006 berurutan.
 
    Cara pakai (SSMS): ganti nama database di 2 baris di bawah, lalu Execute (F5).
    Urutan tabel mengikuti ketergantungan foreign key. Diagram: docs/ERD.md
@@ -52,6 +52,7 @@ CREATE TABLE dbo.users (
     is_active    BIT NOT NULL CONSTRAINT DF_Users_Aktif DEFAULT (1),
     last_login   DATETIME NULL,
     sesi_versi   INT NOT NULL CONSTRAINT DF_Users_SesiVersi DEFAULT (0),   -- naik = semua sesi user dicabut
+    password_changed_at DATETIME NULL,                          -- NULL = wajib ganti password saat login
     created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE()),
     CONSTRAINT CK_Users_Role CHECK (role IN ('ADMIN', 'HO', 'SECURITY', 'OPERATOR_TIMBANG', 'SORTASI', 'LAB'))
@@ -152,6 +153,31 @@ CREATE TABLE dbo.delivery_order (
     CONSTRAINT CK_DO_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA'))
 );
 CREATE INDEX IX_DO_Kontrak ON dbo.delivery_order (no_kontrak);
+GO
+
+CREATE TABLE dbo.standar_mutu_log (
+    id_log        INT IDENTITY(1,1) PRIMARY KEY,
+    id_produk     INT NOT NULL CONSTRAINT FK_StdLog_Produk REFERENCES dbo.produk (id_produk),
+    maks_ffa      FLOAT NOT NULL,
+    maks_air      FLOAT NOT NULL,
+    maks_kotoran  FLOAT NOT NULL,
+    updated_by    INT NULL CONSTRAINT FK_StdLog_User REFERENCES dbo.users (id_user),
+    updated_at    DATETIME NOT NULL CONSTRAINT DF_StdLog_Waktu DEFAULT (GETDATE())
+);
+CREATE INDEX IX_StdLog_Waktu ON dbo.standar_mutu_log (updated_at DESC);
+GO
+
+-- Dashboard: harga per tanggal (diisi HO)
+CREATE TABLE dbo.harga_harian (
+    tanggal       DATE PRIMARY KEY,
+    harga_cpo     DECIMAL(12,2) NOT NULL,
+    harga_kernel  DECIMAL(12,2) NOT NULL,
+    oer_cpo       DECIMAL(5,2)  NOT NULL,
+    biaya_olah    DECIMAL(12,2) NOT NULL,
+    updated_by    INT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.users (id_user),
+    updated_at    DATETIME NOT NULL CONSTRAINT DF_Harga_Updated DEFAULT (GETDATE()),
+    CONSTRAINT CK_Harga_Oer CHECK (oer_cpo BETWEEN 0 AND 100)
+);
 GO
 
 /* =========================== TRANSAKSI =========================== */
@@ -281,6 +307,9 @@ CREATE TABLE dbo.blacklist (
     tgl_blacklist         DATE NOT NULL,
     created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.users (id_user),
     created_at            DATETIME NOT NULL CONSTRAINT DF_Blacklist_Created DEFAULT (GETDATE()),
+    no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
+    id_customer_terkait      INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.supplier (id_supplier),
+    id_pengangkutan_terkait  INT NULL CONSTRAINT FK_Blacklist_Angkut REFERENCES dbo.supplier (id_supplier),
     CONSTRAINT CK_Blacklist_Tipe CHECK (tipe_entitas IN ('PERSONEL', 'KENDARAAN')),
     CONSTRAINT CK_Blacklist_Target CHECK (
         (tipe_entitas = 'PERSONEL'  AND id_personel IS NOT NULL AND id_kendaraan IS NULL) OR
@@ -403,7 +432,7 @@ END
 GO
 
 /* =========================== DATA AWAL =========================== */
--- Akun super admin pertama: admin / admin12345 (WAJIB ganti password setelah login: Admin > Kelola User)
+-- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
 INSERT INTO dbo.users (nama, username, password, role) VALUES ('Super Admin', 'admin',
     'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419', 'ADMIN');
 GO

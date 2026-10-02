@@ -13,6 +13,10 @@
         </a>
         {% endfor %}
     {% else %}
+        <a href="{{ url_for('dashboard.dashboard_halaman') }}"
+           class="sidebar-link{% if halaman == 'dashboard' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-chart-line w-4"></i> Dashboard
+        </a>
         <a href="{{ url_for('main.weighbridge', view='list') }}" data-view="list"
            class="sidebar-link{% if halaman == 'site' and view != 'form' %} sidebar-link-active{% endif %}">
             <i class="fa-solid fa-list w-4"></i> List

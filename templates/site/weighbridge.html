@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Weighbridge{% endblock %}
 
-{# Halaman site: List (tab Security, Timbangan, Sortasi, Laboratorium) dan Form (Create Ticket).
-   `view` dari server (?view=form) supaya halaman langsung tampil sebagai Form tanpa berkedip ke List. #}
+{# Halaman Form: info bar + tab Security (pendaftaran tiket), Timbangan, Sortasi, Laboratorium.
+   Halaman List terpisah: site/list.html. Tab awal dari ?tab= (default sesuai role). #}
 {% block extra_head %}
 <meta name="wajib-scan-wajah" content="{{ 'true' if wajib_scan_wajah else 'false' }}">
+<meta name="tab-awal" content="{{ tab_awal }}">
 {% endblock %}
 
 {% block tab_content %}

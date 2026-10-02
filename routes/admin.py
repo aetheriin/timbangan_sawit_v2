@@ -11,12 +11,12 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, request, jsonify, redirect, abort
 from flask_login import login_required, current_user
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import role_required, BASE_DIR, UPLOAD_FOLDER
 from utils import db_admin as db, pengaturan, login_guard, sesi_aktif, kiosk
 from utils import verifikasi_state as verif
-from utils.db_utils import cek_koneksi_db
+from utils.db_utils import cek_koneksi_db, get_password_hash
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import baca_status_asli, PORT as PORT_TIMBANGAN
@@ -166,11 +166,15 @@ def users_ubah(id_user):
 def users_reset_password(id_user):
     def aksi():
         u = _user_atau_404(id_user)
-        db.reset_password(id_user, generate_password_hash(_password_form()))
+        baru = _password_form()
+        lama = get_password_hash(id_user)
+        if lama and check_password_hash(lama, baru):
+            raise ValueError("Password baru tidak boleh sama dengan password lama")
+        db.reset_password(id_user, generate_password_hash(baru))
         sesi_aktif.hapus_user(id_user)
         _audit("USER_RESET_PASSWORD", u["username"])
         log_keamanan("RESET_PASSWORD", f"username={u['username']}")
-        return jsonify({"message": f"Password {u['username']} direset. Sesi yang sedang login diakhiri."})
+        return jsonify({"message": f"Password {u['username']} direset. Ia wajib membuat password baru saat login."})
     return _jalankan(aksi)
 
 

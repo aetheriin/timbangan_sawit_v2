@@ -87,7 +87,22 @@ async function simpanStandarMutu(btn) {
     if (!tampilkanHasil(data)) return;
     closeModal('modalStandarMutu');
     muatStandar(idProdukLabAktif);
+    muatHistoryStandar();
 }
+
+// Riwayat perubahan standar mutu 2 hari terakhir (dimuat saat tab Laboratorium dibuka)
+async function muatHistoryStandar() {
+    const data = await ambilJson('/api/lab/standar/history');
+    const tbody = document.getElementById('tabelHistoryStandar');
+    if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
+    tbody.innerHTML = data.map(r => `<tr class="hover:bg-slate-50">
+        <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(r.updated_at)}</td><td class="table-cell">${escapeHtml(r.nama_produk)}</td>
+        <td class="table-cell text-right">${escapeHtml(r.maks_ffa)}%</td><td class="table-cell text-right">${escapeHtml(r.maks_air)}%</td>
+        <td class="table-cell text-right">${escapeHtml(r.maks_kotoran)}%</td><td class="table-cell">${escapeHtml(r.oleh || '-')}</td>
+    </tr>`).join('') || barisKosong(6, 'Tidak ada perubahan standar 2 hari terakhir');
+}
+
+window.addEventListener('tabChange', e => { if (e.detail === 'lab') muatHistoryStandar(); });
 
 function cetakCOA() {
     const area = document.getElementById('printAreaCOA');

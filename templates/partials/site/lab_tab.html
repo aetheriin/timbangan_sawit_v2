@@ -38,6 +38,19 @@
     </div>
 
     <div class="section-box mt-5">
+        <div class="section-header" data-on-click="toggleSection" data-arg="history-standar">
+            <span class="section-header-text"><i id="chevron-history-standar" class="fa-solid fa-chevron-down section-chevron"></i> History Standar Mutu (2 Hari Terakhir)</span>
+        </div>
+        <div id="body-history-standar" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row"><tr><th class="table-cell">Waktu</th><th class="table-cell">Produk</th><th class="table-cell text-right">Maks FFA</th>
+                    <th class="table-cell text-right">Maks Air</th><th class="table-cell text-right">Maks Kotoran</th><th class="table-cell">Diubah Oleh</th></tr></thead>
+                <tbody data-per-halaman="20" id="tabelHistoryStandar" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-box mt-5">
         <div class="section-header" data-on-click="toggleSection" data-arg="history-lab">
             <span class="section-header-text"><i id="chevron-history-lab" class="fa-solid fa-chevron-down section-chevron"></i> History Laboratorium</span>
         </div>

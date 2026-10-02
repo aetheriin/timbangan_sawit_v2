@@ -1,73 +1,7 @@
-<div data-tab-content="security">
+<div data-tab-content="security" class="hidden">
 
-    <!-- ===== VIEW: LIST ===== -->
-    <div data-view-panel="list"{% if view == 'form' %} class="hidden"{% endif %}>
-
-        <div class="flex justify-end gap-3 mb-4">
-            <div class="relative">
-                <input type="text" id="searchTiket" placeholder="Cari tiket / plat / supir" class="input-field pl-9 w-64" data-on-input="saringTabel" data-arg="$value">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-            </div>
-            <button data-on-click="setSidebarView" data-arg="form" class="btn-primary">
-                <i class="fa-solid fa-plus mr-1"></i> Create Ticket
-            </button>
-        </div>
-
-        <div class="section-box">
-            <div class="section-header" data-on-click="toggleSection" data-arg="ticket-aktif">
-                <span class="section-header-text">
-                    <i id="chevron-ticket-aktif" class="fa-solid fa-chevron-down section-chevron"></i>
-                    List Ticket Aktif
-                </span>
-            </div>
-            <div id="body-ticket-aktif" class="section-body">
-                <table class="w-full text-left text-sm">
-                    <thead class="table-header-row">
-                        <tr>
-                            <th class="table-cell">No. Ticket</th>
-                            <th class="table-cell">No. Plat</th>
-                            <th class="table-cell">Supplier</th>
-                            <th class="table-cell">Status</th>
-                            <th class="table-cell text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody data-per-halaman="20" id="tabelTicketAktif" class="divide-y divide-slate-100">
-                        <tr><td colspan="5" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="section-box">
-            <div class="section-header" data-on-click="toggleSection" data-arg="history-driver">
-                <span class="section-header-text">
-                    <i id="chevron-history-driver" class="fa-solid fa-chevron-down section-chevron"></i>
-                    History Driver
-                </span>
-            </div>
-            <div id="body-history-driver" class="section-body">
-                <table class="w-full text-left text-sm">
-                    <thead class="table-header-row">
-                        <tr>
-                            <th class="table-cell">No. Plat</th>
-                            <th class="table-cell">ID</th>
-                            <th class="table-cell">Kode</th>
-                            <th class="table-cell">Nama</th>
-                            <th class="table-cell">NIK</th>
-                            <th class="table-cell">SIM</th>
-                            <th class="table-cell">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody data-per-halaman="20" id="tabelHistoryDriver" class="divide-y divide-slate-100">
-                        <tr><td colspan="7" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== VIEW: FORM (Create Ticket) ===== -->
-    <div data-view-panel="form"{% if view != 'form' %} class="hidden"{% endif %}>
+    <!-- ===== FORM PENDAFTARAN TIKET (tab Security di halaman Form) ===== -->
+    <div>
 
         <!-- Banner merah: kendaraan / supir masuk blacklist (diisi security.js) -->
         <div id="bannerBlacklist" class="note-danger hidden mb-4 items-center gap-4">

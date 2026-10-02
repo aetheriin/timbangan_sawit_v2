@@ -44,7 +44,7 @@ def cek_koneksi_db():
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_user, username, password, nama, role, sesi_versi FROM users WHERE username = ? AND is_active = 1", username)
+    cursor.execute("SELECT id_user, username, password, nama, role, sesi_versi, password_changed_at FROM users WHERE username = ? AND is_active = 1", username)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -58,6 +58,28 @@ def get_user_by_id(user_id):
     row = cursor.fetchone()
     conn.close()
     return row
+
+def get_password_hash(user_id):
+    conn = get_connection()
+    try:
+        row = conn.cursor().execute("SELECT password FROM users WHERE id_user = ?", user_id).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+def ganti_password_sendiri(user_id, password_hash):
+    """Password baru oleh user sendiri. Sesi lain user ini dicabut; kembalikan sesi_versi baru untuk sesi sekarang."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""UPDATE users SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
+                          updated_at = GETDATE() OUTPUT INSERTED.sesi_versi WHERE id_user = ?""", password_hash, user_id)
+        versi = cursor.fetchone()[0]
+        conn.commit()
+    finally:
+        conn.close()
+    get_user_by_id.hapus()
+    return versi
 
 def catat_login_terakhir(user_id):
     conn = get_connection()
@@ -563,10 +585,12 @@ def get_list_tiket_aktif():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur
+        SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
+               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN produk p ON t.id_produk = p.id_produk
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
         ORDER BY t.created_at DESC
     """)
@@ -574,6 +598,27 @@ def get_list_tiket_aktif():
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     return data
+
+def get_history_produk(id_produk=None, hari=7, batas=500):
+    """Halaman List: transaksi 7 hari terakhir, bisa disaring per produk."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        filter_produk = "AND t.id_produk = ?" if id_produk else ""
+        params = [-int(hari)] + ([int(id_produk)] if id_produk else [])
+        cursor.execute(f"""
+            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
+                   t.jenis_transaksi, tb.berat_netto, t.status_alur
+            FROM transaksi t
+            JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+            JOIN supplier s ON t.id_supplier = s.id_supplier
+            JOIN produk p ON t.id_produk = p.id_produk
+            LEFT JOIN timbangan tb ON tb.no_tiket = t.no_tiket
+            WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}
+            ORDER BY t.created_at DESC""", *params)
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
 
 def get_history_driver(limit=20):
     conn = get_connection()
@@ -652,14 +697,35 @@ def get_standar_mutu(id_produk):
     conn.close()
     return row
 
-def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran):
+def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran, user_id=None):
+    """Simpan standar (buat baru bila produk belum punya) + catat riwayatnya di standar_mutu_log."""
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE standar_mutu SET maks_ffa=?, maks_air=?, maks_kotoran=? WHERE id_produk=?",
-                   maks_ffa, maks_air, maks_kotoran, id_produk)
-    conn.commit()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""MERGE standar_mutu AS t USING (SELECT ? AS id_produk) AS s ON t.id_produk = s.id_produk
+                          WHEN MATCHED THEN UPDATE SET maks_ffa = ?, maks_air = ?, maks_kotoran = ?
+                          WHEN NOT MATCHED THEN INSERT (id_produk, maks_ffa, maks_air, maks_kotoran) VALUES (?, ?, ?, ?);""",
+                       id_produk, maks_ffa, maks_air, maks_kotoran, id_produk, maks_ffa, maks_air, maks_kotoran)
+        cursor.execute("""INSERT INTO standar_mutu_log (id_produk, maks_ffa, maks_air, maks_kotoran, updated_by)
+                          VALUES (?, ?, ?, ?, ?)""", id_produk, maks_ffa, maks_air, maks_kotoran, user_id)
+        conn.commit()
+    finally:
+        conn.close()
     get_standar_mutu.hapus()
+
+def get_history_standar(hari=2):
+    """Perubahan standar mutu N hari terakhir (tab Laboratorium)."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""SELECT l.updated_at, p.nama_produk, l.maks_ffa, l.maks_air, l.maks_kotoran, u.nama AS oleh
+                          FROM standar_mutu_log l JOIN produk p ON p.id_produk = l.id_produk
+                          LEFT JOIN users u ON u.id_user = l.updated_by
+                          WHERE l.updated_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+                          ORDER BY l.updated_at DESC""", -(int(hari) - 1))
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
 
 def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id):
     conn = get_connection()

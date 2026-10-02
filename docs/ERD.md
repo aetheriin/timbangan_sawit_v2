@@ -124,7 +124,16 @@ Satu baris `blacklist` hanya untuk **satu** target: `tipe_entitas = PERSONEL` �
 | delivery_order | `no_do` (unik), `no_kontrak`, `jenis_transaksi`, `berlaku_sampai`, `is_active` | `id_customer`, `id_pengangkutan` → supplier; `id_produk` → produk | Diisi HO. Form Security: ketik No DO → jenis, customer, produk, pengangkutan terisi |
 | transaksi (+kolom) | `id_pengangkutan`, `alasan_void`, `void_by`, `void_at` | `id_pengangkutan` → supplier, `void_by` → users | Status `VOID` = tiket dibatalkan admin |
 
-Gambar `erd.png` / `erd.svg` sudah memuat semua tabel (main + migrasi 001–005). Schema SQL lengkap: `database/schema_lengkap.sql`.
+### Password, blacklist, standar mutu, dashboard (migrasi 006)
+
+| Tabel | Kolom penting | Relasi | Arti |
+|---|---|---|---|
+| users (+kolom) | `password_changed_at` | – | NULL = baru dibuat / direset admin; lewat batas Admin › Pengaturan = wajib ganti |
+| blacklist (+kolom) | `no_plat_terkait`, `id_customer_terkait`, `id_pengangkutan_terkait` | → supplier | Plat (supir / tamu), customer & pengangkutan saat blacklist ditetapkan |
+| standar_mutu_log | `id_produk`, `maks_ffa`, `maks_air`, `maks_kotoran`, `updated_at` | → produk, users | Riwayat perubahan standar mutu (tab Laboratorium) |
+| harga_harian | `tanggal` (PK), `harga_cpo`, `harga_kernel`, `oer_cpo`, `biaya_olah` | `updated_by` → users | Dashboard, diisi HO |
+
+Gambar `erd.png` / `erd.svg` sudah memuat semua tabel (main + migrasi 001–006). Schema SQL lengkap: `database/schema_lengkap.sql`.
 
 ## Kode diagram (untuk di-copy)
 
@@ -145,6 +154,7 @@ erDiagram
         bit is_active
         datetime last_login "004"
         int sesi_versi "004, naik = sesi dicabut"
+        datetime password_changed_at "006, NULL = wajib ganti"
         datetime created_at
         datetime updated_at
     }
@@ -314,6 +324,27 @@ erDiagram
         date tgl_blacklist
         int created_by FK "user HO"
         datetime created_at
+        varchar no_plat_terkait "006"
+        int id_customer_terkait FK "006"
+        int id_pengangkutan_terkait FK "006"
+    }
+    standar_mutu_log {
+        int id_log PK
+        int id_produk FK
+        float maks_ffa
+        float maks_air
+        float maks_kotoran
+        int updated_by FK
+        datetime updated_at
+    }
+    harga_harian {
+        date tanggal PK
+        decimal harga_cpo "Rp/kg"
+        decimal harga_kernel "Rp/kg"
+        decimal oer_cpo "%"
+        decimal biaya_olah "Rp/kg TBS"
+        int updated_by FK
+        datetime updated_at
     }
     security_audit_logs {
         int id_log PK "baru"
@@ -409,6 +440,12 @@ erDiagram
     users     |o--o{ pengaturan : "updated_by"
     users     ||--o{ admin_audit_logs : "user_id"
 
+    %% ---- Migrasi 006
+    supplier  |o--o{ blacklist : "id_customer_terkait / id_pengangkutan_terkait"
+    produk    ||--o{ standar_mutu_log : "id_produk"
+    users     |o--o{ standar_mutu_log : "updated_by"
+    users     |o--o{ harga_harian : "updated_by"
+
     %% ---- Transaksi -> detail per tahap
     transaksi ||--o| timbangan : "no_tiket"
     transaksi ||--o| sortasi : "no_tiket"
@@ -464,6 +501,7 @@ Table users {
   is_active bit [not null, default: 1]
   last_login datetime
   sesi_versi int [not null, default: 0, note: "naik = semua sesi dicabut"]
+  password_changed_at datetime [note: "NULL = wajib ganti password saat login"]
   created_at datetime [not null]
   updated_at datetime [not null]
 }
@@ -702,6 +740,26 @@ Table admin_audit_logs {
   detail nvarchar(500)
   ip_address varchar(45)
   created_at datetime [not null]
+}
+
+Table standar_mutu_log {
+  id_log int [pk, increment]
+  id_produk int [not null, ref: > produk.id_produk]
+  maks_ffa float [not null]
+  maks_air float [not null]
+  maks_kotoran float [not null]
+  updated_by int [ref: > users.id_user]
+  updated_at datetime [not null]
+}
+
+Table harga_harian {
+  tanggal date [pk]
+  harga_cpo decimal(12,2) [not null, note: 'Rp/kg']
+  harga_kernel decimal(12,2) [not null, note: 'Rp/kg']
+  oer_cpo decimal(5,2) [not null, note: '%']
+  biaya_olah decimal(12,2) [not null, note: 'Rp/kg TBS']
+  updated_by int [ref: > users.id_user]
+  updated_at datetime [not null]
 }
 
 Table jadwal_kerja {

@@ -1,40 +1,7 @@
 // Pengaturan site dari server (.env WAJIB_SCAN_WAJAH), dikirim lewat <meta> di weighbridge.html
 const WAJIB_SCAN_WAJAH = document.querySelector('meta[name="wajib-scan-wajah"]')?.content !== 'false';
 
-// ===== MUAT DATA LIST SAAT TAB SECURITY DIBUKA =====
-document.addEventListener('DOMContentLoaded', () => {
-    aturStatusForm('draft');
-    muatListTicketAktif();
-    muatHistoryDriver();
-});
-
-async function muatHistoryDriver() {
-    const data = await ambilJson('/api/security/history-driver');
-    const tbody = document.getElementById('tabelHistoryDriver');
-    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
-    tbody.innerHTML = data.map(r => `
-        <tr class="hover:bg-slate-50">
-            <td class="table-cell">${escapeHtml(r.no_plat)}</td>
-            <td class="table-cell">${formatIdPersonel(r.id_driver)}</td>
-            <td class="table-cell">${kodeAtauKosong(r.kode_personel)}</td>
-            <td class="table-cell">${escapeHtml(r.nama_driver)}</td>
-            <td class="table-cell">${escapeHtml(r.nik)}</td><td class="table-cell">${escapeHtml(r.no_sim || '-')}</td>
-            <td class="table-cell">${badgeStatusPersonel(r.is_blacklisted)}</td>
-        </tr>`).join('') || barisKosong(7, 'Belum ada riwayat');
-    saringTabel(document.getElementById('searchTiket').value);
-}
-
-// ===== SEARCH: saring List Ticket Aktif & History Driver =====
-function saringTabel(kata) {
-    const cari = kata.toUpperCase().replace(/\s+/g, '');       // "bm1455" cocok dengan "BM 1455 JJ"
-    ['tabelTicketAktif', 'tabelHistoryDriver'].forEach(id => {
-        document.querySelectorAll(`#${id} tr`).forEach(tr => {
-            if (tr.children.length < 2) return;                 // baris "belum ada data"
-            tr.classList.toggle('hidden', !!cari && !tr.textContent.toUpperCase().replace(/\s+/g, '').includes(cari));
-        });
-        Halaman.segarkan(document.getElementById(id));
-    });
-}
+document.addEventListener('DOMContentLoaded', () => aturStatusForm('draft'));
 
 // ===== SINKRON FORM DENGAN HASIL LOOKUP PLAT =====
 let saranDriver = null;
@@ -167,6 +134,10 @@ function isiDariDO(d) {
     document.getElementById('formProduk').value = d ? d.id_produk : '';
     document.getElementById('formPengangkutan').value = d ? d.nama_pengangkutan : '';
     document.getElementById('formNoKontrak').value = d ? d.no_kontrak : '';
+    document.getElementById('infoNoDO').value = d ? d.no_do : '';             // info bar ikut terisi
+    document.getElementById('infoSupplier').value = d ? d.nama_customer : '';
+    document.getElementById('infoProduk').value = d ? d.nama_produk : '';
+    document.getElementById('infoJenis').value = d ? labelKode(d.jenis_transaksi) : '';
 }
 
 async function cariDO(noDo, diam = false) {
@@ -223,30 +194,6 @@ window.addEventListener('platLookup', (e) => {
         document.getElementById('infoDO').classList.add('hidden');
     }
 });
-
-async function muatListTicketAktif() {
-    const data = await ambilJson('/api/security/list-tiket-aktif');
-    const tbody = document.getElementById('tabelTicketAktif');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
-    if (!data.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="table-cell text-slate-400 text-center py-8">Belum ada tiket aktif</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = data.map(t => `
-        <tr class="hover:bg-slate-50">
-            <td class="table-cell font-mono text-xs">${escapeHtml(t.no_tiket)}</td>
-            <td class="table-cell">${escapeHtml(t.no_plat)}</td>
-            <td class="table-cell">${escapeHtml(t.supplier)}</td>
-            <td class="table-cell">${badgeStatusTiket(t.status_alur)}</td>
-            <td class="table-cell text-right space-x-2">
-                <button type="button" data-on-click="bukaFormDariTabel" data-arg="${escapeHtml(t.no_plat)}" class="text-blue-600 hover:underline text-xs">Buka</button>
-                <button type="button" data-on-click="openCetakQRDariTabel" data-arg="${escapeHtml(t.no_plat)}" class="text-emerald-600 hover:underline text-xs">Cetak QR</button>
-            </td>
-        </tr>
-    `).join('');
-    saringTabel(document.getElementById('searchTiket').value);
-}
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
 function mulaiValidasiAwal() {
@@ -560,8 +507,6 @@ async function submitCreateTiket(btn) {
     if (!data.no_tiket) { Notif.gagal(data.error || 'Tiket gagal dibuat'); return; }
 
     Notif.sukses(data.message);
-    muatListTicketAktif();
-    muatHistoryDriver();
     lookupPlat(document.getElementById('formNoPlat').value);  // base bar jadi ADA_TIKET lengkap
     const cetak = await Dialog.konfirmasi({ judul: 'Tiket berhasil dibuat', teksYa: 'Cetak QR', teksBatal: 'Nanti',
         pesan: `No. tiket ${data.no_tiket}. Cetak QR tiket sekarang?` });

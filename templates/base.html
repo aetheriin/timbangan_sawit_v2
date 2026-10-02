@@ -31,8 +31,7 @@
 
         {% block tab_header %}
             {{ tab_header([('security', 'Security'), ('timbangan', 'Timbangan'),
-                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')],
-                          'hidden' if view == 'form' else '') }}
+                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')]) }}
         {% endblock %}
 
         <div id="tabBody" class="tab-body p-5">

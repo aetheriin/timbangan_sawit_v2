@@ -62,8 +62,9 @@ def ubah_user(id_user, nama, role):
 
 
 def reset_password(id_user, password_hash):
-    _ubah("""UPDATE users SET password = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
-             WHERE id_user = ?""", password_hash, id_user)
+    # password_changed_at = NULL -> user wajib mengganti password ini saat login berikutnya
+    _ubah("""UPDATE users SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
+             updated_at = GETDATE() WHERE id_user = ?""", password_hash, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 

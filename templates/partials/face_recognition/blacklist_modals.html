@@ -3,7 +3,7 @@
     <div class="modal-box max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="modal-header">
             <h3 class="font-bold">Tambah Blacklist</h3>
-            <button type="button" data-on-click="closeModal" data-arg="modalBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" data-on-click="tutupModalBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">
             <div class="flex items-center gap-3">
@@ -19,8 +19,44 @@
                 </div>
             </div>
 
+            <!-- Personel: cari lewat nama/NIK, no SIM, wajah (kamera), atau upload foto -->
+            <div id="blCaraPersonel" class="space-y-3">
+                <div class="seg">
+                    <button type="button" class="seg-item seg-item-active" data-cara="TEKS" data-on-click="setCaraBlacklist" data-arg="TEKS">Nama / NIK</button>
+                    <button type="button" class="seg-item" data-cara="SIM" data-on-click="setCaraBlacklist" data-arg="SIM">No SIM</button>
+                    <button type="button" class="seg-item" data-cara="KAMERA" data-on-click="setCaraBlacklist" data-arg="KAMERA">Wajah (Kamera)</button>
+                    <button type="button" class="seg-item" data-cara="UPLOAD" data-on-click="setCaraBlacklist" data-arg="UPLOAD">Upload Foto</button>
+                </div>
+                <div id="blPanelKamera" class="hidden flex items-start gap-3">
+                    <video id="blVideo" autoplay playsinline muted class="w-64 rounded-lg bg-black video-mirror"></video>
+                    <button type="button" id="btnBlCocokKamera" class="btn-primary" data-on-click="cocokkanWajahKamera" data-arg="$el">
+                        <i class="fa-solid fa-camera mr-1"></i> Ambil & Cocokkan</button>
+                </div>
+                <div id="blPanelUpload" class="hidden drop-zone flex items-center gap-3 text-left" data-on-click="klikElemen" data-arg="blFotoWajah">
+                    <i class="fa-solid fa-image text-xl text-slate-500"></i>
+                    <p class="text-sm font-medium text-slate-700">Pilih foto wajah (JPG / PNG) untuk dicocokkan</p>
+                    <input type="file" id="blFotoWajah" accept=".jpg,.jpeg,.png" class="hidden" data-on-change="cocokkanWajahUpload" data-arg="$file">
+                </div>
+            </div>
+
             <div id="blTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm text-slate-400">
                 Belum ada target dipilih.
+            </div>
+
+            <!-- Data terkait saat blacklist (personel): plat selalu bisa diisi (mis. tamu), customer & pengangkutan bila ia supir -->
+            <div id="blTerkait" class="hidden grid grid-cols-3 gap-3">
+                <div>
+                    <label class="field-label" for="blPlatTerkait">No. Plat Kendaraan</label>
+                    <input type="text" id="blPlatTerkait" maxlength="15" class="input-field uppercase" placeholder="Opsional">
+                </div>
+                <div id="blCustomerBox">
+                    <label class="field-label">Customer saat itu</label>
+                    <input type="text" id="blCustomerTerkait" readonly class="input-field bg-slate-50">
+                </div>
+                <div id="blAngkutBox">
+                    <label class="field-label">Pengangkutan saat itu</label>
+                    <input type="text" id="blAngkutTerkait" readonly class="input-field bg-slate-50">
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -54,7 +90,7 @@
             </div>
 
             <div class="flex justify-end gap-3">
-                <button type="button" data-on-click="closeModal" data-arg="modalBlacklist" class="btn-secondary">Batal</button>
+                <button type="button" data-on-click="tutupModalBlacklist" class="btn-secondary">Batal</button>
                 <button type="button" id="btnSimpanBlacklist" data-on-click="simpanBlacklist" data-arg="$el" class="btn-danger">Tetapkan Blacklist Permanen</button>
             </div>
         </div>

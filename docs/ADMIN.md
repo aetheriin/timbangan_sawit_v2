@@ -46,6 +46,7 @@ Urutan yang dipakai aplikasi: **Admin › Pengaturan Site** → `.env` → bawaa
 | Lama akun / IP dikunci | `LOGIN_KUNCI_MENIT` | 15 menit | `utils/login_guard.py` |
 | Logout otomatis bila tidak aktif | `SESI_IDLE_MENIT` | 120 menit | `utils/keamanan.py` (`cek_idle`) |
 | Peringatan sebelum logout otomatis | – | 2 menit | `static/js/ui.js` (`SesiIdle.PERINGATAN_DETIK`) |
+| Password kedaluwarsa (wajib ganti saat login, 0 = tidak pernah) | `PASSWORD_EXPIRED_HARI` | 90 hari | `utils/keamanan.py` (`password_wajib_diganti`) |
 | Umur sesi maksimal | `SESI_MAKS_JAM` | 12 jam | `utils/keamanan.py` (`cek_idle`) |
 | Wajib scan wajah supir | `WAJIB_SCAN_WAJAH` | true | `routes/security.py` |
 | Ambang kemiripan wajah | `AMBANG_WAJAH` | 0.55 | `routes/absensi.py`, `routes/security.py` |

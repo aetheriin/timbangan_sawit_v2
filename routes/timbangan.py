@@ -48,7 +48,8 @@ def timbang_scan_qr():
 @login_required
 def history_supplier():
     id_supplier = request.args.get("id_supplier")
-    return jsonify(get_history_timbangan_by_supplier(id_supplier) if id_supplier else [])
+    rows = get_history_timbangan_by_supplier(id_supplier) if id_supplier else []
+    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M") if r["created_at"] else None} for r in rows])
 
 @timbangan_bp.route("/api/timbang/simpan", methods=["POST"])
 @login_required
