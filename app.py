@@ -25,6 +25,7 @@ from routes.absensi import absensi_bp
 from routes.audit import audit_bp
 from routes.sistem import sistem_bp
 from routes.admin import admin_bp
+from routes.kontrak import kontrak_bp
 
 load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"),
@@ -59,7 +60,7 @@ def belum_login():
     return redirect("/login")
 
 for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
-           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp):
+           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp):
     app.register_blueprint(bp)
 
 # Endpoint yang dipanggil kiosk kamera (tanpa sesi browser) dilindungi token perangkat, bukan CSRF

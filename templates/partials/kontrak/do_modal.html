@@ -1,0 +1,63 @@
+<!-- MODAL: Tambah / Ubah DO -->
+<div id="modalDO" class="modal-overlay">
+    <form id="formDO" class="modal-box max-w-2xl" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalDO" class="font-bold">Tambah DO</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalDO" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <input type="hidden" name="id_do">
+            <div>
+                <label class="field-label" for="doNoKontrak">No Kontrak</label>
+                <input type="text" id="doNoKontrak" name="no_kontrak" required maxlength="50" class="input-field uppercase">
+            </div>
+            <div>
+                <label class="field-label" for="doNoDo">No DO</label>
+                <input type="text" id="doNoDo" name="no_do" required maxlength="50" class="input-field uppercase">
+            </div>
+            <div>
+                <label class="field-label" for="doJenis">Jenis Transaksi</label>
+                <select id="doJenis" name="jenis_transaksi" required class="input-field">
+                    {% for j in jenis_list %}<option value="{{ j }}">{{ j.replace('_', ' ').title() }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="field-label" for="doCustomer">Customer</label>
+                <select id="doCustomer" name="id_customer" required class="input-field">
+                    <option value="">-- Pilih --</option>
+                    {% for c in customer_list %}<option value="{{ c.id_supplier }}">{{ c.nama_supplier }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="field-label" for="doProduk">Produk</label>
+                <select id="doProduk" name="id_produk" required class="input-field">
+                    <option value="">-- Pilih --</option>
+                    {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="field-label" for="doAngkut">Pengangkutan</label>
+                <select id="doAngkut" name="id_pengangkutan" class="input-field">
+                    <option value="">Kendaraan sendiri</option>
+                    {% for a in angkutan_list %}<option value="{{ a.id_supplier }}">{{ a.nama_supplier }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="field-label" for="doTanggal">Tanggal DO</label>
+                <input type="date" id="doTanggal" name="tanggal_do" required class="input-field">
+            </div>
+            <div>
+                <label class="field-label" for="doBerlaku">Berlaku Sampai (opsional)</label>
+                <input type="date" id="doBerlaku" name="berlaku_sampai" class="input-field">
+            </div>
+            <div class="col-span-2">
+                <label class="field-label" for="doKet">Keterangan (opsional)</label>
+                <input type="text" id="doKet" name="keterangan" maxlength="200" class="input-field">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalDO" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

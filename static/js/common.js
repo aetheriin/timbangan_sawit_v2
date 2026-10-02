@@ -69,6 +69,7 @@ const LABEL_STATUS_TIKET = {
     TIMBANG_2: ['Timbang 2', 'bg-indigo-100 text-indigo-700'],
     SELESAI: ['Selesai', 'bg-emerald-100 text-emerald-700'],
     REJECTED: ['Ditolak', 'bg-red-100 text-red-700'],
+    VOID: ['Void', 'bg-slate-200 text-slate-500'],
 };
 
 function labelStatusTiket(status) {

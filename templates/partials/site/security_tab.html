@@ -31,7 +31,7 @@
                             <th class="table-cell text-right">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody id="tabelTicketAktif" class="divide-y divide-slate-100">
+                    <tbody data-per-halaman="20" id="tabelTicketAktif" class="divide-y divide-slate-100">
                         <tr><td colspan="5" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
                     </tbody>
                 </table>
@@ -58,7 +58,7 @@
                             <th class="table-cell">Status</th>
                         </tr>
                     </thead>
-                    <tbody id="tabelHistoryDriver" class="divide-y divide-slate-100">
+                    <tbody data-per-halaman="20" id="tabelHistoryDriver" class="divide-y divide-slate-100">
                         <tr><td colspan="7" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
                     </tbody>
                 </table>
@@ -133,11 +133,13 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4 pt-4 border-t border-slate-100">
                             <div>
                                 <label class="field-label">Nomor DO (Delivery Order)</label>
-                                <input type="text" id="formNoDo" class="input-field">
+                                <input type="text" id="formNoDo" class="input-field uppercase" placeholder="Ketik No DO lalu Tab"
+                                       data-on-enter="cariDO" data-arg="$value">
+                                <p id="infoDO" class="text-xs mt-1 hidden"></p>
                             </div>
                             <div>
                                 <label class="field-label">Jenis Transaksi</label>
-                                <select id="formJenisTransaksi" class="input-field">
+                                <select id="formJenisTransaksi" class="input-field bg-slate-50" disabled>
                                     <option value="">-- Pilih --</option>
                                     <option value="PEMBELIAN">Pembelian</option>
                                     <option value="PENJUALAN">Penjualan</option>
@@ -145,23 +147,30 @@
                                 </select>
                             </div>
                             <div>
-                                <label class="field-label">Supplier</label>
-                                <select id="formSupplier" class="input-field" data-on-change="terapkanKontrak" data-arg="$value">
+                                <label class="field-label">Customer</label>
+                                <select id="formSupplier" class="input-field bg-slate-50" disabled>
                                     <option value="">-- Pilih --</option>
                                     {% for s in supplier_list %}
                                     <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
                                     {% endfor %}
                                 </select>
-                                <p id="infoKontrak" class="text-xs text-emerald-600 mt-1 hidden"></p>
                             </div>
                             <div>
                                 <label class="field-label">Produk</label>
-                                <select id="formProduk" class="input-field">
+                                <select id="formProduk" class="input-field bg-slate-50" disabled>
                                     <option value="">-- Pilih --</option>
                                     {% for p in produk_list %}
                                     <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
                                     {% endfor %}
                                 </select>
+                            </div>
+                            <div>
+                                <label class="field-label">Pengangkutan</label>
+                                <input type="text" id="formPengangkutan" readonly class="input-field bg-slate-50">
+                            </div>
+                            <div>
+                                <label class="field-label">No Kontrak</label>
+                                <input type="text" id="formNoKontrak" readonly class="input-field bg-slate-50">
                             </div>
                         </div>
 

@@ -29,6 +29,7 @@ HALAMAN = {
     "users": ("Kelola User", "fa-users", "Tambah akun, ubah role, reset password, aktif / nonaktif"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
     "master": ("Supplier & Produk", "fa-boxes-stacked", "Master data supplier / buyer dan produk"),
+    "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
     "perangkat": ("Perangkat / Kiosk", "fa-camera", "Pos kamera kiosk, token per pos, status timbangan"),
@@ -312,6 +313,29 @@ def produk_aktif(id_produk):
         db.set_aktif_produk(id_produk, aktif)
         _audit("PRODUK_AKTIF" if aktif else "PRODUK_NONAKTIF", str(id_produk))
         return jsonify({"message": "Produk " + ("diaktifkan" if aktif else "dinonaktifkan")})
+    return _jalankan(aksi)
+
+
+# ===== VOID TIKET =====
+@admin_bp.route("/api/admin/tiket")
+@_admin
+def tiket_daftar():
+    hari = min(max(int(request.args.get("hari") or 30), 1), 365)
+    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M"),
+                     "void_at": r["void_at"].strftime("%Y-%m-%d %H:%M") if r["void_at"] else None}
+                    for r in db.daftar_tiket(request.args.get("cari", ""), hari)])
+
+
+@admin_bp.route("/api/admin/tiket/void", methods=["POST"])
+@_admin
+def tiket_void():
+    def aksi():
+        no_tiket, alasan = _teks("no_tiket", maks=50), _teks("alasan", maks=255)
+        if len(alasan) < 5:
+            raise ValueError("Alasan minimal 5 karakter")
+        db.void_tiket(no_tiket, alasan, current_user.id)
+        _audit("TIKET_VOID", no_tiket, alasan)
+        return jsonify({"message": f"Tiket {no_tiket} di-void"})
     return _jalankan(aksi)
 
 

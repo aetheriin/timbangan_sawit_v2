@@ -21,7 +21,7 @@ main_bp = Blueprint('main', __name__)
 @login_required
 def weighbridge():
     view = "form" if request.args.get("view") == "form" else "list"
-    return render_template("weighbridge.html", halaman="site", view=view,
+    return render_template("site/weighbridge.html", halaman="site", view=view,
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"))
 
@@ -29,7 +29,7 @@ def weighbridge():
 @login_required
 def face_recognition():
     """Satu halaman, tab Absensi | Personel | Blacklist | Audit Log (tanpa info bar)."""
-    return render_template("face_recognition.html", halaman="face")
+    return render_template("face_recognition/face_recognition.html", halaman="face")
 
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required
@@ -101,5 +101,5 @@ def cetak_tiket(no_tiket):
     if not row:
         abort(404, "Tiket tidak ditemukan / sudah selesai")
     cetakan_ke = catat_cetak_qr(no_tiket) + 1
-    return render_template("cetak_tiket.html", t=row, qr_svg=_svg_qr(row.no_tiket), cetakan_ke=cetakan_ke,
+    return render_template("site/cetak_tiket.html", t=row, qr_svg=_svg_qr(row.no_tiket), cetakan_ke=cetakan_ke,
                            now=datetime.now().strftime("%d-%m-%Y %H:%M"))

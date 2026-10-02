@@ -116,6 +116,14 @@ Satu baris `blacklist` hanya untuk **satu** target: `tipe_entitas = PERSONEL` �
 | perangkat_kiosk | `id_pos` (PK), `nama`, `lokasi`, `token_hash`, `is_active` | – | Pos kiosk kamera + hash token per pos |
 | admin_audit_logs | `aksi`, `target`, `detail`, `ip_address`, `created_at` | `user_id` → users 1 : N | Jejak aksi admin |
 
+### Kontrak & DO, void (migrasi 005)
+
+| Tabel | Kolom penting | Relasi | Arti |
+|---|---|---|---|
+| supplier (ubah) | `tipe` = CUSTOMER / PENGANGKUTAN | – | Customer membeli / menjual; pengangkutan = angkutan pihak ketiga |
+| delivery_order | `no_do` (unik), `no_kontrak`, `jenis_transaksi`, `berlaku_sampai`, `is_active` | `id_customer`, `id_pengangkutan` → supplier; `id_produk` → produk | Diisi HO. Form Security: ketik No DO → jenis, customer, produk, pengangkutan terisi |
+| transaksi (+kolom) | `id_pengangkutan`, `alasan_void`, `void_by`, `void_at` | `id_pengangkutan` → supplier, `void_by` → users | Status `VOID` = tiket dibatalkan admin |
+
 Gambar `erd.png` / `erd.svg` belum memuat tabel 004 (tabel pendukung, tidak berelasi dengan alur tiket).
 
 ## Kode diagram (untuk di-copy)

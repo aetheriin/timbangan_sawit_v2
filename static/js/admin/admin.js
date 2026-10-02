@@ -65,6 +65,7 @@ function saringBaris(tbodyId, teks) {
     document.querySelectorAll(`#${tbodyId} tr[data-cari]`).forEach(tr => {
         tr.classList.toggle('hidden', q && !tr.dataset.cari.includes(q));
     });
+    Halaman.segarkan(document.getElementById(tbodyId));
 }
 
 // Tombol Muat Ulang / Cek Ulang: ikon berputar selama memuat, lalu konfirmasi.

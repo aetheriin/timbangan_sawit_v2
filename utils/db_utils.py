@@ -387,7 +387,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN personel d ON t.id_driver = d.id_personel
-        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
           AND (k.no_plat = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
     """, no_plat or '', no_tiket or '')
@@ -410,7 +410,7 @@ def catat_cetak_qr(no_tiket):
     return sebelumnya
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id,
-                        prev_driver_id=None):
+                        prev_driver_id=None, id_pengangkutan=None):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
     kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
     qr_expired = datetime.now() + timedelta(hours=24)
@@ -421,10 +421,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor.execute(
         """INSERT INTO transaksi
            (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, is_driver_changed, prev_driver_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
-        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id
+        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.
@@ -551,7 +551,7 @@ def get_list_tiket_aktif():
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN supplier s ON t.id_supplier = s.id_supplier
-        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED')
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
         ORDER BY t.created_at DESC
     """)
     columns = [c[0] for c in cursor.description]

@@ -32,6 +32,7 @@ function saringTabel(kata) {
             if (tr.children.length < 2) return;                 // baris "belum ada data"
             tr.classList.toggle('hidden', !!cari && !tr.textContent.toUpperCase().replace(/\s+/g, '').includes(cari));
         });
+        Halaman.segarkan(document.getElementById(id));
     });
 }
 
@@ -87,7 +88,8 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
 // ===== STATUS FORM PENDAFTARAN TIKET =====
 let statusForm = 'draft';
 let supirTerverifikasi = false;
-const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
+// Jenis / customer / produk selalu terkunci (terisi dari DO), jadi tidak ikut dibuka di status draft
+const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo'];
 
 // blacklist: plat masuk blacklist, hanya kolom plat yang bisa diganti
 function aturStatusForm(status) {
@@ -149,30 +151,48 @@ function tandaiSudahValidasi() {
     aturStatusForm('selesai');
 }
 
-// ===== KONTRAK AKTIF TRUK (diatur di modal Update -> Kontrak Truk) =====
-let kontrakAktif = [];
+// ===== DO (Delivery Order, diisi HO di menu Kontrak & DO) =====
+// Security hanya mengetik No DO; jenis transaksi, customer, produk, pengangkutan terisi dan tidak bisa diubah.
+let kontrakAktif = [];                 // kontrak truk (modal Update -> Kontrak Truk), hanya informasi
+let doTerakhir = '';
 
-function tampilkanInfoKontrak() {
-    const el = document.getElementById('infoKontrak');
-    el.classList.toggle('hidden', !kontrakAktif.length);
-    el.textContent = kontrakAktif.length
-        ? 'Kontrak aktif: ' + kontrakAktif.map(k => k.nama_supplier + (k.no_kontrak ? ` (${k.no_kontrak})` : '')).join(', ')
-        : '';
-}
-
-// Dipanggil setelah kontrak diubah di modal Update
 function sinkronKontrakKeForm(listAktif) {
     kontrakAktif = listAktif;
-    tampilkanInfoKontrak();
 }
 
-// Supplier dipilih -> kalau ada kontrak aktif dengan supplier itu, isi produk & jenis dari kontrak
-function terapkanKontrak(idSupplier) {
-    const k = kontrakAktif.find(x => String(x.id_supplier) === String(idSupplier));
-    if (!k) return;
-    if (k.id_produk) document.getElementById('formProduk').value = k.id_produk;
-    if (k.jenis_transaksi) document.getElementById('formJenisTransaksi').value = k.jenis_transaksi;
+function isiDariDO(d) {
+    document.getElementById('formNoDo').value = d ? d.no_do : document.getElementById('formNoDo').value;
+    document.getElementById('formJenisTransaksi').value = d ? d.jenis_transaksi : '';
+    document.getElementById('formSupplier').value = d ? d.id_customer : '';
+    document.getElementById('formProduk').value = d ? d.id_produk : '';
+    document.getElementById('formPengangkutan').value = d ? d.nama_pengangkutan : '';
+    document.getElementById('formNoKontrak').value = d ? d.no_kontrak : '';
 }
+
+async function cariDO(noDo, diam = false) {
+    noDo = (noDo || '').trim().toUpperCase();
+    const info = document.getElementById('infoDO');
+    if (!noDo) return;
+    doTerakhir = noDo;
+    const d = await ambilJson(`/api/do/${encodeURIComponent(noDo)}`);
+    if (d.error) {
+        isiDariDO(null);
+        info.className = 'text-xs mt-1 text-red-600';
+        info.textContent = d.error;
+        if (!diam) Notif.gagal(d.error);
+        return;
+    }
+    isiDariDO(d);
+    info.className = 'text-xs mt-1 text-emerald-600';
+    info.textContent = `✓ ${d.nama_customer} · ${d.nama_produk}` + (d.berlaku_sampai ? ` · berlaku s/d ${d.berlaku_sampai}` : '');
+}
+
+// Lupa menekan Tab: DO juga dicari saat kotak ditinggalkan
+document.getElementById('formNoDo').addEventListener('blur', e => {
+    const v = e.target.value.trim().toUpperCase();
+    if (v && v !== doTerakhir && !e.target.disabled) cariDO(v);
+});
+document.getElementById('formNoDo').addEventListener('input', () => { doTerakhir = ''; });
 
 window.addEventListener('platLookup', (e) => {
     const d = e.detail;
@@ -186,11 +206,11 @@ window.addEventListener('platLookup', (e) => {
         ? infoBlacklistKendaraan(d.no_plat, d.kendaraan_blacklist) : null);
 
     if (d.status === 'ADA_TIKET') {
-        kontrakAktif = [];
         document.getElementById('formNoDo').value = d.no_do || '';
         document.getElementById('formJenisTransaksi').value = d.jenis_transaksi;
         document.getElementById('formSupplier').value = d.id_supplier;
         document.getElementById('formProduk').value = d.id_produk;
+        if (d.no_do) cariDO(d.no_do, true);             // isi pengangkutan & no kontrak
         if (d.driver) isiDriver(d.driver);
         tandaiSudahValidasi();
         document.getElementById('btnCetakQR').classList.remove('hidden');
@@ -198,12 +218,10 @@ window.addEventListener('platLookup', (e) => {
         resetValidasiForm();
         saranDriver = d.driver_utama || d.driver;   // supir utama (menu Update Truk) didahulukan
         kontrakAktif = d.kontrak_aktif || [];
-        if (kontrakAktif.length) {                 // isi otomatis dari kontrak terbaru, tetap bisa diganti
-            document.getElementById('formSupplier').value = kontrakAktif[0].id_supplier;
-            terapkanKontrak(kontrakAktif[0].id_supplier);
-        }
+        isiDariDO(null);
+        document.getElementById('formNoDo').value = '';
+        document.getElementById('infoDO').classList.add('hidden');
     }
-    tampilkanInfoKontrak();
 });
 
 async function muatListTicketAktif() {
@@ -232,10 +250,10 @@ async function muatListTicketAktif() {
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
 function mulaiValidasiAwal() {
-    const wajib = ['formNoPlat', 'formNoTiket', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
+    const wajib = ['formNoPlat', 'formNoTiket', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
     for (const id of wajib) {
         if (!document.getElementById(id).value.trim()) {
-            Notif.peringatan('Lengkapi plat (tekan Tab), jenis transaksi, supplier, dan produk dulu');
+            Notif.peringatan('Lengkapi plat dan No DO (tekan Tab) dulu. Data transaksi terisi dari DO.');
             return;
         }
     }

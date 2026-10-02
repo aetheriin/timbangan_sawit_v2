@@ -25,6 +25,12 @@
            class="sidebar-link{% if halaman == 'face' %} sidebar-link-active{% endif %}">
             <i class="fa-solid fa-face-smile w-4"></i> Face Recognition
         </a>
+        {% if current_user.role == 'HO' %}
+        <a href="{{ url_for('kontrak.kontrak_halaman') }}"
+           class="sidebar-link{% if halaman == 'kontrak' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-file-contract w-4"></i> Kontrak & DO
+        </a>
+        {% endif %}
     {% endif %}
     </nav>
 </aside>
