@@ -20,7 +20,6 @@
                 <select id="supTipe" name="tipe" class="input-field">
                     {% for t in tipe_supplier %}<option value="{{ t }}">{{ t.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
-                <p class="field-hint">Supplier Pembelian = penjual TBS ke pabrik. Buyer Penjualan = pembeli produk PKS.</p>
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
@@ -48,7 +47,6 @@
                 <select id="prodKategori" name="kategori" class="input-field">
                     {% for k in kategori_produk %}<option value="{{ k }}">{{ k.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
-                <p class="field-hint">TBS diperiksa di tab Sortasi, Produk PKS diperiksa di tab Laboratorium.</p>
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">

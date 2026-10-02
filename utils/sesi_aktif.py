@@ -1,7 +1,3 @@
-"""Daftar sesi login yang sedang aktif (menu Admin > Sesi Aktif). Hanya untuk ditampilkan.
-
-Disimpan di memori proses. Setelah server restart daftar kosong, lalu terisi lagi saat user membuka halaman.
-Paksa keluar tidak bergantung pada daftar ini: users.sesi_versi dinaikkan, sesi lama otomatis ditolak."""
 import secrets
 import threading
 import time

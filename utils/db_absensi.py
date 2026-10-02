@@ -1,4 +1,3 @@
-"""Query tabel absensi & jadwal_kerja (menu Face Recognition > Absensi)."""
 from datetime import datetime, time, date
 from utils.db_utils import get_connection, _rows_to_dicts
 from utils.cache import cache_ttl

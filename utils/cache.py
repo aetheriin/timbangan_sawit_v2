@@ -1,5 +1,3 @@
-"""Cache kecil di memori server untuk data yang jarang berubah (supplier, produk, jadwal, standar mutu).
-Satu proses waitress = satu cache; bila datanya diubah lewat aplikasi, panggil .hapus() pada fungsi tsb."""
 import threading
 import time
 from functools import wraps
