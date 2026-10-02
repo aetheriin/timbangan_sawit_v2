@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block modals %}
-    {% include "partials/kontrak/do_modal.html" %}
+    {% if boleh_ubah %}{% include "partials/kontrak/do_modal.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}

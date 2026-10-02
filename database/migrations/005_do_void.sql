@@ -2,7 +2,7 @@
    Migrasi 005: Kontrak & DO (diisi HO) dan Void tiket (Admin)
    - supplier.tipe     -> CUSTOMER (perusahaan yang membeli / menjual) | PENGANGKUTAN (angkutan pihak ketiga)
    - delivery_order    No DO -> No Kontrak, jenis transaksi, customer, produk, pengangkutan
-   - transaksi         + id_pengangkutan, + kolom void (status_alur = 'VOID')
+   - transaksi         + id_pengangkutan, + kolom void, CHECK status_alur ditambah 'VOID'
 
    Jalankan SETELAH 001-004, di SSMS (ganti nama di baris USE). Aman dijalankan ulang.
    ===================================================================== */
@@ -59,4 +59,21 @@ IF COL_LENGTH('dbo.transaksi', 'id_pengangkutan') IS NULL
 IF COL_LENGTH('dbo.transaksi', 'alasan_void') IS NULL
     ALTER TABLE dbo.transaksi ADD alasan_void VARCHAR(255) NULL, void_by INT NULL
         CONSTRAINT FK_Trx_VoidBy REFERENCES dbo.users (id_user), void_at DATETIME NULL;
+GO
+
+/* ---------- 4. status_alur: tambah VOID (CHECK bawaan main tidak bernama -> diganti CK_Trx_Status) ---------- */
+DECLARE @ck2 SYSNAME, @sql2 NVARCHAR(400);
+WHILE 1 = 1
+BEGIN
+    SET @ck2 = NULL;
+    SELECT TOP 1 @ck2 = name FROM sys.check_constraints
+    WHERE parent_object_id = OBJECT_ID('dbo.transaksi') AND definition LIKE '%status_alur%' AND name <> 'CK_Trx_Status';
+    IF @ck2 IS NULL BREAK;
+    SET @sql2 = N'ALTER TABLE dbo.transaksi DROP CONSTRAINT ' + QUOTENAME(@ck2);
+    EXEC sp_executesql @sql2;
+END
+GO
+IF OBJECT_ID('CK_Trx_Status', 'C') IS NULL
+    ALTER TABLE dbo.transaksi ADD CONSTRAINT CK_Trx_Status CHECK (status_alur IN
+        ('SECURITY_REGISTER', 'SCAN_WAJAH', 'TIMBANG_1', 'INSPEKSI_PROSES', 'TIMBANG_2', 'SELESAI', 'REJECTED', 'VOID'));
 GO

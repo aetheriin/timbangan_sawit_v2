@@ -2,6 +2,7 @@
 let daftarDO = [];
 let filterAktifDO = '';
 let timerCariDO = null;
+const bolehUbahDO = () => document.getElementById('tabelDO').dataset.bolehUbah === '1';
 
 document.addEventListener('DOMContentLoaded', muatDO);
 
@@ -23,14 +24,14 @@ function tampilkanDO() {
             <td class="table-cell">${badge(labelKode(d.jenis_transaksi), d.jenis_transaksi === 'PENJUALAN' ? WARNA_BADGE.biru : WARNA_BADGE.hijau)}</td>
             <td class="table-cell">${escapeHtml(d.nama_customer)}</td>
             <td class="table-cell">${escapeHtml(d.nama_produk)}</td>
-            <td class="table-cell">${escapeHtml(d.nama_pengangkutan)}</td>
+            <td class="table-cell">${escapeHtml(d.nama_pengangkutan)}${d.pihak_ketiga ? ' <span class="text-xs text-amber-700">(pihak ketiga)</span>' : ''}</td>
             <td class="table-cell whitespace-nowrap">${escapeHtml(d.tanggal_do)}</td>
             <td class="table-cell whitespace-nowrap">${escapeHtml(d.berlaku_sampai || '-')}</td>
             <td class="table-cell">${badgeAktif(d.is_active)}</td>
-            <td class="table-cell text-right whitespace-nowrap space-x-3">
+            <td class="table-cell text-right whitespace-nowrap space-x-3">${bolehUbahDO() ? `
                 <button type="button" class="link-aksi text-blue-600" data-on-click="bukaDO" data-arg="${d.id_do}">Ubah</button>
                 <button type="button" class="link-aksi ${d.is_active ? 'text-red-600' : 'text-emerald-600'}"
-                    data-on-click="ubahAktifDO" data-arg="${d.id_do}">${d.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                    data-on-click="ubahAktifDO" data-arg="${d.id_do}">${d.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
         </tr>`).join('') || barisKosong(10, 'Belum ada DO');
 }
@@ -50,25 +51,38 @@ function bukaDO(id) {
     const form = document.getElementById('formDO');
     const d = daftarDO.find(x => x.id_do === id);
     form.reset();
-    if (d) isiForm(form, { ...d, id_pengangkutan: d.id_pengangkutan || '', berlaku_sampai: d.berlaku_sampai || '', keterangan: d.keterangan || '' });
+    if (d) isiForm(form, { ...d, nama_pengangkutan: d.pihak_ketiga ? d.nama_pengangkutan : '', berlaku_sampai: d.berlaku_sampai || '', keterangan: d.keterangan || '' });
     else isiForm(form, { id_do: '', tanggal_do: new Date().toISOString().slice(0, 10) });
+    pilihPengangkutan(d && d.pihak_ketiga ? 'PIHAK_KETIGA' : 'CUSTOMER');
     document.getElementById('judulModalDO').textContent = d ? 'Ubah DO' : 'Tambah DO';
     openModal('modalDO');
     document.getElementById('doNoKontrak').focus();
 }
 
 // No Kontrak yang sudah pernah dipakai -> customer, produk, jenis, pengangkutan ikut terisi (DO baru saja)
-document.getElementById('doNoKontrak').addEventListener('change', async e => {
+document.getElementById('doNoKontrak')?.addEventListener('change', async e => {
     const form = e.target.form;
     if (form.elements.id_do.value || !e.target.value.trim()) return;
     const d = await ambilJson(`/api/kontrak/terakhir?no_kontrak=${encodeURIComponent(e.target.value.trim())}`);
     if (!d || d.error || !d.id_do) return;
     isiForm(form, { jenis_transaksi: d.jenis_transaksi, id_customer: d.id_customer, id_produk: d.id_produk,
-                    id_pengangkutan: d.id_pengangkutan || '' });
+                    nama_pengangkutan: d.pihak_ketiga ? d.nama_pengangkutan : '' });
+    pilihPengangkutan(d.pihak_ketiga ? 'PIHAK_KETIGA' : 'CUSTOMER');
     Notif.info(`Data diisi dari kontrak ${d.no_kontrak} (DO ${d.no_do})`);
 });
 
-document.getElementById('formDO').addEventListener('submit', e => {
+// Pengangkutan: kendaraan milik customer sendiri, atau pihak ketiga (nama diketik; nama baru otomatis didaftarkan)
+function pilihPengangkutan(mode) {
+    const form = document.getElementById('formDO');
+    form.elements.pengangkutan.value = mode;
+    form.querySelectorAll('[data-angkut]').forEach(b => b.classList.toggle('seg-item-active', b.dataset.angkut === mode));
+    const nama = document.getElementById('doNamaAngkut');
+    nama.classList.toggle('hidden', mode !== 'PIHAK_KETIGA');
+    nama.required = mode === 'PIHAK_KETIGA';
+    if (mode === 'PIHAK_KETIGA') nama.focus();
+}
+
+document.getElementById('formDO')?.addEventListener('submit', e => {
     e.preventDefault();
     kirimFormAdmin(e.target, '/api/kontrak/do/simpan', { modal: 'modalDO', setelahnya: muatDO });
 });

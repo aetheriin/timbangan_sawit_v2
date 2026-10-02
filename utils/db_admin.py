@@ -1,5 +1,5 @@
 """Query menu Admin: user, master supplier & produk, jadwal kerja, audit admin, kesehatan database."""
-from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk
+from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 
 ROLE_VALID = ("ADMIN", "HO", "SECURITY", "OPERATOR_TIMBANG", "SORTASI", "LAB")
@@ -58,20 +58,24 @@ def ubah_user(id_user, nama, role):
     """Ganti role -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
     _ubah("""UPDATE users SET nama = ?, sesi_versi = sesi_versi + CASE WHEN role <> ? THEN 1 ELSE 0 END,
              role = ?, updated_at = GETDATE() WHERE id_user = ?""", nama, role, role, id_user)
+    get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def reset_password(id_user, password_hash):
     _ubah("""UPDATE users SET password = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
              WHERE id_user = ?""", password_hash, id_user)
+    get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def set_aktif_user(id_user, aktif):
     _ubah("""UPDATE users SET is_active = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
              WHERE id_user = ?""", 1 if aktif else 0, id_user)
+    get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def cabut_sesi(id_user):
     _ubah("UPDATE users SET sesi_versi = sesi_versi + 1 WHERE id_user = ?", id_user)
+    get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 # ===== MASTER SUPPLIER & PRODUK =====

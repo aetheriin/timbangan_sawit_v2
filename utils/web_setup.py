@@ -106,8 +106,11 @@ def pasang_log_lambat(app):
             ms = (time.perf_counter() - mulai) * 1000
             resp.headers["Server-Timing"] = f"app;dur={ms:.0f}"
             if ms >= BATAS_LAMBAT_MS:
-                log.warning("LAMBAT %.0f ms  %s %s -> %s", ms, request.method, request.full_path.rstrip("?"),
-                            resp.status_code)
+                # db: jumlah koneksi dibuka & total waktu membuka koneksi. Buka koneksi lama = jaringan / login SQL lambat;
+                # buka cepat tapi total lama = query lambat / tertahan lock di SQL Server (cek: EXEC sp_who2 di SSMS).
+                log.warning("LAMBAT %.0f ms  %s %s -> %s  (db: %d koneksi, buka %.0f ms)", ms, request.method,
+                            request.full_path.rstrip("?"), resp.status_code,
+                            getattr(g, "db_koneksi", 0), getattr(g, "db_buka_ms", 0))
         return resp
 
 

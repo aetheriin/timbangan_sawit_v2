@@ -77,3 +77,23 @@ def set_aktif_do(id_do, aktif):
 def daftar_mitra():
     """Customer & pengangkutan aktif untuk pilihan form DO."""
     return _query("SELECT id_supplier, nama_supplier, tipe FROM supplier WHERE is_active = 1 ORDER BY nama_supplier")
+
+
+def id_pengangkutan_dari_nama(nama):
+    """DO dengan pengangkutan pihak ketiga: pakai pengangkutan yang namanya sama, atau buat baru (kode ANG-001 dst)."""
+    nama = " ".join(nama.split())[:100]
+    rows = _query("SELECT id_supplier FROM supplier WHERE tipe = 'PENGANGKUTAN' AND LOWER(nama_supplier) = LOWER(?)", nama)
+    if rows:
+        return rows[0]["id_supplier"]
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM supplier WHERE kode_supplier LIKE 'ANG-%'")
+        kode = f"ANG-{cursor.fetchone()[0] + 1:03d}"
+        cursor.execute("""INSERT INTO supplier (kode_supplier, nama_supplier, tipe) OUTPUT INSERTED.id_supplier
+                          VALUES (?, ?, 'PENGANGKUTAN')""", kode, nama)
+        id_baru = cursor.fetchone()[0]
+        conn.commit()
+        return id_baru
+    finally:
+        conn.close()

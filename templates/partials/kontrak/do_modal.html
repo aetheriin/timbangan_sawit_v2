@@ -36,11 +36,17 @@
                 </select>
             </div>
             <div>
-                <label class="field-label" for="doAngkut">Pengangkutan</label>
-                <select id="doAngkut" name="id_pengangkutan" class="input-field">
-                    <option value="">Kendaraan sendiri</option>
-                    {% for a in angkutan_list %}<option value="{{ a.id_supplier }}">{{ a.nama_supplier }}</option>{% endfor %}
-                </select>
+                <label class="field-label">Pengangkutan</label>
+                <input type="hidden" name="pengangkutan" value="CUSTOMER">
+                <div class="seg">
+                    <button type="button" class="seg-item seg-item-active" data-angkut="CUSTOMER" data-on-click="pilihPengangkutan" data-arg="CUSTOMER">Customer sendiri</button>
+                    <button type="button" class="seg-item" data-angkut="PIHAK_KETIGA" data-on-click="pilihPengangkutan" data-arg="PIHAK_KETIGA">Pihak ketiga</button>
+                </div>
+                <input type="text" id="doNamaAngkut" name="nama_pengangkutan" maxlength="100" list="daftarAngkutan"
+                       placeholder="Nama perusahaan angkutan" class="input-field mt-2 hidden">
+                <datalist id="daftarAngkutan">
+                    {% for a in angkutan_list %}<option value="{{ a.nama_supplier }}">{% endfor %}
+                </datalist>
             </div>
             <div>
                 <label class="field-label" for="doTanggal">Tanggal DO</label>

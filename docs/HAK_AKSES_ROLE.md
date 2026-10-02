@@ -23,7 +23,7 @@ SORTASI → Sortasi; LAB → Laboratorium. Menu & tab untuk role non-admin belum
 | Simpan sortasi | SORTASI |
 | Simpan hasil lab, ubah standar mutu | LAB |
 | Tambah / ubah / hapus personel, tambah blacklist | HO |
-| Menu Kontrak & DO (tambah / ubah / nonaktifkan DO) | HO |
+| Menu Kontrak & DO: tambah / ubah / nonaktifkan DO (role lain hanya melihat) | HO |
 | Void tiket | ADMIN |
 | Semua menu Admin | ADMIN |
 

@@ -1,7 +1,7 @@
 """Menu Kontrak & DO (role HO) + pencarian DO untuk Form Security."""
 from datetime import date
 
-from flask import Blueprint, render_template, request, jsonify, abort
+from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
 from extensions import role_required
@@ -17,16 +17,17 @@ def _tgl(d):
 
 def _json_do(d):
     return {**d, "tanggal_do": _tgl(d["tanggal_do"]), "berlaku_sampai": _tgl(d["berlaku_sampai"]),
-            "created_at": _tgl(d["created_at"]), "nama_pengangkutan": d["nama_pengangkutan"] or "Kendaraan sendiri"}
+            "created_at": _tgl(d["created_at"]), "pihak_ketiga": bool(d["id_pengangkutan"]),
+            "nama_pengangkutan": d["nama_pengangkutan"] or "Customer sendiri"}
 
 
 @kontrak_bp.route("/kontrak")
 @login_required
 def kontrak_halaman():
-    if current_user.role != "HO":
-        abort(403)
+    """Semua role bisa melihat; hanya HO yang bisa menambah / mengubah (dicek juga di API)."""
     mitra = db.daftar_mitra()
     return render_template("kontrak/kontrak.html", halaman="kontrak", jenis_list=db.JENIS_VALID,
+                           boleh_ubah=current_user.role == "HO",
                            customer_list=[m for m in mitra if m["tipe"] == "CUSTOMER"],
                            angkutan_list=[m for m in mitra if m["tipe"] == "PENGANGKUTAN"],
                            produk_list=get_semua_produk())
@@ -34,7 +35,6 @@ def kontrak_halaman():
 
 @kontrak_bp.route("/api/kontrak/do")
 @login_required
-@role_required("HO")
 def do_daftar():
     return jsonify([_json_do(d) for d in db.daftar_do(request.args.get("cari", ""))])
 
@@ -77,7 +77,7 @@ def do_simpan():
         id_do = _id("id_do", wajib=False)
         d = {"no_do": (f.get("no_do") or "").strip().upper(), "no_kontrak": (f.get("no_kontrak") or "").strip().upper(),
              "jenis_transaksi": (f.get("jenis_transaksi") or "").strip().upper(),
-             "id_customer": _id("id_customer"), "id_produk": _id("id_produk"), "id_pengangkutan": _id("id_pengangkutan", False),
+             "id_customer": _id("id_customer"), "id_produk": _id("id_produk"), "id_pengangkutan": None,
              "tanggal_do": _tanggal("tanggal_do", True), "berlaku_sampai": _tanggal("berlaku_sampai", False),
              "keterangan": (f.get("keterangan") or "").strip()[:200] or None}
         if not d["no_do"] or not d["no_kontrak"]:
@@ -88,6 +88,11 @@ def do_simpan():
             raise ValueError("Jenis transaksi tidak dikenal")
         if d["berlaku_sampai"] and d["berlaku_sampai"] < d["tanggal_do"]:
             raise ValueError("Berlaku sampai tidak boleh sebelum tanggal DO")
+        if f.get("pengangkutan") == "PIHAK_KETIGA":
+            nama = (f.get("nama_pengangkutan") or "").strip()
+            if len(nama) < 3:
+                raise ValueError("Nama pengangkutan pihak ketiga wajib diisi")
+            d["id_pengangkutan"] = db.id_pengangkutan_dari_nama(nama)
         if db.no_do_dipakai(d["no_do"], kecuali=id_do):
             raise ValueError(f"No DO {d['no_do']} sudah terdaftar")
         db.simpan_do(id_do, d, current_user.id)

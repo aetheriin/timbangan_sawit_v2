@@ -1,6 +1,7 @@
 import os
 import pyodbc
 import hashlib
+import time
 from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
 from config import get_connection_string
@@ -12,8 +13,22 @@ load_dotenv()
 # Harus di-set sebelum koneksi pertama dibuat.
 pyodbc.pooling = True
 
+QUERY_TIMEOUT_DETIK = int(os.getenv("DB_QUERY_TIMEOUT", "15"))
+
+
 def get_connection():
-    return pyodbc.connect(get_connection_string(), timeout=10)
+    """Koneksi baru (dari pool ODBC). Waktu buka koneksi dicatat per request untuk log LAMBAT."""
+    mulai = time.perf_counter()
+    conn = pyodbc.connect(get_connection_string(), timeout=10)
+    conn.timeout = QUERY_TIMEOUT_DETIK          # query tertahan (lock / server sibuk) -> error, bukan menunggu lama
+    try:
+        from flask import g, has_request_context
+        if has_request_context():
+            g.db_koneksi = getattr(g, "db_koneksi", 0) + 1
+            g.db_buka_ms = getattr(g, "db_buka_ms", 0) + (time.perf_counter() - mulai) * 1000
+    except ImportError:
+        pass
+    return conn
 
 def cek_koneksi_db():
     """Dipakai /health: True bila database bisa dijangkau."""
@@ -34,6 +49,7 @@ def get_user_by_username(username):
     conn.close()
     return row
 
+@cache_ttl(15)
 def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()

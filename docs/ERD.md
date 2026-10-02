@@ -124,7 +124,7 @@ Satu baris `blacklist` hanya untuk **satu** target: `tipe_entitas = PERSONEL` �
 | delivery_order | `no_do` (unik), `no_kontrak`, `jenis_transaksi`, `berlaku_sampai`, `is_active` | `id_customer`, `id_pengangkutan` → supplier; `id_produk` → produk | Diisi HO. Form Security: ketik No DO → jenis, customer, produk, pengangkutan terisi |
 | transaksi (+kolom) | `id_pengangkutan`, `alasan_void`, `void_by`, `void_at` | `id_pengangkutan` → supplier, `void_by` → users | Status `VOID` = tiket dibatalkan admin |
 
-Gambar `erd.png` / `erd.svg` belum memuat tabel 004 (tabel pendukung, tidak berelasi dengan alur tiket).
+Gambar `erd.png` / `erd.svg` sudah memuat semua tabel (main + migrasi 001–005). Schema SQL lengkap: `database/schema_lengkap.sql`.
 
 ## Kode diagram (untuk di-copy)
 
@@ -143,6 +143,8 @@ erDiagram
         varchar role "ADMIN | HO | SECURITY | OPERATOR_TIMBANG | SORTASI | LAB"
         int id_personel FK "UK, opsional (wajah akun)"
         bit is_active
+        datetime last_login "004"
+        int sesi_versi "004, naik = sesi dicabut"
         datetime created_at
         datetime updated_at
     }
@@ -150,7 +152,7 @@ erDiagram
         int id_supplier PK
         varchar kode_supplier UK
         varchar nama_supplier
-        varchar tipe "SUPPLIER_PEMBELIAN | BUYER_PENJUALAN"
+        varchar tipe "CUSTOMER | PENGANGKUTAN (005)"
         bit is_active
         datetime created_at
     }
@@ -239,13 +241,17 @@ erDiagram
         int id_kendaraan FK
         int id_driver FK "ke personel"
         int id_kontrak FK "opsional"
-        varchar no_do
-        varchar status_alur "SECURITY_REGISTER s/d SELESAI | REJECTED"
+        varchar no_do "dari delivery_order"
+        int id_pengangkutan FK "005, ke supplier"
+        varchar status_alur "SECURITY_REGISTER s/d SELESAI | REJECTED | VOID"
         bit is_qr_active
         datetime qr_expired_at
         int qr_reprint_count
         varchar alasan_reject
         int rejected_by FK "opsional"
+        varchar alasan_void "005"
+        int void_by FK "005, ke users"
+        datetime void_at "005"
         int security_id FK
         bit is_driver_changed "baru"
         int prev_driver_id FK "baru, ke personel"
@@ -341,6 +347,44 @@ erDiagram
         datetime waktu
         date tanggal "computed"
     }
+    delivery_order {
+        int id_do PK
+        varchar no_do UK
+        varchar no_kontrak
+        varchar jenis_transaksi
+        int id_customer FK "ke supplier (CUSTOMER)"
+        int id_produk FK
+        int id_pengangkutan FK "ke supplier (PENGANGKUTAN), NULL = customer sendiri"
+        date tanggal_do
+        date berlaku_sampai
+        varchar keterangan
+        bit is_active
+        int created_by FK
+        datetime created_at
+    }
+    pengaturan {
+        varchar kunci PK
+        varchar nilai
+        int updated_by FK
+        datetime updated_at
+    }
+    perangkat_kiosk {
+        varchar id_pos PK
+        varchar nama
+        varchar lokasi
+        char token_hash "SHA-256"
+        bit is_active
+        datetime created_at
+    }
+    admin_audit_logs {
+        bigint id_log PK
+        int user_id FK
+        varchar aksi
+        varchar target
+        nvarchar detail
+        varchar ip_address
+        datetime created_at
+    }
 
     %% ---- Master -> Transaksi
     supplier  ||--o{ transaksi : "id_supplier"
@@ -351,6 +395,19 @@ erDiagram
     kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
     users     ||--o{ transaksi : "security_id"
     users     |o--o{ transaksi : "rejected_by"
+    users     |o--o{ transaksi : "void_by"
+    supplier  |o--o{ transaksi : "id_pengangkutan"
+    delivery_order ||..o{ transaksi : "no_do (tanpa FK)"
+
+    %% ---- Kontrak & DO (HO)
+    supplier  ||--o{ delivery_order : "id_customer"
+    supplier  |o--o{ delivery_order : "id_pengangkutan"
+    produk    ||--o{ delivery_order : "id_produk"
+    users     |o--o{ delivery_order : "created_by"
+
+    %% ---- Admin
+    users     |o--o{ pengaturan : "updated_by"
+    users     ||--o{ admin_audit_logs : "user_id"
 
     %% ---- Transaksi -> detail per tahap
     transaksi ||--o| timbangan : "no_tiket"
@@ -405,6 +462,8 @@ Table users {
   role varchar(30) [not null, note: 'ADMIN | HO | SECURITY | OPERATOR_TIMBANG | SORTASI | LAB']
   id_personel int [unique, ref: - personel.id_personel, note: 'wajah pemilik akun (opsional)']
   is_active bit [not null, default: 1]
+  last_login datetime
+  sesi_versi int [not null, default: 0, note: "naik = semua sesi dicabut"]
   created_at datetime [not null]
   updated_at datetime [not null]
 }
@@ -413,7 +472,7 @@ Table supplier {
   id_supplier int [pk, increment]
   kode_supplier varchar(20) [not null, unique]
   nama_supplier varchar(100) [not null]
-  tipe varchar(30) [not null, note: 'SUPPLIER_PEMBELIAN | BUYER_PENJUALAN']
+  tipe varchar(30) [not null, note: 'CUSTOMER | PENGANGKUTAN']
   is_active bit [not null, default: 1]
   created_at datetime [not null]
 }
@@ -514,7 +573,11 @@ Table transaksi {
   id_driver int [not null, ref: > personel.id_personel, note: 'ke personel']
   id_kontrak int [ref: > kontrak_kendaraan.id_kontrak, note: 'opsional']
   no_do varchar(50)
-  status_alur varchar(30) [not null, default: 'SECURITY_REGISTER']
+  status_alur varchar(30) [not null, default: 'SECURITY_REGISTER', note: '... SELESAI | REJECTED | VOID']
+  id_pengangkutan int [ref: > supplier.id_supplier]
+  alasan_void varchar(255)
+  void_by int [ref: > users.id_user]
+  void_at datetime
   is_qr_active bit [not null, default: 1]
   qr_expired_at datetime [not null]
   qr_reprint_count int [not null, default: 0]
@@ -599,6 +662,48 @@ Table security_audit_logs {
   created_at datetime [not null]
 }
 
+Table delivery_order {
+  id_do int [pk, increment]
+  no_do varchar(50) [not null, unique]
+  no_kontrak varchar(50) [not null]
+  jenis_transaksi varchar(20) [not null]
+  id_customer int [not null, ref: > supplier.id_supplier]
+  id_produk int [not null, ref: > produk.id_produk]
+  id_pengangkutan int [ref: > supplier.id_supplier, note: 'NULL = customer sendiri']
+  tanggal_do date [not null]
+  berlaku_sampai date
+  keterangan varchar(200)
+  is_active bit [not null, default: 1]
+  created_by int [ref: > users.id_user]
+  created_at datetime [not null]
+}
+
+Table pengaturan {
+  kunci varchar(50) [pk]
+  nilai varchar(200) [not null]
+  updated_by int [ref: > users.id_user]
+  updated_at datetime [not null]
+}
+
+Table perangkat_kiosk {
+  id_pos varchar(30) [pk]
+  nama varchar(100) [not null]
+  lokasi varchar(100)
+  token_hash char(64) [not null]
+  is_active bit [not null, default: 1]
+  created_at datetime [not null]
+}
+
+Table admin_audit_logs {
+  id_log bigint [pk, increment]
+  user_id int [not null, ref: > users.id_user]
+  aksi varchar(40) [not null]
+  target varchar(100)
+  detail nvarchar(500)
+  ip_address varchar(45)
+  created_at datetime [not null]
+}
+
 Table jadwal_kerja {
   hari tinyint [pk, note: '1 = Senin .. 7 = Minggu']
   nama_hari varchar(10) [not null]
@@ -628,7 +733,7 @@ Table absensi {
 ## Membuat ulang gambar
 
 ```
-npx -p @mermaid-js/mermaid-cli mmdc -i erd.mmd -o docs/erd.png -s 2 -b white
+npx -p @mermaid-js/mermaid-cli mmdc -i erd.mmd -o docs/erd.png --size 5000 -b white
 npx -p @mermaid-js/mermaid-cli mmdc -i erd.mmd -o docs/erd.svg -b white
 ```
 (salin blok Mermaid di atas ke file `erd.mmd` terlebih dulu)
