@@ -240,7 +240,16 @@ function hentikanScanWajah(pesan) {
     if (pesan) document.getElementById('statusScanWajah').textContent = pesan;
 }
 
+// Pos kamera per PC: disimpan di cookie supaya server tahu kiosk mana yang dibuka (berlaku 1 tahun di browser ini)
+function pilihPosKamera(pos) {
+    if (!pos) return;
+    document.cookie = `pos_kiosk=${encodeURIComponent(pos)}; path=/; max-age=31536000; SameSite=Lax`;
+    Notif.sukses(`PC ini memakai kamera pos ${pos}`);
+}
+
 async function mulaiScanWajah() {
+    const pilihPos = document.getElementById('pilihPos');
+    if (pilihPos && !pilihPos.value) { Notif.peringatan('Pilih Pos kamera untuk PC ini dulu'); pilihPos.focus(); return; }
     const status = document.getElementById('statusScanWajah');
     const btn = document.getElementById('btnScanWajah');
     const mulai = await kirimForm('/api/kamera/start', {});

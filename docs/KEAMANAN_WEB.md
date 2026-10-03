@@ -62,9 +62,12 @@ dengan hash dari nilai lama, tetap pakai nilai lama (hanya pastikan panjangnya >
 
 ## Kiosk kamera
 
-- Kiosk di **PC yang sama** dengan server: tidak perlu apa-apa.
-- Kiosk di **PC lain**: isi `KIOSK_TOKEN=<acak>` di `.env` server **dan** `.env` PC kiosk (nilai sama), serta
-  `WEIGHBRIDGE_URL=http://<IP-server>:5000` di PC kiosk.
+- Satu kiosk saja, di **PC yang sama** dengan server: tidak perlu apa-apa (pos `UTAMA`).
+- **Beberapa pos** (mis. POS1, POS2): buat pos di Admin › Perangkat / Kiosk, lalu di `.env` **PC kiosk** isi
+  `KIOSK_ID=POS1`, `KIOSK_TOKEN=<token pos itu>`, `WEIGHBRIDGE_URL=http://<IP-server>:5000`.
+  Di **tiap PC Security** pilih sekali "Pos kamera" di Form Security › Informasi Driver (diingat di browser itu).
+  `KIOSK_TOKEN` di `.env` server = token bersama cara lama (berlaku untuk semua pos); kosongkan bila memakai token per pos.
+- Waktu scan wajah kiosk (hitung mundur, batas waktu, jumlah percobaan) diatur di bagian atas `kiosk_timbang.py`.
 - Hasil scan hanya bisa dipakai user yang menekan "Mulai Scan Wajah", berlaku 5 menit.
 
 ## Akses dari PC lain di LAN

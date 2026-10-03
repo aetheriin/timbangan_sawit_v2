@@ -238,9 +238,17 @@ def perangkat_atau_login(f):
     return wrapped
 
 
+COOKIE_POS = "pos_kiosk"
+
+
 def id_pos():
-    """Pos / kiosk kamera. Kiosk mengirim X-Kiosk-Id; browser memakai pos default (satu kiosk per server)."""
-    return (request.headers.get("X-Kiosk-Id") or os.getenv("POS_DEFAULT", "UTAMA"))[:30]
+    """Pos / kiosk kamera. Kiosk mengirim X-Kiosk-Id; browser memakai pos yang dipilih di PC itu
+    (cookie pos_kiosk, dipilih di Form Security), bila belum memilih -> POS_DEFAULT di .env."""
+    pos = request.headers.get("X-Kiosk-Id")
+    if not pos:
+        dipilih = request.cookies.get(COOKIE_POS, "")
+        pos = dipilih if kiosk.POLA_ID_POS.match(dipilih) else os.getenv("POS_DEFAULT", "UTAMA")
+    return pos[:30]
 
 
 # ===== PASSWORD KEDALUWARSA =====

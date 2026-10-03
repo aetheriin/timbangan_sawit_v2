@@ -4,7 +4,9 @@ const TANTANGAN_ABSEN = [
     ['MENOLEH_KIRI', 'MENOLEH KE KIRI'],
     ['MENOLEH_KANAN', 'MENOLEH KE KANAN'],
 ];
-const JUMLAH_FRAME_ABSEN = 10;
+// Waktu scan: hitung mundur dulu, lalu foto direkam SELAMA tantangan (15 x 0,2 detik = 3 detik)
+const HITUNG_MUNDUR_ABSEN = 3;
+const JUMLAH_FRAME_ABSEN = 15;
 const JEDA_FRAME_MS = 200;
 
 let absensiDimuat = false;
@@ -51,10 +53,18 @@ async function mulaiScanAbsen() {
     }
 
     const [kode, teks] = TANTANGAN_ABSEN[Math.floor(Math.random() * TANTANGAN_ABSEN.length)];
-    label.textContent = `Tantangan liveness: ${teks}`;
-    status.textContent = 'Hadapkan wajah ke oval, lalu ikuti tantangan...';
-    await new Promise(r => setTimeout(r, 1000));
-    if (!scanAbsenBerjalan) return;
+    const hitung = document.getElementById('absenHitung');
+    status.textContent = 'Hadapkan wajah lurus ke oval...';
+    hitung.classList.replace('hidden', 'flex');
+    for (let i = HITUNG_MUNDUR_ABSEN; i > 0; i--) {
+        label.textContent = `Bersiap... setelah ini: ${teks}`;
+        hitung.textContent = i;
+        await new Promise(r => setTimeout(r, 1000));
+        if (!scanAbsenBerjalan) { hitung.classList.replace('flex', 'hidden'); return; }
+    }
+    hitung.classList.replace('flex', 'hidden');
+    label.textContent = `Sekarang: ${teks}`;
+    status.textContent = 'Ikuti perintah, foto sedang direkam...';
 
     const frames = await Kamera.ambilBanyak(video, JUMLAH_FRAME_ABSEN, JEDA_FRAME_MS);
     if (!scanAbsenBerjalan) return;
@@ -75,6 +85,7 @@ async function mulaiScanAbsen() {
 
 function selesaiScanAbsen() {
     scanAbsenBerjalan = false;
+    document.getElementById('absenHitung').classList.replace('flex', 'hidden');
     Kamera.stop();
     document.getElementById('btnMulaiAbsen').disabled = false;
     document.getElementById('absenTantangan').textContent = 'Tekan "Mulai Scan Absen"';

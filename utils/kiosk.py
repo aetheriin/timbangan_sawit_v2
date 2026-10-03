@@ -72,6 +72,14 @@ def daftar():
         conn.close()
 
 
+def daftar_aktif():
+    """Pos aktif untuk pilihan "Pos kamera" di Form Security. Gagal / tabel belum ada -> kosong."""
+    try:
+        return [p for p in daftar() if p["is_active"]]
+    except Exception:       # noqa: BLE001
+        return []
+
+
 def tambah(id_pos, nama, lokasi):
     """Kembalikan token asli (tampilkan sekali ke admin)."""
     token = token_baru()

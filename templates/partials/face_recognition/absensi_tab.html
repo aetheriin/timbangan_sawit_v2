@@ -5,11 +5,15 @@
     <div class="section-box">
         {{ section_header('scan-absensi', 'Scan Absensi') }}
         <div id="body-scan-absensi" class="section-body p-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="bg-slate-900 rounded-xl p-4 space-y-3">
-                    <div class="relative bg-black rounded-lg h-72 overflow-hidden flex items-center justify-center">
-                        <video id="absenVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover video-mirror"></video>
-                        <div class="relative w-40 h-52 rounded-full border-2 border-dashed border-emerald-400"></div>
+            {# Ukuran kotak kamera: lebar = md:col-span-3 dari md:grid-cols-5 (kolom hasil = md:col-span-2),
+               tinggi mengikuti kamera 4:3 (aspect-[4/3]); object-contain = gambar utuh, tidak dipotong / di-zoom.
+               Besar oval panduan wajah: w-[38%] h-[70%] #}
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-5">
+                <div class="md:col-span-3 bg-slate-900 rounded-xl p-4 space-y-3">
+                    <div class="relative bg-black rounded-lg aspect-[4/3] overflow-hidden flex items-center justify-center">
+                        <video id="absenVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-contain video-mirror"></video>
+                        <div class="relative w-[38%] h-[70%] rounded-full border-2 border-dashed border-emerald-400"></div>
+                        <span id="absenHitung" class="absolute inset-0 hidden items-center justify-center text-7xl font-bold text-white/90"></span>
                         <span id="absenTantangan" class="absolute bottom-3 bg-emerald-900 text-emerald-300 text-xs font-semibold px-3 py-1 rounded-full">
                             Tekan "Mulai Scan Absen"
                         </span>
@@ -21,7 +25,7 @@
                     <p id="absenStatus" class="text-xs text-slate-400"></p>
                 </div>
 
-                <div class="card">
+                <div class="card md:col-span-2">
                     <h3 class="card-title">Hasil Scan</h3>
                     <div id="absenHasil" class="text-sm text-slate-400">Belum ada scan.</div>
                 </div>

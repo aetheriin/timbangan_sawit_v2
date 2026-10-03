@@ -133,3 +133,18 @@ class TestPasswordKedaluwarsa(unittest.TestCase):
             self.assertIsNotNone(password_wajib_diganti(datetime.now() - timedelta(days=91)))
         with patch.object(pengaturan, "nilai", return_value=0):                                  # 0 = tidak kedaluwarsa
             self.assertIsNone(password_wajib_diganti(datetime.now() - timedelta(days=999)))
+
+
+class TestPosKamera(unittest.TestCase):
+    def test_pilihan_pos_per_pc(self):
+        from flask import Flask
+        from utils.keamanan import id_pos
+        app = Flask(__name__)
+        with patch.dict(os.environ, {"POS_DEFAULT": "UTAMA"}):
+            for header, cookie, hasil in ((None, None, "UTAMA"), (None, "POS2", "POS2"), (None, "pos<x>", "UTAMA"),
+                                          ("POS1", "POS2", "POS1")):
+                h = {"Cookie": f"pos_kiosk={cookie}"} if cookie else {}
+                if header:
+                    h["X-Kiosk-Id"] = header
+                with self.subTest(header=header, cookie=cookie), app.test_request_context("/", headers=h):
+                    self.assertEqual(id_pos(), hasil)

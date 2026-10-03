@@ -13,7 +13,8 @@ from utils.serializers import serialisasi_tiket, serialisasi_driver
 from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
-from utils import pengaturan
+from utils import pengaturan, kiosk
+from utils.keamanan import id_pos
 
 main_bp = Blueprint('main', __name__)
 
@@ -31,7 +32,8 @@ def weighbridge():
     return render_template("site/weighbridge.html", halaman="site", view="form",
                            tab_awal=TAHAP_ROLE.get(current_user.role, "security"),
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
-                           wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"))
+                           wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"),
+                           pos_list=kiosk.daftar_aktif(), pos_dipilih=id_pos())
 
 @main_bp.route("/api/list/history-produk")
 @login_required
