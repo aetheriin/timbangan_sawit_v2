@@ -1,12 +1,3 @@
-/* =====================================================================
-   Migrasi 006: password kedaluwarsa, info terkait blacklist, riwayat standar mutu, dashboard harga
-   - users.password_changed_at  (NULL = wajib ganti saat login; user lama diisi tanggal sekarang)
-   - blacklist + no_plat_terkait, id_customer_terkait, id_pengangkutan_terkait
-   - standar_mutu_log           riwayat perubahan standar mutu (tab Laboratorium, 2 hari terakhir)
-   - harga_harian               harga CPO, kernel, OER CPO, biaya olah per tanggal (Dashboard)
-
-   Jalankan SETELAH 001-005, di SSMS (ganti nama di baris USE). Aman dijalankan ulang.
-   ===================================================================== */
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
