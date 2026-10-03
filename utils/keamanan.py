@@ -113,16 +113,17 @@ def mulai_sesi(user, sesi_versi=0):
     sekarang = int(time.time())
     session.update(_aktif=sekarang, _mulai=sekarang, _versi=sesi_versi, _sid=sesi_aktif.sid_baru())
     sesi_aktif.catat(session["_sid"], user, request.remote_addr, request.user_agent.string)
+    return session["_sid"]
 
 
-def _akhiri_sesi(kejadian, detail, alasan):
+def _akhiri_sesi(kejadian, detail, alasan, kode="IDLE"):
     log_keamanan(kejadian, detail)
-    sesi_aktif.hapus(session.get("_sid"))
+    sesi_aktif.hapus(session.get("_sid"), kode)
     logout_user()
     session.clear()
     if request.path.startswith("/api/"):
         return jsonify({"error": alasan, "sesi_habis": True}), 401
-    return redirect("/login?habis=1")
+    return redirect(f"/login?keluar={kode}")
 
 
 def pasang_sesi_idle(app):
@@ -137,7 +138,7 @@ def pasang_sesi_idle(app):
         mulai = session.get("_mulai")
         if mulai and sekarang - mulai > pengaturan.nilai("SESI_MAKS_JAM") * 3600:
             return _akhiri_sesi("SESI_MAKS_HABIS", f"login {(sekarang - mulai) // 3600} jam lalu",
-                                "Sesi sudah terlalu lama. Silakan login ulang.")
+                                "Sesi sudah terlalu lama. Silakan login ulang.", "UMUR_MAKS")
         aktif = request.path not in PATH_POLLING
         if aktif:
             session["_aktif"] = sekarang
@@ -249,7 +250,7 @@ def password_wajib_diganti(password_changed_at):
         return "Password Anda baru dibuat / direset admin. Silakan buat password baru."
     hari = pengaturan.nilai("PASSWORD_EXPIRED_HARI")
     if hari and (datetime.now() - password_changed_at).days >= hari:
-        return f"Password Anda sudah lebih dari {hari} hari. Silakan buat password baru."
+        return f"Password Anda sudah kedaluwarsa (lebih dari {hari} hari). Silakan buat password baru."
     return None
 
 

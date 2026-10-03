@@ -52,9 +52,9 @@
 
                             <div>
                                 <label class="field-label">Pengemudi Terakhir Truk</label>
-                                <div class="border border-slate-200 rounded-lg p-4 flex items-center gap-3 bg-slate-50 h-[calc(100%-1.75rem)]">
-                                    <div id="pengemudiFotoBox" class="w-16 h-16 rounded border-2 border-dashed border-slate-300 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                        <i class="fa-solid fa-user text-slate-300"></i>
+                                <div class="border border-slate-200 rounded-lg p-4 flex items-center gap-4 bg-slate-50 h-[calc(100%-1.75rem)]">
+                                    <div id="pengemudiFotoBox" class="info-photo-box">
+                                        <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
                                     </div>
                                     <div id="pengemudiTerakhirInfo" class="text-sm text-slate-500">
                                         Belum ada riwayat
@@ -67,13 +67,13 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4 pt-4 border-t border-slate-100">
                             <div>
                                 <label class="field-label">Nomor DO (Delivery Order)</label>
-                                <input type="text" id="formNoDo" class="input-field uppercase" placeholder="Ketik No DO lalu Tab"
+                                <input type="text" id="formNoDo" class="input-field uppercase" placeholder="Ketik No DO lalu Tab (kosongkan bila tidak ada)"
                                        data-on-enter="cariDO" data-arg="$value">
                                 <p id="infoDO" class="text-xs mt-1 hidden"></p>
                             </div>
                             <div>
                                 <label class="field-label">Jenis Transaksi</label>
-                                <select id="formJenisTransaksi" class="input-field bg-slate-50" disabled>
+                                <select id="formJenisTransaksi" class="input-field" data-cari>
                                     <option value="">-- Pilih --</option>
                                     <option value="PEMBELIAN">Pembelian</option>
                                     <option value="PENJUALAN">Penjualan</option>
@@ -82,7 +82,7 @@
                             </div>
                             <div>
                                 <label class="field-label">Customer</label>
-                                <select id="formSupplier" class="input-field bg-slate-50" disabled>
+                                <select id="formSupplier" class="input-field" data-cari>
                                     <option value="">-- Pilih --</option>
                                     {% for s in supplier_list %}
                                     <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
@@ -91,20 +91,12 @@
                             </div>
                             <div>
                                 <label class="field-label">Produk</label>
-                                <select id="formProduk" class="input-field bg-slate-50" disabled>
+                                <select id="formProduk" class="input-field" data-cari>
                                     <option value="">-- Pilih --</option>
                                     {% for p in produk_list %}
                                     <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
                                     {% endfor %}
                                 </select>
-                            </div>
-                            <div>
-                                <label class="field-label">Pengangkutan</label>
-                                <input type="text" id="formPengangkutan" readonly class="input-field bg-slate-50">
-                            </div>
-                            <div>
-                                <label class="field-label">No Kontrak</label>
-                                <input type="text" id="formNoKontrak" readonly class="input-field bg-slate-50">
                             </div>
                         </div>
 

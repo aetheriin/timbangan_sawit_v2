@@ -25,7 +25,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 | Menu | Isi | Berlaku |
 |---|---|---|
 | Kelola User | Tambah user, ubah nama / role, reset password, aktif / nonaktif. User tidak dihapus | Ganti role, reset password, nonaktif → semua sesi user itu langsung berakhir |
-| Sesi Aktif | Siapa yang login, IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
+| Sesi Aktif | Siapa yang login dari semua PC (tabel `sesi_login`, migrasi 007), IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
 | Supplier & Produk | Tambah / ubah / aktif / nonaktif supplier (Supplier Pembelian / Buyer Penjualan) dan produk (TBS / Produk PKS) | Langsung muncul / hilang di pilihan Form |
 | Void Tiket | Batalkan tiket salah input (wajib alasan). Status jadi VOID: keluar dari daftar aktif, QR tidak berlaku, tidak bisa ditimbang. Data tidak dihapus | Langsung |
 | Jadwal Kerja | Libur, jam masuk, jam pulang, toleransi per hari | Scan absensi berikutnya |
@@ -47,6 +47,7 @@ Urutan yang dipakai aplikasi: **Admin › Pengaturan Site** → `.env` → bawaa
 | Logout otomatis bila tidak aktif | `SESI_IDLE_MENIT` | 120 menit | `utils/keamanan.py` (`cek_idle`) |
 | Peringatan sebelum logout otomatis | – | 2 menit | `static/js/ui.js` (`SesiIdle.PERINGATAN_DETIK`) |
 | Password kedaluwarsa (wajib ganti saat login, 0 = tidak pernah) | `PASSWORD_EXPIRED_HARI` | 90 hari | `utils/keamanan.py` (`password_wajib_diganti`) |
+| 1 user 1 perangkat (login baru mengeluarkan perangkat lama) | `SATU_PERANGKAT` | true | `routes/auth.py` (`login`) |
 | Umur sesi maksimal | `SESI_MAKS_JAM` | 12 jam | `utils/keamanan.py` (`cek_idle`) |
 | Wajib scan wajah supir | `WAJIB_SCAN_WAJAH` | true | `routes/security.py` |
 | Ambang kemiripan wajah | `AMBANG_WAJAH` | 0.55 | `routes/absensi.py`, `routes/security.py` |
@@ -63,6 +64,11 @@ Kunci login yang sedang berjalan bisa dibuka lebih cepat di **Sesi Aktif › Log
 
 - Semua aksi lewat POST + token CSRF; semua tercatat di Audit Admin (+ reset password / paksa keluar juga di log keamanan).
 - Admin tidak bisa menonaktifkan / menurunkan role akunnya sendiri, dan sistem menolak bila admin aktif tinggal 0.
-- Password minimal 8 karakter, disimpan sebagai hash pbkdf2.
+- Password minimal 8 karakter, disimpan sebagai hash pbkdf2. User hanya mengganti password sendiri saat login
+  dengan password kedaluwarsa / baru direset (muncul popup lalu halaman ganti password). Ganti sebelum kedaluwarsa
+  lewat admin (Kelola User › Reset Password).
 - Token kiosk disimpan sebagai hash SHA-256; token asli hanya tampil sekali.
 - "Paksa keluar" memakai `users.sesi_versi`: sesi lama ditolak di request berikutnya, di PC mana pun, walau server restart.
+  Perangkat yang dikeluarkan melihat alasannya di halaman login (paksa keluar admin, login di perangkat lain, dll).
+- Sesi Aktif membaca tabel `sesi_login` (jalankan `database/migrations/007_sesi_login.sql`), jadi sesi dari PC lain
+  dan dari proses server mana pun (app.py / serve.py) ikut tampil.

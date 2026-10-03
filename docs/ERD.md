@@ -115,6 +115,7 @@ Satu baris `blacklist` hanya untuk **satu** target: `tipe_entitas = PERSONEL` �
 | pengaturan | `kunci` (PK), `nilai`, `updated_by` | `updated_by` → users 1 : N | Pengaturan site dari Admin › Pengaturan Site |
 | perangkat_kiosk | `id_pos` (PK), `nama`, `lokasi`, `token_hash`, `is_active` | – | Pos kiosk kamera + hash token per pos |
 | admin_audit_logs | `aksi`, `target`, `detail`, `ip_address`, `created_at` | `user_id` → users 1 : N | Jejak aksi admin |
+| sesi_login (migrasi 007) | `sid` (PK), `ip`, `agen`, `login_at`, `terakhir_aktif`, `berakhir_at`, `alasan` | `user_id` → users 1 : N | Sesi login semua PC: Sesi Aktif, paksa keluar, 1 user 1 perangkat |
 
 ### Kontrak & DO, void (migrasi 005)
 
@@ -416,6 +417,16 @@ erDiagram
         varchar ip_address
         datetime created_at
     }
+    sesi_login {
+        varchar sid PK
+        int user_id FK
+        varchar ip
+        varchar agen
+        datetime login_at
+        datetime terakhir_aktif
+        datetime berakhir_at
+        varchar alasan
+    }
 
     %% ---- Master -> Transaksi
     supplier  ||--o{ transaksi : "id_supplier"
@@ -439,6 +450,7 @@ erDiagram
     %% ---- Admin
     users     |o--o{ pengaturan : "updated_by"
     users     ||--o{ admin_audit_logs : "user_id"
+    users     ||--o{ sesi_login : "user_id"
 
     %% ---- Migrasi 006
     supplier  |o--o{ blacklist : "id_customer_terkait / id_pengangkutan_terkait"
@@ -740,6 +752,17 @@ Table admin_audit_logs {
   detail nvarchar(500)
   ip_address varchar(45)
   created_at datetime [not null]
+}
+
+Table sesi_login {
+  sid varchar(24) [pk]
+  user_id int [not null, ref: > users.id_user]
+  ip varchar(45)
+  agen varchar(200)
+  login_at datetime [not null]
+  terakhir_aktif datetime [not null]
+  berakhir_at datetime
+  alasan varchar(20)
 }
 
 Table standar_mutu_log {

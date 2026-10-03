@@ -11,7 +11,7 @@ Pengecekan ada di server: `role_required(...)` (extensions.py) dan `pasang_batas
 | Weighbridge (List / Form, tab Security–Lab) | ❌ dialihkan ke /admin | ✅ semua tab terlihat |
 | Face Recognition (Absensi, Personel, Blacklist, Audit Log) | ❌ dialihkan ke /admin | ✅ semua tab terlihat |
 
-Halaman awal setelah login: ADMIN → Kelola User; SECURITY / HO → tab Security; OPERATOR_TIMBANG → Timbangan;
+Halaman awal setelah login: ADMIN → Kelola User; HO → Dashboard; SECURITY → tab Security; OPERATOR_TIMBANG → Timbangan;
 SORTASI → Sortasi; LAB → Laboratorium. Menu & tab untuk role non-admin belum dibatasi (KEAMANAN_WEB #11 ditunda).
 
 ## Aksi yang dibatasi role (selain itu cukup login)

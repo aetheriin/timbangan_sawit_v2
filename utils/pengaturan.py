@@ -18,6 +18,8 @@ DEFINISI = {
                      "Jarak maksimal wajah dianggap sama. Kecil = lebih ketat (0.50-0.60 disarankan)"),
     "SESI_IDLE_MENIT": ("Logout otomatis bila tidak aktif (menit)", "Sesi Login", "int", "120", 5, 720,
                         "Peringatan muncul 2 menit sebelumnya"),
+    "SATU_PERANGKAT": ("1 user 1 perangkat", "Sesi Login", "bool", "true", None, None,
+                       "Login di perangkat baru otomatis mengeluarkan sesi user itu di perangkat lain"),
     "SESI_MAKS_JAM": ("Umur sesi maksimal (jam)", "Sesi Login", "int", "12", 1, 24,
                       "Setelah ini user wajib login ulang walau masih aktif (±1 shift)"),
     "LOGIN_MAKS_GAGAL": ("Batas salah password", "Kunci Login", "int", "5", 3, 20,

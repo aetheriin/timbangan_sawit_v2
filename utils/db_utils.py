@@ -81,6 +81,19 @@ def ganti_password_sendiri(user_id, password_hash):
     get_user_by_id.hapus()
     return versi
 
+def naikkan_sesi_versi(user_id):
+    """Cabut semua sesi lain user ini (login di perangkat baru); kembalikan sesi_versi baru."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi WHERE id_user = ?", user_id)
+        versi = cursor.fetchone()[0]
+        conn.commit()
+    finally:
+        conn.close()
+    get_user_by_id.hapus()
+    return versi
+
 def catat_login_terakhir(user_id):
     conn = get_connection()
     try:
@@ -564,18 +577,23 @@ def simpan_timbang_kedua(no_tiket, berat, operator_id):
     conn.close()
     return netto
 
-def get_history_timbangan_by_supplier(id_supplier, hari=7):
+def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None):
+    """Default 7 hari terakhir; tanggal (date) = hanya hari itu."""
+    if tanggal:
+        filter_waktu, param = "t.created_at >= ? AND t.created_at < DATEADD(day, 1, ?)", (tanggal, tanggal)
+    else:
+        filter_waktu, param = "t.created_at >= DATEADD(day, ?, GETDATE())", (-hari,)
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT TOP 200 s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN timbangan tb ON t.no_tiket = tb.no_tiket
-        WHERE t.id_supplier = ? AND t.created_at >= DATEADD(day, ?, GETDATE())
+        WHERE t.id_supplier = ? AND {filter_waktu}
         ORDER BY t.created_at DESC
-    """, id_supplier, -hari)
+    """, id_supplier, *param)
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()

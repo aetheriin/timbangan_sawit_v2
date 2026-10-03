@@ -8,9 +8,6 @@
     {% if current_user.is_authenticated %}
     <div class="flex items-center gap-3 text-sm">
         <span>{{ current_user.nama_lengkap }} <span class="text-slate-400">({{ current_user.role }})</span></span>
-        <a href="{{ url_for('auth.ganti_password') }}" class="text-slate-300 hover:text-amber-400" title="Ganti password">
-            <i class="fa-solid fa-key"></i>
-        </a>
         {# Logout wajib POST + token CSRF (tidak bisa dipicu lewat link dari halaman lain) #}
         <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

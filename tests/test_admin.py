@@ -77,16 +77,26 @@ class TestLoginGuardAdmin(unittest.TestCase):
 
 
 class TestSesiAktif(unittest.TestCase):
-    def test_catat_dan_kedaluwarsa(self):
-        sesi_aktif._sesi.clear()
-        user = MagicMock(id=7, username="joko", nama_lengkap="Joko", role="SECURITY")
-        sesi_aktif.catat("a", user, "10.0.0.1", "Chrome")
-        sesi_aktif.catat("b", user, "10.0.0.2", "Edge")
-        self.assertEqual(len(sesi_aktif.daftar(60)), 2)
-        sesi_aktif._sesi["a"]["terakhir_aktif"] = time.time() - 120
-        self.assertEqual([s["sid"] for s in sesi_aktif.daftar(60)], ["b"])
-        sesi_aktif.hapus_user(7)
-        self.assertEqual(sesi_aktif.daftar(60), [])
+    def test_tulis_dibatasi_per_menit(self):
+        sesi_aktif._terakhir_tulis.clear()
+        user = MagicMock(id=7)
+        with patch.object(sesi_aktif, "_jalankan") as jalan:
+            sesi_aktif.catat("a", user, "10.0.0.1", "Chrome")                 # pertama -> ditulis
+            sesi_aktif.catat("a", user, "10.0.0.1", "Chrome")                 # < 1 menit -> dilewati
+            sesi_aktif.catat("a", user, "10.0.0.1", "Chrome", aktif=False)    # polling -> dilewati
+            self.assertEqual(jalan.call_count, 1)
+            sesi_aktif._terakhir_tulis["a"] -= 61
+            sesi_aktif.catat("a", user, "10.0.0.1", "Chrome")
+            self.assertEqual(jalan.call_count, 2)
+            sesi_aktif.hapus("a", "PAKSA_KELUAR")
+            self.assertNotIn("a", sesi_aktif._terakhir_tulis)
+            self.assertEqual(jalan.call_args[0][1:], ("PAKSA_KELUAR", "a"))
+
+    def test_gagal_db_tidak_menghentikan_request(self):
+        with patch.object(sesi_aktif, "get_connection", side_effect=RuntimeError("tabel belum ada")):
+            self.assertEqual(sesi_aktif.daftar(60), [])
+            self.assertEqual(sesi_aktif.hapus_user(7), 0)
+            self.assertIsNone(sesi_aktif.alasan_berakhir("x"))
 
 
 class TestKiosk(unittest.TestCase):

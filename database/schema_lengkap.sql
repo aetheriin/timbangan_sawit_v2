@@ -407,6 +407,21 @@ CREATE TABLE dbo.admin_audit_logs (
 CREATE INDEX IX_AdminAudit_Created ON dbo.admin_audit_logs (created_at DESC);
 GO
 
+/* Sesi login dari semua PC (Admin > Sesi Aktif, paksa keluar, 1 user 1 perangkat) - migrasi 007 */
+CREATE TABLE dbo.sesi_login (
+    sid             VARCHAR(24)  NOT NULL PRIMARY KEY,
+    user_id         INT          NOT NULL CONSTRAINT FK_SesiLogin_User REFERENCES dbo.users (id_user),
+    ip              VARCHAR(45)  NULL,
+    agen            VARCHAR(200) NULL,
+    login_at        DATETIME     NOT NULL DEFAULT GETDATE(),
+    terakhir_aktif  DATETIME     NOT NULL DEFAULT GETDATE(),
+    berakhir_at     DATETIME     NULL,
+    alasan          VARCHAR(20)  NULL
+);
+CREATE INDEX IX_SesiLogin_User ON dbo.sesi_login (user_id, berakhir_at);
+CREATE INDEX IX_SesiLogin_Aktif ON dbo.sesi_login (berakhir_at, terakhir_aktif);
+GO
+
 /* =========================== TRIGGER: blacklist permanen =========================== */
 CREATE OR ALTER TRIGGER dbo.TR_Personel_BlacklistPermanen ON dbo.personel AFTER UPDATE AS
 BEGIN

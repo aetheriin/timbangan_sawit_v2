@@ -49,13 +49,49 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
 }
 
+// History: default 7 hari terakhir, atau satu tanggal dalam 30 hari terakhir
+const HARI_HISTORY_MAKS = 30;
+let idSupplierHistory = null;
+
+function tanggalLokal(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+(function aturBatasTanggalTimbang() {
+    const input = document.getElementById('filterTanggalTimbang');
+    const hari = new Date();
+    input.max = tanggalLokal(hari);
+    hari.setDate(hari.getDate() - (HARI_HISTORY_MAKS - 1));
+    input.min = tanggalLokal(hari);
+})();
+
+function resetTanggalTimbang() {
+    document.getElementById('filterTanggalTimbang').value = '';
+    muatHistoryTimbanganUlang();
+}
+
+function muatHistoryTimbanganUlang() {
+    muatHistorySupplier(idSupplierHistory);
+}
+
 async function muatHistorySupplier(idSupplier) {
     if (!idSupplier) return;
-    const data = await ambilJson(`/api/history-timbangan-supplier?id_supplier=${encodeURIComponent(idSupplier)}`);
+    idSupplierHistory = idSupplier;
+    const input = document.getElementById('filterTanggalTimbang');
+    let tanggal = input.value;
+    if (tanggal && (tanggal < input.min || tanggal > input.max)) {
+        Notif.peringatan(`Tanggal hanya bisa dipilih ${HARI_HISTORY_MAKS} hari terakhir`);
+        input.value = tanggal = '';
+    }
+    document.getElementById('keteranganHistoryTimbang').textContent =
+        tanggal ? `Menampilkan tanggal ${tanggal}` : 'Menampilkan 7 hari terakhir';
+    const url = `/api/history-timbangan-supplier?id_supplier=${encodeURIComponent(idSupplier)}` +
+                (tanggal ? `&tanggal=${tanggal}` : '');
+    const data = await ambilJson(url);
     const tbody = document.getElementById('tabelHistoryTimbangan');
     if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
     if (!data.length) {
-        tbody.innerHTML = barisKosong(6, 'Belum ada riwayat 7 hari terakhir');
+        tbody.innerHTML = barisKosong(6, tanggal ? `Belum ada riwayat pada ${tanggal}` : 'Belum ada riwayat 7 hari terakhir');
         return;
     }
     tbody.innerHTML = data.map(r => `

@@ -40,7 +40,7 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
         ? `<p class="text-xs text-blue-600">Supir utama: ${escapeHtml(utama.nama)}</p>` : '';
     if (!dr) {
         info.innerHTML = 'Belum ada riwayat' + barisUtama;
-        foto.innerHTML = '<i class="fa-solid fa-user text-slate-300"></i>';
+        foto.innerHTML = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
         return;
     }
     info.innerHTML = `<p class="text-xs text-slate-500">${escapeHtml(dr.kode_personel || 'Belum ada kode')} · ID ${formatIdPersonel(dr.id_driver)}</p>` +
@@ -49,14 +49,14 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
         (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
         ? `<img src="${escapeHtml(urlBerkas(dr.foto_path))}" class="w-full h-full object-cover" alt="">`
-        : '<i class="fa-solid fa-user text-slate-300"></i>';
+        : '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
 }
 
 // ===== STATUS FORM PENDAFTARAN TIKET =====
 let statusForm = 'draft';
 let supirTerverifikasi = false;
-// Jenis / customer / produk selalu terkunci (terisi dari DO), jadi tidak ikut dibuka di status draft
-const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo'];
+// Jenis / customer / produk terisi otomatis dari DO tetapi tetap bisa diubah (tanpa DO diisi sendiri)
+const FIELD_KENDARAAN = ['formNoPlat', 'formNoStnk', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
 
 // blacklist: plat masuk blacklist, hanya kolom plat yang bisa diganti
 function aturStatusForm(status) {
@@ -119,7 +119,7 @@ function tandaiSudahValidasi() {
 }
 
 // ===== DO (Delivery Order, diisi HO di menu Kontrak & DO) =====
-// Security hanya mengetik No DO; jenis transaksi, customer, produk, pengangkutan terisi dan tidak bisa diubah.
+// Ada DO -> jenis transaksi, customer, produk terisi otomatis (tetap bisa diubah). Tidak ada -> isi sendiri.
 let kontrakAktif = [];                 // kontrak truk (modal Update -> Kontrak Truk), hanya informasi
 let doTerakhir = '';
 
@@ -127,17 +127,28 @@ function sinkronKontrakKeForm(listAktif) {
     kontrakAktif = listAktif;
 }
 
+function teksPilihan(id) {
+    const sel = document.getElementById(id);
+    return sel.value ? sel.options[sel.selectedIndex].text : '';
+}
+
+// Info bar mengikuti isian form (dari DO maupun diisi sendiri)
+function sinkronInfoBarForm() {
+    document.getElementById('infoNoDO').value = document.getElementById('formNoDo').value.trim().toUpperCase();
+    document.getElementById('infoSupplier').value = teksPilihan('formSupplier');
+    document.getElementById('infoProduk').value = teksPilihan('formProduk');
+    const jenis = document.getElementById('formJenisTransaksi').value;
+    document.getElementById('infoJenis').value = jenis ? labelKode(jenis) : '';
+}
+['formJenisTransaksi', 'formSupplier', 'formProduk']
+    .forEach(id => document.getElementById(id).addEventListener('change', sinkronInfoBarForm));
+
 function isiDariDO(d) {
-    document.getElementById('formNoDo').value = d ? d.no_do : document.getElementById('formNoDo').value;
+    if (d) document.getElementById('formNoDo').value = d.no_do;
     document.getElementById('formJenisTransaksi').value = d ? d.jenis_transaksi : '';
     document.getElementById('formSupplier').value = d ? d.id_customer : '';
     document.getElementById('formProduk').value = d ? d.id_produk : '';
-    document.getElementById('formPengangkutan').value = d ? d.nama_pengangkutan : '';
-    document.getElementById('formNoKontrak').value = d ? d.no_kontrak : '';
-    document.getElementById('infoNoDO').value = d ? d.no_do : '';             // info bar ikut terisi
-    document.getElementById('infoSupplier').value = d ? d.nama_customer : '';
-    document.getElementById('infoProduk').value = d ? d.nama_produk : '';
-    document.getElementById('infoJenis').value = d ? labelKode(d.jenis_transaksi) : '';
+    sinkronInfoBarForm();
 }
 
 async function cariDO(noDo, diam = false) {
@@ -146,16 +157,17 @@ async function cariDO(noDo, diam = false) {
     if (!noDo) return;
     doTerakhir = noDo;
     const d = await ambilJson(`/api/do/${encodeURIComponent(noDo)}`);
-    if (d.error) {
-        isiDariDO(null);
-        info.className = 'text-xs mt-1 text-red-600';
-        info.textContent = d.error;
-        if (!diam) Notif.gagal(d.error);
+    if (d.error) {                      // DO belum ada dari HO: isian yang sudah ada dibiarkan, diisi sendiri
+        info.className = 'text-xs mt-1 text-amber-600';
+        info.textContent = `No DO ${noDo} belum ada dari HO / tidak aktif. Isi jenis transaksi, customer, dan produk sendiri.`;
+        sinkronInfoBarForm();
         return;
     }
-    isiDariDO(d);
+    if (!diam) isiDariDO(d);
     info.className = 'text-xs mt-1 text-emerald-600';
-    info.textContent = `✓ ${d.nama_customer} · ${d.nama_produk}` + (d.berlaku_sampai ? ` · berlaku s/d ${d.berlaku_sampai}` : '');
+    info.textContent = `✓ Surat DO dari HO: ${d.nama_customer} · ${d.nama_produk}` +
+        (d.nama_pengangkutan ? ` · angkutan ${d.nama_pengangkutan}` : '') +
+        (d.berlaku_sampai ? ` · berlaku s/d ${d.berlaku_sampai}` : '') + '. Masih bisa diubah.';
 }
 
 // Lupa menekan Tab: DO juga dicari saat kotak ditinggalkan
@@ -163,7 +175,7 @@ document.getElementById('formNoDo').addEventListener('blur', e => {
     const v = e.target.value.trim().toUpperCase();
     if (v && v !== doTerakhir && !e.target.disabled) cariDO(v);
 });
-document.getElementById('formNoDo').addEventListener('input', () => { doTerakhir = ''; });
+document.getElementById('formNoDo').addEventListener('input', () => { doTerakhir = ''; sinkronInfoBarForm(); });
 
 window.addEventListener('platLookup', (e) => {
     const d = e.detail;
@@ -181,7 +193,8 @@ window.addEventListener('platLookup', (e) => {
         document.getElementById('formJenisTransaksi').value = d.jenis_transaksi;
         document.getElementById('formSupplier').value = d.id_supplier;
         document.getElementById('formProduk').value = d.id_produk;
-        if (d.no_do) cariDO(d.no_do, true);             // isi pengangkutan & no kontrak
+        sinkronInfoBarForm();
+        if (d.no_do) cariDO(d.no_do, true);             // keterangan DO saja, isian tiket tidak ditimpa
         if (d.driver) isiDriver(d.driver);
         tandaiSudahValidasi();
         document.getElementById('btnCetakQR').classList.remove('hidden');
@@ -197,10 +210,10 @@ window.addEventListener('platLookup', (e) => {
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
 function mulaiValidasiAwal() {
-    const wajib = ['formNoPlat', 'formNoTiket', 'formNoDo', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
+    const wajib = ['formNoPlat', 'formNoTiket', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
     for (const id of wajib) {
         if (!document.getElementById(id).value.trim()) {
-            Notif.peringatan('Lengkapi plat dan No DO (tekan Tab) dulu. Data transaksi terisi dari DO.');
+            Notif.peringatan('Lengkapi plat, jenis transaksi, customer, dan produk (No DO + Tab mengisi otomatis).');
             return;
         }
     }

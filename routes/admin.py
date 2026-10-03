@@ -155,7 +155,7 @@ def users_ubah(id_user):
         detail = f"role {u['role']} -> {role}" if u["role"] != role else "nama diubah"
         _audit("USER_UBAH", u["username"], detail)
         if u["role"] != role:
-            sesi_aktif.hapus_user(id_user)
+            sesi_aktif.hapus_user(id_user, "ROLE_DIUBAH")
         return jsonify({"message": f"User {u['username']} diperbarui" +
                         (" (sesi lamanya diakhiri, login ulang dengan role baru)" if u["role"] != role else "")})
     return _jalankan(aksi)
@@ -171,7 +171,7 @@ def users_reset_password(id_user):
         if lama and check_password_hash(lama, baru):
             raise ValueError("Password baru tidak boleh sama dengan password lama")
         db.reset_password(id_user, generate_password_hash(baru))
-        sesi_aktif.hapus_user(id_user)
+        sesi_aktif.hapus_user(id_user, "RESET_PASSWORD")
         _audit("USER_RESET_PASSWORD", u["username"])
         log_keamanan("RESET_PASSWORD", f"username={u['username']}")
         return jsonify({"message": f"Password {u['username']} direset. Ia wajib membuat password baru saat login."})
@@ -189,7 +189,7 @@ def users_aktif(id_user):
             if u["role"] == "ADMIN" and db.jumlah_admin_aktif(kecuali=id_user) == 0:
                 raise ValueError("Minimal harus ada 1 admin aktif")
         db.set_aktif_user(id_user, aktif)
-        sesi_aktif.hapus_user(id_user)
+        sesi_aktif.hapus_user(id_user, "NONAKTIF")
         _audit("USER_AKTIF" if aktif else "USER_NONAKTIF", u["username"])
         return jsonify({"message": f"User {u['username']} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)

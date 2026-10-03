@@ -12,7 +12,7 @@ from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
 from utils.db_utils import (
     cari_transaksi_aktif, buat_transaksi_full, get_list_tiket_aktif, get_history_driver,
     get_driver_by_id, cari_driver_by_nik, cek_nik_ada, cari_wajah_mirip_driver,
-    insert_driver, update_driver_dengan_audit, get_kendaraan_by_plat
+    insert_driver, update_driver_dengan_audit, get_kendaraan_by_plat, get_semua_supplier, get_semua_produk
 )
 from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
@@ -31,6 +31,9 @@ def list_tiket_aktif():
 def history_driver():
     return jsonify(get_history_driver())
 
+JENIS_TRANSAKSI = ("PEMBELIAN", "PENJUALAN", "PENIMBANGAN_SAJA")
+
+
 @security_bp.route("/api/security/buat-tiket", methods=["POST"])
 @login_required
 @role_required('SECURITY')
@@ -42,13 +45,20 @@ def buat_tiket():
 
     if error_plat:
         return jsonify({"error": error_plat}), 400
-    if not all([no_tiket, f.get("no_do", "").strip(), id_driver]):
-        return jsonify({"error": "No tiket, No DO, dan supir wajib diisi"}), 400
-    # Jenis transaksi, customer, produk, pengangkutan SELALU dari DO (diisi HO), bukan dari isian browser
-    do = get_do(f.get("no_do").strip().upper())
-    if not do:
-        return jsonify({"error": "DO belum terdaftar / tidak aktif. Hubungi HO."}), 400
-    jenis, id_supplier, id_produk = do["jenis_transaksi"], do["id_customer"], do["id_produk"]
+    if not all([no_tiket, id_driver]):
+        return jsonify({"error": "No tiket dan supir wajib diisi"}), 400
+    # Ada DO dari HO -> form sudah terisi otomatis (tetap boleh diubah); tanpa DO -> security mengisi sendiri
+    no_do = f.get("no_do", "").strip().upper() or None
+    if no_do and len(no_do) > 50:
+        return jsonify({"error": "No DO maksimal 50 karakter"}), 400
+    do = get_do(no_do) if no_do else None
+    jenis, id_supplier, id_produk = f.get("jenis_transaksi", "").strip(), f.get("id_supplier", ""), f.get("id_produk", "")
+    if jenis not in JENIS_TRANSAKSI:
+        return jsonify({"error": "Pilih jenis transaksi"}), 400
+    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier()}:
+        return jsonify({"error": "Pilih customer dari daftar"}), 400
+    if not id_produk.isdigit() or int(id_produk) not in {p.id_produk for p in get_semua_produk()}:
+        return jsonify({"error": "Pilih produk dari daftar"}), 400
 
     existing = cari_transaksi_aktif(no_plat=no_plat)
     if existing:
@@ -80,8 +90,8 @@ def buat_tiket():
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
     buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
-                        id_supplier, id_produk, id_driver, do["no_do"],
-                        current_user.id, prev_driver_id, do["id_pengangkutan"])
+                        int(id_supplier), int(id_produk), id_driver, no_do,
+                        current_user.id, prev_driver_id, do["id_pengangkutan"] if do else None)
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

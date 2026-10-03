@@ -12,6 +12,7 @@ from utils.serial_reader import mulai_pembacaan_serial
 from utils.maintenance import mulai_pembersihan_berkala, pindahkan_upload_lama
 from utils.web_setup import pasang_semua
 from utils.keamanan import pasang_keamanan, log_keamanan
+from utils import sesi_aktif
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.security import security_bp
@@ -54,6 +55,13 @@ def load_user(user_id):
 
 @login_manager.unauthorized_handler
 def belum_login():
+    # Sesi dicabut (perangkat lain / paksa keluar / reset password): alasannya ditampilkan di halaman login
+    sid = session.get("_sid")
+    if sid:
+        kode = sesi_aktif.alasan_berakhir(sid) or "DICABUT"
+        sesi_aktif.hapus(sid, kode)
+        session.clear()
+        session["_keluar"] = kode
     # API dipanggil lewat fetch -> JSON 401 (ditangani api.js), halaman -> redirect ke login
     if request.path.startswith("/api/"):
         log_keamanan("TANPA_LOGIN", request.path)
