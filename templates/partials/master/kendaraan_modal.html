@@ -1,0 +1,34 @@
+<!-- MODAL: Tambah / Ubah Kendaraan -->
+<div id="modalKendaraan" class="modal-overlay">
+    <form id="formKendaraan" class="modal-box max-w-lg" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalKendaraan" class="font-bold">Tambah Kendaraan</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalKendaraan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_kendaraan">
+            <div>
+                <label class="field-label" for="kendNoPlat">No. Plat</label>
+                <input type="text" id="kendNoPlat" name="no_plat" required maxlength="15" class="input-field uppercase" placeholder="Contoh: BM 1455 JJ">
+            </div>
+            <div>
+                <label class="field-label" for="kendNoStnk">No. STNK</label>
+                <input type="text" id="kendNoStnk" name="no_stnk" maxlength="50" class="input-field uppercase">
+            </div>
+            <div>
+                <label class="field-label" for="kendSupir">Supir Utama</label>
+                <select id="kendSupir" name="id_supir_utama" class="input-field" data-cari>
+                    <option value="">-- Tanpa supir utama --</option>
+                    {% for d in driver_list %}
+                    <option value="{{ d.id_personel }}">{{ d.nama_personel }} · {{ d.kode_personel or 'ID %03d' % d.id_personel }} · NIK {{ d.nik }}</option>
+                    {% endfor %}
+                </select>
+                <p class="field-hint">Driver baru ditambah dulu di tab Driver. Supir lain truk ini diatur di Form › Update.</p>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" data-on-click="closeModal" data-arg="modalKendaraan" class="btn-secondary">Batal</button>
+                <button type="submit" class="btn-primary">Simpan</button>
+            </div>
+        </div>
+    </form>
+</div>

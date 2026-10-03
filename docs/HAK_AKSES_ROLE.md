@@ -22,7 +22,8 @@ SORTASI → Sortasi; LAB → Laboratorium. Menu & tab untuk role non-admin belum
 | Simpan hasil timbang | OPERATOR_TIMBANG |
 | Simpan sortasi | SORTASI |
 | Simpan hasil lab, ubah standar mutu | LAB |
-| Tambah / ubah / hapus personel, tambah blacklist | HO |
+| Tambah / ubah / hapus personel semua kategori, tambah blacklist | HO |
+| Data Master: tambah / ubah / hapus Driver, tambah / ubah / nonaktifkan Kendaraan & supir utama (role lain hanya melihat) | SECURITY, HO |
 | Menu Kontrak & DO: tambah / ubah / nonaktifkan DO (role lain hanya melihat) | HO |
 | Dashboard: isi / ubah harga CPO, kernel, OER CPO, biaya olah (role lain hanya melihat) | HO |
 | Void tiket | ADMIN |

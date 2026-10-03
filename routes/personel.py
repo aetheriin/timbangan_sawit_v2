@@ -1,4 +1,4 @@
-"""Menu Face Recognition > Personel: daftar, tambah, update, hapus (soft delete)."""
+"""Menu Face Recognition > Personel & Data Master > Driver: daftar, tambah, update, hapus (soft delete)."""
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import role_required
@@ -63,6 +63,13 @@ def _data_form():
     return data
 
 
+def _cek_role_kategori(*kategori):
+    """SECURITY hanya boleh mengelola Driver (menu Data Master > Driver); HO semua kategori."""
+    if current_user.role == "SECURITY" and any(k != "DRIVER" for k in kategori):
+        return jsonify({"error": "Security hanya bisa mengelola personel kategori Driver"}), 403
+    return None
+
+
 def _validasi(data, exclude_id=None):
     error = validasi_personel(data["nik"], data["nama"], data["kategori"], data["no_sim"])
     if error:
@@ -112,9 +119,12 @@ def personel_cek_foto():
 
 @personel_bp.route("/api/personel/tambah", methods=["POST"])
 @login_required
-@role_required('HO')
+@role_required('HO', 'SECURITY')
 def personel_tambah():
     data = _data_form()
+    ditolak = _cek_role_kategori(data["kategori"])
+    if ditolak:
+        return ditolak
     error = _validasi(data)
     if error:
         return jsonify({"error": error}), 400
@@ -135,12 +145,15 @@ def personel_tambah():
 
 @personel_bp.route("/api/personel/<int:id_personel>/update", methods=["POST"])
 @login_required
-@role_required('HO')
+@role_required('HO', 'SECURITY')
 def personel_update(id_personel):
     lama = get_personel(id_personel)
     if not lama or not lama["is_active"]:
         return jsonify({"error": "Personel tidak ditemukan"}), 404
     data = _data_form()
+    ditolak = _cek_role_kategori(lama["kategori"], data["kategori"])
+    if ditolak:
+        return ditolak
     error = _validasi(data, exclude_id=id_personel)
     if error:
         return jsonify({"error": error}), 400
@@ -166,11 +179,14 @@ def personel_update(id_personel):
 
 @personel_bp.route("/api/personel/<int:id_personel>/hapus", methods=["POST"])
 @login_required
-@role_required('HO')
+@role_required('HO', 'SECURITY')
 def personel_hapus(id_personel):
     p = get_personel(id_personel)
     if not p or not p["is_active"]:
         return jsonify({"error": "Personel tidak ditemukan"}), 404
+    ditolak = _cek_role_kategori(p["kategori"])
+    if ditolak:
+        return ditolak
     if p["is_blacklisted"]:
         return jsonify({"error": "Personel blacklist tidak bisa dihapus (blacklist permanen)"}), 400
     hapus_personel(id_personel, current_user.id)

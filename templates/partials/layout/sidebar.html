@@ -33,6 +33,10 @@
            class="sidebar-link{% if halaman == 'kontrak' %} sidebar-link-active{% endif %}">
             <i class="fa-solid fa-file-contract w-4"></i> Kontrak & DO
         </a>
+        <a href="{{ url_for('master.master_halaman') }}"
+           class="sidebar-link{% if halaman == 'master' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-database w-4"></i> Data Master
+        </a>
     {% endif %}
     </nav>
 </aside>

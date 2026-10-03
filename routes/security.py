@@ -74,6 +74,8 @@ def buat_tiket():
 
     # Blacklist = PERINGATAN: tiket tetap boleh dibuat, tetapi selalu tercatat di Audit Log untuk HO
     kendaraan = get_kendaraan_by_plat(no_plat)
+    if kendaraan and not kendaraan.is_active:
+        return jsonify({"error": f"Kendaraan {no_plat} dinonaktifkan di Data Master > Kendaraan"}), 400
     peringatan = []
     if kendaraan and kendaraan.is_blacklisted:
         peringatan.append(f"kendaraan {no_plat}")

@@ -68,7 +68,7 @@
                             <label class="field-label" for="personelNik">NIK</label>
                             <input type="text" id="personelNik" maxlength="16" inputmode="numeric" class="input-field">
                         </div>
-                        <div>
+                        <div{% if kategori_tetap %} class="hidden"{% endif %}>
                             <label class="field-label" for="personelKategori">Kategori</label>
                             <select id="personelKategori" class="input-field" data-on-change="perbaruiHintSim">
                                 <option value="DRIVER">DRIVER</option>

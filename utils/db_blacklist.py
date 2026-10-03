@@ -82,9 +82,25 @@ def cari_target(tipe, kata, batas=8):
                      OR CAST(p.id_personel AS VARCHAR) = ?)
                 ORDER BY p.nama_personel""", pola, pola, pola, pola, kata.lstrip("0") or "0")
         else:
+            # Plat + STNK, supir utama, jumlah supir terdaftar, dan transaksi terakhir (supir, customer, angkutan)
             cursor.execute(f"""
-                SELECT TOP {int(batas)} k.id_kendaraan AS id_target, k.no_plat, k.no_stnk, k.is_blacklisted
+                SELECT TOP {int(batas)} k.id_kendaraan AS id_target, k.no_plat, k.no_stnk, k.is_blacklisted, k.is_active,
+                       u.id_personel AS id_supir_utama, u.kode_personel AS kode_supir_utama, u.nama_personel AS nama_supir_utama,
+                       (SELECT COUNT(*) FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
+                        WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND p.is_active = 1) AS jumlah_supir,
+                       tr.id_driver AS id_supir_terakhir, tr.kode_personel AS kode_supir_terakhir,
+                       tr.nama_personel AS nama_supir_terakhir, tr.customer AS customer_terakhir,
+                       tr.pengangkutan AS pengangkutan_terakhir, tr.created_at AS waktu_terakhir
                 FROM kendaraan k
+                OUTER APPLY (SELECT TOP 1 p.id_personel, p.kode_personel, p.nama_personel
+                             FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
+                             WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND kd.is_utama = 1) u
+                OUTER APPLY (SELECT TOP 1 t.id_driver, p.kode_personel, p.nama_personel, s.nama_supplier AS customer,
+                                    a.nama_supplier AS pengangkutan, t.created_at
+                             FROM transaksi t JOIN personel p ON p.id_personel = t.id_driver
+                             JOIN supplier s ON t.id_supplier = s.id_supplier
+                             LEFT JOIN supplier a ON t.id_pengangkutan = a.id_supplier
+                             WHERE t.id_kendaraan = k.id_kendaraan ORDER BY t.created_at DESC) tr
                 WHERE REPLACE(k.no_plat, ' ', '') LIKE ?
                 ORDER BY k.no_plat""", f"%{kata.replace(' ', '')}%")
         return _rapikan_target(_rows_to_dicts(cursor))

@@ -1,0 +1,34 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div data-tab-content="kendaraan" class="hidden">
+
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        <div class="flex gap-1.5">
+            <button type="button" class="chip chip-active" data-status="" data-on-click="filterStatusKendaraan" data-arg="$el">Semua</button>
+            <button type="button" class="chip" data-status="1" data-on-click="filterStatusKendaraan" data-arg="$el">Aktif</button>
+            <button type="button" class="chip" data-status="0" data-on-click="filterStatusKendaraan" data-arg="$el">Nonaktif</button>
+        </div>
+        <div class="flex-1"></div>
+        <div class="relative">
+            <input type="text" id="cariKendaraan" placeholder="Cari No. Plat / STNK" class="input-field pl-9 w-64 uppercase"
+                   data-on-input="cariDaftarKendaraan">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        </div>
+        {% if boleh_ubah %}
+        <button type="button" class="btn-primary" data-on-click="bukaKendaraan"><i class="fa-solid fa-plus mr-1"></i> Tambah Kendaraan</button>
+        {% endif %}
+    </div>
+
+    <div class="section-box">
+        {{ section_header('daftar-kendaraan', 'Daftar Kendaraan') }}
+        <div id="body-daftar-kendaraan" class="section-body overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">No. Plat</th><th class="table-cell">No. STNK</th><th class="table-cell">Supir Utama</th>
+                        <th class="table-cell">Jumlah Supir</th><th class="table-cell">Transaksi Terakhir</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelKendaraan" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>

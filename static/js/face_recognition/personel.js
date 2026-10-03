@@ -12,6 +12,9 @@ let sumberFotoPersonel = 'UPLOAD';
 let idPersonelHapus = null;
 
 const LABEL_SUMBER_FOTO = { UPLOAD: 'Upload', KAMERA: 'Kamera' };
+// Data Master > Driver: hanya satu kategori (tanpa chip filter, kategori di modal terkunci)
+const KATEGORI_TETAP = document.querySelector('[data-tab-content="personel"]')?.dataset.kategoriTetap || '';
+if (KATEGORI_TETAP) filterPersonelAktif = KATEGORI_TETAP;
 
 window.addEventListener('tabChange', e => {
     if (e.detail === 'personel' && !personelDimuat) {
@@ -50,9 +53,9 @@ async function muatPersonel() {
             <td class="table-cell">${badgeKategori(p.kategori)}</td>
             <td class="table-cell">${LABEL_SUMBER_FOTO[p.foto_sumber] || '-'}</td>
             <td class="table-cell">${p.is_blacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau)}</td>
-            <td class="table-cell text-right space-x-2 whitespace-nowrap">
+            <td class="table-cell text-right space-x-2 whitespace-nowrap">${tbody.dataset.bolehUbah === '0' ? '' : `
                 <button type="button" data-on-click="bukaEditPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-blue-600">Edit</button>
-                ${p.is_blacklisted ? '' : `<button type="button" data-on-click="bukaHapusPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-red-600">Hapus</button>`}
+                ${p.is_blacklisted ? '' : `<button type="button" data-on-click="bukaHapusPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-red-600">Hapus</button>`}`}
             </td>
         </tr>`).join('') || barisKosong(8, 'Belum ada personel');
     catatanBatas(tbody, data.length, 200, 8);
@@ -61,7 +64,7 @@ async function muatPersonel() {
 // ===== MODAL TAMBAH / UPDATE =====
 function resetFormPersonel() {
     ['personelId', 'personelKode', 'personelNama', 'personelNik', 'personelSim'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('personelKategori').value = 'DRIVER';
+    document.getElementById('personelKategori').value = KATEGORI_TETAP || 'DRIVER';
     document.getElementById('personelFile').value = '';
     document.getElementById('personelCekPesan').textContent = '';
     fotoPersonel = null;
@@ -76,7 +79,7 @@ async function bukaTambahPersonel() {
     modePersonel = 'tambah';
     idPersonelEdit = null;
     resetFormPersonel();
-    document.getElementById('personelJudul').textContent = 'Tambah Personel';
+    document.getElementById('personelJudul').textContent = KATEGORI_TETAP === 'DRIVER' ? 'Tambah Driver' : 'Tambah Personel';
     document.getElementById('personelSubjudul').textContent = '';
     document.getElementById('personelNoteUpdate').classList.add('hidden');
     document.getElementById('btnSimpanPersonel').textContent = 'Simpan';

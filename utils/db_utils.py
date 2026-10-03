@@ -152,7 +152,7 @@ def get_or_create_kendaraan(no_plat, no_stnk=None):
 def get_kendaraan_by_plat(no_plat):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_kendaraan, no_plat, no_stnk, is_blacklisted FROM kendaraan WHERE no_plat = ?", no_plat)
+    cursor.execute("SELECT id_kendaraan, no_plat, no_stnk, is_blacklisted, is_active FROM kendaraan WHERE no_plat = ?", no_plat)
     row = cursor.fetchone()
     conn.close()
     return row

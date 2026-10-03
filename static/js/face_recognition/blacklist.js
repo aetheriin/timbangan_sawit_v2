@@ -105,7 +105,8 @@ function setTipeBlacklist(tipe) {
     tipeBlacklistBaru = tipe;
     document.getElementById('segBlPersonel').classList.toggle('seg-item-active', tipe === 'PERSONEL');
     document.getElementById('segBlKendaraan').classList.toggle('seg-item-active', tipe === 'KENDARAAN');
-    document.getElementById('blCari').placeholder = tipe === 'PERSONEL' ? 'Cari kode / NIK / nama' : 'Cari plat, mis. BM 8821 KA';
+    document.getElementById('blCari').placeholder = tipe === 'PERSONEL' ? 'Cari kode / NIK / nama' : 'Ketik No. Plat, mis. BM 8821 KA';
+    document.getElementById('blCari').classList.toggle('uppercase', tipe === 'KENDARAAN');
     document.getElementById('blCari').value = '';
     document.getElementById('blHasilCari').classList.add('hidden');
     document.getElementById('blCaraPersonel').classList.toggle('hidden', tipe !== 'PERSONEL');
@@ -127,7 +128,8 @@ async function cariTargetBlacklist() {
     list.innerHTML = hasilCariTarget.map((t, i) => {
         const nama = tipeBlacklistBaru === 'PERSONEL'
             ? `${formatNamaPersonel(t.kode_personel, t.id_target, t.nama_personel)} <span class="text-slate-400">· NIK ${escapeHtml(t.nik)}</span>`
-            : escapeHtml(t.no_plat);
+            : `<span class="font-mono font-semibold">${escapeHtml(t.no_plat)}</span> <span class="text-slate-400">· STNK ${escapeHtml(t.no_stnk || '-')}` +
+              ` · ${t.id_supir_utama ? 'supir utama ' + escapeHtml(t.nama_supir_utama) : 'belum ada supir utama'}</span>`;
         return t.is_blacklisted
             ? `<li class="px-3 py-2 text-slate-400">${nama} ${badge('BLACKLIST', WARNA_BADGE.merah)}</li>`
             : `<li class="px-3 py-2 hover:bg-slate-50 cursor-pointer" data-on-click="pilihTargetBlacklist" data-arg="${i}">${nama}</li>`;
@@ -160,10 +162,17 @@ function pilihTargetBlacklist(index) {
         </div>
         ${badge('Aktif', WARNA_BADGE.hijau)}` : `
         <i class="fa-solid fa-truck text-2xl text-slate-500"></i>
-        <div class="flex-1">
-            <p class="font-semibold text-slate-800">${escapeHtml(t.no_plat)}</p>
-            <p class="text-xs text-slate-500">STNK ${escapeHtml(t.no_stnk || '-')}</p>
-        </div>`;
+        <div class="flex-1 space-y-0.5">
+            <p class="font-semibold text-slate-800 font-mono">${escapeHtml(t.no_plat)}</p>
+            <p class="text-xs text-slate-500">STNK ${escapeHtml(t.no_stnk || '-')} · ${Number(t.jumlah_supir)} supir terdaftar</p>
+            <p class="text-xs text-slate-500">Supir utama: ${t.id_supir_utama
+                ? escapeHtml(formatNamaPersonel(t.kode_supir_utama, t.id_supir_utama, t.nama_supir_utama)) : '-'}</p>
+            ${t.waktu_terakhir ? `<p class="text-xs text-slate-500">Terakhir ${escapeHtml(t.waktu_terakhir)} · supir
+                ${escapeHtml(formatNamaPersonel(t.kode_supir_terakhir, t.id_supir_terakhir, t.nama_supir_terakhir))} ·
+                customer ${escapeHtml(t.customer_terakhir)}${t.pengangkutan_terakhir ? ` · angkutan ${escapeHtml(t.pengangkutan_terakhir)}` : ''}</p>`
+                : '<p class="text-xs text-slate-400">Belum pernah bertransaksi</p>'}
+        </div>
+        ${t.is_active ? badge('Aktif', WARNA_BADGE.hijau) : badge('Nonaktif', WARNA_BADGE.abu)}`;
 }
 
 // Customer & pengangkutan hanya tampil bila orang ini tercatat sebagai supir (punya transaksi); plat selalu bisa diisi
