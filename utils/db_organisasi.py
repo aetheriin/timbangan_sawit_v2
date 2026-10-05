@@ -53,9 +53,34 @@ def daftar_area():
 def simpan_area(id_area, id_company, kode, nama, alamat):
     if id_area is None:
         _ubah("INSERT INTO comp_area (id_company, kode, nama, alamat) VALUES (?, ?, ?, ?)", id_company, kode, nama, alamat)
+        _salin_dari_area_pertama()
     else:
         _ubah("UPDATE comp_area SET id_company = ?, kode = ?, nama = ?, alamat = ? WHERE id_comp_area = ?",
               id_company, kode, nama, alamat, id_area)
+
+
+def _salin_dari_area_pertama():
+    """Area baru langsung punya jadwal kerja & mill (disalin dari area pertama), bisa diubah sesudahnya."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""INSERT INTO jadwal_kerja (id_comp_area, hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit)
+                          SELECT a.id_comp_area, j.hari, j.nama_hari, j.jam_masuk, j.jam_pulang, j.is_libur, j.toleransi_menit
+                          FROM comp_area a CROSS JOIN jadwal_kerja j
+                          WHERE j.id_comp_area = (SELECT MIN(id_comp_area) FROM jadwal_kerja)
+                            AND NOT EXISTS (SELECT 1 FROM jadwal_kerja x WHERE x.id_comp_area = a.id_comp_area)""")
+        cursor.execute("""INSERT INTO mill (id_comp_area, kode, nama, id_alur)
+                          SELECT a.id_comp_area, m.kode, m.nama, m.id_alur
+                          FROM comp_area a CROSS JOIN mill m
+                          WHERE m.id_comp_area = (SELECT MIN(id_comp_area) FROM mill) AND m.is_active = 1
+                            AND NOT EXISTS (SELECT 1 FROM mill x WHERE x.id_comp_area = a.id_comp_area)""")
+        conn.commit()
+    finally:
+        conn.close()
+    from utils.alur import hapus_cache
+    from utils.db_absensi import get_jadwal_kerja
+    hapus_cache()
+    get_jadwal_kerja.hapus()
 
 
 def set_aktif_area(id_area, aktif):

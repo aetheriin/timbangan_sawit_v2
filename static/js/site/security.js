@@ -254,10 +254,10 @@ window.addEventListener('platLookup', (e) => {
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
 function mulaiValidasiAwal() {
-    const wajib = ['formNoPlat', 'formNoTiket', 'formJenisTransaksi', 'formSupplier', 'formProduk', 'formAngkut'];
+    const wajib = ['formNoPlat', 'formNoTiket', 'formNoStnk', 'formJenisTransaksi', 'formSupplier', 'formProduk', 'formAngkut'];
     for (const id of wajib) {
         if (!document.getElementById(id).value.trim()) {
-            Notif.peringatan('Lengkapi plat, jenis transaksi, customer, produk, dan pengangkutan (No DO + Tab mengisi otomatis).');
+            Notif.peringatan('Lengkapi plat, No. STNK, jenis transaksi, customer, produk, dan pengangkutan (No DO + Tab mengisi otomatis).');
             return;
         }
     }

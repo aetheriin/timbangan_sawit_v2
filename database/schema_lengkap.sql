@@ -286,14 +286,25 @@ CREATE TABLE dbo.standar_mutu (
 );
 GO
 
+-- Jenis kendaraan (migrasi 014)
+CREATE TABLE dbo.jenis_kendaraan (
+    id_jenis_kendaraan  INT IDENTITY(1,1) PRIMARY KEY,
+    kode                VARCHAR(20)  NOT NULL CONSTRAINT UX_JenisKendaraan_Kode UNIQUE,
+    nama                NVARCHAR(50) NOT NULL,
+    is_active           BIT NOT NULL CONSTRAINT DF_JenisKendaraan_Aktif DEFAULT (1)
+);
+GO
+-- STNK wajib & unik (migrasi 014)
 CREATE TABLE dbo.kendaraan (
     id_kendaraan    INT IDENTITY(1,1) PRIMARY KEY,
     no_plat         VARCHAR(15) NOT NULL CONSTRAINT UX_Kendaraan_Plat UNIQUE,
-    no_stnk         VARCHAR(50) NULL,
+    no_stnk         VARCHAR(50) NOT NULL,
+    id_jenis_kendaraan INT NULL CONSTRAINT FK_Kendaraan_Jenis REFERENCES dbo.jenis_kendaraan (id_jenis_kendaraan),
     is_blacklisted  BIT NOT NULL CONSTRAINT DF_Kendaraan_Blacklist DEFAULT (0),
     is_active       BIT NOT NULL CONSTRAINT DF_Kendaraan_Aktif DEFAULT (1),
     created_at      DATETIME NOT NULL CONSTRAINT DF_Kendaraan_Created DEFAULT (GETDATE())
 );
+CREATE UNIQUE INDEX UX_Kendaraan_Stnk ON dbo.kendaraan (no_stnk) WHERE no_stnk IS NOT NULL;
 GO
 
 -- Supir terdaftar per truk (supir utama disarankan saat Create Ticket)
@@ -542,7 +553,7 @@ CREATE TABLE dbo.lab_hasil (
     kadar_kotoran      FLOAT NULL,
     warna_locis        VARCHAR(50) NULL,
     keputusan          VARCHAR(20) NULL,
-    no_dokumen_coa     VARCHAR(50) NULL,
+    id_dokumen         INT NULL CONSTRAINT FK_Lab_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- COA (APPROVE), migrasi 014
     operator_lab_id    INT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.users (id_user),
     waktu_pemeriksaan  DATETIME NULL,
     CONSTRAINT CK_Lab_Keputusan CHECK (keputusan IS NULL OR keputusan IN ('APPROVE', 'REJECT'))
@@ -618,20 +629,19 @@ CREATE INDEX IX_SecAudit_User_Waktu ON dbo.security_audit_logs (user_id, created
 CREATE INDEX IX_SecAudit_Created ON dbo.security_audit_logs (created_at DESC);
 GO
 
+-- Jadwal kerja per area (migrasi 014): absensi memakai jadwal area akun yang men-scan
 CREATE TABLE dbo.jadwal_kerja (
-    hari             TINYINT PRIMARY KEY,                       -- 1 = Senin ... 7 = Minggu
+    id_comp_area     INT NOT NULL CONSTRAINT FK_Jadwal_Area REFERENCES dbo.comp_area (id_comp_area),
+    hari             TINYINT NOT NULL,                          -- 1 = Senin ... 7 = Minggu
     nama_hari        VARCHAR(10) NOT NULL,
     jam_masuk        TIME(0) NULL,
     jam_pulang       TIME(0) NULL,
     is_libur         BIT NOT NULL CONSTRAINT DF_Jadwal_Libur DEFAULT (0),
     toleransi_menit  INT NOT NULL CONSTRAINT DF_Jadwal_Toleransi DEFAULT (0),
     CONSTRAINT CK_Jadwal_Hari CHECK (hari BETWEEN 1 AND 7),
-    CONSTRAINT CK_Jadwal_Jam CHECK (is_libur = 1 OR (jam_masuk IS NOT NULL AND jam_pulang IS NOT NULL AND jam_pulang > jam_masuk))
+    CONSTRAINT CK_Jadwal_Jam CHECK (is_libur = 1 OR (jam_masuk IS NOT NULL AND jam_pulang IS NOT NULL AND jam_pulang > jam_masuk)),
+    CONSTRAINT PK_JadwalKerja PRIMARY KEY (id_comp_area, hari)
 );
-INSERT INTO dbo.jadwal_kerja (hari, nama_hari, jam_masuk, jam_pulang, is_libur) VALUES
-    (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17:00', 0), (3, 'Rabu', '08:00', '17:00', 0),
-    (4, 'Kamis', '08:00', '17:00', 0), (5, 'Jumat', '08:00', '17:00', 0), (6, 'Sabtu', '08:00', '12:00', 0),
-    (7, 'Minggu', NULL, NULL, 1);
 GO
 
 CREATE TABLE dbo.absensi (
@@ -664,6 +674,17 @@ CREATE TABLE dbo.pengaturan (
     nilai       VARCHAR(200) NOT NULL,
     updated_by  INT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.users (id_user),
     updated_at  DATETIME NOT NULL CONSTRAINT DF_Pengaturan_Updated DEFAULT (GETDATE())
+);
+GO
+
+-- Pengaturan operasional per area (migrasi 014), menimpa nilai global di tabel pengaturan
+CREATE TABLE dbo.pengaturan_area (
+    id_comp_area  INT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.comp_area (id_comp_area),
+    kunci         VARCHAR(50)  NOT NULL,
+    nilai         VARCHAR(200) NOT NULL,
+    updated_by    INT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.users (id_user),
+    updated_at    DATETIME NOT NULL CONSTRAINT DF_PengArea_Updated DEFAULT (GETDATE()),
+    CONSTRAINT PK_PengaturanArea PRIMARY KEY (id_comp_area, kunci)
 );
 GO
 
@@ -802,6 +823,16 @@ JOIN dbo.menu m ON m.kode = v.mn;
 -- Jembatan timbang awal (migrasi 011)
 INSERT INTO dbo.jembatan_timbang (id_comp_area, kode, nama, port)
 SELECT MIN(id_comp_area), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.comp_area;
+-- Jadwal kerja awal per area (migrasi 014)
+INSERT INTO dbo.jadwal_kerja (id_comp_area, hari, nama_hari, jam_masuk, jam_pulang, is_libur)
+SELECT a.id_comp_area, v.hari, v.nama, v.masuk, v.pulang, v.libur
+FROM dbo.comp_area a
+CROSS JOIN (VALUES (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17:00', 0), (3, 'Rabu', '08:00', '17:00', 0),
+                   (4, 'Kamis', '08:00', '17:00', 0), (5, 'Jumat', '08:00', '17:00', 0), (6, 'Sabtu', '08:00', '12:00', 0),
+                   (7, 'Minggu', NULL, NULL, 1)) v (hari, nama, masuk, pulang, libur);
+-- Jenis kendaraan (migrasi 014)
+INSERT INTO dbo.jenis_kendaraan (kode, nama) VALUES
+    ('TRUK', N'Truk'), ('DUMP_TRUK', N'Dump Truk'), ('TANGKI', N'Truk Tangki'), ('PICKUP', N'Pick-up'), ('LAINNYA', N'Lainnya');
 -- Alur tahap & mill per area (migrasi 012)
 INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
     ('SECURITY', N'Security', 1), ('TIMBANG_1', N'Timbang Masuk', 2), ('SORTASI', N'Sortasi', 3),

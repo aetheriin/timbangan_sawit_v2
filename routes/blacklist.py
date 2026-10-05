@@ -7,6 +7,7 @@ from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
+from utils.db_kunjungan import area_akun
 from utils.upload_utils import simpan_upload, hapus_file
 from utils.hak_akses import izin
 from utils.dokumen import simpan_file, hapus_file_info
@@ -48,7 +49,7 @@ def blacklist_cari_wajah():
         hapus_file(path_disk)
     if jumlah != 1:
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
     target = get_target_personel(id_personel) if id_personel else None
     if not target:
         return jsonify({"error": "Wajah tidak cocok dengan personel mana pun. Daftarkan dulu di menu Personel."}), 404

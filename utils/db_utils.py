@@ -749,15 +749,21 @@ def get_history_standar(hari=2):
 def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_lab FROM lab_hasil WHERE no_tiket = ?", no_tiket)
-    if cursor.fetchone():
+    from utils.dokumen import buat_dokumen
+    cursor.execute("SELECT id_lab, id_dokumen FROM lab_hasil WHERE no_tiket = ?", no_tiket)
+    lama = cursor.fetchone()
+    # COA (APPROVE) dicatat di tabel dokumen (jenis COA), cukup sekali per tiket
+    id_dokumen = lama.id_dokumen if lama else None
+    if no_coa and id_dokumen is None:
+        id_dokumen = buat_dokumen(cursor, "COA", no_coa, date.today(), f"COA tiket {no_tiket}", None, operator_id)
+    if lama:
         cursor.execute("""UPDATE lab_hasil SET ffa=?, kadar_air=?, kadar_kotoran=?, warna_locis=?,
-                           keputusan=?, no_dokumen_coa=?, operator_lab_id=?, waktu_pemeriksaan=GETDATE() WHERE no_tiket=?""",
-                       ffa, air, kotoran, warna, keputusan, no_coa, operator_id, no_tiket)
+                           keputusan=?, id_dokumen=?, operator_lab_id=?, waktu_pemeriksaan=GETDATE() WHERE no_tiket=?""",
+                       ffa, air, kotoran, warna, keputusan, id_dokumen, operator_id, no_tiket)
     else:
         cursor.execute("""INSERT INTO lab_hasil (no_tiket, ffa, kadar_air, kadar_kotoran, warna_locis, keputusan,
-                           no_dokumen_coa, operator_lab_id, waktu_pemeriksaan) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
-                       no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_id)
+                           id_dokumen, operator_lab_id, waktu_pemeriksaan) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
+                       no_tiket, ffa, air, kotoran, warna, keputusan, id_dokumen, operator_id)
 
     # APPROVE -> lanjut timbang kedua (bukan langsung SELESAI, supaya netto tetap tercatat)
     if keputusan == 'REJECT':

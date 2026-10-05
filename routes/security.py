@@ -21,6 +21,7 @@ from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.hak_akses import izin
 from utils.db_personel import sim_dipakai
 from utils import alur
+from utils.db_master import stnk_dipakai
 from utils.db_kunjungan import area_akun
 
 security_bp = Blueprint('security', __name__)
@@ -96,6 +97,15 @@ def buat_tiket():
     kendaraan = get_kendaraan_by_plat(no_plat)
     if kendaraan and not kendaraan.is_active:
         return jsonify({"error": f"Kendaraan {no_plat} dinonaktifkan di Data Master > Kendaraan"}), 400
+    # STNK wajib & unik (migrasi 014)
+    no_stnk = f.get("no_stnk", "").strip().upper()
+    if not no_stnk:
+        return jsonify({"error": "No. STNK wajib diisi"}), 400
+    if len(no_stnk) > 50:
+        return jsonify({"error": "No. STNK maksimal 50 karakter"}), 400
+    plat_stnk = stnk_dipakai(no_stnk, kecuali=kendaraan.id_kendaraan if kendaraan else None)
+    if plat_stnk:
+        return jsonify({"error": f"No. STNK {no_stnk} sudah dipakai kendaraan {plat_stnk}"}), 400
     peringatan = []
     if kendaraan and kendaraan.is_blacklisted:
         peringatan.append(f"kendaraan {no_plat}")
@@ -104,7 +114,7 @@ def buat_tiket():
 
     v = verif.ambil(id_pos(), current_user.id)
     terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)
-    if pengaturan.nilai("WAJIB_SCAN_WAJAH") and not terverifikasi:
+    if pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)) and not terverifikasi:
         return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
 
     # Supir berbeda dari saran (supir utama / terakhir truk ini) -> dicatat
@@ -118,7 +128,7 @@ def buat_tiket():
     if mill is None:
         return jsonify({"error": "Mill untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Mill)"}), 400
 
-    buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
+    buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
                         current_user.id, prev_driver_id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
 
@@ -292,7 +302,7 @@ def verifikasi_wajah():
         if embedding_baru is None:
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
 
-        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH"))
+        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
         if id_cocok is None:
             verif.batal(pos)
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404

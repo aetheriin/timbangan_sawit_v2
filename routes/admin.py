@@ -601,15 +601,18 @@ def _jam_teks(j):
 @admin_bp.route("/api/admin/jadwal")
 @_admin
 def jadwal_daftar():
+    area = request.args.get("area", "")
     return jsonify([{"hari": j["hari"], "nama_hari": j["nama_hari"], "is_libur": bool(j["is_libur"]),
                      "jam_masuk": _jam_teks(j["jam_masuk"]), "jam_pulang": _jam_teks(j["jam_pulang"]),
-                     "toleransi_menit": j["toleransi_menit"]} for j in get_jadwal_kerja()])
+                     "toleransi_menit": j["toleransi_menit"]}
+                    for j in get_jadwal_kerja(int(area) if area.isdigit() else None)])
 
 
 @admin_bp.route("/api/admin/jadwal/simpan", methods=["POST"])
 @_admin
 def jadwal_simpan():
     def aksi():
+        id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area()}, "area")
         hari = int(request.form.get("hari") or 0)
         if not 1 <= hari <= 7:
             raise ValueError("Hari tidak valid")
@@ -625,17 +628,30 @@ def jadwal_simpan():
                 raise ValueError("Jam harus format JJ:MM, mis. 08:00")
             if pulang <= masuk:
                 raise ValueError("Jam pulang harus setelah jam masuk")
-        db.ubah_jadwal(hari, libur, masuk, pulang, toleransi)
-        _audit("JADWAL_UBAH", str(hari), "libur" if libur else f"{masuk}-{pulang}, toleransi {toleransi} mnt")
+        db.ubah_jadwal(id_area, hari, libur, masuk, pulang, toleransi)
+        _audit("JADWAL_UBAH", f"area {id_area} hari {hari}", "libur" if libur else f"{masuk}-{pulang}, toleransi {toleransi} mnt")
         return jsonify({"message": "Jadwal disimpan"})
     return _jalankan(aksi)
 
 
 # ===== PENGATURAN SITE =====
+def _area_pengaturan(nilai):
+    """'' = global; selain itu id area yang valid."""
+    nilai = (nilai or "").strip()
+    if not nilai:
+        return None
+    if not nilai.isdigit() or int(nilai) not in {a["id_comp_area"] for a in org.daftar_area()}:
+        raise ValueError("Area tidak dikenal")
+    return int(nilai)
+
+
 @admin_bp.route("/api/admin/pengaturan")
 @_admin
 def pengaturan_daftar():
-    return jsonify(pengaturan.semua())
+    try:
+        return jsonify(pengaturan.semua(_area_pengaturan(request.args.get("area"))))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @admin_bp.route("/api/admin/pengaturan/simpan", methods=["POST"])
@@ -643,14 +659,15 @@ def pengaturan_daftar():
 def pengaturan_simpan():
     def aksi():
         # Hanya yang nilainya berubah yang disimpan, supaya sisanya tetap mengikuti .env / bawaan
-        lama = {p["kunci"]: p["nilai"] for p in pengaturan.semua()}
-        masuk = {k: pengaturan.validasi(k, v) for k, v in request.form.items() if k in pengaturan.DEFINISI}
+        id_area = _area_pengaturan(request.form.get("id_comp_area"))
+        lama = {p["kunci"]: p["nilai"] for p in pengaturan.semua(id_area)}
+        masuk = {k: pengaturan.validasi(k, v) for k, v in request.form.items() if k in lama}
         berubah = {k: v for k, v in masuk.items() if pengaturan.validasi(k, lama[k]) != v}
         if not berubah:
             return jsonify({"message": "Tidak ada perubahan"})
-        pengaturan.simpan(berubah, current_user.id)
+        pengaturan.simpan(berubah, current_user.id, id_area)
         for kunci, teks in berubah.items():
-            _audit("PENGATURAN_UBAH", kunci, f"{lama[kunci]} -> {teks}")
+            _audit("PENGATURAN_UBAH", f"{kunci} (area {id_area})" if id_area else kunci, f"{lama[kunci]} -> {teks}")
         return jsonify({"message": f"{len(berubah)} pengaturan disimpan dan langsung berlaku"})
     return _jalankan(aksi)
 
@@ -661,9 +678,13 @@ def pengaturan_bawaan():
     kunci = request.form.get("kunci") or ""
     if kunci not in pengaturan.DEFINISI:
         return jsonify({"error": "Pengaturan tidak dikenal"}), 400
-    pengaturan.kembalikan_bawaan(kunci)
-    _audit("PENGATURAN_BAWAAN", kunci)
-    return jsonify({"message": "Dikembalikan ke nilai bawaan"})
+    try:
+        id_area = _area_pengaturan(request.form.get("id_comp_area"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    pengaturan.kembalikan_bawaan(kunci, id_area)
+    _audit("PENGATURAN_BAWAAN", f"{kunci} (area {id_area})" if id_area else kunci)
+    return jsonify({"message": "Kembali mengikuti nilai global" if id_area else "Dikembalikan ke nilai bawaan"})
 
 
 # ===== PERANGKAT / KIOSK =====

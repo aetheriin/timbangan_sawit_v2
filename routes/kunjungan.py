@@ -64,7 +64,7 @@ def kunjungan_cari_wajah():
         hapus_file(path_disk)
     if jumlah != 1:
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", db.area_akun(current_user.id)))
     p = get_personel(id_personel) if id_personel else None
     if not p:
         return jsonify({"dikenali": False})
@@ -95,7 +95,7 @@ def kunjungan_tamu_baru():
     if jumlah != 1:
         hapus_file(path_disk)
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_mirip, _, _ = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
+    id_mirip, _, _ = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", db.area_akun(current_user.id)))
     if id_mirip:
         hapus_file(path_disk)
         p = get_personel(id_mirip)

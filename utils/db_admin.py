@@ -159,9 +159,9 @@ def set_aktif_produk(id_produk, aktif):
 
 
 # ===== JADWAL KERJA =====
-def ubah_jadwal(hari, is_libur, jam_masuk, jam_pulang, toleransi):
+def ubah_jadwal(id_comp_area, hari, is_libur, jam_masuk, jam_pulang, toleransi):
     _ubah("""UPDATE jadwal_kerja SET is_libur = ?, jam_masuk = ?, jam_pulang = ?, toleransi_menit = ?
-             WHERE hari = ?""", 1 if is_libur else 0, jam_masuk, jam_pulang, toleransi, hari)
+             WHERE id_comp_area = ? AND hari = ?""", 1 if is_libur else 0, jam_masuk, jam_pulang, toleransi, id_comp_area, hari)
     get_jadwal_kerja.hapus()
 
 

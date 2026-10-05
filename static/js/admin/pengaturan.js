@@ -14,8 +14,11 @@ function inputPengaturan(p) {
         <span class="text-xs text-slate-400 ml-1">${p.min} - ${p.max}</span>`;
 }
 
+const areaPengaturan = () => document.getElementById('pengaturanArea').value;
+
 async function muatPengaturan() {
-    const data = await ambilJson('/api/admin/pengaturan');
+    document.getElementById('infoPengaturanArea').classList.toggle('hidden', !areaPengaturan());
+    const data = await ambilJson(`/api/admin/pengaturan?area=${encodeURIComponent(areaPengaturan())}`);
     const wadah = document.getElementById('grupPengaturan');
     if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
     daftarPengaturan = data;
@@ -27,12 +30,13 @@ async function muatPengaturan() {
                 <div>
                     <div class="flex items-center justify-between gap-2 mb-1.5">
                         <span class="text-sm font-medium text-slate-700">${escapeHtml(p.label)}</span>
-                        ${badge(p.sumber, p.sumber === 'Admin' ? WARNA_BADGE.biru : WARNA_BADGE.abu)}
+                        ${badge(p.sumber, p.sumber === 'Admin' || p.sumber === 'Area' ? WARNA_BADGE.biru : WARNA_BADGE.abu)}
                     </div>
                     <div class="flex items-center">${inputPengaturan(p)}</div>
-                    <p class="field-hint">${escapeHtml(p.keterangan)}. Bawaan: ${escapeHtml(String(p.tipe === 'bool' ? (p.bawaan ? 'Aktif' : 'Tidak') : p.bawaan))}
-                        ${p.sumber === 'Admin' ? `· <button type="button" class="text-blue-600 hover:underline"
-                            data-on-click="kembalikanBawaan" data-arg="${p.kunci}">Kembalikan bawaan</button>` : ''}</p>
+                    <p class="field-hint">${escapeHtml(p.keterangan)}. ${areaPengaturan() ? 'Global' : 'Bawaan'}: ${escapeHtml(String(p.tipe === 'bool' ? (p.bawaan ? 'Aktif' : 'Tidak') : p.bawaan))}
+                        ${p.sumber === 'Admin' || p.sumber === 'Area' ? `· <button type="button" class="text-blue-600 hover:underline"
+                            data-on-click="kembalikanBawaan" data-arg="${p.kunci}">${areaPengaturan() ? 'Ikuti global' : 'Kembalikan bawaan'}</button>` : ''}
+                        ${!areaPengaturan() && p.per_area ? ' · bisa diatur per area' : ''}</p>
                 </div>`).join('')}
             </div>
         </div>`).join('');
@@ -41,7 +45,7 @@ async function muatPengaturan() {
 document.getElementById('formPengaturan').addEventListener('submit', async e => {
     e.preventDefault();
     const form = e.target;
-    const data = {};
+    const data = { id_comp_area: areaPengaturan() };
     daftarPengaturan.forEach(p => {
         const el = form.elements[p.kunci];
         data[p.kunci] = p.tipe === 'bool' ? (el.checked ? 'true' : 'false') : el.value;
@@ -51,5 +55,5 @@ document.getElementById('formPengaturan').addEventListener('submit', async e => 
 });
 
 async function kembalikanBawaan(kunci) {
-    if (tampilkanHasil(await kirimForm('/api/admin/pengaturan/bawaan', { kunci }))) muatPengaturan();
+    if (tampilkanHasil(await kirimForm('/api/admin/pengaturan/bawaan', { kunci, id_comp_area: areaPengaturan() }))) muatPengaturan();
 }

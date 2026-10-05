@@ -17,17 +17,20 @@ def _jadwal_dict(r):
 
 
 @cache_ttl(300)
-def get_jadwal_kerja():
+def get_jadwal_kerja(id_comp_area=None):
+    """Jadwal mingguan satu area (migrasi 014). Tanpa area -> area pertama."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit FROM jadwal_kerja ORDER BY hari")
+    cursor.execute("""SELECT hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit FROM jadwal_kerja
+                      WHERE id_comp_area = COALESCE(?, (SELECT MIN(id_comp_area) FROM jadwal_kerja))
+                      ORDER BY hari""", id_comp_area)
     data = [_jadwal_dict(r) for r in _rows_to_dicts(cursor)]
     conn.close()
     return data
 
 
-def get_jadwal_hari(hari):
-    return next((j for j in get_jadwal_kerja() if j["hari"] == hari), None)
+def get_jadwal_hari(hari, id_comp_area=None):
+    return next((j for j in get_jadwal_kerja(id_comp_area) if j["hari"] == hari), None)
 
 
 def get_scan_terakhir(id_personel, tanggal):

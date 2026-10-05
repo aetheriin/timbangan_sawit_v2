@@ -7,7 +7,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 ## Cara memasang
 
-1. Jalankan migrasi `database/migrations/` 001–013 berurutan di SSMS. **008–013 wajib** untuk versi ini: login membaca
+1. Jalankan migrasi `database/migrations/` 001–014 berurutan di SSMS. **008–014 wajib** untuk versi ini: login membaca
    tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
@@ -31,8 +31,8 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 | Sesi Aktif | Siapa yang login dari semua PC (tabel `sesi_login`, migrasi 007), IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
 | Supplier & Produk | Tambah / ubah / aktif / nonaktif mitra (peran Customer dan/atau Pengangkutan) dan produk (kategori + alur tahap) | Langsung muncul / hilang di pilihan Form |
 | Void Tiket | Batalkan tiket salah input (wajib alasan). Status jadi VOID: keluar dari daftar aktif, QR tidak berlaku, tidak bisa ditimbang. Data tidak dihapus. Berita acara (No, tanggal, file) dilampirkan saat void atau menyusul lewat tombol Lampirkan BA | Langsung |
-| Jadwal Kerja | Libur, jam masuk, jam pulang, toleransi per hari | Scan absensi berikutnya |
-| Pengaturan Site | Wajib scan wajah, ambang kemiripan wajah, sesi idle, umur sesi, kunci login | ±30 detik, tanpa restart |
+| Jadwal Kerja | Per area: libur, jam masuk, jam pulang, toleransi per hari (area baru menyalin jadwal area pertama) | Scan absensi berikutnya (jadwal area akun yang men-scan) |
+| Pengaturan Site | Global: semua pengaturan. Per area (pilih area di atas): wajib scan wajah & ambang kemiripan wajah; keamanan (sesi, login, password) selalu global | ±30 detik, tanpa restart |
 | Perangkat / Kiosk | Pos kiosk + token per pos (tampil sekali), kamera tiap pos. Jembatan timbang per area (kode, port COM, baudrate) + berat live tiap jembatan | Langsung (token lama tidak berlaku); port jembatan baru langsung dibaca, ubah port jembatan lama setelah restart |
 | Log Keamanan | Isi `logs/keamanan.log`: login, gagal, terkunci, akses ditolak, kiosk ditolak, CSRF, sesi habis | – |
 | Audit Admin | Semua perubahan oleh admin (tabel `admin_audit_logs`) | – |
@@ -40,7 +40,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 ## Di mana mengubah waktu / batas
 
-Urutan yang dipakai aplikasi: **Admin › Pengaturan Site** → `.env` → bawaan di kode (`utils/pengaturan.py`).
+Urutan yang dipakai aplikasi: nilai area (khusus pengaturan operasional) → **Admin › Pengaturan Site** global → `.env` → bawaan di kode (`utils/pengaturan.py`).
 
 | Yang diatur | Pengaturan | Bawaan | Kode |
 |---|---|---|---|

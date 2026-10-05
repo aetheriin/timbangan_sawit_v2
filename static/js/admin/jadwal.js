@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', muatJadwal);
 
 async function muatJadwal() {
-    const data = await ambilJson('/api/admin/jadwal');
+    const data = await ambilJson(`/api/admin/jadwal?area=${encodeURIComponent(document.getElementById('jadwalArea').value)}`);
     const tbody = document.getElementById('tabelJadwal');
     if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
     tbody.innerHTML = data.map(j => `
@@ -31,6 +31,7 @@ function aturLibur(hari) {
 
 async function simpanJadwal(hari, btn) {
     const data = {
+        id_comp_area: document.getElementById('jadwalArea').value,
         hari,
         is_libur: inputJadwal(hari, 'is_libur').checked ? 1 : 0,
         jam_masuk: inputJadwal(hari, 'jam_masuk').value,

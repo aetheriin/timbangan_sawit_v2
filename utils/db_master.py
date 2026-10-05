@@ -5,11 +5,13 @@ from utils.db_utils import get_connection, _rows_to_dicts, _daftarkan_supir
 def daftar_kendaraan(cari="", batas=500):
     sql = f"""
         SELECT TOP {int(batas)} k.id_kendaraan, k.no_plat, k.no_stnk, k.is_active, k.is_blacklisted, k.created_at,
+               k.id_jenis_kendaraan, jk.nama AS jenis_kendaraan,
                u.id_driver AS id_supir_utama, u.nama_personel AS nama_supir_utama, u.kode_personel AS kode_supir_utama,
                (SELECT COUNT(*) FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
                 WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND p.is_active = 1) AS jumlah_supir,
                (SELECT MAX(t.created_at) FROM transaksi t WHERE t.id_kendaraan = k.id_kendaraan) AS transaksi_terakhir
         FROM kendaraan k
+        LEFT JOIN jenis_kendaraan jk ON jk.id_jenis_kendaraan = k.id_jenis_kendaraan
         OUTER APPLY (SELECT TOP 1 kd.id_driver, p.nama_personel, p.kode_personel
                      FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
                      WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND kd.is_utama = 1
@@ -42,6 +44,26 @@ def get_kendaraan(id_kendaraan):
         conn.close()
 
 
+def daftar_jenis_kendaraan():
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_jenis_kendaraan, kode, nama FROM jenis_kendaraan WHERE is_active = 1 ORDER BY id_jenis_kendaraan")
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
+
+
+def stnk_dipakai(no_stnk, kecuali=None):
+    """No STNK unik (migrasi 014). Kembalikan plat pemakainya, atau None."""
+    conn = get_connection()
+    try:
+        row = conn.cursor().execute("SELECT id_kendaraan, no_plat FROM kendaraan WHERE no_stnk = ?", no_stnk).fetchone()
+        return row[1] if row and row[0] != kecuali else None
+    finally:
+        conn.close()
+
+
 def plat_dipakai(no_plat, kecuali=None):
     conn = get_connection()
     try:
@@ -61,18 +83,18 @@ def ada_tiket_aktif(id_kendaraan):
         conn.close()
 
 
-def simpan_kendaraan(id_kendaraan, no_plat, no_stnk, id_supir_utama, user_id):
+def simpan_kendaraan(id_kendaraan, no_plat, no_stnk, id_supir_utama, user_id, id_jenis=None):
     """Tambah (id_kendaraan None) / ubah. id_supir_utama None -> truk tanpa supir utama (supir lain tetap terdaftar)."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         if id_kendaraan is None:
-            cursor.execute("INSERT INTO kendaraan (no_plat, no_stnk) OUTPUT INSERTED.id_kendaraan VALUES (?, ?)",
-                           no_plat, no_stnk)
+            cursor.execute("""INSERT INTO kendaraan (no_plat, no_stnk, id_jenis_kendaraan) OUTPUT INSERTED.id_kendaraan
+                              VALUES (?, ?, ?)""", no_plat, no_stnk, id_jenis)
             id_kendaraan = cursor.fetchone()[0]
         else:
-            cursor.execute("UPDATE kendaraan SET no_plat = ?, no_stnk = ? WHERE id_kendaraan = ?",
-                           no_plat, no_stnk, id_kendaraan)
+            cursor.execute("UPDATE kendaraan SET no_plat = ?, no_stnk = ?, id_jenis_kendaraan = ? WHERE id_kendaraan = ?",
+                           no_plat, no_stnk, id_jenis, id_kendaraan)
         if id_supir_utama:
             _daftarkan_supir(cursor, id_kendaraan, id_supir_utama, True, user_id)
         else:

@@ -13,7 +13,14 @@
             </div>
             <div>
                 <label class="field-label" for="kendNoStnk">No. STNK</label>
-                <input type="text" id="kendNoStnk" name="no_stnk" maxlength="50" class="input-field uppercase">
+                <input type="text" id="kendNoStnk" name="no_stnk" required maxlength="50" class="input-field uppercase">
+            </div>
+            <div>
+                <label class="field-label" for="kendJenis">Jenis Kendaraan</label>
+                <select id="kendJenis" name="id_jenis_kendaraan" required class="input-field">
+                    <option value="">-- Pilih --</option>
+                    {% for j in jenis_kendaraan_list %}<option value="{{ j.id_jenis_kendaraan }}">{{ j.nama }}</option>{% endfor %}
+                </select>
             </div>
             <div>
                 <label class="field-label" for="kendSupir">Supir Utama</label>

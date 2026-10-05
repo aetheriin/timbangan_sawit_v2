@@ -1,3 +1,11 @@
+<div class="flex items-center gap-2 mb-4">
+    <label class="field-label mb-0" for="pengaturanArea">Berlaku untuk</label>
+    <select id="pengaturanArea" class="input-field w-64" data-on-change="muatPengaturan">
+        <option value="">Global (semua area)</option>
+        {% for a in area_list %}<option value="{{ a.id_comp_area }}">Area {{ a.nama }}</option>{% endfor %}
+    </select>
+    <span id="infoPengaturanArea" class="text-xs text-slate-500 hidden">Hanya pengaturan operasional yang bisa diatur per area; keamanan selalu global.</span>
+</div>
 <form id="formPengaturan" autocomplete="off">
     <div id="grupPengaturan" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4"></div>
     <div class="flex items-center gap-3">

@@ -10,6 +10,7 @@ from utils import pengaturan
 from utils.face_utils import extract_embedding, verifikasi_liveness
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.db_personel import get_personel
+from utils.db_kunjungan import area_akun
 from utils.db_absensi import (get_jadwal_kerja, get_jadwal_hari, get_scan_terakhir, insert_absensi,
                               get_absensi_harian, get_rekap_bulanan)
 from utils.absensi_rules import tentukan_jenis, is_duplikat, hitung_status_waktu, hari_iso
@@ -24,7 +25,7 @@ TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
 
 def _personel_terdekat(embedding):
     """(id_personel, jarak) terdekat yang masih di bawah ambang, atau (None, jarak_terdekat)."""
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
     return id_personel, jarak
 
 
@@ -84,7 +85,7 @@ def absensi_scan():
             return jsonify({"status": "DUPLIKAT", "error": f"{nama} sudah absen pukul {terakhir:%H:%M}. Scan diabaikan."}), 409
 
         jenis = tentukan_jenis(sudah_masuk)
-        jadwal = get_jadwal_hari(hari_iso(sekarang))
+        jadwal = get_jadwal_hari(hari_iso(sekarang), area_akun(current_user.id))      # jadwal area akun yang men-scan
         status_waktu, selisih = hitung_status_waktu(jenis, sekarang, jadwal)
         insert_absensi(id_personel, jenis, "BERHASIL", status_waktu, selisih, jarak, tantangan, foto_path, perangkat, ip, sekarang)
         return jsonify({
@@ -94,7 +95,7 @@ def absensi_scan():
             "selisih_menit": selisih, "waktu": sekarang.strftime("%Y-%m-%d %H:%M:%S"),
             "jadwal": None if not jadwal or jadwal["is_libur"] else
             {"nama_hari": jadwal["nama_hari"], "jam_masuk": _jam(jadwal["jam_masuk"]), "jam_pulang": _jam(jadwal["jam_pulang"])},
-            "jarak_wajah": round(jarak, 3), "ambang": pengaturan.nilai("AMBANG_WAJAH"), "tantangan": tantangan,
+            "jarak_wajah": round(jarak, 3), "ambang": pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)), "tantangan": tantangan,
         })
     finally:
         for path in paths:
@@ -131,4 +132,4 @@ def absensi_rekap():
 @login_required
 def jadwal_kerja():
     return jsonify([{**j, "jam_masuk": _jam(j["jam_masuk"]), "jam_pulang": _jam(j["jam_pulang"])}
-                    for j in get_jadwal_kerja()])
+                    for j in get_jadwal_kerja(area_akun(current_user.id))])
