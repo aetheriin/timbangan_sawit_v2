@@ -8,3 +8,4 @@ static/uploads/*
 *.db
 data/
 logs/
+paket_offline/
