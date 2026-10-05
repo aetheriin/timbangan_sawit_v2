@@ -88,7 +88,8 @@ EXEC(N'UPDATE p SET p.id_alur = a.id_alur
        FROM dbo.produk p JOIN dbo.alur a ON a.kode = CASE WHEN p.kategori = ''TBS'' THEN ''TBS'' ELSE ''PKS'' END
        WHERE p.id_alur IS NULL');
 GO
-ALTER TABLE dbo.produk ALTER COLUMN id_alur INT NOT NULL;
+IF COLUMNPROPERTY(OBJECT_ID('dbo.produk'), 'id_alur', 'AllowsNull') = 1
+    ALTER TABLE dbo.produk ALTER COLUMN id_alur INT NOT NULL;
 GO
 
 /* ---------- Tiket mengikuti mill ---------- */

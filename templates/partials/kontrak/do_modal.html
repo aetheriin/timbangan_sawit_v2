@@ -1,29 +1,30 @@
-<!-- MODAL: Tambah / Ubah DO -->
+<!-- MODAL: Tambah / Ubah Kontrak & DO (1 kontrak = 1 produk = 1 DO) -->
 <div id="modalDO" class="modal-overlay">
-    <form id="formDO" class="modal-box max-w-2xl" autocomplete="off">
+    <form id="formDO" class="modal-box max-w-3xl" autocomplete="off">
         <div class="modal-header">
-            <h3 id="judulModalDO" class="font-bold">Tambah DO</h3>
+            <h3 id="judulModalDO" class="font-bold">Tambah Kontrak & DO</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalDO" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="p-6 grid grid-cols-2 gap-3">
+        <div class="p-6 grid grid-cols-3 gap-3 max-h-[70vh] overflow-y-auto">
             <input type="hidden" name="id_do">
+            <p class="col-span-3 text-xs font-semibold text-slate-500 uppercase">Kontrak</p>
             <div>
                 <label class="field-label" for="doNoKontrak">No Kontrak</label>
                 <input type="text" id="doNoKontrak" name="no_kontrak" required maxlength="50" class="input-field uppercase">
             </div>
             <div>
-                <label class="field-label" for="doNoDo">No DO</label>
-                <input type="text" id="doNoDo" name="no_do" required maxlength="50" class="input-field uppercase">
+                <label class="field-label" for="doTglKontrak">Tanggal Kontrak</label>
+                <input type="date" id="doTglKontrak" name="tanggal_kontrak" required class="input-field">
             </div>
             <div>
                 <label class="field-label" for="doJenis">Jenis Transaksi</label>
-                <select id="doJenis" name="jenis_transaksi" required class="input-field">
+                <select id="doJenis" name="jenis_transaksi" required class="input-field" data-on-change="labelCaraAngkut">
                     {% for j in jenis_list %}<option value="{{ j }}">{{ j.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
             </div>
             <div>
                 <label class="field-label" for="doCustomer">Customer</label>
-                <select id="doCustomer" name="id_customer" required class="input-field">
+                <select id="doCustomer" name="id_customer" required class="input-field" data-on-change="labelCaraAngkut">
                     <option value="">-- Pilih --</option>
                     {% for c in customer_list %}<option value="{{ c.id_supplier }}">{{ c.nama_supplier }}</option>{% endfor %}
                 </select>
@@ -35,18 +36,25 @@
                     {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
                 </select>
             </div>
-            <div>
-                <label class="field-label">Pengangkutan</label>
-                <input type="hidden" name="pengangkutan" value="CUSTOMER">
-                <div class="seg">
-                    <button type="button" class="seg-item seg-item-active" data-angkut="CUSTOMER" data-on-click="pilihPengangkutan" data-arg="CUSTOMER">Customer sendiri</button>
-                    <button type="button" class="seg-item" data-angkut="PIHAK_KETIGA" data-on-click="pilihPengangkutan" data-arg="PIHAK_KETIGA">Pihak ketiga</button>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="field-label" for="doQty">Qty (kg)</label>
+                    <input type="number" id="doQty" name="qty_kg" min="1" step="0.01" class="input-field" placeholder="opsional">
                 </div>
-                <input type="text" id="doNamaAngkut" name="nama_pengangkutan" maxlength="100" list="daftarAngkutan"
-                       placeholder="Nama perusahaan angkutan" class="input-field mt-2 hidden">
-                <datalist id="daftarAngkutan">
-                    {% for a in angkutan_list %}<option value="{{ a.nama_supplier }}">{% endfor %}
-                </datalist>
+                <div>
+                    <label class="field-label" for="doHarga">Harga/kg</label>
+                    <input type="number" id="doHarga" name="harga_per_kg" min="0.01" step="0.01" class="input-field" placeholder="opsional">
+                </div>
+            </div>
+            <div class="col-span-3">
+                <label class="field-label" for="doKet">Keterangan (opsional)</label>
+                <input type="text" id="doKet" name="keterangan" maxlength="200" class="input-field">
+            </div>
+
+            <p class="col-span-3 text-xs font-semibold text-slate-500 uppercase mt-2">Delivery Order</p>
+            <div>
+                <label class="field-label" for="doNoDo">No DO</label>
+                <input type="text" id="doNoDo" name="no_do" required maxlength="50" class="input-field uppercase">
             </div>
             <div>
                 <label class="field-label" for="doTanggal">Tanggal DO</label>
@@ -56,14 +64,33 @@
                 <label class="field-label" for="doBerlaku">Berlaku Sampai (opsional)</label>
                 <input type="date" id="doBerlaku" name="berlaku_sampai" class="input-field">
             </div>
-            <div class="col-span-2">
-                <label class="field-label" for="doKet">Keterangan (opsional)</label>
-                <input type="text" id="doKet" name="keterangan" maxlength="200" class="input-field">
+
+            <div class="col-span-3 flex items-center justify-between mt-2">
+                <p class="text-xs font-semibold text-slate-500 uppercase">Pengangkutan</p>
+                <button type="button" class="link-aksi text-blue-600 text-sm" data-on-click="tambahBarisAngkut"><i class="fa-solid fa-plus mr-1"></i> Tambah pengangkut</button>
             </div>
+            <div id="daftarAngkutDO" class="col-span-3 space-y-2"></div>
+            <datalist id="daftarAngkutan">
+                {% for a in angkutan_list %}<option value="{{ a.nama_supplier }}">{% endfor %}
+            </datalist>
         </div>
-        <div class="px-6 pb-6 flex justify-end gap-2">
+        <div class="px-6 pb-6 pt-3 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalDO" class="btn-secondary">Batal</button>
             <button type="submit" class="btn-primary">Simpan</button>
         </div>
     </form>
 </div>
+
+<template id="tplBarisAngkut">
+    <div class="grid grid-cols-12 gap-2 items-center" data-baris-angkut>
+        <select name="angkut_cara" class="input-field col-span-4" data-on-change="ubahCaraAngkut" data-arg="$el">
+            <option value="PENGIRIM">Kendaraan pengirim</option>
+            <option value="PENERIMA">Kendaraan penerima</option>
+            <option value="PIHAK_KETIGA">Pihak ketiga</option>
+        </select>
+        <input type="text" name="angkut_nama" maxlength="100" list="daftarAngkutan" placeholder="Nama perusahaan angkutan"
+               class="input-field col-span-4 invisible">
+        <input type="number" name="angkut_qty" min="1" step="0.01" placeholder="Alokasi kg (opsional)" class="input-field col-span-3">
+        <button type="button" class="text-red-600 col-span-1" title="Hapus" data-on-click="hapusBarisAngkut" data-arg="$el"><i class="fa-solid fa-trash"></i></button>
+    </div>
+</template>

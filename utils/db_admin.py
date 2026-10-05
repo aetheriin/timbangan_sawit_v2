@@ -2,7 +2,7 @@
 from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 
-TIPE_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")     # customer bisa membeli / menjual; pengangkutan = angkutan pihak ketiga
+PERAN_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")    # satu mitra boleh keduanya (tabel supplier_peran)
 KATEGORI_PRODUK = ("TBS", "PRODUK_PKS")
 
 
@@ -90,8 +90,15 @@ def cabut_sesi(id_user):
 
 # ===== MASTER SUPPLIER & PRODUK =====
 def daftar_supplier():
-    return _query("""SELECT id_supplier, kode_supplier, nama_supplier, tipe, is_active, created_at
-                     FROM supplier ORDER BY is_active DESC, nama_supplier""")
+    rows = _query("""SELECT s.id_supplier, s.kode_supplier, s.nama_supplier, s.is_active, s.created_at,
+                            pc.peran AS peran_customer, pa.peran AS peran_angkutan
+                     FROM supplier s
+                     LEFT JOIN supplier_peran pc ON pc.id_supplier = s.id_supplier AND pc.peran = 'CUSTOMER'
+                     LEFT JOIN supplier_peran pa ON pa.id_supplier = s.id_supplier AND pa.peran = 'PENGANGKUTAN'
+                     ORDER BY s.is_active DESC, s.nama_supplier""")
+    for r in rows:
+        r.update(is_customer=bool(r.pop("peran_customer")), is_angkutan=bool(r.pop("peran_angkutan")))
+    return rows
 
 
 def kode_supplier_dipakai(kode, kecuali=None):
@@ -99,12 +106,24 @@ def kode_supplier_dipakai(kode, kecuali=None):
     return any(r["id_supplier"] != kecuali for r in rows)
 
 
-def simpan_supplier(id_supplier, kode, nama, tipe):
-    if id_supplier:
-        _ubah("UPDATE supplier SET kode_supplier = ?, nama_supplier = ?, tipe = ? WHERE id_supplier = ?",
-              kode, nama, tipe, id_supplier)
-    else:
-        _ubah("INSERT INTO supplier (kode_supplier, nama_supplier, tipe) VALUES (?, ?, ?)", kode, nama, tipe)
+def simpan_supplier(id_supplier, kode, nama, peran):
+    """peran: daftar dari PERAN_SUPPLIER (minimal satu)."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if id_supplier:
+            cursor.execute("UPDATE supplier SET kode_supplier = ?, nama_supplier = ? WHERE id_supplier = ?", kode, nama, id_supplier)
+            if cursor.rowcount == 0:
+                raise ValueError("Data tidak ditemukan")
+        else:
+            cursor.execute("INSERT INTO supplier (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)", kode, nama)
+            id_supplier = cursor.fetchone()[0]
+        cursor.execute("DELETE FROM supplier_peran WHERE id_supplier = ?", id_supplier)
+        for p in peran:
+            cursor.execute("INSERT INTO supplier_peran (id_supplier, peran) VALUES (?, ?)", id_supplier, p)
+        conn.commit()
+    finally:
+        conn.close()
     get_semua_supplier.hapus()
 
 

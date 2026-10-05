@@ -222,10 +222,15 @@ CREATE TABLE dbo.supplier (
     id_supplier    INT IDENTITY(1,1) PRIMARY KEY,
     kode_supplier  VARCHAR(20)  NOT NULL CONSTRAINT UX_Supplier_Kode UNIQUE,
     nama_supplier  VARCHAR(100) NOT NULL,
-    tipe           VARCHAR(30)  NOT NULL,
     is_active      BIT NOT NULL CONSTRAINT DF_Supplier_Aktif DEFAULT (1),
-    created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE()),
-    CONSTRAINT CK_Supplier_Tipe CHECK (tipe IN ('CUSTOMER', 'PENGANGKUTAN'))
+    created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE())
+);
+GO
+-- Peran mitra (migrasi 013): satu mitra boleh customer sekaligus pengangkutan
+CREATE TABLE dbo.supplier_peran (
+    id_supplier  INT NOT NULL CONSTRAINT FK_SupPeran_Supplier REFERENCES dbo.supplier (id_supplier),
+    peran        VARCHAR(20) NOT NULL CONSTRAINT CK_SupPeran_Peran CHECK (peran IN ('CUSTOMER', 'PENGANGKUTAN')),
+    CONSTRAINT PK_SupplierPeran PRIMARY KEY (id_supplier, peran)
 );
 GO
 
@@ -327,24 +332,48 @@ CREATE INDEX IX_KK_Kendaraan ON dbo.kontrak_kendaraan (id_kendaraan, is_active);
 CREATE INDEX IX_KK_Kendaraan_Supplier ON dbo.kontrak_kendaraan (id_kendaraan, id_supplier, is_active);
 GO
 
--- DO (diisi HO, menu Kontrak & DO). Form Security: ketik No DO -> data transaksi terisi
+-- Kontrak & DO (migrasi 013, diisi HO): 1 kontrak = 1 produk = 1 DO; 1 DO boleh beberapa pengangkut
+CREATE TABLE dbo.kontrak (
+    id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
+    no_kontrak       VARCHAR(50) NOT NULL CONSTRAINT UX_Kontrak_No UNIQUE,
+    jenis_transaksi  VARCHAR(20) NOT NULL,
+    id_customer      INT NOT NULL CONSTRAINT FK_Kontrak_Customer REFERENCES dbo.supplier (id_supplier),
+    id_produk        INT NOT NULL CONSTRAINT FK_Kontrak_Produk REFERENCES dbo.produk (id_produk),
+    tanggal          DATE NOT NULL CONSTRAINT DF_Kontrak_Tanggal DEFAULT (CAST(GETDATE() AS DATE)),
+    qty_kg           DECIMAL(14, 2) NULL,
+    harga_per_kg     DECIMAL(14, 2) NULL,
+    keterangan       VARCHAR(200) NULL,
+    is_active        BIT NOT NULL CONSTRAINT DF_Kontrak_Aktif DEFAULT (1),
+    created_by       INT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.users (id_user),
+    created_at       DATETIME NOT NULL CONSTRAINT DF_Kontrak_Created DEFAULT (GETDATE()),
+    CONSTRAINT CK_Kontrak_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
+    CONSTRAINT CK_Kontrak_Qty CHECK (qty_kg IS NULL OR qty_kg > 0)
+);
+GO
 CREATE TABLE dbo.delivery_order (
     id_do           INT IDENTITY(1,1) PRIMARY KEY,
     no_do           VARCHAR(50) NOT NULL CONSTRAINT UX_DO_No UNIQUE,
-    no_kontrak      VARCHAR(50) NOT NULL,
-    jenis_transaksi VARCHAR(20) NOT NULL,
-    id_customer     INT NOT NULL CONSTRAINT FK_DO_Customer REFERENCES dbo.supplier (id_supplier),
-    id_produk       INT NOT NULL CONSTRAINT FK_DO_Produk REFERENCES dbo.produk (id_produk),
-    id_pengangkutan INT NULL CONSTRAINT FK_DO_Angkut REFERENCES dbo.supplier (id_supplier),   -- NULL = kendaraan customer sendiri
+    id_kontrak      INT NOT NULL CONSTRAINT FK_DO_Kontrak REFERENCES dbo.kontrak (id_kontrak),
     tanggal_do      DATE NOT NULL CONSTRAINT DF_DO_Tanggal DEFAULT (CAST(GETDATE() AS DATE)),
     berlaku_sampai  DATE NULL,
     keterangan      VARCHAR(200) NULL,
     is_active       BIT NOT NULL CONSTRAINT DF_DO_Aktif DEFAULT (1),
     created_by      INT NULL CONSTRAINT FK_DO_User REFERENCES dbo.users (id_user),
-    created_at      DATETIME NOT NULL CONSTRAINT DF_DO_Created DEFAULT (GETDATE()),
-    CONSTRAINT CK_DO_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA'))
+    created_at      DATETIME NOT NULL CONSTRAINT DF_DO_Created DEFAULT (GETDATE())
 );
-CREATE INDEX IX_DO_Kontrak ON dbo.delivery_order (no_kontrak);
+CREATE UNIQUE INDEX UX_DO_Kontrak ON dbo.delivery_order (id_kontrak);     -- 1 kontrak = 1 DO
+GO
+CREATE TABLE dbo.do_pengangkutan (
+    id_do_angkut     INT IDENTITY(1,1) PRIMARY KEY,
+    id_do            INT NOT NULL CONSTRAINT FK_DoAngkut_DO REFERENCES dbo.delivery_order (id_do),
+    cara_angkut      VARCHAR(15) NOT NULL,
+    id_pengangkutan  INT NULL CONSTRAINT FK_DoAngkut_Supplier REFERENCES dbo.supplier (id_supplier),
+    qty_kg           DECIMAL(14, 2) NULL,               -- alokasi (opsional), total <= kontrak.qty_kg
+    CONSTRAINT CK_DoAngkut_Cara CHECK (cara_angkut IN ('PENGIRIM', 'PENERIMA', 'PIHAK_KETIGA')),
+    CONSTRAINT CK_DoAngkut_PihakKetiga CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
+                                              OR (cara_angkut <> 'PIHAK_KETIGA' AND id_pengangkutan IS NULL)),
+    CONSTRAINT UX_DoAngkut UNIQUE (id_do, cara_angkut, id_pengangkutan)
+);
 GO
 
 CREATE TABLE dbo.standar_mutu_log (
@@ -407,8 +436,12 @@ CREATE TABLE dbo.transaksi (
     security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.users (id_user),
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
     id_mill            INT NULL CONSTRAINT FK_Trx_Mill REFERENCES dbo.mill (id_mill),                       -- alur tahap tiket
+    id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
+    cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
+    CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
+                                        OR (cara_angkut IN ('PENGIRIM', 'PENERIMA') AND id_pengangkutan IS NULL)),
     CONSTRAINT CK_Trx_Status CHECK (status_alur IN ('SECURITY_REGISTER', 'SCAN_WAJAH', 'TIMBANG_1', 'INSPEKSI_PROSES',
                                                     'TIMBANG_2', 'SELESAI', 'REJECTED', 'VOID'))
 );

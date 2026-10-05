@@ -61,8 +61,22 @@ def buat_tiket():
     jenis, id_supplier, id_produk = f.get("jenis_transaksi", "").strip(), f.get("id_supplier", ""), f.get("id_produk", "")
     if jenis not in JENIS_TRANSAKSI:
         return jsonify({"error": "Pilih jenis transaksi"}), 400
-    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier()}:
+    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier() if s.is_customer}:
         return jsonify({"error": "Pilih customer dari daftar"}), 400
+    # Pengangkutan: dengan DO harus salah satu pengangkut DO itu; tanpa DO kendaraan pengirim / penerima / pihak ketiga
+    angkut = f.get("angkut", "").strip().upper()
+    cara, _, id_angkut = angkut.partition(":")
+    pilihan_do = {(a["cara_angkut"], a["id_pengangkutan"]) for a in do["angkutan"]} if do else None
+    if cara == "PIHAK_KETIGA":
+        if not id_angkut.isdigit() or int(id_angkut) not in {s.id_supplier for s in get_semua_supplier() if s.is_angkutan}:
+            return jsonify({"error": "Pilih pengangkutan pihak ketiga dari daftar"}), 400
+        id_angkut = int(id_angkut)
+    elif cara in ("PENGIRIM", "PENERIMA"):
+        id_angkut = None
+    else:
+        return jsonify({"error": "Pilih pengangkutan"}), 400
+    if pilihan_do is not None and (cara, id_angkut) not in pilihan_do:
+        return jsonify({"error": f"Pengangkutan ini tidak terdaftar di DO {no_do}"}), 400
     if not id_produk.isdigit() or int(id_produk) not in {p.id_produk for p in get_semua_produk()}:
         return jsonify({"error": "Pilih produk dari daftar"}), 400
 
@@ -106,7 +120,7 @@ def buat_tiket():
 
     buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
-                        current_user.id, prev_driver_id, do["id_pengangkutan"] if do else None, mill["id_mill"])
+                        current_user.id, prev_driver_id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

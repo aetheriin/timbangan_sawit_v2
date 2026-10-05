@@ -10,10 +10,12 @@ async function muatDO() {
     const q = document.getElementById('cariDO').value.trim();
     const data = await ambilJson(`/api/kontrak/do?cari=${encodeURIComponent(q)}`);
     const tbody = document.getElementById('tabelDO');
-    if (data.error) { tbody.innerHTML = barisKosong(10, data.error); return false; }
+    if (data.error) { tbody.innerHTML = barisKosong(11, data.error); return false; }
     daftarDO = data;
     tampilkanDO();
 }
+
+const fmtKg = v => v == null ? '-' : Number(v).toLocaleString('id-ID');
 
 function tampilkanDO() {
     const baris = daftarDO.filter(d => filterAktifDO === '' || String(Number(d.is_active)) === filterAktifDO);
@@ -24,7 +26,8 @@ function tampilkanDO() {
             <td class="table-cell">${badge(labelKode(d.jenis_transaksi), d.jenis_transaksi === 'PENJUALAN' ? WARNA_BADGE.biru : WARNA_BADGE.hijau)}</td>
             <td class="table-cell">${escapeHtml(d.nama_customer)}</td>
             <td class="table-cell">${escapeHtml(d.nama_produk)}</td>
-            <td class="table-cell">${escapeHtml(d.nama_pengangkutan)}${d.pihak_ketiga ? ' <span class="text-xs text-amber-700">(pihak ketiga)</span>' : ''}</td>
+            <td class="table-cell text-right">${fmtKg(d.qty_kg)}</td>
+            <td class="table-cell">${d.angkutan.map(a => `<div>${escapeHtml(a.label)}${a.qty_kg ? ` <span class="text-xs text-slate-500">${fmtKg(a.qty_kg)} kg</span>` : ''}</div>`).join('')}</td>
             <td class="table-cell whitespace-nowrap">${escapeHtml(d.tanggal_do)}</td>
             <td class="table-cell whitespace-nowrap">${escapeHtml(d.berlaku_sampai || '-')}</td>
             <td class="table-cell">${badgeAktif(d.is_active)}</td>
@@ -33,7 +36,7 @@ function tampilkanDO() {
                 <button type="button" class="link-aksi ${d.is_active ? 'text-red-600' : 'text-emerald-600'}"
                     data-on-click="ubahAktifDO" data-arg="${d.id_do}">${d.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
-        </tr>`).join('') || barisKosong(10, 'Belum ada DO');
+        </tr>`).join('') || barisKosong(11, 'Belum ada kontrak & DO');
 }
 
 function filterStatusDO(el) {
@@ -50,36 +53,52 @@ function cariDaftarDO() {
 function bukaDO(id) {
     const form = document.getElementById('formDO');
     const d = daftarDO.find(x => x.id_do === id);
+    const hariIni = new Date().toISOString().slice(0, 10);
     form.reset();
-    if (d) isiForm(form, { ...d, nama_pengangkutan: d.pihak_ketiga ? d.nama_pengangkutan : '', berlaku_sampai: d.berlaku_sampai || '', keterangan: d.keterangan || '' });
-    else isiForm(form, { id_do: '', tanggal_do: new Date().toISOString().slice(0, 10) });
-    pilihPengangkutan(d && d.pihak_ketiga ? 'PIHAK_KETIGA' : 'CUSTOMER');
-    document.getElementById('judulModalDO').textContent = d ? 'Ubah DO' : 'Tambah DO';
+    if (d) isiForm(form, { ...d, qty_kg: d.qty_kg ?? '', harga_per_kg: d.harga_per_kg ?? '', berlaku_sampai: d.berlaku_sampai || '',
+                           keterangan: d.keterangan || '' });
+    else isiForm(form, { id_do: '', tanggal_do: hariIni, tanggal_kontrak: hariIni });
+    document.getElementById('daftarAngkutDO').innerHTML = '';
+    (d ? d.angkutan : [{ cara_angkut: 'PENGIRIM' }]).forEach(tambahBarisAngkut);
+    labelCaraAngkut();
+    document.getElementById('judulModalDO').textContent = d ? 'Ubah Kontrak & DO' : 'Tambah Kontrak & DO';
     openModal('modalDO');
     document.getElementById('doNoKontrak').focus();
 }
 
-// No Kontrak yang sudah pernah dipakai -> customer, produk, jenis, pengangkutan ikut terisi (DO baru saja)
-document.getElementById('doNoKontrak')?.addEventListener('change', async e => {
-    const form = e.target.form;
-    if (form.elements.id_do.value || !e.target.value.trim()) return;
-    const d = await ambilJson(`/api/kontrak/terakhir?no_kontrak=${encodeURIComponent(e.target.value.trim())}`);
-    if (!d || d.error || !d.id_do) return;
-    isiForm(form, { jenis_transaksi: d.jenis_transaksi, id_customer: d.id_customer, id_produk: d.id_produk,
-                    nama_pengangkutan: d.pihak_ketiga ? d.nama_pengangkutan : '' });
-    pilihPengangkutan(d.pihak_ketiga ? 'PIHAK_KETIGA' : 'CUSTOMER');
-    Notif.info(`Data diisi dari kontrak ${d.no_kontrak} (DO ${d.no_do})`);
-});
+// ===== Pengangkutan DO: beberapa baris (kendaraan pengirim / penerima sendiri, atau pihak ketiga) =====
+function tambahBarisAngkut(a) {
+    const isi = a && a.cara_angkut ? a : { cara_angkut: 'PIHAK_KETIGA' };
+    const baris = document.getElementById('tplBarisAngkut').content.firstElementChild.cloneNode(true);
+    baris.querySelector('[name=angkut_cara]').value = isi.cara_angkut;
+    baris.querySelector('[name=angkut_nama]').value = isi.nama_pengangkutan || '';
+    baris.querySelector('[name=angkut_qty]').value = isi.qty_kg ?? '';
+    document.getElementById('daftarAngkutDO').appendChild(baris);
+    ubahCaraAngkut(baris.querySelector('[name=angkut_cara]'));
+    labelCaraAngkut();
+}
 
-// Pengangkutan: kendaraan milik customer sendiri, atau pihak ketiga (nama diketik; nama baru otomatis didaftarkan)
-function pilihPengangkutan(mode) {
+function hapusBarisAngkut(el) {
+    el.closest('[data-baris-angkut]').remove();
+}
+
+function ubahCaraAngkut(sel) {
+    const nama = sel.closest('[data-baris-angkut]').querySelector('[name=angkut_nama]');
+    const pihakKetiga = sel.value === 'PIHAK_KETIGA';
+    nama.classList.toggle('invisible', !pihakKetiga);
+    nama.required = pihakKetiga;
+}
+
+// Pembelian: pengirim = customer, penerima = PT sendiri; penjualan sebaliknya
+function labelCaraAngkut() {
     const form = document.getElementById('formDO');
-    form.elements.pengangkutan.value = mode;
-    form.querySelectorAll('[data-angkut]').forEach(b => b.classList.toggle('seg-item-active', b.dataset.angkut === mode));
-    const nama = document.getElementById('doNamaAngkut');
-    nama.classList.toggle('hidden', mode !== 'PIHAK_KETIGA');
-    nama.required = mode === 'PIHAK_KETIGA';
-    if (mode === 'PIHAK_KETIGA') nama.focus();
+    const sel = form.elements.id_customer;
+    const customer = sel.value ? sel.options[sel.selectedIndex].text : 'customer';
+    const jual = form.elements.jenis_transaksi.value === 'PENJUALAN';
+    form.querySelectorAll('[name=angkut_cara]').forEach(s => {
+        s.options[0].text = `Kendaraan ${jual ? 'PT sendiri' : customer} (pengirim)`;
+        s.options[1].text = `Kendaraan ${jual ? customer : 'PT sendiri'} (penerima)`;
+    });
 }
 
 document.getElementById('formDO')?.addEventListener('submit', e => {
@@ -91,6 +110,6 @@ function ubahAktifDO(id) {
     const d = daftarDO.find(x => x.id_do === id);
     konfirmasiAktif({
         url: `/api/kontrak/do/${id}/aktif`, aktif: !d.is_active, nama: `DO ${d.no_do}`, jenis: 'DO',
-        pesanNonaktif: 'Security tidak bisa memakai DO ini untuk tiket baru.', setelahnya: muatDO,
+        pesanNonaktif: 'Kontrak & DO ini tidak bisa dipakai Security untuk tiket baru.', setelahnya: muatDO,
     });
 }

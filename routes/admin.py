@@ -98,7 +98,6 @@ def admin_halaman(halaman):
                            area_list=[a for a in org.daftar_area() if a["is_active"]],
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            alur_list=alur.daftar_alur(),
-                           tipe_supplier=db.TIPE_SUPPLIER,
                            kategori_produk=db.KATEGORI_PRODUK, password_min=PASSWORD_MIN)
 
 
@@ -474,12 +473,13 @@ def supplier_daftar():
 def supplier_simpan():
     def aksi():
         id_supplier = int(request.form.get("id_supplier") or 0) or None
-        kode, nama, tipe = _teks("kode_supplier", maks=20).upper(), _teks("nama_supplier"), _teks("tipe").upper()
-        if tipe not in db.TIPE_SUPPLIER:
-            raise ValueError("Tipe tidak dikenal")
+        kode, nama = _teks("kode_supplier", maks=20).upper(), _teks("nama_supplier")
+        peran = [p for p, f in zip(db.PERAN_SUPPLIER, ("is_customer", "is_angkutan")) if request.form.get(f)]
+        if not peran:
+            raise ValueError("Pilih minimal satu peran: customer / pengangkutan")
         if db.kode_supplier_dipakai(kode, kecuali=id_supplier):
             raise ValueError(f"Kode {kode} sudah dipakai")
-        db.simpan_supplier(id_supplier, kode, nama, tipe)
+        db.simpan_supplier(id_supplier, kode, nama, peran)
         _audit("SUPPLIER_UBAH" if id_supplier else "SUPPLIER_TAMBAH", kode, nama)
         return jsonify({"message": f"Supplier {nama} disimpan"})
     return _jalankan(aksi)

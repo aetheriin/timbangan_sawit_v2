@@ -6,6 +6,13 @@ def _tahap(id_alur):
     return tahap_alur(id_alur)
 
 
+def _angkut(cara, id_pengangkutan):
+    """Nilai pilihan Pengangkutan di Form Security: PENGIRIM / PENERIMA / PIHAK_KETIGA:<id mitra>."""
+    if cara == "PIHAK_KETIGA":
+        return f"PIHAK_KETIGA:{id_pengangkutan}"
+    return cara or ""
+
+
 def serialisasi_tiket(row):
     return {
         "status": "ADA_TIKET",
@@ -14,6 +21,7 @@ def serialisasi_tiket(row):
         "id_supplier": row.id_supplier, "supplier": row.nama_supplier,
         "id_produk": row.id_produk, "produk": row.nama_produk, "kategori_produk": row.kategori,
         "alur_tahap": _tahap(getattr(row, "id_alur", None)),
+        "angkut": _angkut(getattr(row, "cara_angkut", None), getattr(row, "id_pengangkutan", None)),
         "no_plat": row.no_plat, "no_stnk": row.no_stnk,
         "driver": {
             "id_driver": row.id_driver, "nik": row.nik, "nama": row.nama_driver,

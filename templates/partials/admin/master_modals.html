@@ -16,10 +16,11 @@
                 <input type="text" id="supNama" name="nama_supplier" required maxlength="100" class="input-field">
             </div>
             <div>
-                <label class="field-label" for="supTipe">Tipe</label>
-                <select id="supTipe" name="tipe" class="input-field">
-                    {% for t in tipe_supplier %}<option value="{{ t }}">{{ t.replace('_', ' ').title() }}</option>{% endfor %}
-                </select>
+                <span class="field-label">Peran (boleh keduanya)</span>
+                <div class="flex gap-5 text-sm">
+                    <label class="flex items-center gap-2"><input type="checkbox" name="is_customer" value="1"> Customer</label>
+                    <label class="flex items-center gap-2"><input type="checkbox" name="is_angkutan" value="1"> Pengangkutan</label>
+                </div>
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">

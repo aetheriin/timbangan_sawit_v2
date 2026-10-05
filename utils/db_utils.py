@@ -114,7 +114,12 @@ def catat_login_terakhir(user_id):
 def get_semua_supplier():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_supplier, nama_supplier FROM supplier WHERE is_active = 1 ORDER BY nama_supplier")
+    cursor.execute("""SELECT s.id_supplier, s.nama_supplier,
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM supplier_peran p WHERE p.id_supplier = s.id_supplier
+                                                    AND p.peran = 'CUSTOMER') THEN 1 ELSE 0 END AS BIT) AS is_customer,
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM supplier_peran p WHERE p.id_supplier = s.id_supplier
+                                                    AND p.peran = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan
+                      FROM supplier s WHERE s.is_active = 1 ORDER BY s.nama_supplier""")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -427,7 +432,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
                t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
-               t.id_mill, ml.id_alur, k.no_plat, k.no_stnk,
+               t.id_mill, ml.id_alur, t.cara_angkut, t.id_pengangkutan, k.no_plat, k.no_stnk,
                d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
                d.is_updated, d.is_blacklisted, d.foto_path
         FROM transaksi t
@@ -459,7 +464,7 @@ def catat_cetak_qr(no_tiket):
     return sebelumnya
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id,
-                        prev_driver_id=None, id_pengangkutan=None, id_mill=None):
+                        prev_driver_id=None, id_pengangkutan=None, id_mill=None, id_do=None, cara_angkut="PENGIRIM"):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
     kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
     qr_expired = datetime.now() + timedelta(hours=24)
@@ -470,10 +475,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor.execute(
         """INSERT INTO transaksi
            (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan, id_mill)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan, id_mill, id_do, cara_angkut)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
-        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan, id_mill
+        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan, id_mill, id_do, cara_angkut
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.

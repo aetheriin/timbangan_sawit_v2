@@ -16,7 +16,7 @@ async function muatSupplier() {
         <tr class="hover:bg-slate-50${s.is_active ? '' : ' text-slate-400'}" data-cari="${escapeHtml(`${s.kode_supplier} ${s.nama_supplier}`.toLowerCase())}">
             <td class="table-cell font-mono">${escapeHtml(s.kode_supplier)}</td>
             <td class="table-cell">${escapeHtml(s.nama_supplier)}</td>
-            <td class="table-cell">${badge(labelKode(s.tipe), s.tipe === 'PENGANGKUTAN' ? WARNA_BADGE.oranye : WARNA_BADGE.biru)}</td>
+            <td class="table-cell space-x-1">${s.is_customer ? badge('Customer', WARNA_BADGE.biru) : ''}${s.is_angkutan ? badge('Pengangkutan', WARNA_BADGE.oranye) : ''}</td>
             <td class="table-cell">${badgeAktif(s.is_active)}</td>
             <td class="table-cell">${escapeHtml(s.created_at || '-')}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3">
@@ -36,7 +36,7 @@ function bukaSupplier(id) {
     const form = document.getElementById('formSupplier');
     const s = daftarSupplier.find(x => x.id_supplier === id);
     form.reset();
-    isiForm(form, s || { id_supplier: '' });
+    isiForm(form, s || { id_supplier: '', is_customer: true });
     document.getElementById('judulModalSupplier').textContent = s ? 'Ubah Supplier' : 'Tambah Supplier';
     openModal('modalSupplier');
     document.getElementById('supKode').focus();
