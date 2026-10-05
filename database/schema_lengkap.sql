@@ -387,18 +387,6 @@ CREATE TABLE dbo.do_pengangkutan (
 );
 GO
 
-CREATE TABLE dbo.standar_mutu_log (
-    id_log        INT IDENTITY(1,1) PRIMARY KEY,
-    id_produk     INT NOT NULL CONSTRAINT FK_StdLog_Produk REFERENCES dbo.produk (id_produk),
-    maks_ffa      FLOAT NOT NULL,
-    maks_air      FLOAT NOT NULL,
-    maks_kotoran  FLOAT NOT NULL,
-    updated_by    INT NULL CONSTRAINT FK_StdLog_User REFERENCES dbo.users (id_user),
-    updated_at    DATETIME NOT NULL CONSTRAINT DF_StdLog_Waktu DEFAULT (GETDATE())
-);
-CREATE INDEX IX_StdLog_Waktu ON dbo.standar_mutu_log (updated_at DESC);
-GO
-
 -- Dashboard: harga per tanggal (diisi HO)
 CREATE TABLE dbo.harga_harian (
     tanggal       DATE PRIMARY KEY,
@@ -560,37 +548,7 @@ CREATE TABLE dbo.lab_hasil (
 );
 GO
 
-CREATE TABLE dbo.timeline_monitoring (
-    id_timeline   INT IDENTITY(1,1) PRIMARY KEY,
-    no_tiket      VARCHAR(50) NOT NULL CONSTRAINT FK_Timeline_Trx REFERENCES dbo.transaksi (no_tiket),
-    stage         VARCHAR(30) NOT NULL,
-    [timestamp]   DATETIME NOT NULL CONSTRAINT DF_Timeline_Waktu DEFAULT (GETDATE()),
-    processed_by  INT NOT NULL CONSTRAINT FK_Timeline_User REFERENCES dbo.users (id_user)
-);
-CREATE INDEX IX_Timeline_Tiket ON dbo.timeline_monitoring (no_tiket);
-GO
-
 /* =========================== FACE RECOGNITION =========================== */
-
-CREATE TABLE dbo.personel_audit_logs (
-    id_log              INT IDENTITY(1,1) PRIMARY KEY,
-    id_personel         INT NOT NULL CONSTRAINT FK_PersonelAudit_Personel REFERENCES dbo.personel (id_personel),
-    aksi                VARCHAR(10) NOT NULL CONSTRAINT DF_PersonelAudit_Aksi DEFAULT ('UPDATE'),
-    kode_personel_lama  VARCHAR(20) NULL,
-    kode_personel_baru  VARCHAR(20) NULL,
-    nik_lama            VARCHAR(20) NULL,
-    nik_baru            VARCHAR(20) NULL,
-    nama_lama           VARCHAR(100) NULL,
-    nama_baru           VARCHAR(100) NULL,
-    no_sim_lama         VARCHAR(30) NULL,
-    no_sim_baru         VARCHAR(30) NULL,
-    hash_audit          VARCHAR(64) NOT NULL,
-    updated_by          INT NOT NULL CONSTRAINT FK_PersonelAudit_User REFERENCES dbo.users (id_user),
-    updated_at          DATETIME NOT NULL CONSTRAINT DF_PersonelAudit_Waktu DEFAULT (GETDATE()),
-    CONSTRAINT CK_PersonelAudit_Aksi CHECK (aksi IN ('TAMBAH', 'UPDATE', 'HAPUS'))
-);
-CREATE INDEX IX_PersonelAudit_Updated ON dbo.personel_audit_logs (updated_at DESC);
-GO
 
 CREATE TABLE dbo.blacklist (
     id_blacklist          INT IDENTITY(1,1) PRIMARY KEY,
@@ -612,21 +570,6 @@ CREATE TABLE dbo.blacklist (
 CREATE INDEX IX_Blacklist_Personel  ON dbo.blacklist (id_personel)  WHERE id_personel IS NOT NULL;
 CREATE INDEX IX_Blacklist_Kendaraan ON dbo.blacklist (id_kendaraan) WHERE id_kendaraan IS NOT NULL;
 CREATE INDEX IX_Blacklist_Dokumen ON dbo.blacklist (id_dokumen);
-GO
-
-CREATE TABLE dbo.security_audit_logs (
-    id_log       INT IDENTITY(1,1) PRIMARY KEY,
-    user_id      INT NOT NULL CONSTRAINT FK_SecAudit_User REFERENCES dbo.users (id_user),
-    action_type  VARCHAR(30) NOT NULL,
-    no_tiket     VARCHAR(50) NULL CONSTRAINT FK_SecAudit_Trx REFERENCES dbo.transaksi (no_tiket),
-    details      NVARCHAR(MAX) NULL,
-    ip_address   VARCHAR(45) NULL,
-    created_at   DATETIME NOT NULL CONSTRAINT DF_SecAudit_Created DEFAULT (GETDATE()),
-    CONSTRAINT CK_SecAudit_Action CHECK (action_type IN ('TRY_SCAN_BLACKLIST', 'OVERRIDE_DRIVER', 'MANUAL_INPUT')),
-    CONSTRAINT CK_SecAudit_Json CHECK (details IS NULL OR ISJSON(details) = 1)
-);
-CREATE INDEX IX_SecAudit_User_Waktu ON dbo.security_audit_logs (user_id, created_at);
-CREATE INDEX IX_SecAudit_Created ON dbo.security_audit_logs (created_at DESC);
 GO
 
 -- Jadwal kerja per area (migrasi 014): absensi memakai jadwal area akun yang men-scan
@@ -700,17 +643,84 @@ CREATE TABLE dbo.perangkat_kiosk (
 );
 GO
 
-CREATE TABLE dbo.admin_audit_logs (
-    id_log      BIGINT IDENTITY(1,1) PRIMARY KEY,
-    user_id     INT NOT NULL CONSTRAINT FK_AdminAudit_User REFERENCES dbo.users (id_user),
-    aksi        VARCHAR(40)   NOT NULL,
-    target      VARCHAR(100)  NULL,
-    detail      NVARCHAR(500) NULL,
-    ip_address  VARCHAR(45)   NULL,
-    created_at  DATETIME NOT NULL CONSTRAINT DF_AdminAudit_Created DEFAULT (GETDATE())
+/* Satu log untuk semua aktivitas (migrasi 015): JSON + rantai hash, hanya INSERT lewat sp_catat_log */
+CREATE TABLE dbo.log_aktivitas (
+    id_log         BIGINT IDENTITY(1,1) PRIMARY KEY,
+    waktu          DATETIME2(3) NOT NULL,
+    id_user        INT NULL CONSTRAINT FK_Log_User REFERENCES dbo.users (id_user),     -- NULL = kiosk / sistem
+    id_comp_area   INT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.comp_area (id_comp_area),
+    kategori       VARCHAR(20)  NOT NULL,      -- ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, TIMELINE, ...
+    aksi           VARCHAR(40)  NOT NULL,
+    tabel          VARCHAR(50)  NULL,
+    id_baris       VARCHAR(100) NULL,
+    nilai_lama     NVARCHAR(MAX) NULL,
+    nilai_baru     NVARCHAR(MAX) NULL,
+    ip             VARCHAR(45)  NULL,
+    hash_sebelum   CHAR(64) NULL,              -- NULL hanya baris pertama
+    hash_baris     CHAR(64) NOT NULL,
+    CONSTRAINT CK_Log_JsonLama CHECK (nilai_lama IS NULL OR ISJSON(nilai_lama) = 1),
+    CONSTRAINT CK_Log_JsonBaru CHECK (nilai_baru IS NULL OR ISJSON(nilai_baru) = 1)
 );
-CREATE INDEX IX_AdminAudit_Created ON dbo.admin_audit_logs (created_at DESC);
+CREATE INDEX IX_Log_Kategori_Waktu ON dbo.log_aktivitas (kategori, waktu DESC);
+CREATE INDEX IX_Log_Baris ON dbo.log_aktivitas (tabel, id_baris);
 GO
+
+/* Isi yang di-hash (dipakai juga untuk verifikasi) */
+CREATE OR ALTER FUNCTION dbo.fn_hash_log (
+    @hash_sebelum CHAR(64), @waktu DATETIME2(3), @id_user INT, @kategori VARCHAR(20), @aksi VARCHAR(40),
+    @tabel VARCHAR(50), @id_baris VARCHAR(100), @nilai_lama NVARCHAR(MAX), @nilai_baru NVARCHAR(MAX), @ip VARCHAR(45))
+RETURNS CHAR(64)
+AS
+BEGIN
+    RETURN CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
+        ISNULL(@hash_sebelum, REPLICATE('0', 64)), N'|', CONVERT(VARCHAR(30), @waktu, 121), N'|', @id_user, N'|',
+        @kategori, N'|', @aksi, N'|', @tabel, N'|', @id_baris, N'|', @nilai_lama, N'|', @nilai_baru, N'|', @ip)), 2);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.sp_catat_log
+    @kategori VARCHAR(20), @aksi VARCHAR(40), @tabel VARCHAR(50) = NULL, @id_baris VARCHAR(100) = NULL,
+    @nilai_lama NVARCHAR(MAX) = NULL, @nilai_baru NVARCHAR(MAX) = NULL, @id_user INT = NULL,
+    @id_comp_area INT = NULL, @ip VARCHAR(45) = NULL, @waktu DATETIME2(3) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+    -- satu penulis pada satu waktu supaya rantai tidak bercabang
+    EXEC sp_getapplock @Resource = 'log_aktivitas', @LockMode = 'Exclusive', @LockOwner = 'Transaction';
+    DECLARE @prev CHAR(64) = (SELECT TOP 1 hash_baris FROM dbo.log_aktivitas ORDER BY id_log DESC);
+    SET @waktu = COALESCE(@waktu, SYSDATETIME());
+    IF @id_comp_area IS NULL AND @id_user IS NOT NULL
+        SET @id_comp_area = (SELECT id_comp_area FROM dbo.users WHERE id_user = @id_user);
+    INSERT INTO dbo.log_aktivitas (waktu, id_user, id_comp_area, kategori, aksi, tabel, id_baris, nilai_lama, nilai_baru,
+                                   ip, hash_sebelum, hash_baris)
+    VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
+            dbo.fn_hash_log(@prev, @waktu, @id_user, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip));
+    COMMIT TRANSACTION;
+END
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_Log_HanyaTambah ON dbo.log_aktivitas INSTEAD OF UPDATE, DELETE AS
+BEGIN
+    RAISERROR('log_aktivitas hanya boleh ditambah (tidak bisa diubah / dihapus).', 16, 1);
+    ROLLBACK TRANSACTION;
+END
+GO
+
+/* Baris pertama yang rantainya putus; kosong = utuh */
+CREATE OR ALTER VIEW dbo.v_log_rusak AS
+SELECT x.id_log, x.waktu, x.kategori, x.aksi,
+       CASE WHEN x.hash_baris <> x.hash_hitung THEN 'ISI_BERUBAH' ELSE 'RANTAI_PUTUS' END AS masalah
+FROM (SELECT l.id_log, l.waktu, l.kategori, l.aksi, l.hash_sebelum, l.hash_baris,
+             LAG(l.hash_baris) OVER (ORDER BY l.id_log) AS hash_seharusnya,
+             dbo.fn_hash_log(l.hash_sebelum, l.waktu, l.id_user, l.kategori, l.aksi, l.tabel, l.id_baris,
+                             l.nilai_lama, l.nilai_baru, l.ip) AS hash_hitung
+      FROM dbo.log_aktivitas l) x
+WHERE x.hash_baris <> x.hash_hitung
+   OR ISNULL(x.hash_sebelum, '') <> ISNULL(x.hash_seharusnya, '');
+GO
+
 
 /* Sesi login dari semua PC (Admin > Sesi Aktif, paksa keluar, 1 user 1 perangkat) - migrasi 007 */
 CREATE TABLE dbo.sesi_login (

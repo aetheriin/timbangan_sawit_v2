@@ -7,7 +7,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 ## Cara memasang
 
-1. Jalankan migrasi `database/migrations/` 001–014 berurutan di SSMS. **008–014 wajib** untuk versi ini: login membaca
+1. Jalankan migrasi `database/migrations/` 001–015 berurutan di SSMS. **008–015 wajib** untuk versi ini: login membaca
    tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
@@ -35,7 +35,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 | Pengaturan Site | Global: semua pengaturan. Per area (pilih area di atas): wajib scan wajah & ambang kemiripan wajah; keamanan (sesi, login, password) selalu global | ±30 detik, tanpa restart |
 | Perangkat / Kiosk | Pos kiosk + token per pos (tampil sekali), kamera tiap pos. Jembatan timbang per area (kode, port COM, baudrate) + berat live tiap jembatan | Langsung (token lama tidak berlaku); port jembatan baru langsung dibaca, ubah port jembatan lama setelah restart |
 | Log Keamanan | Isi `logs/keamanan.log`: login, gagal, terkunci, akses ditolak, kiosk ditolak, CSRF, sesi habis | – |
-| Audit Admin | Semua perubahan oleh admin (tabel `admin_audit_logs`) | – |
+| Audit Admin | Semua perubahan oleh admin (`log_aktivitas` kategori ADMIN). Tombol **Verifikasi rantai log** memeriksa rantai hash seluruh log: baris yang diubah / dihapus langsung di database ketahuan | – |
 | Kesehatan Sistem | Koneksi & respons database, ukuran DB, backup terakhir, disk, folder upload, timbangan, versi, uptime | – |
 
 ## Di mana mengubah waktu / batas

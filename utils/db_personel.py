@@ -6,6 +6,7 @@ from datetime import datetime
 from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver
 from utils.personel_utils import PREFIX_KODE, kode_berikutnya
 from utils.face_cache import invalidate as reset_cache_wajah
+from utils import log_aktivitas
 
 KOLOM_PERSONEL = """p.id_personel, p.kode_personel, p.nik, p.nama_personel, p.no_sim, p.kategori,
                     p.id_jenis_sim, p.kode_jenis_sim, p.sim_berlaku_sampai,
@@ -73,16 +74,9 @@ def saran_kode_personel():
 
 
 def _catat_audit(cursor, id_personel, aksi, lama, baru, user_id):
-    """lama / baru: dict {kode_personel, nik, nama, no_sim} (None untuk TAMBAH)."""
-    lama = lama or {}
-    hash_audit = hitung_hash_driver(baru.get("nik"), baru.get("nama"), baru.get("no_sim"), datetime.now())
-    cursor.execute(
-        """INSERT INTO personel_audit_logs
-           (id_personel, aksi, kode_personel_lama, kode_personel_baru, nik_lama, nik_baru, nama_lama, nama_baru,
-            no_sim_lama, no_sim_baru, hash_audit, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        id_personel, aksi, lama.get("kode_personel"), baru.get("kode_personel"), lama.get("nik"), baru.get("nik"),
-        lama.get("nama"), baru.get("nama"), lama.get("no_sim"), baru.get("no_sim"), hash_audit, user_id)
+    """lama / baru: dict {kode_personel, nik, nama, no_sim} (lama None untuk TAMBAH). Dicatat di log_aktivitas."""
+    log_aktivitas.catat("PERSONEL", aksi, tabel="personel", id_baris=id_personel, lama=lama, baru=baru,
+                        user_id=user_id, cursor=cursor)
 
 
 # ===== SIM & WAJAH (dipakai juga oleh driver dari Form Security, utils/db_utils.py) =====
@@ -193,15 +187,20 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT TOP (?) a.id_log, a.id_personel, a.aksi, a.kode_personel_lama, a.kode_personel_baru, a.nik_lama, a.nik_baru,
-               a.nama_lama, a.nama_baru, a.no_sim_lama, a.no_sim_baru, a.updated_at, u.nama AS oleh, lv.kode AS role_oleh,
+        SELECT TOP (?) l.id_log, p.id_personel, l.aksi,
+               JSON_VALUE(l.nilai_lama, '$.kode_personel') AS kode_personel_lama,
+               JSON_VALUE(l.nilai_baru, '$.kode_personel') AS kode_personel_baru,
+               JSON_VALUE(l.nilai_lama, '$.nik') AS nik_lama, JSON_VALUE(l.nilai_baru, '$.nik') AS nik_baru,
+               JSON_VALUE(l.nilai_lama, '$.nama') AS nama_lama, JSON_VALUE(l.nilai_baru, '$.nama') AS nama_baru,
+               JSON_VALUE(l.nilai_lama, '$.no_sim') AS no_sim_lama, JSON_VALUE(l.nilai_baru, '$.no_sim') AS no_sim_baru,
+               CAST(l.waktu AS DATETIME) AS updated_at, u.nama AS oleh, lv.kode AS role_oleh,
                p.kode_personel, p.nama_personel
-        FROM personel_audit_logs a
-        JOIN users u ON a.updated_by = u.id_user
-        JOIN level lv ON lv.id_level = u.id_level
-        JOIN personel p ON a.id_personel = p.id_personel
-        WHERE a.updated_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-        ORDER BY a.updated_at DESC
+        FROM log_aktivitas l
+        JOIN personel p ON p.id_personel = TRY_CAST(l.id_baris AS INT)
+        LEFT JOIN users u ON l.id_user = u.id_user
+        LEFT JOIN level lv ON lv.id_level = u.id_level
+        WHERE l.kategori = 'PERSONEL' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+        ORDER BY l.id_log DESC
     """, batas, -(hari - 1))
     data = _rows_to_dicts(cursor)
     conn.close()

@@ -23,7 +23,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, pastikan_pembaca
 from utils import db_jembatan as jembatan_db
-from utils import alur
+from utils import alur, log_aktivitas
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -820,6 +820,13 @@ def audit_admin_daftar():
     hari = min(max(int(request.args.get("hari") or 7), 1), 90)
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M:%S")}
                     for r in db.daftar_audit_admin(hari)])
+
+
+@admin_bp.route("/api/admin/audit/verifikasi")
+@_admin
+def audit_verifikasi():
+    """Cek rantai hash log_aktivitas: baris yang diubah / dihapus langsung di database ketahuan."""
+    return jsonify(log_aktivitas.verifikasi())
 
 
 # ===== KESEHATAN SISTEM =====

@@ -168,20 +168,16 @@ def ubah_jadwal(id_comp_area, hari, is_libur, jam_masuk, jam_pulang, toleransi):
 # ===== AUDIT ADMIN =====
 def catat_audit_admin(user_id, aksi, target=None, detail=None, ip=None):
     """Gagal mencatat tidak boleh menggagalkan aksi admin yang sudah tersimpan."""
-    try:
-        _ubah("INSERT INTO admin_audit_logs (user_id, aksi, target, detail, ip_address) VALUES (?, ?, ?, ?, ?)",
-              user_id, aksi, (target or "")[:100] or None, (detail or "")[:500] or None, ip)
-    except Exception:       # noqa: BLE001
-        import logging
-        logging.getLogger("weighbridge").exception("Gagal mencatat audit admin %s", aksi)
+    from utils import log_aktivitas
+    log_aktivitas.catat("ADMIN", aksi, id_baris=(target or "")[:100] or None,
+                        baru={"detail": detail[:500]} if detail else None, user_id=user_id, ip=ip)
 
 
 def daftar_audit_admin(hari=7, batas=300):
-    return _query(f"""SELECT TOP {int(batas)} a.id_log, a.aksi, a.target, a.detail, a.ip_address, a.created_at,
-                             u.nama AS oleh, u.username
-                      FROM admin_audit_logs a JOIN users u ON u.id_user = a.user_id
-                      WHERE a.created_at >= DATEADD(DAY, -?, CAST(GETDATE() AS DATE))
-                      ORDER BY a.created_at DESC""", int(hari) - 1)
+    from utils import log_aktivitas
+    return [{"id_log": r["id_log"], "aksi": r["aksi"], "target": r["id_baris"], "detail": r["nilai_baru"].get("detail"),
+             "ip_address": r["ip"], "created_at": r["waktu"], "oleh": r["oleh"], "username": r["username"]}
+            for r in log_aktivitas.daftar("ADMIN", hari, batas)]
 
 
 # ===== KESEHATAN DATABASE =====

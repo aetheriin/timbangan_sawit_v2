@@ -381,14 +381,11 @@ def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated
     simpan_sim(cursor, driver_id, sim_baru, user_id=updated_by)
     if embedding_binary is not None:
         simpan_wajah(cursor, driver_id, embedding_binary, foto_path, "KAMERA", updated_by)
-    cursor.execute(
-        """INSERT INTO personel_audit_logs
-           (id_personel, aksi, kode_personel_lama, kode_personel_baru, nik_lama, nik_baru, nama_lama, nama_baru,
-            no_sim_lama, no_sim_baru, hash_audit, updated_by)
-           VALUES (?, 'UPDATE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        driver_id, lama.kode_personel, lama.kode_personel, lama.nik, nik_baru, lama.nama_personel, nama_baru,
-        lama.no_sim, sim_baru, hash_baru, updated_by
-    )
+    from utils import log_aktivitas
+    log_aktivitas.catat("PERSONEL", "UPDATE", tabel="personel", id_baris=driver_id, user_id=updated_by, cursor=cursor,
+                        lama={"kode_personel": lama.kode_personel, "nik": lama.nik, "nama": lama.nama_personel,
+                              "no_sim": lama.no_sim},
+                        baru={"kode_personel": lama.kode_personel, "nik": nik_baru, "nama": nama_baru, "no_sim": sim_baru})
     conn.commit()
     conn.close()
     if embedding_binary is not None:
@@ -487,20 +484,15 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     if not cursor.fetchone():
         cursor.execute("SELECT COUNT(*) FROM kendaraan_driver WHERE id_kendaraan = ? AND is_active = 1", kendaraan_id)
         _daftarkan_supir(cursor, kendaraan_id, id_driver, cursor.fetchone()[0] == 0, security_id)
-    cursor.execute("INSERT INTO timeline_monitoring (no_tiket, stage, processed_by) VALUES (?, 'SECURITY_INIT', ?)", no_tiket, security_id)
+    from utils import log_aktivitas
+    log_aktivitas.catat("TIMELINE", "SECURITY_INIT", tabel="transaksi", id_baris=no_tiket, user_id=security_id, cursor=cursor)
     conn.commit()
     conn.close()
     return no_tiket
 
 def catat_timeline(no_tiket, stage, processed_by):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO timeline_monitoring (no_tiket, stage, processed_by) VALUES (?, ?, ?)",
-        no_tiket, stage, processed_by
-    )
-    conn.commit()
-    conn.close()
+    from utils import log_aktivitas
+    log_aktivitas.catat("TIMELINE", stage, tabel="transaksi", id_baris=no_tiket, user_id=processed_by)
 
 # ===== TIMBANGAN =====
 
@@ -717,7 +709,7 @@ def get_standar_mutu(id_produk):
     return row
 
 def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran, user_id=None):
-    """Simpan standar (buat baru bila produk belum punya) + catat riwayatnya di standar_mutu_log."""
+    """Simpan standar (buat baru bila produk belum punya) + catat riwayatnya di log_aktivitas (STANDAR_MUTU)."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -725,8 +717,9 @@ def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran, user_id=Non
                           WHEN MATCHED THEN UPDATE SET maks_ffa = ?, maks_air = ?, maks_kotoran = ?
                           WHEN NOT MATCHED THEN INSERT (id_produk, maks_ffa, maks_air, maks_kotoran) VALUES (?, ?, ?, ?);""",
                        id_produk, maks_ffa, maks_air, maks_kotoran, id_produk, maks_ffa, maks_air, maks_kotoran)
-        cursor.execute("""INSERT INTO standar_mutu_log (id_produk, maks_ffa, maks_air, maks_kotoran, updated_by)
-                          VALUES (?, ?, ?, ?, ?)""", id_produk, maks_ffa, maks_air, maks_kotoran, user_id)
+        from utils import log_aktivitas
+        log_aktivitas.catat("STANDAR_MUTU", "STANDAR_UBAH", tabel="standar_mutu", id_baris=id_produk, user_id=user_id,
+                            baru={"maks_ffa": maks_ffa, "maks_air": maks_air, "maks_kotoran": maks_kotoran}, cursor=cursor)
         conn.commit()
     finally:
         conn.close()
@@ -737,11 +730,14 @@ def get_history_standar(hari=2):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT l.updated_at, p.nama_produk, l.maks_ffa, l.maks_air, l.maks_kotoran, u.nama AS oleh
-                          FROM standar_mutu_log l JOIN produk p ON p.id_produk = l.id_produk
-                          LEFT JOIN users u ON u.id_user = l.updated_by
-                          WHERE l.updated_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-                          ORDER BY l.updated_at DESC""", -(int(hari) - 1))
+        cursor.execute("""SELECT CAST(l.waktu AS DATETIME) AS updated_at, p.nama_produk,
+                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_ffa') AS FLOAT) AS maks_ffa,
+                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_air') AS FLOAT) AS maks_air,
+                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.nama AS oleh
+                          FROM log_aktivitas l JOIN produk p ON p.id_produk = TRY_CAST(l.id_baris AS INT)
+                          LEFT JOIN users u ON u.id_user = l.id_user
+                          WHERE l.kategori = 'STANDAR_MUTU' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+                          ORDER BY l.id_log DESC""", -(int(hari) - 1))
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
