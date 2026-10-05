@@ -34,7 +34,7 @@ HALAMAN = {
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
     "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), department, dan mill"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
-    "master": ("Supplier & Produk", "fa-boxes-stacked", "Master data supplier / buyer dan produk"),
+    "master": ("Mitra & Produk", "fa-boxes-stacked", "Mitra (customer / pengangkutan) dan produk"),
     "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),

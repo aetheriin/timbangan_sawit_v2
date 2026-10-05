@@ -55,7 +55,7 @@ def daftar(kategori, hari=7, batas=300, aksi=None):
     sql = f"""SELECT TOP {int(batas)} l.id_log, l.waktu, l.aksi, l.tabel, l.id_baris, l.nilai_lama, l.nilai_baru, l.ip,
                      l.id_user, u.nama AS oleh, u.username, lv.kode AS role_oleh, p.kode_personel AS kode_oleh
               FROM log_aktivitas l
-              LEFT JOIN users u ON u.id_user = l.id_user
+              LEFT JOIN akun u ON u.id_user = l.id_user
               LEFT JOIN level lv ON lv.id_level = u.id_level
               LEFT JOIN personel p ON p.id_personel = u.id_personel
               WHERE l.kategori = ? AND l.waktu >= DATEADD(DAY, ?, CAST(GETDATE() AS DATE))

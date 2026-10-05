@@ -197,7 +197,7 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
                p.kode_personel, p.nama_personel
         FROM log_aktivitas l
         JOIN personel p ON p.id_personel = TRY_CAST(l.id_baris AS INT)
-        LEFT JOIN users u ON l.id_user = u.id_user
+        LEFT JOIN akun u ON l.id_user = u.id_user
         LEFT JOIN level lv ON lv.id_level = u.id_level
         WHERE l.kategori = 'PERSONEL' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY l.id_log DESC

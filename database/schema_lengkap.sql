@@ -95,8 +95,8 @@ CREATE UNIQUE INDEX UX_Personel_Kode ON dbo.personel (kode_personel) WHERE kode_
 CREATE INDEX IX_Personel_Aktif_Kategori ON dbo.personel (is_active, kategori) INCLUDE (kode_personel, nama_personel);
 GO
 
--- User aplikasi (login). id_personel = tautan opsional ke data wajah petugas
-CREATE TABLE dbo.users (
+-- Akun login (migrasi 016: dulu users). id_personel = tautan opsional ke data personel / wajah petugas
+CREATE TABLE dbo.akun (
     id_user      INT IDENTITY(1,1) PRIMARY KEY,
     nama         VARCHAR(100) NOT NULL,
     username     VARCHAR(50)  NOT NULL CONSTRAINT UX_Users_Username UNIQUE,
@@ -112,7 +112,7 @@ CREATE TABLE dbo.users (
     created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
-CREATE UNIQUE INDEX UX_Users_Personel ON dbo.users (id_personel) WHERE id_personel IS NOT NULL;
+CREATE UNIQUE INDEX UX_Users_Personel ON dbo.akun (id_personel) WHERE id_personel IS NOT NULL;
 GO
 
 /* SIM, wajah, kunjungan tamu (migrasi 009) */
@@ -129,7 +129,7 @@ CREATE TABLE dbo.personel_sim (
     no_sim          VARCHAR(30) NOT NULL,
     berlaku_sampai  DATE NULL,                 -- NULL hanya untuk data lama yang belum dilengkapi
     is_active       BIT NOT NULL CONSTRAINT DF_PersonelSim_Aktif DEFAULT (1),
-    created_by      INT NULL CONSTRAINT FK_PersonelSim_User REFERENCES dbo.users (id_user),
+    created_by      INT NULL CONSTRAINT FK_PersonelSim_User REFERENCES dbo.akun (id_user),
     created_at      DATETIME NOT NULL CONSTRAINT DF_PersonelSim_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_PersonelSim_NoAktif ON dbo.personel_sim (no_sim) WHERE is_active = 1;
@@ -142,7 +142,7 @@ CREATE TABLE dbo.personel_wajah (
     sumber       VARCHAR(10)  NULL CONSTRAINT CK_PersonelWajah_Sumber CHECK (sumber IN ('UPLOAD', 'KAMERA')),
     is_utama     BIT NOT NULL CONSTRAINT DF_PersonelWajah_Utama DEFAULT (1),
     is_active    BIT NOT NULL CONSTRAINT DF_PersonelWajah_Aktif DEFAULT (1),
-    created_by   INT NULL CONSTRAINT FK_PersonelWajah_User REFERENCES dbo.users (id_user),
+    created_by   INT NULL CONSTRAINT FK_PersonelWajah_User REFERENCES dbo.akun (id_user),
     created_at   DATETIME NOT NULL CONSTRAINT DF_PersonelWajah_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_PersonelWajah_Utama ON dbo.personel_wajah (id_personel) WHERE is_utama = 1 AND is_active = 1;
@@ -164,7 +164,7 @@ CREATE TABLE dbo.kunjungan (
     foto_masuk_path  VARCHAR(255)  NULL,      -- snapshot wajah saat datang
     waktu_masuk      DATETIME NOT NULL CONSTRAINT DF_Kunjungan_Masuk DEFAULT (GETDATE()),
     waktu_keluar     DATETIME NULL,           -- NULL = tamu masih di dalam
-    dicatat_oleh     INT NOT NULL CONSTRAINT FK_Kunjungan_User REFERENCES dbo.users (id_user),
+    dicatat_oleh     INT NOT NULL CONSTRAINT FK_Kunjungan_User REFERENCES dbo.akun (id_user),
     CONSTRAINT CK_Kunjungan_Keluar CHECK (waktu_keluar IS NULL OR waktu_keluar >= waktu_masuk)
 );
 CREATE INDEX IX_Kunjungan_Masuk ON dbo.kunjungan (waktu_masuk DESC);
@@ -184,7 +184,7 @@ CREATE TABLE dbo.dokumen (
     no_dokumen  NVARCHAR(100) NOT NULL,
     tanggal     DATE NOT NULL,
     perihal     NVARCHAR(255) NULL,
-    created_by  INT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.users (id_user),
+    created_by  INT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.akun (id_user),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Dokumen_Created DEFAULT (GETDATE())
 );
 CREATE INDEX IX_Dokumen_Jenis_No ON dbo.dokumen (id_jenis, no_dokumen);
@@ -218,7 +218,7 @@ OUTER APPLY (SELECT TOP 1 pw.embedding, pw.foto_path, pw.sumber
 GO
 
 -- Customer (membeli / menjual) & pengangkutan pihak ketiga
-CREATE TABLE dbo.supplier (
+CREATE TABLE dbo.mitra (
     id_supplier    INT IDENTITY(1,1) PRIMARY KEY,
     kode_supplier  VARCHAR(20)  NOT NULL CONSTRAINT UX_Supplier_Kode UNIQUE,
     nama_supplier  VARCHAR(100) NOT NULL,
@@ -226,9 +226,9 @@ CREATE TABLE dbo.supplier (
     created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE())
 );
 GO
--- Peran mitra (migrasi 013): satu mitra boleh customer sekaligus pengangkutan
-CREATE TABLE dbo.supplier_peran (
-    id_supplier  INT NOT NULL CONSTRAINT FK_SupPeran_Supplier REFERENCES dbo.supplier (id_supplier),
+-- Peran mitra (migrasi 013, nama tabel migrasi 016): satu mitra boleh customer sekaligus pengangkutan
+CREATE TABLE dbo.mitra_peran (
+    id_supplier  INT NOT NULL CONSTRAINT FK_SupPeran_Supplier REFERENCES dbo.mitra (id_supplier),
     peran        VARCHAR(20) NOT NULL CONSTRAINT CK_SupPeran_Peran CHECK (peran IN ('CUSTOMER', 'PENGANGKUTAN')),
     CONSTRAINT PK_SupplierPeran PRIMARY KEY (id_supplier, peran)
 );
@@ -314,7 +314,7 @@ CREATE TABLE dbo.kendaraan_driver (
     id_driver     INT NOT NULL CONSTRAINT FK_KD_Driver REFERENCES dbo.personel (id_personel),
     is_utama      BIT NOT NULL CONSTRAINT DF_KD_Utama DEFAULT (0),
     is_active     BIT NOT NULL CONSTRAINT DF_KD_Active DEFAULT (1),
-    created_by    INT NULL CONSTRAINT FK_KD_User REFERENCES dbo.users (id_user),
+    created_by    INT NULL CONSTRAINT FK_KD_User REFERENCES dbo.akun (id_user),
     created_at    DATETIME NOT NULL CONSTRAINT DF_KD_Created DEFAULT (GETDATE()),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_KD_Updated DEFAULT (GETDATE()),
     CONSTRAINT UQ_KD_Kendaraan_Driver UNIQUE (id_kendaraan, id_driver)
@@ -327,14 +327,14 @@ CREATE TABLE dbo.kontrak_kendaraan (
     id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
     no_kontrak       VARCHAR(50) NULL,
     id_kendaraan     INT NOT NULL CONSTRAINT FK_KK_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
-    id_supplier      INT NOT NULL CONSTRAINT FK_KK_Supplier REFERENCES dbo.supplier (id_supplier),
+    id_supplier      INT NOT NULL CONSTRAINT FK_KK_Supplier REFERENCES dbo.mitra (id_supplier),
     id_produk        INT NULL CONSTRAINT FK_KK_Produk REFERENCES dbo.produk (id_produk),
     jenis_transaksi  VARCHAR(20) NULL,
     tanggal_mulai    DATE NOT NULL,
     tanggal_selesai  DATE NULL,
     is_active        BIT NOT NULL CONSTRAINT DF_KK_Active DEFAULT (1),
     keterangan       VARCHAR(255) NULL,
-    created_by       INT NULL CONSTRAINT FK_KK_User REFERENCES dbo.users (id_user),
+    created_by       INT NULL CONSTRAINT FK_KK_User REFERENCES dbo.akun (id_user),
     created_at       DATETIME NOT NULL CONSTRAINT DF_KK_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_KK_Jenis CHECK (jenis_transaksi IS NULL OR jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_KK_Periode CHECK (tanggal_selesai IS NULL OR tanggal_selesai >= tanggal_mulai)
@@ -348,14 +348,14 @@ CREATE TABLE dbo.kontrak (
     id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
     no_kontrak       VARCHAR(50) NOT NULL CONSTRAINT UX_Kontrak_No UNIQUE,
     jenis_transaksi  VARCHAR(20) NOT NULL,
-    id_customer      INT NOT NULL CONSTRAINT FK_Kontrak_Customer REFERENCES dbo.supplier (id_supplier),
+    id_customer      INT NOT NULL CONSTRAINT FK_Kontrak_Customer REFERENCES dbo.mitra (id_supplier),
     id_produk        INT NOT NULL CONSTRAINT FK_Kontrak_Produk REFERENCES dbo.produk (id_produk),
     tanggal          DATE NOT NULL CONSTRAINT DF_Kontrak_Tanggal DEFAULT (CAST(GETDATE() AS DATE)),
     qty_kg           DECIMAL(14, 2) NULL,
     harga_per_kg     DECIMAL(14, 2) NULL,
     keterangan       VARCHAR(200) NULL,
     is_active        BIT NOT NULL CONSTRAINT DF_Kontrak_Aktif DEFAULT (1),
-    created_by       INT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.users (id_user),
+    created_by       INT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.akun (id_user),
     created_at       DATETIME NOT NULL CONSTRAINT DF_Kontrak_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Kontrak_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Kontrak_Qty CHECK (qty_kg IS NULL OR qty_kg > 0)
@@ -369,7 +369,7 @@ CREATE TABLE dbo.delivery_order (
     berlaku_sampai  DATE NULL,
     keterangan      VARCHAR(200) NULL,
     is_active       BIT NOT NULL CONSTRAINT DF_DO_Aktif DEFAULT (1),
-    created_by      INT NULL CONSTRAINT FK_DO_User REFERENCES dbo.users (id_user),
+    created_by      INT NULL CONSTRAINT FK_DO_User REFERENCES dbo.akun (id_user),
     created_at      DATETIME NOT NULL CONSTRAINT DF_DO_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_DO_Kontrak ON dbo.delivery_order (id_kontrak);     -- 1 kontrak = 1 DO
@@ -378,7 +378,7 @@ CREATE TABLE dbo.do_pengangkutan (
     id_do_angkut     INT IDENTITY(1,1) PRIMARY KEY,
     id_do            INT NOT NULL CONSTRAINT FK_DoAngkut_DO REFERENCES dbo.delivery_order (id_do),
     cara_angkut      VARCHAR(15) NOT NULL,
-    id_pengangkutan  INT NULL CONSTRAINT FK_DoAngkut_Supplier REFERENCES dbo.supplier (id_supplier),
+    id_pengangkutan  INT NULL CONSTRAINT FK_DoAngkut_Supplier REFERENCES dbo.mitra (id_supplier),
     qty_kg           DECIMAL(14, 2) NULL,               -- alokasi (opsional), total <= kontrak.qty_kg
     CONSTRAINT CK_DoAngkut_Cara CHECK (cara_angkut IN ('PENGIRIM', 'PENERIMA', 'PIHAK_KETIGA')),
     CONSTRAINT CK_DoAngkut_PihakKetiga CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
@@ -394,7 +394,7 @@ CREATE TABLE dbo.harga_harian (
     harga_kernel  DECIMAL(12,2) NOT NULL,
     oer_cpo       DECIMAL(5,2)  NOT NULL,
     biaya_olah    DECIMAL(12,2) NOT NULL,
-    updated_by    INT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.users (id_user),
+    updated_by    INT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.akun (id_user),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_Harga_Updated DEFAULT (GETDATE()),
     CONSTRAINT CK_Harga_Oer CHECK (oer_cpo BETWEEN 0 AND 100)
 );
@@ -418,21 +418,19 @@ GO
 CREATE TABLE dbo.transaksi (
     no_tiket           VARCHAR(50) PRIMARY KEY,
     jenis_transaksi    VARCHAR(20) NOT NULL,
-    id_supplier        INT NOT NULL CONSTRAINT FK_Trx_Supplier REFERENCES dbo.supplier (id_supplier),     -- customer (dari DO)
+    id_supplier        INT NOT NULL CONSTRAINT FK_Trx_Supplier REFERENCES dbo.mitra (id_supplier),     -- customer (dari DO)
     id_produk          INT NOT NULL CONSTRAINT FK_Trx_Produk REFERENCES dbo.produk (id_produk),
     id_kendaraan       INT NOT NULL CONSTRAINT FK_Trx_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
     id_driver          INT NOT NULL CONSTRAINT FK_Trx_Driver REFERENCES dbo.personel (id_personel),
-    id_pengangkutan    INT NULL CONSTRAINT FK_Trx_Angkut REFERENCES dbo.supplier (id_supplier),
+    id_pengangkutan    INT NULL CONSTRAINT FK_Trx_Angkut REFERENCES dbo.mitra (id_supplier),
     id_kontrak         INT NULL CONSTRAINT FK_Trx_Kontrak REFERENCES dbo.kontrak_kendaraan (id_kontrak),
     no_do              VARCHAR(50) NULL,
     status_alur        VARCHAR(30) NOT NULL CONSTRAINT DF_Trx_Status DEFAULT ('SECURITY_REGISTER'),
     is_qr_active       BIT NOT NULL CONSTRAINT DF_Trx_QrAktif DEFAULT (1),
     qr_expired_at      DATETIME NOT NULL,
     qr_reprint_count   INT NOT NULL CONSTRAINT DF_Trx_Reprint DEFAULT (0),
-    is_driver_changed  BIT NOT NULL CONSTRAINT DF_Trx_DriverChanged DEFAULT (0),
-    prev_driver_id     INT NULL CONSTRAINT FK_Trx_PrevDriver REFERENCES dbo.personel (id_personel),
     driver_photo_path  VARCHAR(255) NULL,
-    security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.users (id_user),
+    security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.akun (id_user),
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
     id_mill            INT NULL CONSTRAINT FK_Trx_Mill REFERENCES dbo.mill (id_mill),                       -- alur tahap tiket
     id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
@@ -456,7 +454,7 @@ CREATE TABLE dbo.pembatalan_tiket (
     jenis       VARCHAR(10)   NOT NULL CONSTRAINT CK_Batal_Jenis CHECK (jenis IN ('VOID', 'REJECT')),
     alasan      NVARCHAR(255) NOT NULL,
     id_dokumen  INT NULL CONSTRAINT FK_Batal_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
-    oleh        INT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.users (id_user),           -- NULL hanya data lama
+    oleh        INT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.akun (id_user),           -- NULL hanya data lama
     waktu       DATETIME NOT NULL CONSTRAINT DF_Batal_Waktu DEFAULT (GETDATE())
 );
 CREATE INDEX IX_Batal_Waktu ON dbo.pembatalan_tiket (waktu DESC);
@@ -469,7 +467,7 @@ CREATE TABLE dbo.penimbangan (
     id_jembatan  INT NOT NULL CONSTRAINT FK_Penimbangan_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),
     berat_kg     DECIMAL(10, 2) NOT NULL,
     waktu        DATETIME NOT NULL CONSTRAINT DF_Penimbangan_Waktu DEFAULT (GETDATE()),
-    operator     INT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.users (id_user),   -- NULL hanya data lama
+    operator     INT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.akun (id_user),   -- NULL hanya data lama
     hash         CHAR(64) NULL,
     CONSTRAINT PK_Penimbangan PRIMARY KEY (no_tiket, ke)
 );
@@ -527,7 +525,7 @@ CREATE TABLE dbo.sortasi (
     persen_brondolan        FLOAT NULL,
     total_potongan_kg       FLOAT NULL,
     catatan                 VARCHAR(500) NULL,
-    operator_sortasi_id     INT NULL CONSTRAINT FK_Sortasi_Operator REFERENCES dbo.users (id_user),
+    operator_sortasi_id     INT NULL CONSTRAINT FK_Sortasi_Operator REFERENCES dbo.akun (id_user),
     waktu_sortasi           DATETIME NULL
 );
 GO
@@ -542,7 +540,7 @@ CREATE TABLE dbo.lab_hasil (
     warna_locis        VARCHAR(50) NULL,
     keputusan          VARCHAR(20) NULL,
     id_dokumen         INT NULL CONSTRAINT FK_Lab_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- COA (APPROVE), migrasi 014
-    operator_lab_id    INT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.users (id_user),
+    operator_lab_id    INT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.akun (id_user),
     waktu_pemeriksaan  DATETIME NULL,
     CONSTRAINT CK_Lab_Keputusan CHECK (keputusan IS NULL OR keputusan IN ('APPROVE', 'REJECT'))
 );
@@ -557,11 +555,11 @@ CREATE TABLE dbo.blacklist (
     id_kendaraan          INT NULL CONSTRAINT FK_Blacklist_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
     alasan_blacklist      VARCHAR(500) NOT NULL,
     id_dokumen            INT NOT NULL CONSTRAINT FK_Blacklist_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- surat (migrasi 010)
-    created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.users (id_user),
+    created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.akun (id_user),
     created_at            DATETIME NOT NULL CONSTRAINT DF_Blacklist_Created DEFAULT (GETDATE()),
     no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
-    id_customer_terkait      INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.supplier (id_supplier),
-    id_pengangkutan_terkait  INT NULL CONSTRAINT FK_Blacklist_Angkut REFERENCES dbo.supplier (id_supplier),
+    id_customer_terkait      INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.mitra (id_supplier),
+    id_pengangkutan_terkait  INT NULL CONSTRAINT FK_Blacklist_Angkut REFERENCES dbo.mitra (id_supplier),
     CONSTRAINT CK_Blacklist_Tipe CHECK (tipe_entitas IN ('PERSONEL', 'KENDARAAN')),
     CONSTRAINT CK_Blacklist_Target CHECK (
         (tipe_entitas = 'PERSONEL'  AND id_personel IS NOT NULL AND id_kendaraan IS NULL) OR
@@ -615,7 +613,7 @@ GO
 CREATE TABLE dbo.pengaturan (
     kunci       VARCHAR(50)  PRIMARY KEY,
     nilai       VARCHAR(200) NOT NULL,
-    updated_by  INT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.users (id_user),
+    updated_by  INT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.akun (id_user),
     updated_at  DATETIME NOT NULL CONSTRAINT DF_Pengaturan_Updated DEFAULT (GETDATE())
 );
 GO
@@ -625,7 +623,7 @@ CREATE TABLE dbo.pengaturan_area (
     id_comp_area  INT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.comp_area (id_comp_area),
     kunci         VARCHAR(50)  NOT NULL,
     nilai         VARCHAR(200) NOT NULL,
-    updated_by    INT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.users (id_user),
+    updated_by    INT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.akun (id_user),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_PengArea_Updated DEFAULT (GETDATE()),
     CONSTRAINT PK_PengaturanArea PRIMARY KEY (id_comp_area, kunci)
 );
@@ -647,7 +645,7 @@ GO
 CREATE TABLE dbo.log_aktivitas (
     id_log         BIGINT IDENTITY(1,1) PRIMARY KEY,
     waktu          DATETIME2(3) NOT NULL,
-    id_user        INT NULL CONSTRAINT FK_Log_User REFERENCES dbo.users (id_user),     -- NULL = kiosk / sistem
+    id_user        INT NULL CONSTRAINT FK_Log_User REFERENCES dbo.akun (id_user),     -- NULL = kiosk / sistem
     id_comp_area   INT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.comp_area (id_comp_area),
     kategori       VARCHAR(20)  NOT NULL,      -- ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, TIMELINE, ...
     aksi           VARCHAR(40)  NOT NULL,
@@ -692,7 +690,7 @@ BEGIN
     DECLARE @prev CHAR(64) = (SELECT TOP 1 hash_baris FROM dbo.log_aktivitas ORDER BY id_log DESC);
     SET @waktu = COALESCE(@waktu, SYSDATETIME());
     IF @id_comp_area IS NULL AND @id_user IS NOT NULL
-        SET @id_comp_area = (SELECT id_comp_area FROM dbo.users WHERE id_user = @id_user);
+        SET @id_comp_area = (SELECT id_comp_area FROM dbo.akun WHERE id_user = @id_user);
     INSERT INTO dbo.log_aktivitas (waktu, id_user, id_comp_area, kategori, aksi, tabel, id_baris, nilai_lama, nilai_baru,
                                    ip, hash_sebelum, hash_baris)
     VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
@@ -725,7 +723,7 @@ GO
 /* Sesi login dari semua PC (Admin > Sesi Aktif, paksa keluar, 1 user 1 perangkat) - migrasi 007 */
 CREATE TABLE dbo.sesi_login (
     sid             VARCHAR(24)  NOT NULL PRIMARY KEY,
-    user_id         INT          NOT NULL CONSTRAINT FK_SesiLogin_User REFERENCES dbo.users (id_user),
+    user_id         INT          NOT NULL CONSTRAINT FK_SesiLogin_User REFERENCES dbo.akun (id_user),
     ip              VARCHAR(45)  NULL,
     agen            VARCHAR(200) NULL,
     login_at        DATETIME     NOT NULL DEFAULT GETDATE(),
@@ -872,7 +870,7 @@ FROM dbo.level l CROSS JOIN dbo.menu m
 WHERE l.kode = 'SECURITY' AND m.kode = 'KUNJUNGAN';
 GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
-INSERT INTO dbo.users (nama, username, password, id_level, id_department, id_comp_area)
+INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area)
 SELECT 'Super Admin', 'admin',
        'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
        (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), (SELECT id_department FROM dbo.department WHERE nama = N'Umum'),

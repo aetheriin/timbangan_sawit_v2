@@ -51,7 +51,7 @@ def daftar_kunjungan(tanggal=None, hanya_didalam=False):
              JOIN v_personel t ON t.id_personel = k.id_personel
              JOIN personel d ON d.id_personel = k.id_dituju
              JOIN keperluan_kunjungan kp ON kp.id_keperluan = k.id_keperluan
-             JOIN users u ON u.id_user = k.dicatat_oleh"""
+             JOIN akun u ON u.id_user = k.dicatat_oleh"""
     if hanya_didalam:
         rows = _query(sql + " WHERE k.waktu_keluar IS NULL ORDER BY k.waktu_masuk DESC")
     else:
@@ -94,5 +94,5 @@ def catat_keluar(id_kunjungan):
 
 
 def area_akun(id_user):
-    rows = _query("SELECT id_comp_area FROM users WHERE id_user = ?", id_user)
+    rows = _query("SELECT id_comp_area FROM akun WHERE id_user = ?", id_user)
     return rows[0]["id_comp_area"] if rows else None

@@ -1,4 +1,4 @@
-"""Admin › Organisasi: company, area (site), department. Dipakai akun (users) dan perangkat kiosk."""
+"""Admin › Organisasi: company, area (site), department. Dipakai akun dan perangkat kiosk."""
 from utils.db_utils import get_connection, _rows_to_dicts
 
 
@@ -45,7 +45,7 @@ def set_aktif_company(id_company, aktif):
 # ===== AREA (SITE) =====
 def daftar_area():
     return _query("""SELECT a.id_comp_area, a.kode, a.nama, a.alamat, a.is_active, a.id_company, c.nama AS company,
-                            (SELECT COUNT(*) FROM users u WHERE u.id_comp_area = a.id_comp_area AND u.is_active = 1) AS jumlah_user
+                            (SELECT COUNT(*) FROM akun u WHERE u.id_comp_area = a.id_comp_area AND u.is_active = 1) AS jumlah_user
                      FROM comp_area a JOIN company c ON c.id_company = a.id_company
                      ORDER BY a.is_active DESC, c.nama, a.nama""")
 
@@ -90,7 +90,7 @@ def set_aktif_area(id_area, aktif):
 # ===== DEPARTMENT =====
 def daftar_department():
     return _query("""SELECT d.id_department, d.nama, d.keterangan, d.is_active,
-                            (SELECT COUNT(*) FROM users u WHERE u.id_department = d.id_department AND u.is_active = 1) AS jumlah_user
+                            (SELECT COUNT(*) FROM akun u WHERE u.id_department = d.id_department AND u.is_active = 1) AS jumlah_user
                      FROM department d ORDER BY d.is_active DESC, d.nama""")
 
 

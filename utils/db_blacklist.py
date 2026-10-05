@@ -23,9 +23,9 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
                c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait
         FROM blacklist b
-        LEFT JOIN supplier c ON b.id_customer_terkait = c.id_supplier
-        LEFT JOIN supplier a ON b.id_pengangkutan_terkait = a.id_supplier
-        JOIN users u ON b.created_by = u.id_user
+        LEFT JOIN mitra c ON b.id_customer_terkait = c.id_supplier
+        LEFT JOIN mitra a ON b.id_pengangkutan_terkait = a.id_supplier
+        JOIN akun u ON b.created_by = u.id_user
         JOIN level lv ON lv.id_level = u.id_level
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
@@ -61,8 +61,8 @@ _SELECT_PERSONEL = """
     OUTER APPLY (SELECT TOP 1 k.no_plat, t.id_supplier, s.nama_supplier AS customer, t.id_pengangkutan,
                         a.nama_supplier AS pengangkutan, t.created_at
                  FROM transaksi t JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-                 JOIN supplier s ON t.id_supplier = s.id_supplier
-                 LEFT JOIN supplier a ON t.id_pengangkutan = a.id_supplier
+                 JOIN mitra s ON t.id_supplier = s.id_supplier
+                 LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
                  WHERE t.id_driver = p.id_personel ORDER BY t.created_at DESC) tr
     WHERE p.is_active = 1"""
 
@@ -103,8 +103,8 @@ def cari_target(tipe, kata, batas=8):
                 OUTER APPLY (SELECT TOP 1 t.id_driver, p.kode_personel, p.nama_personel, s.nama_supplier AS customer,
                                     a.nama_supplier AS pengangkutan, t.created_at
                              FROM transaksi t JOIN personel p ON p.id_personel = t.id_driver
-                             JOIN supplier s ON t.id_supplier = s.id_supplier
-                             LEFT JOIN supplier a ON t.id_pengangkutan = a.id_supplier
+                             JOIN mitra s ON t.id_supplier = s.id_supplier
+                             LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
                              WHERE t.id_kendaraan = k.id_kendaraan ORDER BY t.created_at DESC) tr
                 WHERE REPLACE(k.no_plat, ' ', '') LIKE ?
                 ORDER BY k.no_plat""", f"%{kata.replace(' ', '')}%")
@@ -164,7 +164,7 @@ def get_surat_blacklist(tipe, id_target):
     cursor = conn.cursor()
     cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist, dk.tanggal AS tgl_blacklist,
                               df.file_path AS file_surat_blacklist, u.nama AS oleh
-                       FROM blacklist b JOIN users u ON b.created_by = u.id_user
+                       FROM blacklist b JOIN akun u ON b.created_by = u.id_user
                        JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                     WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df

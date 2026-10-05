@@ -130,7 +130,7 @@ def buat_tiket():
 
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
-                        current_user.id, prev_driver_id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
+                        current_user.id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

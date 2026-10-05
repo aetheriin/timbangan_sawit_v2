@@ -46,7 +46,7 @@ def get_user_by_username(username):
     cursor = conn.cursor()
     cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, u.id_level, l.is_admin,
                              l.halaman_awal, u.sesi_versi, u.password_changed_at
-                      FROM users u JOIN level l ON l.id_level = u.id_level
+                      FROM akun u JOIN level l ON l.id_level = u.id_level
                       WHERE u.username = ? AND u.is_active = 1 AND l.is_active = 1""", username)
     row = cursor.fetchone()
     conn.close()
@@ -59,7 +59,7 @@ def get_user_by_id(user_id):
     # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
     cursor.execute("""SELECT u.id_user, u.username, u.nama, l.kode AS role, u.id_level, l.is_admin, l.halaman_awal,
                              u.sesi_versi
-                      FROM users u JOIN level l ON l.id_level = u.id_level
+                      FROM akun u JOIN level l ON l.id_level = u.id_level
                       WHERE u.id_user = ? AND u.is_active = 1 AND l.is_active = 1""", user_id)
     row = cursor.fetchone()
     conn.close()
@@ -68,7 +68,7 @@ def get_user_by_id(user_id):
 def get_password_hash(user_id):
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT password FROM users WHERE id_user = ?", user_id).fetchone()
+        row = conn.cursor().execute("SELECT password FROM akun WHERE id_user = ?", user_id).fetchone()
         return row[0] if row else None
     finally:
         conn.close()
@@ -78,7 +78,7 @@ def ganti_password_sendiri(user_id, password_hash):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""UPDATE users SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
+        cursor.execute("""UPDATE akun SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
                           updated_at = GETDATE() OUTPUT INSERTED.sesi_versi WHERE id_user = ?""", password_hash, user_id)
         versi = cursor.fetchone()[0]
         conn.commit()
@@ -92,7 +92,7 @@ def naikkan_sesi_versi(user_id):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE users SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi WHERE id_user = ?", user_id)
+        cursor.execute("UPDATE akun SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi WHERE id_user = ?", user_id)
         versi = cursor.fetchone()[0]
         conn.commit()
     finally:
@@ -103,7 +103,7 @@ def naikkan_sesi_versi(user_id):
 def catat_login_terakhir(user_id):
     conn = get_connection()
     try:
-        conn.cursor().execute("UPDATE users SET last_login = GETDATE() WHERE id_user = ?", user_id)
+        conn.cursor().execute("UPDATE akun SET last_login = GETDATE() WHERE id_user = ?", user_id)
         conn.commit()
     finally:
         conn.close()
@@ -115,11 +115,11 @@ def get_semua_supplier():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""SELECT s.id_supplier, s.nama_supplier,
-                             CAST(CASE WHEN EXISTS (SELECT 1 FROM supplier_peran p WHERE p.id_supplier = s.id_supplier
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM mitra_peran p WHERE p.id_supplier = s.id_supplier
                                                     AND p.peran = 'CUSTOMER') THEN 1 ELSE 0 END AS BIT) AS is_customer,
-                             CAST(CASE WHEN EXISTS (SELECT 1 FROM supplier_peran p WHERE p.id_supplier = s.id_supplier
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM mitra_peran p WHERE p.id_supplier = s.id_supplier
                                                     AND p.peran = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan
-                      FROM supplier s WHERE s.is_active = 1 ORDER BY s.nama_supplier""")
+                      FROM mitra s WHERE s.is_active = 1 ORDER BY s.nama_supplier""")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -243,7 +243,7 @@ def get_kontrak_kendaraan(id_kendaraan, hanya_aktif=False):
         SELECT kk.id_kontrak, kk.no_kontrak, kk.id_supplier, s.nama_supplier, kk.id_produk, p.nama_produk,
                kk.jenis_transaksi, kk.tanggal_mulai, kk.tanggal_selesai, kk.is_active, kk.keterangan
         FROM kontrak_kendaraan kk
-        JOIN supplier s ON kk.id_supplier = s.id_supplier
+        JOIN mitra s ON kk.id_supplier = s.id_supplier
         LEFT JOIN produk p ON kk.id_produk = p.id_produk
         WHERE kk.id_kendaraan = ?
         ORDER BY kk.is_active DESC, kk.tanggal_mulai DESC
@@ -434,7 +434,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
                d.is_updated, d.is_blacklisted, d.foto_path
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN v_personel d ON t.id_driver = d.id_personel
         LEFT JOIN mill ml ON ml.id_mill = t.id_mill
@@ -461,7 +461,7 @@ def catat_cetak_qr(no_tiket):
     return sebelumnya
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id,
-                        prev_driver_id=None, id_pengangkutan=None, id_mill=None, id_do=None, cara_angkut="PENGIRIM"):
+                        id_pengangkutan=None, id_mill=None, id_do=None, cara_angkut="PENGIRIM"):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
     kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
     qr_expired = datetime.now() + timedelta(hours=24)
@@ -472,10 +472,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor.execute(
         """INSERT INTO transaksi
            (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan, id_mill, id_do, cara_angkut)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            security_id, id_kontrak, id_pengangkutan, id_mill, id_do, cara_angkut)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
-        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan, id_mill, id_do, cara_angkut
+        security_id, id_kontrak, id_pengangkutan, id_mill, id_do, cara_angkut
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.
@@ -579,7 +579,7 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None):
     cursor.execute(f"""
         SELECT TOP 200 s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
-        JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
         WHERE t.id_supplier = ? AND {filter_waktu}
@@ -599,7 +599,7 @@ def get_list_tiket_aktif():
         FROM transaksi t
         LEFT JOIN mill ml ON ml.id_mill = t.id_mill
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
         ORDER BY t.created_at DESC
@@ -621,7 +621,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500):
                    t.jenis_transaksi, tb.berat_netto, t.status_alur
             FROM transaksi t
             JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-            JOIN supplier s ON t.id_supplier = s.id_supplier
+            JOIN mitra s ON t.id_supplier = s.id_supplier
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}
@@ -735,7 +735,7 @@ def get_history_standar(hari=2):
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_air') AS FLOAT) AS maks_air,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.nama AS oleh
                           FROM log_aktivitas l JOIN produk p ON p.id_produk = TRY_CAST(l.id_baris AS INT)
-                          LEFT JOIN users u ON u.id_user = l.id_user
+                          LEFT JOIN akun u ON u.id_user = l.id_user
                           WHERE l.kategori = 'STANDAR_MUTU' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
                           ORDER BY l.id_log DESC""", -(int(hari) - 1))
         return _rows_to_dicts(cursor)
@@ -784,7 +784,7 @@ def get_history_umum(tabel, limit=10):
         JOIN transaksi t ON sr.no_tiket = t.no_tiket
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN produk p ON t.id_produk = p.id_produk
-        JOIN supplier s ON t.id_supplier = s.id_supplier
+        JOIN mitra s ON t.id_supplier = s.id_supplier
         ORDER BY t.created_at DESC
     """)
     columns = [c[0] for c in cursor.description]

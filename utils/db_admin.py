@@ -2,7 +2,7 @@
 from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 
-PERAN_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")    # satu mitra boleh keduanya (tabel supplier_peran)
+PERAN_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")    # satu mitra boleh keduanya (tabel mitra_peran)
 KATEGORI_PRODUK = ("TBS", "PRODUK_PKS")
 
 
@@ -32,7 +32,7 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
 _SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
                          u.id_department, d.nama AS department, u.id_comp_area, a.nama AS area,
                          u.is_active, u.last_login, u.created_at
-                  FROM users u JOIN level lv ON lv.id_level = u.id_level
+                  FROM akun u JOIN level lv ON lv.id_level = u.id_level
                   JOIN department d ON d.id_department = u.id_department
                   JOIN comp_area a ON a.id_comp_area = u.id_comp_area"""
 
@@ -47,24 +47,24 @@ def get_user(id_user):
 
 
 def username_dipakai(username, kecuali=None):
-    rows = _query("SELECT id_user FROM users WHERE LOWER(username) = LOWER(?)", username)
+    rows = _query("SELECT id_user FROM akun WHERE LOWER(username) = LOWER(?)", username)
     return any(r["id_user"] != kecuali for r in rows)
 
 
 def jumlah_admin_aktif(kecuali=None):
-    rows = _query("""SELECT u.id_user FROM users u JOIN level lv ON lv.id_level = u.id_level
+    rows = _query("""SELECT u.id_user FROM akun u JOIN level lv ON lv.id_level = u.id_level
                      WHERE lv.is_admin = 1 AND lv.is_active = 1 AND u.is_active = 1""")
     return len([r for r in rows if r["id_user"] != kecuali])
 
 
 def tambah_user(username, nama, id_level, id_department, id_comp_area, password_hash):
-    _ubah("""INSERT INTO users (username, nama, id_level, id_department, id_comp_area, password)
+    _ubah("""INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password)
              VALUES (?, ?, ?, ?, ?, ?)""", username, nama, id_level, id_department, id_comp_area, password_hash)
 
 
 def ubah_user(id_user, nama, id_level, id_department, id_comp_area):
     """Ganti level -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
-    _ubah("""UPDATE users SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
+    _ubah("""UPDATE akun SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
              id_level = ?, id_department = ?, id_comp_area = ?, updated_at = GETDATE() WHERE id_user = ?""",
           nama, id_level, id_level, id_department, id_comp_area, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
@@ -72,19 +72,19 @@ def ubah_user(id_user, nama, id_level, id_department, id_comp_area):
 
 def reset_password(id_user, password_hash):
     # password_changed_at = NULL -> user wajib mengganti password ini saat login berikutnya
-    _ubah("""UPDATE users SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
+    _ubah("""UPDATE akun SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
              updated_at = GETDATE() WHERE id_user = ?""", password_hash, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def set_aktif_user(id_user, aktif):
-    _ubah("""UPDATE users SET is_active = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
+    _ubah("""UPDATE akun SET is_active = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
              WHERE id_user = ?""", 1 if aktif else 0, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def cabut_sesi(id_user):
-    _ubah("UPDATE users SET sesi_versi = sesi_versi + 1 WHERE id_user = ?", id_user)
+    _ubah("UPDATE akun SET sesi_versi = sesi_versi + 1 WHERE id_user = ?", id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
@@ -92,9 +92,9 @@ def cabut_sesi(id_user):
 def daftar_supplier():
     rows = _query("""SELECT s.id_supplier, s.kode_supplier, s.nama_supplier, s.is_active, s.created_at,
                             pc.peran AS peran_customer, pa.peran AS peran_angkutan
-                     FROM supplier s
-                     LEFT JOIN supplier_peran pc ON pc.id_supplier = s.id_supplier AND pc.peran = 'CUSTOMER'
-                     LEFT JOIN supplier_peran pa ON pa.id_supplier = s.id_supplier AND pa.peran = 'PENGANGKUTAN'
+                     FROM mitra s
+                     LEFT JOIN mitra_peran pc ON pc.id_supplier = s.id_supplier AND pc.peran = 'CUSTOMER'
+                     LEFT JOIN mitra_peran pa ON pa.id_supplier = s.id_supplier AND pa.peran = 'PENGANGKUTAN'
                      ORDER BY s.is_active DESC, s.nama_supplier""")
     for r in rows:
         r.update(is_customer=bool(r.pop("peran_customer")), is_angkutan=bool(r.pop("peran_angkutan")))
@@ -102,7 +102,7 @@ def daftar_supplier():
 
 
 def kode_supplier_dipakai(kode, kecuali=None):
-    rows = _query("SELECT id_supplier FROM supplier WHERE kode_supplier = ?", kode)
+    rows = _query("SELECT id_supplier FROM mitra WHERE kode_supplier = ?", kode)
     return any(r["id_supplier"] != kecuali for r in rows)
 
 
@@ -112,15 +112,15 @@ def simpan_supplier(id_supplier, kode, nama, peran):
     try:
         cursor = conn.cursor()
         if id_supplier:
-            cursor.execute("UPDATE supplier SET kode_supplier = ?, nama_supplier = ? WHERE id_supplier = ?", kode, nama, id_supplier)
+            cursor.execute("UPDATE mitra SET kode_supplier = ?, nama_supplier = ? WHERE id_supplier = ?", kode, nama, id_supplier)
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
         else:
-            cursor.execute("INSERT INTO supplier (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)", kode, nama)
+            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)", kode, nama)
             id_supplier = cursor.fetchone()[0]
-        cursor.execute("DELETE FROM supplier_peran WHERE id_supplier = ?", id_supplier)
+        cursor.execute("DELETE FROM mitra_peran WHERE id_supplier = ?", id_supplier)
         for p in peran:
-            cursor.execute("INSERT INTO supplier_peran (id_supplier, peran) VALUES (?, ?)", id_supplier, p)
+            cursor.execute("INSERT INTO mitra_peran (id_supplier, peran) VALUES (?, ?)", id_supplier, p)
         conn.commit()
     finally:
         conn.close()
@@ -128,7 +128,7 @@ def simpan_supplier(id_supplier, kode, nama, peran):
 
 
 def set_aktif_supplier(id_supplier, aktif):
-    _ubah("UPDATE supplier SET is_active = ? WHERE id_supplier = ?", 1 if aktif else 0, id_supplier)
+    _ubah("UPDATE mitra SET is_active = ? WHERE id_supplier = ?", 1 if aktif else 0, id_supplier)
     get_semua_supplier.hapus()
 
 
@@ -207,9 +207,9 @@ def daftar_tiket(cari="", hari=30, batas=500):
                              dk.no_dokumen AS no_ba, df.file_path AS file_ba
                       FROM transaksi t
                       JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
-                      JOIN supplier s ON s.id_supplier = t.id_supplier
+                      JOIN mitra s ON s.id_supplier = t.id_supplier
                       LEFT JOIN pembatalan_tiket pb ON pb.no_tiket = t.no_tiket
-                      LEFT JOIN users u ON u.id_user = pb.oleh
+                      LEFT JOIN akun u ON u.id_user = pb.oleh
                       LEFT JOIN dokumen dk ON dk.id_dokumen = pb.id_dokumen
                       OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                    WHERE f.id_dokumen = pb.id_dokumen ORDER BY f.urutan) df

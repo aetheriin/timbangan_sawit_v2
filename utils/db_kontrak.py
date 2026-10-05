@@ -11,7 +11,7 @@ _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transa
                     k.qty_kg, k.harga_per_kg, k.keterangan, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at
              FROM delivery_order o
              JOIN kontrak k ON k.id_kontrak = o.id_kontrak
-             JOIN supplier c ON c.id_supplier = k.id_customer
+             JOIN mitra c ON c.id_supplier = k.id_customer
              JOIN produk p ON p.id_produk = k.id_produk"""
 
 
@@ -44,7 +44,7 @@ def _lengkapi_angkut(daftar):
     for i in range(0, len(ids), 1000):
         bagian = ids[i:i + 1000]
         rows = _query(f"""SELECT a.id_do, a.cara_angkut, a.id_pengangkutan, s.nama_supplier AS nama_pengangkutan, a.qty_kg
-                          FROM do_pengangkutan a LEFT JOIN supplier s ON s.id_supplier = a.id_pengangkutan
+                          FROM do_pengangkutan a LEFT JOIN mitra s ON s.id_supplier = a.id_pengangkutan
                           WHERE a.id_do IN ({','.join('?' * len(bagian))}) ORDER BY a.id_do_angkut""", *bagian)
         for r in rows:
             d = per_do[r["id_do"]]
@@ -129,8 +129,8 @@ def set_aktif_do(id_do, aktif):
 
 def daftar_mitra():
     """Customer & pengangkutan aktif untuk pilihan form DO (satu mitra boleh dua peran)."""
-    return _query("""SELECT s.id_supplier, s.nama_supplier, p.peran FROM supplier s
-                     JOIN supplier_peran p ON p.id_supplier = s.id_supplier
+    return _query("""SELECT s.id_supplier, s.nama_supplier, p.peran FROM mitra s
+                     JOIN mitra_peran p ON p.id_supplier = s.id_supplier
                      WHERE s.is_active = 1 ORDER BY s.nama_supplier""")
 
 
@@ -141,18 +141,18 @@ def id_pengangkutan_dari_nama(nama):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_supplier FROM supplier WHERE LOWER(nama_supplier) = LOWER(?)", nama)
+        cursor.execute("SELECT id_supplier FROM mitra WHERE LOWER(nama_supplier) = LOWER(?)", nama)
         row = cursor.fetchone()
         if row:
             id_mitra = row.id_supplier
         else:
-            cursor.execute("SELECT COUNT(*) FROM supplier WHERE kode_supplier LIKE 'ANG-%'")
+            cursor.execute("SELECT COUNT(*) FROM mitra WHERE kode_supplier LIKE 'ANG-%'")
             kode = f"ANG-{cursor.fetchone()[0] + 1:03d}"
-            cursor.execute("INSERT INTO supplier (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)",
+            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)",
                            kode, nama)
             id_mitra = cursor.fetchone()[0]
-        cursor.execute("""IF NOT EXISTS (SELECT 1 FROM supplier_peran WHERE id_supplier = ? AND peran = 'PENGANGKUTAN')
-                          INSERT INTO supplier_peran (id_supplier, peran) VALUES (?, 'PENGANGKUTAN')""", id_mitra, id_mitra)
+        cursor.execute("""IF NOT EXISTS (SELECT 1 FROM mitra_peran WHERE id_supplier = ? AND peran = 'PENGANGKUTAN')
+                          INSERT INTO mitra_peran (id_supplier, peran) VALUES (?, 'PENGANGKUTAN')""", id_mitra, id_mitra)
         conn.commit()
     finally:
         conn.close()

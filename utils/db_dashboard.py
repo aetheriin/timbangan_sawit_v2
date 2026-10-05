@@ -9,7 +9,7 @@ def riwayat_harga(hari=30):
     try:
         cursor = conn.cursor()
         cursor.execute("""SELECT h.tanggal, h.harga_cpo, h.harga_kernel, h.oer_cpo, h.biaya_olah, u.nama AS oleh, h.updated_at
-                          FROM harga_harian h LEFT JOIN users u ON u.id_user = h.updated_by
+                          FROM harga_harian h LEFT JOIN akun u ON u.id_user = h.updated_by
                           WHERE h.tanggal >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
                           ORDER BY h.tanggal""", -(int(hari) - 1))
         return _rows_to_dicts(cursor)

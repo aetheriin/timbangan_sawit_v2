@@ -90,7 +90,7 @@ def admin_required(f):
 # ===== Admin › Hak Akses =====
 def daftar_level():
     return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
-                            (SELECT COUNT(*) FROM users u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
+                            (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
                      FROM level l ORDER BY l.is_admin DESC, l.nama""")
 
 
