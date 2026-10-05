@@ -23,8 +23,8 @@ def baris(ok, teks, saran=""):
 
 print("\n== Python")
 versi = sys.version_info
-baris(versi[:2] == (3, 11) and struct.calcsize("P") == 8, f"Python {platform.python_version()} {struct.calcsize('P') * 8}-bit",
-      "Butuh Python 3.11 64-bit (mediapipe 0.10.9 belum ada untuk 3.12+)")
+baris(versi[:2] in ((3, 10), (3, 11)) and struct.calcsize("P") == 8, f"Python {platform.python_version()} {struct.calcsize('P') * 8}-bit",
+      "Butuh Python 3.10 / 3.11 64-bit (mediapipe 0.10.9 belum ada untuk 3.12+)")
 
 print("\n== Library")
 for modul, paket in [("flask", "Flask"), ("flask_login", "Flask-Login"), ("flask_wtf", "Flask-WTF"),

@@ -1,4 +1,4 @@
-# Library aplikasi (Windows 64-bit, Python 3.11 - mediapipe 0.10.9 hanya sampai Python 3.11).
+# Library aplikasi (Windows 64-bit, Python 3.10 / 3.11 - mediapipe 0.10.9 hanya sampai Python 3.11).
 # Pasang: tools\pasang_windows.bat  (atau lihat docs/PINDAH_LAPTOP.md)
 # dlib memakai paket jadi "dlib-bin" (tanpa CMake / Visual Studio). face-recognition dipasang terpisah dengan
 # --no-deps supaya pip tidak mencoba mengompilasi "dlib":

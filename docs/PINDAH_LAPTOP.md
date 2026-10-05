@@ -27,7 +27,7 @@ Semua langkah di bawah sudah diuji: instal library dari `requirements.txt` (onli
 
 | Program | Unduh | Catatan |
 |---|---|---|
-| **Python 3.11 64-bit** | python.org → Downloads → Windows → *Python 3.11.9 Windows installer (64-bit)* | Centang **Add python.exe to PATH**. Jangan 3.12 / 3.13: `mediapipe 0.10.9` hanya ada sampai 3.11 |
+| **Python 3.10 / 3.11 64-bit** | python.org → Downloads → Windows → *Python 3.11.9 Windows installer (64-bit)* | Centang **Add python.exe to PATH**. Jangan 3.12 / 3.13: `mediapipe 0.10.9` hanya ada sampai 3.11 |
 | **SQL Server 2022 Express** | microsoft.com → *SQL Server Downloads* → Express → **Basic** | Gratis. Selesai instal, catat *Instance name* (biasanya `SQLEXPRESS`). Versi harus sama / lebih baru dari PC lama |
 | **ODBC Driver 18 for SQL Server** | learn.microsoft.com → *Download ODBC Driver for SQL Server* → x64 | Dipakai Python (`pyodbc`) untuk konek ke database |
 | **SSMS** atau VS Code + ekstensi *SQL Server (mssql)* | microsoft.com → *Download SSMS* | Untuk menjalankan file `.sql` |
@@ -81,7 +81,7 @@ Mau database **kosong** (instal baru, tanpa data lama)? Jalankan `database\schem
 | `Login failed` / `Cannot open database` | `DB_SERVER` / `DB_NAME` salah, atau restore belum dilakukan. Cek di SSMS dengan server yang sama |
 | `The database was backed up on a server running version ...` | SQL Server laptop lebih lama dari PC lama: pasang versi yang sama / lebih baru |
 | `Operating system error 5 (Access is denied)` saat restore | Taruh `.bak` di folder Backup bawaan SQL Server |
-| `No matching distribution found for mediapipe==0.10.9` | Python bukan 3.11 64-bit |
+| `No matching distribution found for mediapipe==0.10.9` | Python bukan 3.10 / 3.11 64-bit |
 | `DLL load failed` saat import cv2 / dlib | Pasang Visual C++ Redistributable x64 |
 | Foto wajah / surat tidak muncul | Folder `data\uploads\` belum disalin |
 | `SECRET_KEY, HASH_SECRET_KEY di .env kosong` | `.env` belum disalin dari PC lama |
