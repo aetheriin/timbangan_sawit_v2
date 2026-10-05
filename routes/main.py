@@ -17,12 +17,27 @@ from utils.plat_utils import normalisasi_plat
 from utils import pengaturan, kiosk
 from utils.keamanan import id_pos
 from utils.hak_akses import boleh
+from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
 from utils.db_personel import daftar_jenis_sim
 from utils.db_kunjungan import daftar_keperluan
 
 main_bp = Blueprint('main', __name__)
 
 # Tahap yang ditangani tiap role: halaman List default ke tahap ini, Form default ke tab ini
+def _jembatan_aktif():
+    try:
+        return [j for j in daftar_jembatan() if j["is_active"]]
+    except Exception:       # noqa: BLE001 - migrasi 011 belum dijalankan
+        return []
+
+
+def _jembatan_pc():
+    try:
+        return jembatan_dipilih(request)
+    except Exception:       # noqa: BLE001
+        return None
+
+
 def _tab_awal():
     """Tab / tahap awal dari halaman awal level (mis. /weighbridge?tab=timbangan, Admin › Hak Akses)."""
     return parse_qs(urlparse(current_user.halaman_awal or "").query).get("tab", [""])[0]
@@ -39,7 +54,8 @@ def weighbridge():
                            tab_awal=_tab_awal() or "security",
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"),
-                           pos_list=kiosk.daftar_aktif(), pos_dipilih=id_pos())
+                           pos_list=kiosk.daftar_aktif(), pos_dipilih=id_pos(),
+                           jembatan_list=_jembatan_aktif(), jembatan_dipilih=_jembatan_pc())
 
 @main_bp.route("/api/list/history-produk")
 @login_required

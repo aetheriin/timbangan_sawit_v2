@@ -8,18 +8,25 @@ from utils.db_utils import (
 )
 from utils.serializers import serialisasi_tiket
 from utils.hak_akses import izin
+from utils.db_jembatan import jembatan_dipilih
 
 timbangan_bp = Blueprint('timbangan', __name__)
+
+def _port_pc():
+    """Port serial jembatan timbang yang dipilih PC ini; None = port bawaan (belum memilih / tabel belum ada)."""
+    j = jembatan_dipilih(request)
+    return j["port"] if j else None
 
 @timbangan_bp.route("/api/timbang/status")
 @login_required
 def timbang_status():
-    return jsonify(baca_status_asli())
+    j = jembatan_dipilih(request)
+    return jsonify({**baca_status_asli(j["port"] if j else None), "jembatan": j["kode"] if j else None})
 
 @timbangan_bp.route("/api/timbang/reset-baseline", methods=["POST"])
 @login_required
 def timbang_reset():
-    reset_deteksi_stabil()
+    reset_deteksi_stabil(_port_pc())
     return jsonify({"message": "Baseline direset"}), 200
 
 @timbangan_bp.route("/api/timbang/data/<no_tiket>")
@@ -30,7 +37,8 @@ def timbang_data(no_tiket):
         return jsonify({"berat_bruto": None, "berat_tara": None, "berat_netto": None,
                         "potongan_kg": None, "netto_akhir": None})
     return jsonify({"berat_bruto": row.berat_bruto, "berat_tara": row.berat_tara, "berat_netto": row.berat_netto,
-                    "potongan_kg": row.total_potongan_kg, "netto_akhir": _netto_akhir(row)})
+                    "potongan_kg": row.total_potongan_kg, "netto_akhir": _netto_akhir(row),
+                    "jembatan_masuk": row.kode_jembatan})
 
 def _netto_akhir(row):
     if row.berat_netto is None:
@@ -71,7 +79,10 @@ def timbang_simpan():
     if not no_tiket:
         return jsonify({"error": "No. Tiket wajib ada"}), 400
 
-    status = baca_status_asli()
+    jembatan = jembatan_dipilih(request)
+    if jembatan is None:
+        return jsonify({"error": "Pilih jembatan timbang untuk PC ini dulu (di atas tampilan berat)"}), 400
+    status = baca_status_asli(jembatan["port"])
     if not status.get("siap_kunci"):
         return jsonify({"error": "Berat belum stabil"}), 400
 
@@ -84,21 +95,28 @@ def timbang_simpan():
 
     berat = status["berat"]
     if data_lama.berat_bruto is None and data_lama.berat_tara is None:
-        jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id)
-        reset_deteksi_stabil()
+        jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
+        reset_deteksi_stabil(jembatan["port"])
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
             return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg"}), 200
         label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
-        return jsonify({"message": f"{label} tersimpan: {berat} kg. Menunggu timbang kedua."}), 200
+        return jsonify({"message": f"{label} tersimpan di {jembatan['kode']}: {berat} kg. "
+                                   f"Timbang keluar juga harus di {jembatan['kode']}."}), 200
 
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)
     if trx.status_alur != 'TIMBANG_2':
         menunggu = "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)"
         return jsonify({"error": f"Belum bisa timbang kedua, tiket masih menunggu {menunggu}"}), 400
 
-    netto = simpan_timbang_kedua(no_tiket, berat, current_user.id)
-    reset_deteksi_stabil()
+    if data_lama.id_jembatan != jembatan["id_jembatan"]:
+        return jsonify({"error": f"Tiket ini masuk di {data_lama.kode_jembatan}. Timbang keluar harus di "
+                                 f"{data_lama.kode_jembatan}, bukan {jembatan['kode']}."}), 400
+    try:
+        netto = simpan_timbang_kedua(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    reset_deteksi_stabil(jembatan["port"])
     catat_timeline(no_tiket, 'TIMBANG_KELUAR', current_user.id)
     hasil = get_data_timbangan(no_tiket)
     pesan = f"Selesai! Netto: {netto} kg"

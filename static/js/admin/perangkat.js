@@ -12,10 +12,10 @@ async function muatPerangkat() {
 
     const t = data.timbangan;
     const elT = document.getElementById('statTimbangan');
-    elT.textContent = t.terhubung ? 'Terhubung' : 'Tidak terhubung';
-    elT.className = `stat-value ${t.terhubung ? 'text-emerald-600' : 'text-red-600'}`;
-    document.getElementById('statTimbanganInfo').textContent =
-        `Port ${t.port}` + (t.terhubung ? ` · ${t.berat} Kg${t.stabil ? ' (stabil)' : ''}` : ' · cek kabel / port COM');
+    elT.textContent = `${t.terhubung} / ${t.jumlah}`;
+    elT.className = `stat-value ${t.jumlah && t.terhubung === t.jumlah ? 'text-emerald-600' : 'text-red-600'}`;
+    document.getElementById('statTimbanganInfo').textContent = 'Port serial yang sedang dibaca server';
+    tampilkanJembatan(data.jembatan || []);
     document.getElementById('statJumlahPos').textContent = daftarPos.length;
     document.getElementById('statPosAktif').textContent = `${daftarPos.filter(p => p.is_active).length} aktif`;
     const elEnv = document.getElementById('statTokenEnv');
@@ -92,5 +92,54 @@ function ubahAktifPos(idPos) {
     konfirmasiAktif({
         url: '/api/admin/perangkat/aktif', data: { id_pos: idPos }, aktif: !p.is_active, nama: `Pos ${idPos}`, jenis: 'pos kiosk',
         pesanNonaktif: 'Kiosk di pos ini ditolak server sampai diaktifkan lagi.', setelahnya: muatPerangkat,
+    });
+}
+
+// ===== JEMBATAN TIMBANG =====
+let daftarJembatan = [];
+
+function tampilkanJembatan(data) {
+    daftarJembatan = data;
+    document.getElementById('tabelJembatan').innerHTML = data.map(j => {
+        const st = j.status;
+        const live = !st ? '<span class="text-slate-400">Tidak dibaca</span>'
+            : st.terhubung ? `${escapeHtml(st.berat)} Kg${st.stabil ? ' <span class="text-emerald-600">(stabil)</span>' : ''}`
+            : '<span class="text-red-600">Tidak terhubung</span>';
+        return `<tr class="hover:bg-slate-50${j.is_active ? '' : ' text-slate-400'}">
+            <td class="table-cell font-mono">${escapeHtml(j.kode)}</td>
+            <td class="table-cell">${escapeHtml(j.nama)}</td>
+            <td class="table-cell">${escapeHtml(j.area)}</td>
+            <td class="table-cell font-mono text-xs">${escapeHtml(j.port)} · ${Number(j.baudrate)}</td>
+            <td class="table-cell">${live}</td>
+            <td class="table-cell">${badgeAktif(j.is_active)}</td>
+            <td class="table-cell text-right whitespace-nowrap space-x-3">
+                <button type="button" class="link-aksi text-blue-600" data-on-click="bukaJembatan" data-arg="${j.id_jembatan}">Ubah</button>
+                <button type="button" class="link-aksi ${j.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifJembatan"
+                    data-arg="${j.id_jembatan}">${j.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+            </td></tr>`;
+    }).join('') || barisKosong(7, 'Belum ada jembatan timbang (jalankan migrasi 011)');
+}
+
+function bukaJembatan(id) {
+    const form = document.getElementById('formJembatan');
+    const j = daftarJembatan.find(x => x.id_jembatan === id);
+    form.reset();
+    isiForm(form, j ? { id_jembatan: j.id_jembatan, kode: j.kode, nama: j.nama, id_comp_area: j.id_comp_area, port: j.port, baudrate: j.baudrate }
+                    : { id_jembatan: '', baudrate: 9600 });
+    document.getElementById('judulModalJembatan').textContent = j ? `Ubah Jembatan ${j.kode}` : 'Tambah Jembatan Timbang';
+    openModal('modalJembatan');
+    document.getElementById('jtKode').focus();
+}
+
+document.getElementById('formJembatan').addEventListener('submit', e => {
+    e.preventDefault();
+    kirimFormAdmin(e.target, '/api/admin/jembatan/simpan', { modal: 'modalJembatan', setelahnya: muatPerangkat });
+});
+
+function ubahAktifJembatan(id) {
+    const j = daftarJembatan.find(x => x.id_jembatan === id);
+    konfirmasiAktif({
+        url: `/api/admin/jembatan/${id}/aktif`, aktif: !j.is_active, nama: `Jembatan ${j.kode}`, jenis: 'jembatan timbang',
+        pesanNonaktif: 'Tidak bisa dipilih lagi di PC operator timbang.', setelahnya: muatPerangkat,
     });
 }

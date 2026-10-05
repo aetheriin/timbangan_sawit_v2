@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA LENGKAP Sistem Timbangan Sawit (Weighbridge + Face Recognition)
-   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-010 dalam satu file.
-   Database yang SUDAH ada cukup menjalankan migrasi 001-010 berurutan.
+   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-011 dalam satu file.
+   Database yang SUDAH ada cukup menjalankan migrasi 001-011 berurutan.
 
    Cara pakai (SSMS): ganti nama database di 2 baris di bawah, lalu Execute (F5).
    Urutan tabel mengikuti ketergantungan foreign key. Diagram: docs/ERD.md
@@ -339,6 +339,19 @@ GO
 
 /* =========================== TRANSAKSI =========================== */
 
+-- Jembatan timbang per area (migrasi 011)
+CREATE TABLE dbo.jembatan_timbang (
+    id_jembatan   INT IDENTITY(1,1) PRIMARY KEY,
+    id_comp_area  INT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.comp_area (id_comp_area),
+    kode          VARCHAR(10)   NOT NULL,
+    nama          NVARCHAR(100) NOT NULL,
+    port          VARCHAR(30)   NOT NULL,                 -- COM3 (Windows) / /dev/ttyUSB0
+    baudrate      INT NOT NULL CONSTRAINT DF_Jembatan_Baud DEFAULT (9600),
+    is_active     BIT NOT NULL CONSTRAINT DF_Jembatan_Aktif DEFAULT (1),
+    created_at    DATETIME NOT NULL CONSTRAINT DF_Jembatan_Created DEFAULT (GETDATE()),
+    CONSTRAINT UX_Jembatan_AreaKode UNIQUE (id_comp_area, kode)
+);
+GO
 CREATE TABLE dbo.transaksi (
     no_tiket           VARCHAR(50) PRIMARY KEY,
     jenis_transaksi    VARCHAR(20) NOT NULL,
@@ -357,6 +370,7 @@ CREATE TABLE dbo.transaksi (
     prev_driver_id     INT NULL CONSTRAINT FK_Trx_PrevDriver REFERENCES dbo.personel (id_personel),
     driver_photo_path  VARCHAR(255) NULL,
     security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.users (id_user),
+    id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_Status CHECK (status_alur IN ('SECURITY_REGISTER', 'SCAN_WAJAH', 'TIMBANG_1', 'INSPEKSI_PROSES',
@@ -380,19 +394,57 @@ CREATE TABLE dbo.pembatalan_tiket (
 CREATE INDEX IX_Batal_Waktu ON dbo.pembatalan_tiket (waktu DESC);
 GO
 
-CREATE TABLE dbo.timbangan (
-    id_timbangan            INT IDENTITY(1,1) PRIMARY KEY,
-    no_tiket                VARCHAR(50) NOT NULL CONSTRAINT UX_Timbangan_Tiket UNIQUE
-                            CONSTRAINT FK_Timbangan_Trx REFERENCES dbo.transaksi (no_tiket),
-    berat_bruto             FLOAT NULL,
-    waktu_bruto             DATETIME NULL,
-    berat_tara              FLOAT NULL,
-    waktu_tara              DATETIME NULL,
-    berat_netto             FLOAT NULL,
-    hash_keamanan           VARCHAR(64) NULL,
-    operator_timbang_id     INT NULL CONSTRAINT FK_Timbangan_Operator REFERENCES dbo.users (id_user),
-    is_checklist_validated  BIT NOT NULL CONSTRAINT DF_Timbangan_Checklist DEFAULT (0)
+-- Penimbangan (migrasi 011): ke-1 masuk, ke-2 keluar di jembatan yang sama; bruto/tara/netto lewat v_timbangan
+CREATE TABLE dbo.penimbangan (
+    no_tiket     VARCHAR(50) NOT NULL CONSTRAINT FK_Penimbangan_Trx REFERENCES dbo.transaksi (no_tiket),
+    ke           TINYINT NOT NULL CONSTRAINT CK_Penimbangan_Ke CHECK (ke IN (1, 2)),
+    id_jembatan  INT NOT NULL CONSTRAINT FK_Penimbangan_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),
+    berat_kg     DECIMAL(10, 2) NOT NULL,
+    waktu        DATETIME NOT NULL CONSTRAINT DF_Penimbangan_Waktu DEFAULT (GETDATE()),
+    operator     INT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.users (id_user),   -- NULL hanya data lama
+    hash         CHAR(64) NULL,
+    CONSTRAINT PK_Penimbangan PRIMARY KEY (no_tiket, ke)
 );
+CREATE INDEX IX_Penimbangan_Waktu ON dbo.penimbangan (waktu DESC);
+GO
+CREATE OR ALTER TRIGGER dbo.TR_Penimbangan_JembatanSama ON dbo.penimbangan AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM inserted i
+               JOIN dbo.penimbangan p1 ON p1.no_tiket = i.no_tiket AND p1.ke = 1
+               WHERE i.ke = 2 AND i.id_jembatan <> p1.id_jembatan)
+    BEGIN
+        RAISERROR('Timbang keluar harus di jembatan timbang yang sama dengan timbang masuk.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+    IF EXISTS (SELECT 1 FROM inserted i WHERE i.ke = 2
+               AND NOT EXISTS (SELECT 1 FROM dbo.penimbangan p1 WHERE p1.no_tiket = i.no_tiket AND p1.ke = 1))
+    BEGIN
+        RAISERROR('Timbang ke-2 hanya boleh setelah timbang ke-1.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END
+    UPDATE t SET t.id_jembatan = i.id_jembatan
+    FROM dbo.transaksi t JOIN inserted i ON i.no_tiket = t.no_tiket AND i.ke = 1;
+END
+GO
+CREATE OR ALTER VIEW dbo.v_timbangan AS
+SELECT t.no_tiket, t.jenis_transaksi, t.id_jembatan, j.kode AS kode_jembatan,
+       CAST(CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p2.berat_kg ELSE p1.berat_kg END AS FLOAT) AS berat_bruto,
+       CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p2.waktu ELSE p1.waktu END AS waktu_bruto,
+       CAST(CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p1.berat_kg
+                 WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN NULL ELSE p2.berat_kg END AS FLOAT) AS berat_tara,
+       CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p1.waktu
+            WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN NULL ELSE p2.waktu END AS waktu_tara,
+       CAST(CASE WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN p1.berat_kg
+                 WHEN p2.berat_kg IS NOT NULL THEN ABS(p1.berat_kg - p2.berat_kg) END AS FLOAT) AS berat_netto,
+       COALESCE(p2.hash, p1.hash) AS hash_keamanan,
+       COALESCE(p2.operator, p1.operator) AS operator_timbang_id
+FROM dbo.transaksi t
+LEFT JOIN dbo.penimbangan p1 ON p1.no_tiket = t.no_tiket AND p1.ke = 1
+LEFT JOIN dbo.penimbangan p2 ON p2.no_tiket = t.no_tiket AND p2.ke = 2
+LEFT JOIN dbo.jembatan_timbang j ON j.id_jembatan = t.id_jembatan;
 GO
 
 CREATE TABLE dbo.sortasi (
@@ -678,6 +730,9 @@ FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
              ('LAB',              'FORM_LAB',         1, 1, 0)) v (lv, mn, t, u, h)
 JOIN dbo.level l ON l.kode = v.lv
 JOIN dbo.menu m ON m.kode = v.mn;
+-- Jembatan timbang awal (migrasi 011)
+INSERT INTO dbo.jembatan_timbang (id_comp_area, kode, nama, port)
+SELECT MIN(id_comp_area), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.comp_area;
 -- Menu Kunjungan Tamu (migrasi 009)
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT 'KUNJUNGAN', N'Face Recognition › Kunjungan Tamu', id_menu, 5 FROM dbo.menu WHERE kode = 'FACE_RECOGNITION';

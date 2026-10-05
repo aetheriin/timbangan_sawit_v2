@@ -44,3 +44,35 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL: Tambah / Ubah Jembatan Timbang -->
+<div id="modalJembatan" class="modal-overlay">
+    <form id="formJembatan" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalJembatan" class="font-bold">Tambah Jembatan Timbang</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalJembatan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <input type="hidden" name="id_jembatan">
+            <div><label class="field-label" for="jtKode">Kode</label>
+                <input type="text" id="jtKode" name="kode" required maxlength="10" class="input-field uppercase font-mono" placeholder="JT-2"></div>
+            <div><label class="field-label" for="jtArea">Area</label>
+                <select id="jtArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+            <div class="col-span-2"><label class="field-label" for="jtNama">Nama</label>
+                <input type="text" id="jtNama" name="nama" required maxlength="100" class="input-field" placeholder="Jembatan Timbang 2"></div>
+            <div><label class="field-label" for="jtPort">Port Serial</label>
+                <input type="text" id="jtPort" name="port" required maxlength="30" class="input-field font-mono" placeholder="COM4"></div>
+            <div><label class="field-label" for="jtBaud">Baudrate</label>
+                <select id="jtBaud" name="baudrate" class="input-field">
+                    {% for b in [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200] %}<option value="{{ b }}"{% if b == 9600 %} selected{% endif %}>{{ b }}</option>{% endfor %}
+                </select></div>
+            <p class="field-hint col-span-2">Port jembatan baru langsung dibaca server. Mengubah port jembatan lama berlaku setelah server di-restart.</p>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalJembatan" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

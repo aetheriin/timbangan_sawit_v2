@@ -1,7 +1,7 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div class="stat-card">
-        <p class="stat-label"><i class="fa-solid fa-weight-scale mr-1"></i> Timbangan (serial)</p>
+        <p class="stat-label"><i class="fa-solid fa-weight-scale mr-1"></i> Jembatan timbang terhubung</p>
         <p id="statTimbangan" class="stat-value">-</p>
         <p id="statTimbanganInfo" class="text-xs text-slate-500 mt-1"></p>
     </div>
@@ -32,6 +32,21 @@
                     <th class="table-cell">Kamera</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
             <tbody data-per-halaman="20" id="tabelPos" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<div class="section-box">
+    {% call section_header('jembatan-timbang', 'Jembatan Timbang') %}
+    <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaJembatan"><i class="fa-solid fa-plus mr-1"></i> Tambah Jembatan</button>
+    {% endcall %}
+    <div id="body-jembatan-timbang" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Area</th>
+                    <th class="table-cell">Port</th><th class="table-cell">Berat Live</th><th class="table-cell">Status</th>
+                    <th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelJembatan" class="divide-y divide-slate-100"></tbody>
         </table>
     </div>
 </div>

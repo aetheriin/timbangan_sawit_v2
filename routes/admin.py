@@ -21,7 +21,8 @@ from utils import verifikasi_state as verif
 from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
-from utils.serial_reader import baca_status_asli, PORT as PORT_TIMBANGAN
+from utils.serial_reader import semua_status, pastikan_pembaca
+from utils import db_jembatan as jembatan_db
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -653,10 +654,59 @@ def perangkat_daftar():
         hasil.append({**p, "created_at": p["created_at"].strftime("%Y-%m-%d") if p["created_at"] else None,
                       "terakhir_detik": int(sekarang - t["waktu"]) if t else None, "ip": t["ip"] if t else None,
                       "kamera_aktif": verif.kamera_aktif(p["id_pos"])})
-    timbang = baca_status_asli()
-    return jsonify({"perangkat": hasil, "token_env": bool(os.getenv("KIOSK_TOKEN")),
-                    "timbangan": {"terhubung": bool(timbang.get("terhubung")), "berat": timbang.get("berat"),
-                                  "stabil": bool(timbang.get("stabil")), "port": PORT_TIMBANGAN}})
+    status = semua_status()
+    jembatan = [{**j, "created_at": j["created_at"].strftime("%Y-%m-%d") if j["created_at"] else None,
+                 "status": status.get(j["port"])} for j in _daftar_jembatan_aman()]
+    return jsonify({"perangkat": hasil, "token_env": bool(os.getenv("KIOSK_TOKEN")), "jembatan": jembatan,
+                    "timbangan": {"terhubung": sum(1 for s in status.values() if s["terhubung"]), "jumlah": len(status)}})
+
+
+def _daftar_jembatan_aman():
+    try:
+        return jembatan_db.daftar_jembatan()
+    except Exception:       # noqa: BLE001 - migrasi 011 belum dijalankan
+        return []
+
+
+POLA_PORT = re.compile(r"^(COM\d{1,3}|/dev/tty[A-Za-z0-9]{1,12})$")
+
+
+@admin_bp.route("/api/admin/jembatan/simpan", methods=["POST"])
+@_admin
+def jembatan_simpan():
+    def aksi():
+        teks_id = (request.form.get("id_jembatan") or "").strip()
+        id_j = int(teks_id) if teks_id.isdigit() else None
+        id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
+        kode = _teks("kode", maks=10).upper()
+        if not re.match(r"^[A-Z0-9_-]{2,10}$", kode):
+            raise ValueError("Kode 2-10 karakter: huruf besar, angka, - atau _ (mis. JT-1)")
+        if jembatan_db.kode_dipakai(id_area, kode, kecuali=id_j):
+            raise ValueError(f"Kode {kode} sudah dipakai di area ini")
+        port = _teks("port", maks=30)
+        port = port.upper() if port.upper().startswith("COM") else port
+        if not POLA_PORT.match(port):
+            raise ValueError("Port serial: COM1-COM999 (Windows) atau /dev/ttyUSB0 (Linux)")
+        baud = int(request.form.get("baudrate") or 9600)
+        if baud not in (1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200):
+            raise ValueError("Baudrate tidak umum")
+        jembatan_db.simpan_jembatan(id_j, id_area, kode, _teks("nama"), port, baud)
+        pastikan_pembaca(port, baud)            # mulai dibaca tanpa restart (port baru)
+        _audit("JEMBATAN_SIMPAN", kode, f"{port} {baud}")
+        return jsonify({"message": f"Jembatan {kode} disimpan" +
+                        (". Perubahan port / baudrate jembatan lama berlaku setelah server di-restart." if id_j else "")})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/jembatan/<int:id_jembatan>/aktif", methods=["POST"])
+@_admin
+def jembatan_aktif(id_jembatan):
+    def aksi():
+        aktif = _aktif_dari_form()
+        jembatan_db.set_aktif_jembatan(id_jembatan, aktif)
+        _audit("JEMBATAN_AKTIF" if aktif else "JEMBATAN_NONAKTIF", str(id_jembatan))
+        return jsonify({"message": "Jembatan " + ("diaktifkan" if aktif else "dinonaktifkan")})
+    return _jalankan(aksi)
 
 
 def _id_pos_form():
@@ -775,13 +825,14 @@ def kesehatan():
         info_db["backup_terakhir"] = b.strftime("%Y-%m-%d %H:%M")
     disk = shutil.disk_usage(BASE_DIR)
     upload_mb, upload_terpotong = _ukuran_folder_mb(UPLOAD_FOLDER)
-    timbang = baca_status_asli()
+    status = semua_status()
     return jsonify({
         "database": {"ok": db_ok, "latensi_ms": latensi, **info_db},
         "disk": {"total_gb": round(disk.total / 1073741824, 1), "sisa_gb": round(disk.free / 1073741824, 1),
                  "terpakai_persen": round(disk.used * 100 / disk.total, 1)},
         "upload": {"ukuran_mb": upload_mb, "lebih": upload_terpotong},
-        "timbangan": {"terhubung": bool(timbang.get("terhubung"))},
+        "timbangan": {"terhubung": bool(status) and all(s["terhubung"] for s in status.values()),
+                      "jumlah": len(status), "jumlah_terhubung": sum(1 for s in status.values() if s["terhubung"])},
         "aplikasi": {"versi": _versi_git(), "python": platform.python_version(),
                      "berjalan_sejak": datetime.fromtimestamp(WAKTU_MULAI).strftime("%Y-%m-%d %H:%M"),
                      "uptime_jam": round((time.time() - WAKTU_MULAI) / 3600, 1),

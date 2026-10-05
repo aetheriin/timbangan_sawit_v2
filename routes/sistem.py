@@ -4,7 +4,7 @@ import time
 from flask import Blueprint, jsonify, request, send_file, abort
 from flask_login import login_required, current_user
 from utils.db_utils import cek_koneksi_db
-from utils.serial_reader import baca_status_asli
+from utils.serial_reader import semua_status
 from utils.upload_utils import path_disk_dari_relatif
 from utils import face_cache
 
@@ -22,11 +22,11 @@ def health():
     # Rincian hanya untuk user login atau PC server sendiri; publik cukup status
     if not (current_user.is_authenticated or request.remote_addr in ("127.0.0.1", "::1")):
         return jsonify({"status": "ok" if db_ok else "gangguan"}), kode
-    serial = baca_status_asli()
+    serial = semua_status()
     return jsonify({
         "status": "ok" if db_ok else "gangguan",
         "database": {"ok": db_ok, "pesan": db_pesan},
-        "timbangan_serial": {"terhubung": bool(serial.get("terhubung"))},
+        "timbangan_serial": {port: {"terhubung": bool(st["terhubung"])} for port, st in serial.items()},
         "cache_wajah": {"dimuat": face_cache._data is not None,
                         "jumlah": len(face_cache._data) if face_cache._data is not None else 0},
         "uptime_detik": int(time.time() - _MULAI),

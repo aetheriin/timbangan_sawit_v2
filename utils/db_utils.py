@@ -481,7 +481,6 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     if not cursor.fetchone():
         cursor.execute("SELECT COUNT(*) FROM kendaraan_driver WHERE id_kendaraan = ? AND is_active = 1", kendaraan_id)
         _daftarkan_supir(cursor, kendaraan_id, id_driver, cursor.fetchone()[0] == 0, security_id)
-    cursor.execute("INSERT INTO timbangan (no_tiket) VALUES (?)", no_tiket)
     cursor.execute("INSERT INTO timeline_monitoring (no_tiket, stage, processed_by) VALUES (?, 'SECURITY_INIT', ?)", no_tiket, security_id)
     conn.commit()
     conn.close()
@@ -504,8 +503,8 @@ def get_data_timbangan(no_tiket):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT tb.no_tiket, tb.berat_bruto, tb.waktu_bruto, tb.berat_tara, tb.waktu_tara, tb.berat_netto,
-               tb.operator_timbang_id, s.total_potongan_kg
-        FROM timbangan tb
+               tb.operator_timbang_id, tb.id_jembatan, tb.kode_jembatan, s.total_potongan_kg
+        FROM v_timbangan tb
         LEFT JOIN sortasi s ON s.no_tiket = tb.no_tiket
         WHERE tb.no_tiket = ?
     """, no_tiket)
@@ -513,59 +512,44 @@ def get_data_timbangan(no_tiket):
     conn.close()
     return row
 
-def hitung_hash_timbang(no_tiket, bruto, tara, secret_key=None):
+def hitung_hash_timbang(no_tiket, ke, berat, id_jembatan, secret_key=None):
+    """Hash anti-ubah satu baris penimbangan."""
     if secret_key is None:
         secret_key = os.getenv("HASH_SECRET_KEY")
-    data = f"{no_tiket}{bruto}{tara}{secret_key}"
+    data = f"{no_tiket}|{ke}|{float(berat):.2f}|{id_jembatan}|{secret_key}"
     return hashlib.sha256(data.encode()).hexdigest()
 
-def simpan_timbang_pertama(no_tiket, berat, operator_id):
-    """Untuk PEMBELIAN: ini bruto. Untuk PENJUALAN: ini tara. Untuk PENIMBANGAN_SAJA: ini bruto (jadi netto langsung)."""
+def _simpan_penimbangan(cursor, no_tiket, ke, berat, id_jembatan, operator_id):
+    cursor.execute("""INSERT INTO penimbangan (no_tiket, ke, id_jembatan, berat_kg, operator, hash)
+                      VALUES (?, ?, ?, ?, ?, ?)""",
+                   no_tiket, ke, id_jembatan, round(float(berat), 2), operator_id,
+                   hitung_hash_timbang(no_tiket, ke, berat, id_jembatan))
+
+def simpan_timbang_pertama(no_tiket, berat, operator_id, id_jembatan):
+    """Timbang masuk (penimbangan ke-1). PEMBELIAN / PENIMBANGAN_SAJA: bruto; PENJUALAN: tara.
+    Jembatan masuk dicatat di transaksi; timbang keluar wajib di jembatan yang sama."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT jenis_transaksi FROM transaksi WHERE no_tiket = ?", no_tiket)
     jenis = cursor.fetchone().jenis_transaksi
-
-    if jenis == 'PENJUALAN':
-        cursor.execute("UPDATE timbangan SET berat_tara = ?, waktu_tara = GETDATE(), operator_timbang_id = ? WHERE no_tiket = ?", berat, operator_id, no_tiket)
-    else:
-        cursor.execute("UPDATE timbangan SET berat_bruto = ?, waktu_bruto = GETDATE(), operator_timbang_id = ? WHERE no_tiket = ?", berat, operator_id, no_tiket)
-
-    if jenis == 'PENIMBANGAN_SAJA':
-        cursor.execute("UPDATE timbangan SET berat_netto = ? WHERE no_tiket = ?", berat, no_tiket)
-        cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
-    else:
-        cursor.execute("UPDATE transaksi SET status_alur = 'TIMBANG_1' WHERE no_tiket = ?", no_tiket)
-
+    _simpan_penimbangan(cursor, no_tiket, 1, berat, id_jembatan, operator_id)
+    cursor.execute("UPDATE transaksi SET id_jembatan = ?, status_alur = ? WHERE no_tiket = ?", id_jembatan,
+                   'SELESAI' if jenis == 'PENIMBANGAN_SAJA' else 'TIMBANG_1', no_tiket)
     conn.commit()
     conn.close()
     return jenis
 
-def simpan_timbang_kedua(no_tiket, berat, operator_id):
+def simpan_timbang_kedua(no_tiket, berat, operator_id, id_jembatan):
+    """Timbang keluar (penimbangan ke-2) di jembatan yang sama dengan masuk (dicek juga trigger DB)."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT jenis_transaksi FROM transaksi WHERE no_tiket = ?", no_tiket)
-    jenis = cursor.fetchone().jenis_transaksi
-
-    cursor.execute("SELECT berat_bruto, berat_tara FROM timbangan WHERE no_tiket = ?", no_tiket)
-    existing = cursor.fetchone()
-
-    if jenis == 'PENJUALAN':
-        bruto = berat
-        tara = existing.berat_tara
-        cursor.execute("UPDATE timbangan SET berat_bruto = ?, waktu_bruto = GETDATE() WHERE no_tiket = ?", berat, no_tiket)
-    else:
-        bruto = existing.berat_bruto
-        tara = berat
-        cursor.execute("UPDATE timbangan SET berat_tara = ?, waktu_tara = GETDATE() WHERE no_tiket = ?", berat, no_tiket)
-
-    netto = round(abs(bruto - tara), 2)
-    hash_val = hitung_hash_timbang(no_tiket, bruto, tara)
-
-    cursor.execute(
-        "UPDATE timbangan SET berat_netto = ?, hash_keamanan = ?, operator_timbang_id = ? WHERE no_tiket = ?",
-        netto, hash_val, operator_id, no_tiket
-    )
+    cursor.execute("SELECT berat_kg, id_jembatan FROM penimbangan WHERE no_tiket = ? AND ke = 1", no_tiket)
+    masuk = cursor.fetchone()
+    if masuk.id_jembatan != id_jembatan:
+        conn.close()
+        raise ValueError("Timbang keluar harus di jembatan yang sama dengan timbang masuk")
+    _simpan_penimbangan(cursor, no_tiket, 2, berat, id_jembatan, operator_id)
+    netto = round(abs(float(masuk.berat_kg) - float(berat)), 2)
     cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
     # Potongan sortasi = persen potongan x NETTO (berat buah saja, tanpa truk)
     cursor.execute(f"UPDATE sortasi SET total_potongan_kg = ROUND(? * {SQL_PERSEN_POTONGAN} / 100, 2) WHERE no_tiket = ?",
@@ -587,7 +571,7 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None):
         FROM transaksi t
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN timbangan tb ON t.no_tiket = tb.no_tiket
+        JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
         WHERE t.id_supplier = ? AND {filter_waktu}
         ORDER BY t.created_at DESC
     """, id_supplier, *param)
@@ -628,7 +612,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500):
             JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
             JOIN supplier s ON t.id_supplier = s.id_supplier
             JOIN produk p ON t.id_produk = p.id_produk
-            LEFT JOIN timbangan tb ON tb.no_tiket = t.no_tiket
+            LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}
             ORDER BY t.created_at DESC""", *params)
         return _rows_to_dicts(cursor)

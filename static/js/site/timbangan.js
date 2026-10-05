@@ -47,6 +47,17 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
     document.getElementById('tbPotongan').textContent = data.potongan_kg ?? '-';
     document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
+    const info = document.getElementById('tbJembatanMasuk');
+    info.classList.toggle('hidden', !data.jembatan_masuk);
+    info.textContent = data.jembatan_masuk ? `Timbang masuk di ${data.jembatan_masuk}. Timbang keluar harus di jembatan yang sama.` : '';
+}
+
+// Jembatan timbang PC ini: disimpan di cookie (1 tahun), dibaca server saat status berat & simpan timbang
+function pilihJembatanTimbang(id) {
+    if (!id) return;
+    document.cookie = `jembatan_timbang=${encodeURIComponent(id)}; path=/; max-age=31536000; SameSite=Lax`;
+    const opsi = document.querySelector(`#pilihJembatan option[value="${CSS.escape(id)}"]`);
+    Notif.sukses(`PC ini memakai ${opsi ? opsi.textContent : 'jembatan ' + id}`);
 }
 
 // History: default 7 hari terakhir, atau satu tanggal dalam 30 hari terakhir
