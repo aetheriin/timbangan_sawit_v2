@@ -757,8 +757,10 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
 
     # APPROVE -> lanjut timbang kedua (bukan langsung SELESAI, supaya netto tetap tercatat)
     if keputusan == 'REJECT':
-        cursor.execute("UPDATE transaksi SET status_alur='REJECTED', alasan_reject=?, rejected_by=? WHERE no_tiket=?",
-                       'Ditolak Lab', operator_id, no_tiket)
+        cursor.execute("UPDATE transaksi SET status_alur='REJECTED' WHERE no_tiket=?", no_tiket)
+        cursor.execute("""IF NOT EXISTS (SELECT 1 FROM pembatalan_tiket WHERE no_tiket = ?)
+                          INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, oleh) VALUES (?, 'REJECT', ?, ?)""",
+                       no_tiket, no_tiket, 'Ditolak Lab', operator_id)
     else:
         cursor.execute("UPDATE transaksi SET status_alur='TIMBANG_2' WHERE no_tiket=?", no_tiket)
     conn.commit()

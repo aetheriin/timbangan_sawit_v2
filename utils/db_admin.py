@@ -182,22 +182,72 @@ def info_database():
     return info
 
 
-# ===== VOID TIKET =====
+# ===== VOID TIKET (pembatalan_tiket, migrasi 010) =====
 def daftar_tiket(cari="", hari=30, batas=500):
     cari = f"%{cari.strip()}%"
     return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.no_plat, s.nama_supplier AS customer, t.no_do, t.jenis_transaksi,
-                             t.status_alur, t.created_at, t.alasan_void, t.void_at, u.nama AS void_oleh
+                             t.status_alur, t.created_at, pb.jenis AS jenis_batal, pb.alasan AS alasan_void,
+                             pb.waktu AS void_at, u.nama AS void_oleh, pb.id_dokumen,
+                             dk.no_dokumen AS no_ba, df.file_path AS file_ba
                       FROM transaksi t
                       JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
                       JOIN supplier s ON s.id_supplier = t.id_supplier
-                      LEFT JOIN users u ON u.id_user = t.void_by
+                      LEFT JOIN pembatalan_tiket pb ON pb.no_tiket = t.no_tiket
+                      LEFT JOIN users u ON u.id_user = pb.oleh
+                      LEFT JOIN dokumen dk ON dk.id_dokumen = pb.id_dokumen
+                      OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
+                                   WHERE f.id_dokumen = pb.id_dokumen ORDER BY f.urutan) df
                       WHERE t.created_at >= DATEADD(DAY, -?, GETDATE())
                         AND (t.no_tiket LIKE ? OR k.no_plat LIKE ? OR t.no_do LIKE ?)
                       ORDER BY t.created_at DESC""", int(hari), cari, cari, cari)
 
 
-def void_tiket(no_tiket, alasan, user_id):
-    """Tiket dibatalkan (tidak dihapus): keluar dari daftar aktif, QR tidak berlaku, timbang ditolak."""
-    _ubah("""UPDATE transaksi SET status_alur = 'VOID', is_qr_active = 0, alasan_void = ?, void_by = ?, void_at = GETDATE()
-             WHERE no_tiket = ? AND status_alur <> 'VOID'""", alasan, user_id, no_tiket,
-          pesan_kosong="Tiket tidak ditemukan atau sudah di-void")
+def _ba(cursor, no_tiket, berita_acara, user_id):
+    """berita_acara = {no, tanggal, file_info} -> id_dokumen BA_VOID, atau None."""
+    if not berita_acara:
+        return None
+    from utils.dokumen import buat_dokumen
+    return buat_dokumen(cursor, "BA_VOID", berita_acara["no"], berita_acara["tanggal"], f"Void tiket {no_tiket}",
+                        [berita_acara["file_info"]], user_id)
+
+
+def void_tiket(no_tiket, alasan, user_id, berita_acara=None):
+    """Tiket dibatalkan (tidak dihapus): keluar dari daftar aktif, QR tidak berlaku, timbang ditolak.
+    Berita acara boleh dilampirkan sekarang atau menyusul (lampirkan_ba_void)."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""UPDATE transaksi SET status_alur = 'VOID', is_qr_active = 0
+                          WHERE no_tiket = ? AND status_alur <> 'VOID'""", no_tiket)
+        if cursor.rowcount == 0:
+            raise ValueError("Tiket tidak ditemukan atau sudah di-void")
+        cursor.execute("DELETE FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'REJECT'", no_tiket)
+        cursor.execute("""INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, id_dokumen, oleh)
+                          VALUES (?, 'VOID', ?, ?, ?)""", no_tiket, alasan, _ba(cursor, no_tiket, berita_acara, user_id), user_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def lampirkan_ba_void(no_tiket, berita_acara, user_id):
+    """Berita acara yang menyusul untuk tiket yang sudah di-void (hanya bila belum ada)."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_dokumen FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'VOID'", no_tiket)
+        row = cursor.fetchone()
+        if row is None:
+            raise ValueError("Tiket ini belum di-void")
+        if row.id_dokumen:
+            raise ValueError("Berita acara sudah dilampirkan")
+        cursor.execute("UPDATE pembatalan_tiket SET id_dokumen = ? WHERE no_tiket = ?",
+                       _ba(cursor, no_tiket, berita_acara, user_id), no_tiket)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

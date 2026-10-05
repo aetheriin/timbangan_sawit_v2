@@ -7,7 +7,7 @@ import platform
 import re
 import shutil
 import time
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import Blueprint, render_template, request, jsonify, redirect, abort
 from flask_login import login_required, current_user
@@ -15,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import BASE_DIR, UPLOAD_FOLDER
 from utils.hak_akses import admin_required
+from utils.dokumen import simpan_file, hapus_file_info
 from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
 from utils import verifikasi_state as verif
 from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
@@ -522,9 +523,49 @@ def tiket_void():
         no_tiket, alasan = _teks("no_tiket", maks=50), _teks("alasan", maks=255)
         if len(alasan) < 5:
             raise ValueError("Alasan minimal 5 karakter")
-        db.void_tiket(no_tiket, alasan, current_user.id)
-        _audit("TIKET_VOID", no_tiket, alasan)
-        return jsonify({"message": f"Tiket {no_tiket} di-void"})
+        ba = _berita_acara(wajib=False)
+        try:
+            db.void_tiket(no_tiket, alasan, current_user.id, ba)
+        except Exception:
+            hapus_file_info([ba["file_info"]] if ba else [])
+            raise
+        _audit("TIKET_VOID", no_tiket, alasan + (f" · BA {ba['no']}" if ba else " · BA menyusul"))
+        return jsonify({"message": f"Tiket {no_tiket} di-void" + ("" if ba else ". Berita acara bisa dilampirkan menyusul.")})
+    return _jalankan(aksi)
+
+
+def _berita_acara(wajib):
+    """No, tanggal, dan file berita acara dari form; None bila kosong semua (menyusul) dan tidak wajib."""
+    no = (request.form.get("no_ba") or "").strip()
+    file = request.files.get("file_ba")
+    ada_file = bool(file and file.filename)
+    if not wajib and not no and not ada_file:
+        return None
+    if not no or not ada_file:
+        raise ValueError("Berita acara: isi No. BA dan unggah filenya (atau kosongkan keduanya bila menyusul)")
+    if len(no) > 100:
+        raise ValueError("No. BA maksimal 100 karakter")
+    try:
+        tanggal = date.fromisoformat((request.form.get("tgl_ba") or "").strip())
+    except ValueError:
+        raise ValueError("Tanggal BA tidak valid")
+    if tanggal > date.today():
+        raise ValueError("Tanggal BA tidak boleh setelah hari ini")
+    return {"no": no, "tanggal": tanggal, "file_info": simpan_file(file, "BA_VOID")}
+
+
+@admin_bp.route("/api/admin/tiket/<path:no_tiket>/ba", methods=["POST"])
+@_admin
+def tiket_ba(no_tiket):
+    def aksi():
+        ba = _berita_acara(wajib=True)
+        try:
+            db.lampirkan_ba_void(no_tiket, ba, current_user.id)
+        except Exception:
+            hapus_file_info([ba["file_info"]])
+            raise
+        _audit("TIKET_VOID_BA", no_tiket, f"BA {ba['no']}")
+        return jsonify({"message": f"Berita acara tiket {no_tiket} dilampirkan"})
     return _jalankan(aksi)
 
 

@@ -14,10 +14,51 @@
                 <textarea id="voidAlasan" name="alasan" required minlength="5" maxlength="255" rows="3" class="input-field"
                           placeholder="Contoh: salah input plat, tiket dobel"></textarea>
             </div>
+            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+                <p class="text-xs font-semibold text-slate-600">Berita Acara (opsional, bisa menyusul)</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="field-label" for="voidBaNo">No. BA</label>
+                        <input type="text" id="voidBaNo" name="no_ba" maxlength="100" class="input-field"></div>
+                    <div><label class="field-label" for="voidBaTgl">Tanggal BA</label>
+                        <input type="date" id="voidBaTgl" name="tgl_ba" class="input-field"></div>
+                </div>
+                <input type="file" id="voidBaFile" name="file_ba" accept=".pdf,.jpg,.jpeg,.png" class="text-sm">
+                <p class="field-hint">PDF / JPG / PNG, maks 5 MB</p>
+            </div>
+
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalVoid" class="btn-secondary">Batal</button>
             <button type="submit" class="btn-danger">Void Tiket</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Lampirkan Berita Acara (menyusul) -->
+<div id="modalBaVoid" class="modal-overlay">
+    <form id="formBaVoid" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Lampirkan Berita Acara</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalBaVoid" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="no_tiket">
+            <p class="text-sm text-slate-600">Tiket <b id="baNoTiket"></b> sudah di-void.</p>
+            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+                <p class="text-xs font-semibold text-slate-600">Berita Acara</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="field-label" for="baMenyusulNo">No. BA</label>
+                        <input type="text" id="baMenyusulNo" name="no_ba" maxlength="100" class="input-field" required></div>
+                    <div><label class="field-label" for="baMenyusulTgl">Tanggal BA</label>
+                        <input type="date" id="baMenyusulTgl" name="tgl_ba" class="input-field" required></div>
+                </div>
+                <input type="file" id="baMenyusulFile" name="file_ba" accept=".pdf,.jpg,.jpeg,.png" class="text-sm" required>
+                <p class="field-hint">PDF / JPG / PNG, maks 5 MB</p>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalBaVoid" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
         </div>
     </form>
 </div>

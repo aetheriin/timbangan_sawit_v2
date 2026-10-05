@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA LENGKAP Sistem Timbangan Sawit (Weighbridge + Face Recognition)
-   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-009 dalam satu file.
-   Database yang SUDAH ada cukup menjalankan migrasi 001-009 berurutan.
+   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-010 dalam satu file.
+   Database yang SUDAH ada cukup menjalankan migrasi 001-010 berurutan.
 
    Cara pakai (SSMS): ganti nama database di 2 baris di bawah, lalu Execute (F5).
    Urutan tabel mengikuti ketergantungan foreign key. Diagram: docs/ERD.md
@@ -170,6 +170,37 @@ CREATE TABLE dbo.kunjungan (
 CREATE INDEX IX_Kunjungan_Masuk ON dbo.kunjungan (waktu_masuk DESC);
 CREATE INDEX IX_Kunjungan_Didalam ON dbo.kunjungan (id_personel) WHERE waktu_keluar IS NULL;
 GO
+/* Dokumen umum (migrasi 010) */
+CREATE TABLE dbo.jenis_dokumen (
+    id_jenis    INT IDENTITY(1,1) PRIMARY KEY,
+    kode        VARCHAR(30)   NOT NULL CONSTRAINT UX_JenisDok_Kode UNIQUE,
+    nama        NVARCHAR(100) NOT NULL,
+    wajib_file  BIT NOT NULL CONSTRAINT DF_JenisDok_WajibFile DEFAULT (1),
+    is_active   BIT NOT NULL CONSTRAINT DF_JenisDok_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.dokumen (
+    id_dokumen  INT IDENTITY(1,1) PRIMARY KEY,
+    id_jenis    INT NOT NULL CONSTRAINT FK_Dokumen_Jenis REFERENCES dbo.jenis_dokumen (id_jenis),
+    no_dokumen  NVARCHAR(100) NOT NULL,
+    tanggal     DATE NOT NULL,
+    perihal     NVARCHAR(255) NULL,
+    created_by  INT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.users (id_user),
+    created_at  DATETIME NOT NULL CONSTRAINT DF_Dokumen_Created DEFAULT (GETDATE())
+);
+CREATE INDEX IX_Dokumen_Jenis_No ON dbo.dokumen (id_jenis, no_dokumen);
+CREATE TABLE dbo.dokumen_file (
+    id_file      INT IDENTITY(1,1) PRIMARY KEY,
+    id_dokumen   INT NOT NULL CONSTRAINT FK_DokFile_Dokumen REFERENCES dbo.dokumen (id_dokumen),
+    file_path    VARCHAR(255)  NOT NULL,          -- 'uploads/dokumen/...' (privat, dibuka lewat /berkas/)
+    nama_asli    NVARCHAR(255) NULL,
+    mime         VARCHAR(100)  NULL,
+    ukuran_byte  INT NULL,
+    sha256       CHAR(64) NULL,                   -- NULL hanya untuk file lama (sebelum migrasi 010)
+    urutan       TINYINT NOT NULL CONSTRAINT DF_DokFile_Urutan DEFAULT (1),
+    created_at   DATETIME NOT NULL CONSTRAINT DF_DokFile_Created DEFAULT (GETDATE())
+);
+CREATE INDEX IX_DokFile_Dokumen ON dbo.dokumen_file (id_dokumen, urutan);
+GO
 CREATE OR ALTER VIEW dbo.v_personel AS
 SELECT p.id_personel, p.kode_personel, p.nik, p.nama_personel, p.kategori, p.is_updated, p.current_hash,
        p.is_blacklisted, p.is_active, p.created_at, p.updated_at,
@@ -322,11 +353,6 @@ CREATE TABLE dbo.transaksi (
     is_qr_active       BIT NOT NULL CONSTRAINT DF_Trx_QrAktif DEFAULT (1),
     qr_expired_at      DATETIME NOT NULL,
     qr_reprint_count   INT NOT NULL CONSTRAINT DF_Trx_Reprint DEFAULT (0),
-    alasan_reject      VARCHAR(255) NULL,
-    rejected_by        INT NULL CONSTRAINT FK_Trx_RejectBy REFERENCES dbo.users (id_user),
-    alasan_void        VARCHAR(255) NULL,
-    void_by            INT NULL CONSTRAINT FK_Trx_VoidBy REFERENCES dbo.users (id_user),
-    void_at            DATETIME NULL,
     is_driver_changed  BIT NOT NULL CONSTRAINT DF_Trx_DriverChanged DEFAULT (0),
     prev_driver_id     INT NULL CONSTRAINT FK_Trx_PrevDriver REFERENCES dbo.personel (id_personel),
     driver_photo_path  VARCHAR(255) NULL,
@@ -340,6 +366,18 @@ CREATE INDEX IX_Trx_Status_Created ON dbo.transaksi (status_alur, created_at DES
 CREATE INDEX IX_Trx_Kendaraan_Created ON dbo.transaksi (id_kendaraan, created_at DESC);
 CREATE INDEX IX_Trx_Supplier_Created ON dbo.transaksi (id_supplier, created_at DESC);
 CREATE INDEX IX_Trx_Driver_Created ON dbo.transaksi (id_driver, created_at DESC);
+GO
+
+-- Void (Admin) / reject (Lab), migrasi 010
+CREATE TABLE dbo.pembatalan_tiket (
+    no_tiket    VARCHAR(50)   NOT NULL PRIMARY KEY CONSTRAINT FK_Batal_Transaksi REFERENCES dbo.transaksi (no_tiket),
+    jenis       VARCHAR(10)   NOT NULL CONSTRAINT CK_Batal_Jenis CHECK (jenis IN ('VOID', 'REJECT')),
+    alasan      NVARCHAR(255) NOT NULL,
+    id_dokumen  INT NULL CONSTRAINT FK_Batal_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
+    oleh        INT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.users (id_user),           -- NULL hanya data lama
+    waktu       DATETIME NOT NULL CONSTRAINT DF_Batal_Waktu DEFAULT (GETDATE())
+);
+CREATE INDEX IX_Batal_Waktu ON dbo.pembatalan_tiket (waktu DESC);
 GO
 
 CREATE TABLE dbo.timbangan (
@@ -427,10 +465,8 @@ CREATE TABLE dbo.blacklist (
     tipe_entitas          VARCHAR(20)  NOT NULL,
     id_personel           INT NULL CONSTRAINT FK_Blacklist_Personel REFERENCES dbo.personel (id_personel),
     id_kendaraan          INT NULL CONSTRAINT FK_Blacklist_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
-    no_surat_blacklist    VARCHAR(50)  NOT NULL,
     alasan_blacklist      VARCHAR(500) NOT NULL,
-    file_surat_blacklist  VARCHAR(255) NULL,
-    tgl_blacklist         DATE NOT NULL,
+    id_dokumen            INT NOT NULL CONSTRAINT FK_Blacklist_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- surat (migrasi 010)
     created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.users (id_user),
     created_at            DATETIME NOT NULL CONSTRAINT DF_Blacklist_Created DEFAULT (GETDATE()),
     no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
@@ -443,7 +479,7 @@ CREATE TABLE dbo.blacklist (
 );
 CREATE INDEX IX_Blacklist_Personel  ON dbo.blacklist (id_personel)  WHERE id_personel IS NOT NULL;
 CREATE INDEX IX_Blacklist_Kendaraan ON dbo.blacklist (id_kendaraan) WHERE id_kendaraan IS NOT NULL;
-CREATE INDEX IX_Blacklist_Tgl ON dbo.blacklist (tgl_blacklist DESC);
+CREATE INDEX IX_Blacklist_Dokumen ON dbo.blacklist (id_dokumen);
 GO
 
 CREATE TABLE dbo.security_audit_logs (
@@ -574,6 +610,14 @@ END
 GO
 
 /* =========================== DATA AWAL =========================== */
+-- Jenis dokumen (migrasi 010)
+INSERT INTO dbo.jenis_dokumen (kode, nama, wajib_file) VALUES
+    ('SURAT_BLACKLIST', N'Surat Blacklist', 1),
+    ('BA_VOID',         N'Berita Acara Void Tiket', 1),
+    ('COA',             N'Certificate of Analysis (Lab)', 0),
+    ('SIM',             N'Scan SIM', 1),
+    ('STNK',            N'Scan STNK', 1),
+    ('KONTRAK',         N'Dokumen Kontrak', 0);
 -- Kategori personel, jenis SIM, keperluan kunjungan (migrasi 009)
 INSERT INTO dbo.kategori_personel (kode, nama, wajib_sim, boleh_akun) VALUES
     ('DRIVER',   N'Driver',   1, 0),

@@ -7,8 +7,9 @@ from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
-from utils.upload_utils import simpan_upload, hapus_file, SURAT_EKSTENSI
+from utils.upload_utils import simpan_upload, hapus_file
 from utils.hak_akses import izin
+from utils.dokumen import simpan_file, hapus_file_info
 
 blacklist_bp = Blueprint('blacklist', __name__)
 
@@ -89,14 +90,18 @@ def blacklist_tambah():
         terkait = _terkait(f) if tipe == "PERSONEL" else None
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    if len(no_surat) > 100:
+        return jsonify({"error": "No. surat maksimal 100 karakter"}), 400
     try:
-        path_disk, relatif = simpan_upload(request.files.get("file_surat"), "surat_blacklist", SURAT_EKSTENSI)
+        info = simpan_file(request.files.get("file_surat"), "SURAT_BLACKLIST")
     except ValueError as e:
         return jsonify({"error": f"Surat: {e}"}), 400
 
     try:
-        tambah_blacklist(tipe, id_target, no_surat, alasan, relatif, tgl, current_user.id, terkait)
-    except ValueError as e:
-        hapus_file(path_disk)
-        return jsonify({"error": str(e)}), 400
+        tambah_blacklist(tipe, id_target, no_surat, alasan, info, tgl, current_user.id, terkait)
+    except Exception as e:
+        hapus_file_info([info])
+        if isinstance(e, ValueError):
+            return jsonify({"error": str(e)}), 400
+        raise
     return jsonify({"message": "Blacklist ditetapkan (permanen)"})
