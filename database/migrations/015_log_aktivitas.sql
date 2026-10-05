@@ -67,7 +67,12 @@ BEGIN
     DECLARE @prev CHAR(64) = (SELECT TOP 1 hash_baris FROM dbo.log_aktivitas ORDER BY id_log DESC);
     SET @waktu = COALESCE(@waktu, SYSDATETIME());
     IF @id_comp_area IS NULL AND @id_user IS NOT NULL
-        SET @id_comp_area = (SELECT id_comp_area FROM dbo.users WHERE id_user = @id_user);
+    BEGIN
+        -- tabel akun bernama users sebelum migrasi 016: pilih yang ada, supaya urutan menjalankan 015 / 016 bebas
+        DECLARE @q NVARCHAR(200) = N'SELECT @a = id_comp_area FROM dbo.'
+            + CASE WHEN OBJECT_ID('dbo.akun', 'U') IS NOT NULL THEN N'akun' ELSE N'users' END + N' WHERE id_user = @u';
+        EXEC sp_executesql @q, N'@u INT, @a INT OUTPUT', @u = @id_user, @a = @id_comp_area OUTPUT;
+    END
     INSERT INTO dbo.log_aktivitas (waktu, id_user, id_comp_area, kategori, aksi, tabel, id_baris, nilai_lama, nilai_baru,
                                    ip, hash_sebelum, hash_baris)
     VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
