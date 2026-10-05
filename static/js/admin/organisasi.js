@@ -1,12 +1,13 @@
-// ===== ADMIN > ORGANISASI: company, area (site), department =====
+// ===== ADMIN > ORGANISASI: company, area (site), department, mill =====
 const ORG = {
     company: { id: 'id_company', nama: 'Company', kolom: c => [mono(c.kode), escapeHtml(c.nama), Number(c.jumlah_area)] },
     area: { id: 'id_comp_area', nama: 'Area', kolom: a => [mono(a.kode), escapeHtml(a.nama), escapeHtml(a.company),
                                                           escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
     department: { id: 'id_department', nama: 'Department', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
+    mill: { id: 'id_mill', nama: 'Mill', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
 };
-let dataOrg = { company: [], area: [], department: [] };
+let dataOrg = { company: [], area: [], department: [], mill: [] };
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 
@@ -56,6 +57,6 @@ function ubahAktifOrganisasi(jenis, id) {
     const r = dataOrg[jenis].find(x => x[cfg.id] === id);
     konfirmasiAktif({
         url: `/api/admin/organisasi/${jenis}/${id}/aktif`, aktif: !r.is_active, nama: r.nama, jenis: cfg.nama.toLowerCase(),
-        pesanNonaktif: 'Tidak muncul lagi di pilihan saat membuat / mengubah user.', setelahnya: muatOrganisasi,
+        pesanNonaktif: jenis === 'mill' ? 'Tiket baru tidak lagi memakai mill ini.' : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.', setelahnya: muatOrganisasi,
     });
 }

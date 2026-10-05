@@ -58,12 +58,13 @@ function ubahAktifSupplier(id) {
 async function muatProduk() {
     const data = await ambilJson('/api/admin/produk');
     const tbody = document.getElementById('tabelProduk');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
     daftarProduk = data;
     tbody.innerHTML = data.map(p => `
         <tr class="hover:bg-slate-50${p.is_active ? '' : ' text-slate-400'}">
             <td class="table-cell">${escapeHtml(p.nama_produk)}</td>
             <td class="table-cell">${badge(labelKode(p.kategori), p.kategori === 'TBS' ? WARNA_BADGE.hijau : WARNA_BADGE.biru)}</td>
+            <td class="table-cell">${escapeHtml(p.nama_alur || '-')}</td>
             <td class="table-cell">${p.kategori === 'TBS' ? '<span class="text-slate-400">-</span>'
                 : (p.ada_standar ? badge('Sudah diatur', WARNA_BADGE.hijau) : badge('Belum diatur', WARNA_BADGE.oranye))}</td>
             <td class="table-cell">${badgeAktif(p.is_active)}</td>
@@ -72,7 +73,7 @@ async function muatProduk() {
                 <button type="button" class="link-aksi ${p.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifProduk"
                     data-arg="${p.id_produk}">${p.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
             </td>
-        </tr>`).join('') || barisKosong(5, 'Belum ada produk');
+        </tr>`).join('') || barisKosong(6, 'Belum ada produk');
 }
 
 function bukaProduk(id) {

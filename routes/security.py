@@ -20,13 +20,17 @@ from utils.personel_utils import format_nama_personel
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.hak_akses import izin
 from utils.db_personel import sim_dipakai
+from utils import alur
+from utils.db_kunjungan import area_akun
 
 security_bp = Blueprint('security', __name__)
 
 @security_bp.route("/api/security/list-tiket-aktif")
 @login_required
 def list_tiket_aktif():
-    return jsonify([{**t, "created_at": t["created_at"].strftime("%Y-%m-%d %H:%M")} for t in get_list_tiket_aktif()])
+    return jsonify([{**t, "created_at": t["created_at"].strftime("%Y-%m-%d %H:%M"),
+                     "alur_tahap": alur.tahap_alur(t.get("id_alur")) if t.get("id_alur") else []}
+                    for t in get_list_tiket_aktif()])
 
 @security_bp.route("/api/security/history-driver")
 @login_required
@@ -93,9 +97,16 @@ def buat_tiket():
     saran = f.get("id_driver_saran", "").strip()
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
+    # Mill (arah tahap: sortasi / lab) dari alur produk; penimbangan saja memakai alur TIMBANG_SAJA
+    produk = next(p for p in get_semua_produk() if p.id_produk == int(id_produk))
+    id_alur = alur.id_alur_kode("TIMBANG_SAJA") if jenis == "PENIMBANGAN_SAJA" else produk.id_alur
+    mill = alur.pilih_mill(area_akun(current_user.id), id_alur)
+    if mill is None:
+        return jsonify({"error": "Mill untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Mill)"}), 400
+
     buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
-                        current_user.id, prev_driver_id, do["id_pengangkutan"] if do else None)
+                        current_user.id, prev_driver_id, do["id_pengangkutan"] if do else None, mill["id_mill"])
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

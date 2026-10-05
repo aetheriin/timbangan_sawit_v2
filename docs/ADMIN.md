@@ -7,7 +7,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 ## Cara memasang
 
-1. Jalankan migrasi `database/migrations/` 001–011 berurutan di SSMS. **008–011 wajib** untuk versi ini: login membaca
+1. Jalankan migrasi `database/migrations/` 001–012 berurutan di SSMS. **008–012 wajib** untuk versi ini: login membaca
    tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
@@ -27,7 +27,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 |---|---|---|
 | Kelola User | Tambah user, ubah nama / level / department / area, reset password, aktif / nonaktif. User tidak dihapus | Ganti level, reset password, nonaktif → semua sesi user itu langsung berakhir |
 | Level & Hak Akses | Tambah / ubah level (pengganti role), halaman awal setelah login, aktif / nonaktif level. Matriks centang Tambah / Ubah / Hapus per menu | ±30 detik di semua PC, tanpa login ulang |
-| Organisasi | Company, area (site), department | Langsung muncul di pilihan Kelola User |
+| Organisasi | Company, area (site), department, mill (alur tahap per area) | Langsung muncul di pilihan Kelola User; mill dipakai tiket baru |
 | Sesi Aktif | Siapa yang login dari semua PC (tabel `sesi_login`, migrasi 007), IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
 | Supplier & Produk | Tambah / ubah / aktif / nonaktif supplier (Supplier Pembelian / Buyer Penjualan) dan produk (TBS / Produk PKS) | Langsung muncul / hilang di pilihan Form |
 | Void Tiket | Batalkan tiket salah input (wajib alasan). Status jadi VOID: keluar dari daftar aktif, QR tidak berlaku, tidak bisa ditimbang. Data tidak dihapus. Berita acara (No, tanggal, file) dilampirkan saat void atau menyusul lewat tombol Lampirkan BA | Langsung |

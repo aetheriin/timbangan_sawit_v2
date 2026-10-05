@@ -123,7 +123,7 @@ def get_semua_supplier():
 def get_semua_produk():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_produk, nama_produk, kategori FROM produk WHERE is_active = 1 ORDER BY nama_produk")
+    cursor.execute("SELECT id_produk, nama_produk, kategori, id_alur FROM produk WHERE is_active = 1 ORDER BY nama_produk")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -427,7 +427,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
                t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
-               k.no_plat, k.no_stnk,
+               t.id_mill, ml.id_alur, k.no_plat, k.no_stnk,
                d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
                d.is_updated, d.is_blacklisted, d.foto_path
         FROM transaksi t
@@ -435,6 +435,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN v_personel d ON t.id_driver = d.id_personel
+        LEFT JOIN mill ml ON ml.id_mill = t.id_mill
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
           AND (k.no_plat = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
@@ -458,7 +459,7 @@ def catat_cetak_qr(no_tiket):
     return sebelumnya
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id,
-                        prev_driver_id=None, id_pengangkutan=None):
+                        prev_driver_id=None, id_pengangkutan=None, id_mill=None):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
     kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
     qr_expired = datetime.now() + timedelta(hours=24)
@@ -469,10 +470,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor.execute(
         """INSERT INTO transaksi
            (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            security_id, id_kontrak, is_driver_changed, prev_driver_id, id_pengangkutan, id_mill)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
-        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan
+        security_id, id_kontrak, 1 if prev_driver_id else 0, prev_driver_id, id_pengangkutan, id_mill
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.
@@ -525,6 +526,18 @@ def _simpan_penimbangan(cursor, no_tiket, ke, berat, id_jembatan, operator_id):
                    no_tiket, ke, id_jembatan, round(float(berat), 2), operator_id,
                    hitung_hash_timbang(no_tiket, ke, berat, id_jembatan))
 
+def _status_setelah(cursor, no_tiket, kode_tahap):
+    """Status tiket setelah tahap ini, menurut alur mill tiket (utils/alur.py)."""
+    from utils.alur import status_setelah
+    cursor.execute("""SELECT t.jenis_transaksi, ml.id_alur FROM transaksi t LEFT JOIN mill ml ON ml.id_mill = t.id_mill
+                      WHERE t.no_tiket = ?""", no_tiket)
+    row = cursor.fetchone()
+    if row.id_alur is None:          # tiket tanpa mill (data lama yang belum terpetakan): aturan lama
+        if kode_tahap == 'TIMBANG_1':
+            return 'SELESAI' if row.jenis_transaksi == 'PENIMBANGAN_SAJA' else 'TIMBANG_1'
+        return 'SELESAI' if kode_tahap == 'TIMBANG_2' else 'TIMBANG_2'
+    return status_setelah(row.id_alur, kode_tahap)
+
 def simpan_timbang_pertama(no_tiket, berat, operator_id, id_jembatan):
     """Timbang masuk (penimbangan ke-1). PEMBELIAN / PENIMBANGAN_SAJA: bruto; PENJUALAN: tara.
     Jembatan masuk dicatat di transaksi; timbang keluar wajib di jembatan yang sama."""
@@ -534,7 +547,7 @@ def simpan_timbang_pertama(no_tiket, berat, operator_id, id_jembatan):
     jenis = cursor.fetchone().jenis_transaksi
     _simpan_penimbangan(cursor, no_tiket, 1, berat, id_jembatan, operator_id)
     cursor.execute("UPDATE transaksi SET id_jembatan = ?, status_alur = ? WHERE no_tiket = ?", id_jembatan,
-                   'SELESAI' if jenis == 'PENIMBANGAN_SAJA' else 'TIMBANG_1', no_tiket)
+                   _status_setelah(cursor, no_tiket, 'TIMBANG_1'), no_tiket)
     conn.commit()
     conn.close()
     return jenis
@@ -585,8 +598,9 @@ def get_list_tiket_aktif():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
-               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at
+               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, ml.id_alur
         FROM transaksi t
+        LEFT JOIN mill ml ON ml.id_mill = t.id_mill
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
@@ -675,7 +689,8 @@ def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, 
                            persen_sampah_kotoran, persen_buah_matang, persen_brondolan, total_potongan_kg, catatan,
                            operator_sortasi_id, waktu_sortasi) VALUES (?,?,?,?,?,?,?,?,?,?,GETDATE())""",
                        no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, total_potongan_kg, catatan, operator_id)
-    cursor.execute("UPDATE transaksi SET status_alur = 'TIMBANG_2' WHERE no_tiket = ?", no_tiket)
+    cursor.execute("UPDATE transaksi SET status_alur = ? WHERE no_tiket = ?",
+                   _status_setelah(cursor, no_tiket, 'SORTASI'), no_tiket)
     conn.commit()
     conn.close()
     return total_persen_potongan, total_potongan_kg
@@ -746,7 +761,7 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
                           INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, oleh) VALUES (?, 'REJECT', ?, ?)""",
                        no_tiket, no_tiket, 'Ditolak Lab', operator_id)
     else:
-        cursor.execute("UPDATE transaksi SET status_alur='TIMBANG_2' WHERE no_tiket=?", no_tiket)
+        cursor.execute("UPDATE transaksi SET status_alur=? WHERE no_tiket=?", _status_setelah(cursor, no_tiket, 'LAB'), no_tiket)
     conn.commit()
     conn.close()
 

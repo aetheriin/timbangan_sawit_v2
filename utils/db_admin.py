@@ -114,9 +114,10 @@ def set_aktif_supplier(id_supplier, aktif):
 
 
 def daftar_produk():
-    return _query("""SELECT p.id_produk, p.nama_produk, p.kategori, p.is_active,
+    return _query("""SELECT p.id_produk, p.nama_produk, p.kategori, p.is_active, p.id_alur, a.nama AS nama_alur,
                             CASE WHEN s.id_produk IS NULL THEN 0 ELSE 1 END AS ada_standar
                      FROM produk p LEFT JOIN standar_mutu s ON s.id_produk = p.id_produk
+                     LEFT JOIN alur a ON a.id_alur = p.id_alur
                      ORDER BY p.is_active DESC, p.nama_produk""")
 
 
@@ -125,11 +126,11 @@ def nama_produk_dipakai(nama, kecuali=None):
     return any(r["id_produk"] != kecuali for r in rows)
 
 
-def simpan_produk(id_produk, nama, kategori):
+def simpan_produk(id_produk, nama, kategori, id_alur):
     if id_produk:
-        _ubah("UPDATE produk SET nama_produk = ?, kategori = ? WHERE id_produk = ?", nama, kategori, id_produk)
+        _ubah("UPDATE produk SET nama_produk = ?, kategori = ?, id_alur = ? WHERE id_produk = ?", nama, kategori, id_alur, id_produk)
     else:
-        _ubah("INSERT INTO produk (nama_produk, kategori) VALUES (?, ?)", nama, kategori)
+        _ubah("INSERT INTO produk (nama_produk, kategori, id_alur) VALUES (?, ?, ?)", nama, kategori, id_alur)
     get_semua_produk.hapus()
 
 

@@ -23,6 +23,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, pastikan_pembaca
 from utils import db_jembatan as jembatan_db
+from utils import alur
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -31,7 +32,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola User", "fa-users", "Tambah akun, ubah level / department / area, reset password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), dan department"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), department, dan mill"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
     "master": ("Supplier & Produk", "fa-boxes-stacked", "Master data supplier / buyer dan produk"),
     "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
@@ -96,6 +97,7 @@ def admin_halaman(halaman):
                            department_list=[d for d in org.daftar_department() if d["is_active"]],
                            area_list=[a for a in org.daftar_area() if a["is_active"]],
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
+                           alur_list=alur.daftar_alur(),
                            tipe_supplier=db.TIPE_SUPPLIER,
                            kategori_produk=db.KATEGORI_PRODUK, password_min=PASSWORD_MIN)
 
@@ -320,7 +322,8 @@ def _id_opsional(nama):
 @admin_bp.route("/api/admin/organisasi")
 @_admin
 def organisasi_daftar():
-    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department()})
+    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department(),
+                    "mill": alur.daftar_mill()})
 
 
 @admin_bp.route("/api/admin/organisasi/company/simpan", methods=["POST"])
@@ -361,16 +364,35 @@ def department_simpan():
     return _jalankan(aksi)
 
 
+@admin_bp.route("/api/admin/organisasi/mill/simpan", methods=["POST"])
+@_admin
+def mill_simpan():
+    def aksi():
+        id_m = _id_opsional("id_mill")
+        id_a = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
+        id_alur = _id_form("id_alur", {a["id_alur"] for a in alur.daftar_alur()}, "alur")
+        kode, nama = _teks("kode", maks=10).upper(), _teks("nama")
+        if not POLA_KODE_ORG.match(kode):
+            raise ValueError("Kode 2-10 karakter: huruf besar, angka, - atau _")
+        if alur.kode_mill_dipakai(id_a, kode, kecuali=id_m):
+            raise ValueError(f"Kode {kode} sudah dipakai di area ini")
+        alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
+        _audit("MILL_SIMPAN", kode, nama)
+        return jsonify({"message": f"Mill {nama} disimpan"})
+    return _jalankan(aksi)
+
+
 @admin_bp.route("/api/admin/organisasi/<jenis>/<int:id_baris>/aktif", methods=["POST"])
 @_admin
 def organisasi_aktif(jenis, id_baris):
-    fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "department": org.set_aktif_department}
+    fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "department": org.set_aktif_department,
+              "mill": alur.set_aktif_mill}
     if jenis not in fungsi:
         abort(404)
 
     def aksi():
         aktif = _aktif_dari_form()
-        if not aktif:
+        if not aktif and jenis != "mill":
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
@@ -490,7 +512,8 @@ def produk_simpan():
             raise ValueError("Kategori tidak dikenal")
         if db.nama_produk_dipakai(nama, kecuali=id_produk):
             raise ValueError(f"Produk {nama} sudah ada")
-        db.simpan_produk(id_produk, nama, kategori)
+        id_alur = _id_form("id_alur", {a["id_alur"] for a in alur.daftar_alur()}, "alur")
+        db.simpan_produk(id_produk, nama, kategori, id_alur)
         _audit("PRODUK_UBAH" if id_produk else "PRODUK_TAMBAH", nama, kategori)
         return jsonify({"message": f"Produk {nama} disimpan"})
     return _jalankan(aksi)

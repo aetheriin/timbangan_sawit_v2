@@ -14,7 +14,7 @@ function tampilkanStandar(std) {
 window.addEventListener('platLookup', (e) => {
     const data = e.detail;
     // Tiket lain (TBS / belum ada tiket) -> kosongkan, supaya hasil lab tidak tersimpan ke tiket sebelumnya
-    const tiketPks = data.status === 'ADA_TIKET' && data.kategori_produk === 'PRODUK_PKS';
+    const tiketPks = data.status === 'ADA_TIKET' && tiketPunyaTahap(data, 'LAB');
     noTiketLabAktif = tiketPks ? data.no_tiket : null;
     idProdukLabAktif = tiketPks ? data.id_produk : null;
     ['labFfa', 'labAir', 'labKotoran', 'labWarna'].forEach(id => document.getElementById(id).value = '');

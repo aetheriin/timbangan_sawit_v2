@@ -48,6 +48,12 @@
                     {% for k in kategori_produk %}<option value="{{ k }}">{{ k.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
             </div>
+            <div>
+                <label class="field-label" for="prodAlur">Alur Tahap</label>
+                <select id="prodAlur" name="id_alur" required class="input-field">
+                    {% for a in alur_list if a.kode != 'TIMBANG_SAJA' %}<option value="{{ a.id_alur }}">{{ a.nama }}</option>{% endfor %}
+                </select>
+            </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalProduk" class="btn-secondary">Batal</button>

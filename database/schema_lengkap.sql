@@ -229,10 +229,45 @@ CREATE TABLE dbo.supplier (
 );
 GO
 
+-- Alur tahap tiket (migrasi 012): urutan tahap per alur, dipakai produk & mill
+CREATE TABLE dbo.tahap (
+    kode    VARCHAR(20)  NOT NULL PRIMARY KEY,
+    nama    NVARCHAR(50) NOT NULL,
+    urutan  TINYINT NOT NULL
+);
+GO
+CREATE TABLE dbo.alur (
+    id_alur    INT IDENTITY(1,1) PRIMARY KEY,
+    kode       VARCHAR(20)   NOT NULL CONSTRAINT UX_Alur_Kode UNIQUE,
+    nama       NVARCHAR(100) NOT NULL,
+    is_active  BIT NOT NULL CONSTRAINT DF_Alur_Aktif DEFAULT (1)
+);
+GO
+CREATE TABLE dbo.alur_tahap (
+    id_alur     INT NOT NULL CONSTRAINT FK_AlurTahap_Alur REFERENCES dbo.alur (id_alur),
+    urutan      TINYINT NOT NULL,
+    kode_tahap  VARCHAR(20) NOT NULL CONSTRAINT FK_AlurTahap_Tahap REFERENCES dbo.tahap (kode),
+    CONSTRAINT PK_AlurTahap PRIMARY KEY (id_alur, urutan),
+    CONSTRAINT UX_AlurTahap_Tahap UNIQUE (id_alur, kode_tahap)
+);
+GO
+-- Mill per area: tiket baru memakai mill aktif di area akun Security sesuai alur produk
+CREATE TABLE dbo.mill (
+    id_mill       INT IDENTITY(1,1) PRIMARY KEY,
+    id_comp_area  INT NOT NULL CONSTRAINT FK_Mill_Area REFERENCES dbo.comp_area (id_comp_area),
+    kode          VARCHAR(10)   NOT NULL,
+    nama          NVARCHAR(100) NOT NULL,
+    id_alur       INT NOT NULL CONSTRAINT FK_Mill_Alur REFERENCES dbo.alur (id_alur),
+    is_active     BIT NOT NULL CONSTRAINT DF_Mill_Aktif DEFAULT (1),
+    CONSTRAINT UX_Mill_AreaKode UNIQUE (id_comp_area, kode)
+);
+GO
+
 CREATE TABLE dbo.produk (
     id_produk    INT IDENTITY(1,1) PRIMARY KEY,
     nama_produk  VARCHAR(100) NOT NULL,
     kategori     VARCHAR(20)  NOT NULL,
+    id_alur      INT NOT NULL CONSTRAINT FK_Produk_Alur REFERENCES dbo.alur (id_alur),
     is_active    BIT NOT NULL CONSTRAINT DF_Produk_Aktif DEFAULT (1),
     CONSTRAINT CK_Produk_Kategori CHECK (kategori IN ('TBS', 'PRODUK_PKS'))
 );
@@ -371,6 +406,7 @@ CREATE TABLE dbo.transaksi (
     driver_photo_path  VARCHAR(255) NULL,
     security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.users (id_user),
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
+    id_mill            INT NULL CONSTRAINT FK_Trx_Mill REFERENCES dbo.mill (id_mill),                       -- alur tahap tiket
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_Status CHECK (status_alur IN ('SECURITY_REGISTER', 'SCAN_WAJAH', 'TIMBANG_1', 'INSPEKSI_PROSES',
@@ -733,6 +769,26 @@ JOIN dbo.menu m ON m.kode = v.mn;
 -- Jembatan timbang awal (migrasi 011)
 INSERT INTO dbo.jembatan_timbang (id_comp_area, kode, nama, port)
 SELECT MIN(id_comp_area), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.comp_area;
+-- Alur tahap & mill per area (migrasi 012)
+INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
+    ('SECURITY', N'Security', 1), ('TIMBANG_1', N'Timbang Masuk', 2), ('SORTASI', N'Sortasi', 3),
+    ('LAB', N'Laboratorium', 4), ('TIMBANG_2', N'Timbang Keluar', 5);
+INSERT INTO dbo.alur (kode, nama) VALUES
+    ('TBS', N'TBS: timbang - sortasi - timbang'),
+    ('PKS', N'Produk PKS: timbang - lab - timbang'),
+    ('TIMBANG_SAJA', N'Penimbangan saja (sekali timbang)');
+INSERT INTO dbo.alur_tahap (id_alur, urutan, kode_tahap)
+SELECT a.id_alur, v.urutan, v.tahap
+FROM (VALUES ('TBS', 1, 'SECURITY'), ('TBS', 2, 'TIMBANG_1'), ('TBS', 3, 'SORTASI'), ('TBS', 4, 'TIMBANG_2'),
+             ('PKS', 1, 'SECURITY'), ('PKS', 2, 'TIMBANG_1'), ('PKS', 3, 'LAB'), ('PKS', 4, 'TIMBANG_2'),
+             ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1')) v (alur, urutan, tahap)
+JOIN dbo.alur a ON a.kode = v.alur;
+INSERT INTO dbo.mill (id_comp_area, kode, nama, id_alur)
+SELECT ar.id_comp_area, v.kode, v.nama, al.id_alur
+FROM dbo.comp_area ar
+CROSS JOIN (VALUES ('TBS', N'Penerimaan TBS', 'TBS'), ('PKS', N'Produk PKS', 'PKS'),
+                   ('TS', N'Penimbangan Saja', 'TIMBANG_SAJA')) v (kode, nama, alur)
+JOIN dbo.alur al ON al.kode = v.alur;
 -- Menu Kunjungan Tamu (migrasi 009)
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT 'KUNJUNGAN', N'Face Recognition › Kunjungan Tamu', id_menu, 5 FROM dbo.menu WHERE kode = 'FACE_RECOGNITION';

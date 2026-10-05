@@ -1,12 +1,15 @@
 // ===== HALAMAN LIST: tiket aktif per tahap + history per produk 7 hari =====
 // Tahap tiket = siapa yang harus memproses berikutnya. Security melihat tiket yang baru dibuat (sudah scan wajah),
-// lalu tiket berlanjut ke Timbangan, Sortasi (TBS) / Lab (produk PKS), kembali ke Timbangan, lalu selesai.
+// lalu tiket berlanjut ke Timbangan, Sortasi / Lab (sesuai alur mill), kembali ke Timbangan, lalu selesai.
 let daftarTiket = [];
 let tahapAktif = '';
 
 function tahapTiket(t) {
     if (t.status_alur === 'SECURITY_REGISTER') return ['security', 'timbangan'];
-    if (t.status_alur === 'TIMBANG_1') return [t.kategori_produk === 'TBS' ? 'sortasi' : t.kategori_produk === 'PRODUK_PKS' ? 'lab' : 'timbangan'];
+    if (t.status_alur === 'TIMBANG_1') {                     // menunggu inspeksi sesuai alur mill tiket
+        const tahap = ['SORTASI', 'LAB'].filter(k => tiketPunyaTahap(t, k)).map(k => k.toLowerCase());
+        return tahap.length ? tahap : ['timbangan'];
+    }
     return ['timbangan'];                                    // TIMBANG_2: menunggu timbang kedua
 }
 

@@ -106,3 +106,9 @@ function barisKosong(kolom, teks) {
 function aktifkanChip(el) {
     el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.toggle('chip-active', c === el));
 }
+
+// Tiket melewati tahap ini? (alur_tahap dari mill tiket; tiket lama tanpa mill memakai kategori produk)
+function tiketPunyaTahap(t, kode) {
+    if (t.alur_tahap && t.alur_tahap.length) return t.alur_tahap.includes(kode);
+    return t.kategori_produk === (kode === 'SORTASI' ? 'TBS' : 'PRODUK_PKS');
+}

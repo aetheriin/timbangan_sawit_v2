@@ -3,6 +3,14 @@ from flask_login import login_required, current_user
 from utils.db_utils import (get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif,
                             get_history_standar)
 from utils.hak_akses import izin
+from utils import alur
+
+
+def _tahap_ada(trx, kode):
+    """Tahap ini ada di alur mill tiket; tiket lama tanpa mill memakai kategori produk."""
+    if trx.id_alur:
+        return alur.punya_tahap(trx.id_alur, kode)
+    return trx.kategori == ("TBS" if kode == "SORTASI" else "PRODUK_PKS")
 
 lab_bp = Blueprint('lab', __name__)
 
@@ -46,8 +54,8 @@ def lab_simpan():
     trx = cari_transaksi_aktif(no_tiket=no_tiket)
     if trx is None:
         return jsonify({"error": "Tiket tidak ditemukan / sudah selesai / ditolak"}), 404
-    if trx.kategori != 'PRODUK_PKS':
-        return jsonify({"error": "Pemeriksaan lab hanya untuk produk PKS"}), 400
+    if not _tahap_ada(trx, "LAB"):
+        return jsonify({"error": "Pemeriksaan lab tidak ada di alur tiket ini (lihat Admin › Organisasi › Mill)"}), 400
     if trx.status_alur not in ('TIMBANG_1', 'TIMBANG_2'):
         return jsonify({"error": "Pemeriksaan lab dilakukan setelah timbang pertama"}), 400
     no_coa = f"COA-{no_tiket}" if keputusan == 'APPROVE' else None

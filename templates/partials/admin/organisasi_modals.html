@@ -66,3 +66,32 @@
         </div>
     </form>
 </div>
+
+<!-- MODAL: Mill -->
+<div id="modalOrg-mill" class="modal-overlay">
+    <form id="formOrg-mill" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/mill/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Mill</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-3 gap-3">
+            <input type="hidden" name="id_mill">
+            <div class="col-span-3"><label class="field-label" for="orgMillArea">Area</label>
+                <select id="orgMillArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+            <div><label class="field-label" for="orgMillKode">Kode</label>
+                <input type="text" id="orgMillKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
+            <div class="col-span-2"><label class="field-label" for="orgMillNama">Nama</label>
+                <input type="text" id="orgMillNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div class="col-span-3"><label class="field-label" for="orgMillAlur">Alur Tahap</label>
+                <select id="orgMillAlur" name="id_alur" required class="input-field">
+                    {% for a in alur_list %}<option value="{{ a.id_alur }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

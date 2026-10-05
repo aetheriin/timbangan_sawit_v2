@@ -1,3 +1,11 @@
+def _tahap(id_alur):
+    """Urutan tahap tiket dari alur mill-nya (kosong bila tiket lama tanpa mill)."""
+    if not id_alur:
+        return []
+    from utils.alur import tahap_alur
+    return tahap_alur(id_alur)
+
+
 def serialisasi_tiket(row):
     return {
         "status": "ADA_TIKET",
@@ -5,6 +13,7 @@ def serialisasi_tiket(row):
         "status_alur": row.status_alur,
         "id_supplier": row.id_supplier, "supplier": row.nama_supplier,
         "id_produk": row.id_produk, "produk": row.nama_produk, "kategori_produk": row.kategori,
+        "alur_tahap": _tahap(getattr(row, "id_alur", None)),
         "no_plat": row.no_plat, "no_stnk": row.no_stnk,
         "driver": {
             "id_driver": row.id_driver, "nik": row.nik, "nama": row.nama_driver,

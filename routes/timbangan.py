@@ -9,6 +9,7 @@ from utils.db_utils import (
 from utils.serializers import serialisasi_tiket
 from utils.hak_akses import izin
 from utils.db_jembatan import jembatan_dipilih
+from utils import alur
 
 timbangan_bp = Blueprint('timbangan', __name__)
 
@@ -106,7 +107,8 @@ def timbang_simpan():
 
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)
     if trx.status_alur != 'TIMBANG_2':
-        menunggu = "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)"
+        menunggu = (alur.menunggu(trx.id_alur, trx.status_alur) if trx.id_alur
+                    else "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)")
         return jsonify({"error": f"Belum bisa timbang kedua, tiket masih menunggu {menunggu}"}), 400
 
     if data_lama.id_jembatan != jembatan["id_jembatan"]:
