@@ -44,7 +44,10 @@ def cek_koneksi_db():
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_user, username, password, nama, role, sesi_versi, password_changed_at FROM users WHERE username = ? AND is_active = 1", username)
+    cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, u.id_level, l.is_admin,
+                             l.halaman_awal, u.sesi_versi, u.password_changed_at
+                      FROM users u JOIN level l ON l.id_level = u.id_level
+                      WHERE u.username = ? AND u.is_active = 1 AND l.is_active = 1""", username)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -54,7 +57,10 @@ def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
-    cursor.execute("SELECT id_user, username, nama, role, sesi_versi FROM users WHERE id_user = ? AND is_active = 1", user_id)
+    cursor.execute("""SELECT u.id_user, u.username, u.nama, l.kode AS role, u.id_level, l.is_admin, l.halaman_awal,
+                             u.sesi_versi
+                      FROM users u JOIN level l ON l.id_level = u.id_level
+                      WHERE u.id_user = ? AND u.is_active = 1 AND l.is_active = 1""", user_id)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -101,13 +107,6 @@ def catat_login_terakhir(user_id):
         conn.commit()
     finally:
         conn.close()
-
-def insert_user(username, password_hash, nama, role):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)", nama, username, password_hash, role)
-    conn.commit()
-    conn.close()
 
 # ===== SUPPLIER / PRODUK =====
 

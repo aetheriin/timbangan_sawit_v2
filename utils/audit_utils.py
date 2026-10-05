@@ -28,9 +28,10 @@ def get_security_audit(hari=1, batas=300):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT TOP (?) s.id_log, s.created_at, s.action_type, s.no_tiket, s.details, s.ip_address,
-               u.nama AS nama_user, u.role, p.kode_personel
+               u.nama AS nama_user, lv.kode AS role, p.kode_personel
         FROM security_audit_logs s
         JOIN users u ON s.user_id = u.id_user
+        JOIN level lv ON lv.id_level = u.id_level
         LEFT JOIN personel p ON u.id_personel = p.id_personel
         WHERE s.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY s.created_at DESC

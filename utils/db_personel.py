@@ -143,10 +143,11 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT TOP (?) a.id_log, a.id_personel, a.aksi, a.kode_personel_lama, a.kode_personel_baru, a.nik_lama, a.nik_baru,
-               a.nama_lama, a.nama_baru, a.no_sim_lama, a.no_sim_baru, a.updated_at, u.nama AS oleh, u.role AS role_oleh,
+               a.nama_lama, a.nama_baru, a.no_sim_lama, a.no_sim_baru, a.updated_at, u.nama AS oleh, lv.kode AS role_oleh,
                p.kode_personel, p.nama_personel
         FROM personel_audit_logs a
         JOIN users u ON a.updated_by = u.id_user
+        JOIN level lv ON lv.id_level = u.id_level
         JOIN personel p ON a.id_personel = p.id_personel
         WHERE a.updated_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY a.updated_at DESC

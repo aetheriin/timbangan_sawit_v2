@@ -1,13 +1,13 @@
 from datetime import date, datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.serial_reader import baca_status_asli, reset_deteksi_stabil
 from utils.db_utils import (
     get_data_timbangan, simpan_timbang_pertama, simpan_timbang_kedua, catat_timeline,
     cari_transaksi_aktif, get_history_timbangan_by_supplier
 )
 from utils.serializers import serialisasi_tiket
+from utils.hak_akses import izin
 
 timbangan_bp = Blueprint('timbangan', __name__)
 
@@ -65,7 +65,7 @@ def history_supplier():
 
 @timbangan_bp.route("/api/timbang/simpan", methods=["POST"])
 @login_required
-@role_required('OPERATOR_TIMBANG')
+@izin('FORM_TIMBANGAN', 'tambah')
 def timbang_simpan():
     no_tiket = request.form.get("no_tiket", "").strip()
     if not no_tiket:

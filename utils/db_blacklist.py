@@ -17,13 +17,14 @@ def _format(r):
 def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
     sql = """
         SELECT TOP (?) b.id_blacklist, b.tipe_entitas, b.no_surat_blacklist, b.alasan_blacklist, b.file_surat_blacklist,
-               b.tgl_blacklist, b.created_at, u.nama AS oleh, u.role AS role_oleh,
+               b.tgl_blacklist, b.created_at, u.nama AS oleh, lv.kode AS role_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
                c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait
         FROM blacklist b
         LEFT JOIN supplier c ON b.id_customer_terkait = c.id_supplier
         LEFT JOIN supplier a ON b.id_pengangkutan_terkait = a.id_supplier
         JOIN users u ON b.created_by = u.id_user
+        JOIN level lv ON lv.id_level = u.id_level
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
         WHERE 1 = 1"""

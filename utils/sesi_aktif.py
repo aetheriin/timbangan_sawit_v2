@@ -84,8 +84,9 @@ def alasan_berakhir(sid):
 
 def daftar(batas_idle_detik):
     """Sesi yang belum berakhir & belum melewati batas idle, terbaru di atas (dari semua PC / proses server)."""
-    rows = _jalankan("""SELECT s.sid, s.user_id, u.username, u.nama, u.role, s.ip, s.agen, s.login_at, s.terakhir_aktif
+    rows = _jalankan("""SELECT s.sid, s.user_id, u.username, u.nama, lv.kode AS role, s.ip, s.agen, s.login_at, s.terakhir_aktif
                         FROM sesi_login s JOIN users u ON u.id_user = s.user_id
+                        JOIN level lv ON lv.id_level = u.id_level
                         WHERE s.berakhir_at IS NULL AND s.terakhir_aktif >= DATEADD(second, ?, GETDATE())
                         ORDER BY s.terakhir_aktif DESC""", -int(batas_idle_detik), ambil=True)
     return [{**r, "login": r["login_at"].timestamp(), "terakhir_aktif": r["terakhir_aktif"].timestamp()} for r in rows]

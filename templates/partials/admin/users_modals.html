@@ -17,11 +17,26 @@
                        pattern="[a-z0-9._]{3,50}" title="3-50 karakter: huruf kecil, angka, titik, garis bawah">
                 <p class="field-hint">Huruf kecil, angka, titik, garis bawah. Tidak bisa diubah setelah dibuat.</p>
             </div>
-            <div>
-                <label class="field-label" for="userRole">Role</label>
-                <select id="userRole" name="role" required class="input-field">
-                    {% for r in role_list %}<option value="{{ r }}">{{ 'HO' if r == 'HO' else r.replace('_', ' ').title() }}</option>{% endfor %}
-                </select>
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="field-label" for="userLevel">Level</label>
+                    <select id="userLevel" name="id_level" required class="input-field">
+                        {% for lv in level_list %}<option value="{{ lv.id_level }}">{{ lv.nama }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="userDepartment">Department</label>
+                    <select id="userDepartment" name="id_department" required class="input-field">
+                        {% for d in department_list %}<option value="{{ d.id_department }}">{{ d.nama }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="userArea">Area</label>
+                    <select id="userArea" name="id_comp_area" required class="input-field">
+                        {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                    </select>
+                </div>
+                <p class="field-hint col-span-3">Aksi yang boleh untuk tiap level diatur di menu Level &amp; Hak Akses.</p>
             </div>
             <div id="blokPasswordUser" class="grid grid-cols-2 gap-3">
                 <div>
@@ -34,7 +49,7 @@
                 </div>
                 <p class="field-hint col-span-2">Minimal {{ password_min }} karakter.</p>
             </div>
-            <div id="noteRoleUser" class="note-warning hidden">Mengganti role akan mengakhiri sesi user ini. Ia perlu login ulang.</div>
+            <div id="noteRoleUser" class="note-warning hidden">Mengganti level akan mengakhiri sesi user ini. Ia perlu login ulang.</div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalUser" class="btn-secondary">Batal</button>

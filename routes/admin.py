@@ -13,10 +13,11 @@ from flask import Blueprint, render_template, request, jsonify, redirect, abort
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from extensions import role_required, BASE_DIR, UPLOAD_FOLDER
-from utils import db_admin as db, pengaturan, login_guard, sesi_aktif, kiosk
+from extensions import BASE_DIR, UPLOAD_FOLDER
+from utils.hak_akses import admin_required
+from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
 from utils import verifikasi_state as verif
-from utils.db_utils import cek_koneksi_db, get_password_hash
+from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import baca_status_asli, PORT as PORT_TIMBANGAN
@@ -26,7 +27,9 @@ WAKTU_MULAI = time.time()
 
 # key -> (judul, ikon Font Awesome, keterangan). Urutan = urutan menu sidebar.
 HALAMAN = {
-    "users": ("Kelola User", "fa-users", "Tambah akun, ubah role, reset password, aktif / nonaktif"),
+    "users": ("Kelola User", "fa-users", "Tambah akun, ubah level / department / area, reset password, aktif / nonaktif"),
+    "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), dan department"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
     "master": ("Supplier & Produk", "fa-boxes-stacked", "Master data supplier / buyer dan produk"),
     "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
@@ -44,7 +47,7 @@ PASSWORD_MIN = 8
 
 
 def _admin(f):
-    return login_required(role_required("ADMIN")(f))
+    return login_required(admin_required(f))
 
 
 def _audit(aksi, target=None, detail=None):
@@ -87,7 +90,11 @@ def admin_halaman(halaman):
     judul, ikon, keterangan = HALAMAN[halaman]
     return render_template("admin/admin.html", halaman=f"admin:{halaman}", menu_admin=HALAMAN,
                            admin_aktif=halaman, judul=judul, ikon=ikon, keterangan=keterangan,
-                           role_list=db.ROLE_VALID, tipe_supplier=db.TIPE_SUPPLIER,
+                           level_list=[lv for lv in hak_akses.daftar_level() if lv["is_active"]],
+                           department_list=[d for d in org.daftar_department() if d["is_active"]],
+                           area_list=[a for a in org.daftar_area() if a["is_active"]],
+                           company_list=[c for c in org.daftar_company() if c["is_active"]],
+                           tipe_supplier=db.TIPE_SUPPLIER,
                            kategori_produk=db.KATEGORI_PRODUK, password_min=PASSWORD_MIN)
 
 
@@ -101,11 +108,21 @@ def users_daftar():
                     for u in db.daftar_user()])
 
 
-def _role_form():
-    role = _teks("role").upper()
-    if role not in db.ROLE_VALID:
-        raise ValueError("Role tidak dikenal")
-    return role
+def _id_form(nama, pilihan, label):
+    teks = (request.form.get(nama) or "").strip()
+    if not teks.isdigit() or int(teks) not in pilihan:
+        raise ValueError(f"Pilih {label} dari daftar")
+    return int(teks)
+
+
+def _akun_form():
+    """(id_level, id_department, id_comp_area) dari form; hanya yang aktif."""
+    level = {lv["id_level"]: lv for lv in hak_akses.daftar_level() if lv["is_active"]}
+    id_level = _id_form("id_level", level, "level")
+    id_department = _id_form("id_department", {d["id_department"] for d in org.daftar_department() if d["is_active"]},
+                             "department")
+    id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
+    return level[id_level], id_department, id_area
 
 
 def _password_form(nama="password"):
@@ -126,9 +143,9 @@ def users_tambah():
             raise ValueError("Username 3-50 karakter: huruf kecil, angka, titik, garis bawah")
         if db.username_dipakai(username):
             raise ValueError(f"Username {username} sudah dipakai")
-        nama, role, pw = _teks("nama"), _role_form(), _password_form()
-        db.tambah_user(username, nama, role, generate_password_hash(pw))
-        _audit("USER_TAMBAH", username, f"role {role}")
+        nama, (level, id_department, id_area), pw = _teks("nama"), _akun_form(), _password_form()
+        db.tambah_user(username, nama, level["id_level"], id_department, id_area, generate_password_hash(pw))
+        _audit("USER_TAMBAH", username, f"level {level['kode']}")
         return jsonify({"message": f"User {username} ditambahkan"})
     return _jalankan(aksi)
 
@@ -145,19 +162,19 @@ def _user_atau_404(id_user):
 def users_ubah(id_user):
     def aksi():
         u = _user_atau_404(id_user)
-        nama, role = _teks("nama"), _role_form()
-        if u["role"] == "ADMIN" and role != "ADMIN":
+        nama, (level, id_department, id_area) = _teks("nama"), _akun_form()
+        ganti_level = u["id_level"] != level["id_level"]
+        if u["is_admin"] and not level["is_admin"]:
             if id_user == current_user.id:
-                raise ValueError("Tidak bisa mengubah role akun sendiri")
+                raise ValueError("Tidak bisa menurunkan level akun sendiri")
             if db.jumlah_admin_aktif(kecuali=id_user) == 0:
                 raise ValueError("Minimal harus ada 1 admin aktif")
-        db.ubah_user(id_user, nama, role)
-        detail = f"role {u['role']} -> {role}" if u["role"] != role else "nama diubah"
-        _audit("USER_UBAH", u["username"], detail)
-        if u["role"] != role:
+        db.ubah_user(id_user, nama, level["id_level"], id_department, id_area)
+        _audit("USER_UBAH", u["username"], f"level {u['role']} -> {level['kode']}" if ganti_level else "data diubah")
+        if ganti_level:
             sesi_aktif.hapus_user(id_user, "ROLE_DIUBAH")
         return jsonify({"message": f"User {u['username']} diperbarui" +
-                        (" (sesi lamanya diakhiri, login ulang dengan role baru)" if u["role"] != role else "")})
+                        (" (sesi lamanya diakhiri, login ulang dengan level baru)" if ganti_level else "")})
     return _jalankan(aksi)
 
 
@@ -186,12 +203,180 @@ def users_aktif(id_user):
         if not aktif:
             if id_user == current_user.id:
                 raise ValueError("Tidak bisa menonaktifkan akun sendiri")
-            if u["role"] == "ADMIN" and db.jumlah_admin_aktif(kecuali=id_user) == 0:
+            if u["is_admin"] and db.jumlah_admin_aktif(kecuali=id_user) == 0:
                 raise ValueError("Minimal harus ada 1 admin aktif")
         db.set_aktif_user(id_user, aktif)
         sesi_aktif.hapus_user(id_user, "NONAKTIF")
         _audit("USER_AKTIF" if aktif else "USER_NONAKTIF", u["username"])
         return jsonify({"message": f"User {u['username']} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+    return _jalankan(aksi)
+
+
+# ===== LEVEL & HAK AKSES =====
+POLA_KODE = re.compile(r"^[A-Z0-9_]{2,30}$")
+
+
+@admin_bp.route("/api/admin/level")
+@_admin
+def level_daftar():
+    return jsonify(hak_akses.daftar_level())
+
+
+def _level_atau_404(id_level):
+    lv = hak_akses.get_level(id_level)
+    if not lv:
+        raise ValueError("Level tidak ditemukan")
+    return lv
+
+
+@admin_bp.route("/api/admin/level/simpan", methods=["POST"])
+@_admin
+def level_simpan():
+    def aksi():
+        teks_id = (request.form.get("id_level") or "").strip()
+        id_level = int(teks_id) if teks_id.isdigit() else None
+        nama = _teks("nama")
+        halaman_awal = _teks("halaman_awal", maks=100)
+        if not halaman_awal.startswith("/") or halaman_awal.startswith("//"):
+            raise ValueError("Halaman awal harus alamat di aplikasi ini, mis. /dashboard atau /weighbridge?tab=security")
+        keterangan = _teks("keterangan", wajib=False, maks=255) or None
+        if id_level is None:
+            kode = _teks("kode", maks=30).upper()
+            if not POLA_KODE.match(kode):
+                raise ValueError("Kode 2-30 karakter: huruf besar, angka, garis bawah")
+            if hak_akses.kode_level_dipakai(kode):
+                raise ValueError(f"Kode level {kode} sudah dipakai")
+        else:
+            kode = _level_atau_404(id_level)["kode"]
+        hak_akses.simpan_level(id_level, kode, nama, halaman_awal, keterangan)
+        get_user_by_id.hapus()
+        _audit("LEVEL_SIMPAN", kode, nama)
+        return jsonify({"message": f"Level {kode} disimpan"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/level/<int:id_level>/aktif", methods=["POST"])
+@_admin
+def level_aktif(id_level):
+    def aksi():
+        lv, aktif = _level_atau_404(id_level), _aktif_dari_form()
+        if not aktif and lv["is_admin"]:
+            raise ValueError("Level admin tidak bisa dinonaktifkan")
+        hak_akses.set_aktif_level(id_level, aktif)
+        get_user_by_id.hapus()          # user level nonaktif langsung tidak bisa memakai sesinya
+        _audit("LEVEL_AKTIF" if aktif else "LEVEL_NONAKTIF", lv["kode"])
+        return jsonify({"message": f"Level {lv['kode']} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/level/<int:id_level>/akses")
+@_admin
+def level_akses_lihat(id_level):
+    def aksi():
+        lv = _level_atau_404(id_level)
+        akses = hak_akses.akses_level(id_level)
+        return jsonify({"level": lv, "menu": [{**m, **{k: bool(akses.get(m["id_menu"], {}).get(f"bisa_{k}"))
+                                                       for k in hak_akses.AKSI}}
+                                              for m in hak_akses.daftar_menu_akses()]})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/level/<int:id_level>/akses", methods=["POST"])
+@_admin
+def level_akses_simpan(id_level):
+    def aksi():
+        lv = _level_atau_404(id_level)
+        if lv["is_admin"]:
+            raise ValueError("Level admin hanya untuk area Admin, tidak punya aksi operasional")
+        akses = {m["id_menu"]: tuple(request.form.get(f"{m['id_menu']}_{k}") == "1" for k in hak_akses.AKSI)
+                 for m in hak_akses.daftar_menu_akses()}
+        hak_akses.simpan_akses_level(id_level, akses)
+        jumlah = sum(any(v) for v in akses.values())
+        _audit("HAK_AKSES_UBAH", lv["kode"], f"{jumlah} menu punya aksi")
+        return jsonify({"message": f"Hak akses {lv['nama']} disimpan, langsung berlaku (±30 detik di semua PC)"})
+    return _jalankan(aksi)
+
+
+# ===== ORGANISASI =====
+POLA_KODE_ORG = re.compile(r"^[A-Z0-9_-]{2,10}$")
+
+
+def _kode_org(tabel, kolom_id, id_baris):
+    kode = _teks("kode", maks=10).upper()
+    if not POLA_KODE_ORG.match(kode):
+        raise ValueError("Kode 2-10 karakter: huruf besar, angka, - atau _")
+    if org.kode_dipakai(tabel, kolom_id, "kode", kode, kecuali=id_baris):
+        raise ValueError(f"Kode {kode} sudah dipakai")
+    return kode
+
+
+def _id_opsional(nama):
+    teks = (request.form.get(nama) or "").strip()
+    return int(teks) if teks.isdigit() else None
+
+
+@admin_bp.route("/api/admin/organisasi")
+@_admin
+def organisasi_daftar():
+    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department()})
+
+
+@admin_bp.route("/api/admin/organisasi/company/simpan", methods=["POST"])
+@_admin
+def company_simpan():
+    def aksi():
+        id_c = _id_opsional("id_company")
+        kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
+        org.simpan_company(id_c, kode, nama)
+        _audit("COMPANY_SIMPAN", kode, nama)
+        return jsonify({"message": f"Company {nama} disimpan"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/organisasi/area/simpan", methods=["POST"])
+@_admin
+def area_simpan():
+    def aksi():
+        id_a = _id_opsional("id_comp_area")
+        id_c = _id_form("id_company", {c["id_company"] for c in org.daftar_company() if c["is_active"]}, "company")
+        kode, nama = _kode_org("comp_area", "id_comp_area", id_a), _teks("nama")
+        org.simpan_area(id_a, id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None)
+        _audit("AREA_SIMPAN", kode, nama)
+        return jsonify({"message": f"Area {nama} disimpan"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/organisasi/department/simpan", methods=["POST"])
+@_admin
+def department_simpan():
+    def aksi():
+        id_d, nama = _id_opsional("id_department"), _teks("nama")
+        if org.kode_dipakai("department", "id_department", "nama", nama, kecuali=id_d):
+            raise ValueError(f"Department {nama} sudah ada")
+        org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None)
+        _audit("DEPARTMENT_SIMPAN", nama)
+        return jsonify({"message": f"Department {nama} disimpan"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/organisasi/<jenis>/<int:id_baris>/aktif", methods=["POST"])
+@_admin
+def organisasi_aktif(jenis, id_baris):
+    fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "department": org.set_aktif_department}
+    if jenis not in fungsi:
+        abort(404)
+
+    def aksi():
+        aktif = _aktif_dari_form()
+        if not aktif:
+            dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
+                       "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
+                       "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
+            if dict(dipakai).get(id_baris):
+                raise ValueError(f"{jenis.capitalize()} masih dipakai, pindahkan dulu user / area-nya")
+        fungsi[jenis](id_baris, aktif)
+        _audit(f"{jenis.upper()}_{'AKTIF' if aktif else 'NONAKTIF'}", str(id_baris))
+        return jsonify({"message": f"{jenis.capitalize()} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 

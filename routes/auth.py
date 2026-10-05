@@ -10,10 +10,6 @@ from utils.login_guard import sisa_kunci, catat_gagal, catat_berhasil
 
 auth_bp = Blueprint('auth', __name__)
 
-TAB_DEFAULT = {'SECURITY': 'security', 'OPERATOR_TIMBANG': 'timbangan',
-               'SORTASI': 'sortasi', 'LAB': 'lab'}
-
-
 PESAN_KELUAR = {
     "IDLE": "Sesi Anda berakhir karena tidak ada aktivitas. Silakan login ulang.",
     "UMUR_MAKS": "Sesi Anda sudah terlalu lama. Silakan login ulang.",
@@ -26,24 +22,21 @@ PESAN_KELUAR = {
 }
 
 
-def _halaman_awal(role):
-    if role == 'ADMIN':                 # super admin hanya punya halaman Admin
-        return "/admin"
-    if role == 'HO':
-        return "/dashboard"
-    return f"/weighbridge?tab={TAB_DEFAULT.get(role, 'security')}"
+def _halaman_awal(user):
+    """Halaman pertama setelah login, diatur per level (Admin › Hak Akses)."""
+    return user.halaman_awal or ("/admin" if user.is_admin else "/weighbridge")
 
 
 @auth_bp.route("/")
 def index():
-    return redirect(_halaman_awal(current_user.role) if current_user.is_authenticated else "/login")
+    return redirect(_halaman_awal(current_user) if current_user.is_authenticated else "/login")
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     # Sudah login (mis. tombol Back ke halaman login) -> kembali ke halaman kerja, form login tidak ditampilkan
     if current_user.is_authenticated:
-        return redirect(_halaman_awal(current_user.role))
+        return redirect(_halaman_awal(current_user))
 
     kode = session.pop("_keluar", None) or request.args.get("keluar") or ("IDLE" if request.args.get("habis") else None)
     info = PESAN_KELUAR.get(kode, "Sesi Anda berakhir. Silakan login ulang." if kode else None)
@@ -67,7 +60,7 @@ def login():
     catat_berhasil(username, ip)
     session.clear()                 # cegah session fixation: sesi lama dibuang, dibuat baru
     session.permanent = True
-    user = User(row.id_user, row.username, row.nama, row.role)
+    user = User.dari_row(row)
     login_user(user)
     versi = row.sesi_versi or 0
     if pengaturan.nilai("SATU_PERANGKAT"):      # 1 user 1 perangkat: sesi di perangkat lain dicabut
@@ -80,8 +73,8 @@ def login():
     if alasan:                                  # kedaluwarsa / baru direset: hanya halaman ganti password yang terbuka
         session["_wajib_ganti_pw"] = alasan
         return redirect("/ganti-password")
-    log_keamanan("LOGIN", f"username={row.username} role={row.role}")
-    return redirect(_halaman_awal(row.role))
+    log_keamanan("LOGIN", f"username={row.username} level={row.role}")
+    return redirect(_halaman_awal(user))
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -111,7 +104,7 @@ def ganti_password():
     Ganti password sebelum kedaluwarsa lewat Admin (Kelola User > Reset Password)."""
     alasan = session.get("_wajib_ganti_pw")
     if not alasan:
-        return redirect(_halaman_awal(current_user.role))
+        return redirect(_halaman_awal(current_user))
     tampil = lambda error=None, kode=200: (render_template("auth/ganti_password.html", alasan=alasan, error=error,
                                                            password_min=PASSWORD_MIN), kode)
     if request.method == "GET":
@@ -131,5 +124,5 @@ def ganti_password():
     sesi_aktif.hapus_user(current_user.id, "GANTI_PASSWORD", kecuali_sid=session.get("_sid"))
     session.pop("_wajib_ganti_pw", None)
     log_keamanan("GANTI_PASSWORD", f"username={current_user.username}")
-    return redirect(_halaman_awal(current_user.role))
+    return redirect(_halaman_awal(current_user))
 

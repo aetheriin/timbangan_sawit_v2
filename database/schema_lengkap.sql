@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA LENGKAP Sistem Timbangan Sawit (Weighbridge + Face Recognition)
-   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-006 dalam satu file.
-   Database yang SUDAH ada cukup menjalankan migrasi 001-006 berurutan.
+   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-008 dalam satu file.
+   Database yang SUDAH ada cukup menjalankan migrasi 001-008 berurutan.
 
    Cara pakai (SSMS): ganti nama database di 2 baris di bawah, lalu Execute (F5).
    Urutan tabel mengikuti ketergantungan foreign key. Diagram: docs/ERD.md
@@ -13,6 +13,59 @@ IF DB_ID('DbSistemTimbangan') IS NULL CREATE DATABASE DbSistemTimbangan;
 GO
 USE [DbSistemTimbangan]
 GO
+
+/* =========================== ORGANISASI & HAK AKSES (migrasi 008) =========================== */
+CREATE TABLE dbo.company (
+    id_company  INT IDENTITY(1,1) PRIMARY KEY,
+    kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Company_Kode UNIQUE,
+    nama        NVARCHAR(100) NOT NULL,
+    is_active   BIT NOT NULL CONSTRAINT DF_Company_Aktif DEFAULT (1),
+    created_at  DATETIME NOT NULL CONSTRAINT DF_Company_Created DEFAULT (GETDATE())
+);
+CREATE TABLE dbo.comp_area (
+    id_comp_area INT IDENTITY(1,1) PRIMARY KEY,
+    id_company   INT NOT NULL CONSTRAINT FK_Area_Company REFERENCES dbo.company (id_company),
+    kode         VARCHAR(10)   NOT NULL CONSTRAINT UX_Area_Kode UNIQUE,
+    nama         NVARCHAR(100) NOT NULL,
+    alamat       NVARCHAR(255) NULL,
+    is_active    BIT NOT NULL CONSTRAINT DF_Area_Aktif DEFAULT (1),
+    created_at   DATETIME NOT NULL CONSTRAINT DF_Area_Created DEFAULT (GETDATE())
+);
+CREATE TABLE dbo.department (
+    id_department INT IDENTITY(1,1) PRIMARY KEY,
+    nama          NVARCHAR(100) NOT NULL CONSTRAINT UX_Department_Nama UNIQUE,
+    keterangan    NVARCHAR(255) NULL,
+    is_active     BIT NOT NULL CONSTRAINT DF_Department_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.level (
+    id_level      INT IDENTITY(1,1) PRIMARY KEY,
+    kode          VARCHAR(30)   NOT NULL CONSTRAINT UX_Level_Kode UNIQUE,
+    nama          NVARCHAR(100) NOT NULL,
+    is_admin      BIT NOT NULL CONSTRAINT DF_Level_Admin DEFAULT (0),
+    halaman_awal  VARCHAR(100)  NOT NULL CONSTRAINT DF_Level_Awal DEFAULT ('/weighbridge'),
+    keterangan    NVARCHAR(255) NULL,
+    is_active     BIT NOT NULL CONSTRAINT DF_Level_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.menu (
+    id_menu    INT IDENTITY(1,1) PRIMARY KEY,
+    kode       VARCHAR(40)   NOT NULL CONSTRAINT UX_Menu_Kode UNIQUE,
+    nama       NVARCHAR(100) NOT NULL,
+    url        VARCHAR(200)  NULL,
+    ikon       VARCHAR(40)   NULL,
+    id_parent  INT NULL CONSTRAINT FK_Menu_Parent REFERENCES dbo.menu (id_menu),
+    urutan     INT NOT NULL CONSTRAINT DF_Menu_Urutan DEFAULT (0),
+    is_active  BIT NOT NULL CONSTRAINT DF_Menu_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.level_akses (
+    id_level     INT NOT NULL CONSTRAINT FK_LevelAkses_Level REFERENCES dbo.level (id_level),
+    id_menu      INT NOT NULL CONSTRAINT FK_LevelAkses_Menu REFERENCES dbo.menu (id_menu),
+    bisa_tambah  BIT NOT NULL CONSTRAINT DF_LevelAkses_Tambah DEFAULT (0),
+    bisa_ubah    BIT NOT NULL CONSTRAINT DF_LevelAkses_Ubah DEFAULT (0),
+    bisa_hapus   BIT NOT NULL CONSTRAINT DF_LevelAkses_Hapus DEFAULT (0),
+    CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
+);
+GO
+/* Isi awal company, area, department, level, menu, level_akses ada di bagian DATA AWAL (paling bawah). */
 
 /* =========================== MASTER =========================== */
 
@@ -47,15 +100,16 @@ CREATE TABLE dbo.users (
     nama         VARCHAR(100) NOT NULL,
     username     VARCHAR(50)  NOT NULL CONSTRAINT UX_Users_Username UNIQUE,
     password     VARCHAR(255) NOT NULL,                         -- hash pbkdf2
-    role         VARCHAR(30)  NOT NULL,
+    id_level      INT NOT NULL CONSTRAINT FK_Users_Level REFERENCES dbo.level (id_level),
+    id_department INT NOT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),
+    id_comp_area  INT NOT NULL CONSTRAINT FK_Users_Area REFERENCES dbo.comp_area (id_comp_area),
     id_personel  INT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),
     is_active    BIT NOT NULL CONSTRAINT DF_Users_Aktif DEFAULT (1),
     last_login   DATETIME NULL,
     sesi_versi   INT NOT NULL CONSTRAINT DF_Users_SesiVersi DEFAULT (0),   -- naik = semua sesi user dicabut
     password_changed_at DATETIME NULL,                          -- NULL = wajib ganti password saat login
     created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
-    updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE()),
-    CONSTRAINT CK_Users_Role CHECK (role IN ('ADMIN', 'HO', 'SECURITY', 'OPERATOR_TIMBANG', 'SORTASI', 'LAB'))
+    updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_Users_Personel ON dbo.users (id_personel) WHERE id_personel IS NOT NULL;
 GO
@@ -389,6 +443,7 @@ CREATE TABLE dbo.perangkat_kiosk (
     nama        VARCHAR(100) NOT NULL,
     lokasi      VARCHAR(100) NULL,
     token_hash  CHAR(64)     NOT NULL,
+    id_comp_area INT NOT NULL CONSTRAINT FK_Kiosk_Area REFERENCES dbo.comp_area (id_comp_area),
     is_active   BIT NOT NULL CONSTRAINT DF_Kiosk_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Kiosk_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Kiosk_Id CHECK (id_pos NOT LIKE '%[^A-Z0-9_-]%')
@@ -447,7 +502,59 @@ END
 GO
 
 /* =========================== DATA AWAL =========================== */
+-- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
+INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)');
+INSERT INTO dbo.comp_area (id_company, kode, nama)
+SELECT id_company, 'SITE1', N'Site Utama (ubah di Admin › Organisasi)' FROM dbo.company WHERE kode = 'PT';
+INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'QC / Lab'), (N'Head Office');
+INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
+    ('ADMIN',            N'Super Admin',      1, '/admin'),
+    ('HO',               N'Head Office',      0, '/dashboard'),
+    ('SECURITY',         N'Security',         0, '/weighbridge?tab=security'),
+    ('OPERATOR_TIMBANG', N'Operator Timbang', 0, '/weighbridge?tab=timbangan'),
+    ('SORTASI',          N'Sortasi',          0, '/weighbridge?tab=sortasi'),
+    ('LAB',              N'Laboratorium',     0, '/weighbridge?tab=lab');
+INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
+    ('DASHBOARD',        N'Dashboard',        '/dashboard',            'fa-chart-line',    10),
+    ('LIST',             N'List',             '/weighbridge?view=list', 'fa-list',         20),
+    ('FORM',             N'Form',             '/weighbridge?view=form', 'fa-file-pen',     30),
+    ('FACE_RECOGNITION', N'Face Recognition', '/face-recognition',     'fa-face-smile',    40),
+    ('KONTRAK_DO',       N'Kontrak & DO',     '/kontrak',              'fa-file-contract', 50),
+    ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
+INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
+SELECT v.kode, v.nama, p.id_menu, v.urutan
+FROM (VALUES ('FORM_SECURITY',    N'Form › Security',          'FORM', 1),
+             ('FORM_TIMBANGAN',   N'Form › Timbangan',         'FORM', 2),
+             ('FORM_SORTASI',     N'Form › Sortasi',           'FORM', 3),
+             ('FORM_LAB',         N'Form › Laboratorium',      'FORM', 4),
+             ('ABSENSI',          N'Face Recognition › Absensi', 'FACE_RECOGNITION', 1),
+             ('PERSONEL',         N'Face Recognition › Personel', 'FACE_RECOGNITION', 2),
+             ('BLACKLIST',        N'Face Recognition › Blacklist', 'FACE_RECOGNITION', 3),
+             ('AUDIT_LOG',        N'Face Recognition › Audit Log', 'FACE_RECOGNITION', 4),
+             ('MASTER_DRIVER',    N'Data Master › Driver',     'MASTER', 1),
+             ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2)) v (kode, nama, induk, urutan)
+JOIN dbo.menu p ON p.kode = v.induk;
+INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
+SELECT l.id_level, m.id_menu, v.t, v.u, v.h
+FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
+             ('HO',               'PERSONEL',         1, 1, 1),
+             ('HO',               'BLACKLIST',        1, 0, 0),
+             ('HO',               'KONTRAK_DO',       1, 1, 1),
+             ('HO',               'MASTER_DRIVER',    1, 1, 1),
+             ('HO',               'MASTER_KENDARAAN', 1, 1, 0),
+             ('SECURITY',         'FORM_SECURITY',    1, 1, 0),
+             ('SECURITY',         'MASTER_DRIVER',    1, 1, 1),
+             ('SECURITY',         'MASTER_KENDARAAN', 1, 1, 0),
+             ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN',   1, 0, 0),
+             ('SORTASI',          'FORM_SORTASI',     1, 0, 0),
+             ('LAB',              'FORM_LAB',         1, 1, 0)) v (lv, mn, t, u, h)
+JOIN dbo.level l ON l.kode = v.lv
+JOIN dbo.menu m ON m.kode = v.mn;
+GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
-INSERT INTO dbo.users (nama, username, password, role) VALUES ('Super Admin', 'admin',
-    'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419', 'ADMIN');
+INSERT INTO dbo.users (nama, username, password, id_level, id_department, id_comp_area)
+SELECT 'Super Admin', 'admin',
+       'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
+       (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), (SELECT id_department FROM dbo.department WHERE nama = N'Umum'),
+       (SELECT MIN(id_comp_area) FROM dbo.comp_area);
 GO

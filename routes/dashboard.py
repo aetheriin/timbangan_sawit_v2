@@ -4,8 +4,8 @@ from datetime import date
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from extensions import role_required
 from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga
+from utils.hak_akses import izin, boleh
 
 dashboard_bp = Blueprint("dashboard", __name__)
 BATAS = {"harga_cpo": (0, 1_000_000), "harga_kernel": (0, 1_000_000), "oer_cpo": (0, 100), "biaya_olah": (0, 1_000_000)}
@@ -14,7 +14,7 @@ BATAS = {"harga_cpo": (0, 1_000_000), "harga_kernel": (0, 1_000_000), "oer_cpo":
 @dashboard_bp.route("/dashboard")
 @login_required
 def dashboard_halaman():
-    return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=current_user.role == "HO")
+    return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=boleh("DASHBOARD", "ubah"))
 
 
 @dashboard_bp.route("/api/dashboard/harga")
@@ -27,7 +27,7 @@ def dashboard_harga():
 
 @dashboard_bp.route("/api/dashboard/harga/simpan", methods=["POST"])
 @login_required
-@role_required("HO")
+@izin('DASHBOARD', 'ubah')
 def dashboard_harga_simpan():
     try:
         tanggal = date.fromisoformat(request.form.get("tanggal", ""))

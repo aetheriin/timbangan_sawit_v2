@@ -4,7 +4,7 @@
 <aside id="sidebar" class="sidebar">
     <div class="sidebar-title">MENU</div>
     <nav>
-    {% if current_user.role == 'ADMIN' %}
+    {% if current_user.is_admin %}
         <div class="sidebar-section">Admin</div>
         {% for key, (judul_menu, ikon_menu, _) in (menu_admin or {}).items() %}
         <a href="{{ url_for('admin.admin_halaman', halaman=key) }}"
@@ -13,30 +13,16 @@
         </a>
         {% endfor %}
     {% else %}
-        <a href="{{ url_for('dashboard.dashboard_halaman') }}"
-           class="sidebar-link{% if halaman == 'dashboard' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-chart-line w-4"></i> Dashboard
+        {# Menu dari tabel menu (Admin › Hak Akses: urutan, nama, ikon). Semua level non-admin melihat semua menu. #}
+        {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
+        {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
+                                  'master': 'MASTER'}.get(halaman) %}{% endif %}
+        {% for m in menu_sidebar() %}
+        <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
+           class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">
+            <i class="fa-solid {{ m.ikon or 'fa-circle' }} w-4"></i> {{ m.nama }}
         </a>
-        <a href="{{ url_for('main.weighbridge', view='list') }}" data-view="list"
-           class="sidebar-link{% if halaman == 'site' and view != 'form' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-list w-4"></i> List
-        </a>
-        <a href="{{ url_for('main.weighbridge', view='form') }}" data-view="form"
-           class="sidebar-link{% if halaman == 'site' and view == 'form' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-file-pen w-4"></i> Form
-        </a>
-        <a href="{{ url_for('main.face_recognition') }}"
-           class="sidebar-link{% if halaman == 'face' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-face-smile w-4"></i> Face Recognition
-        </a>
-        <a href="{{ url_for('kontrak.kontrak_halaman') }}"
-           class="sidebar-link{% if halaman == 'kontrak' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-file-contract w-4"></i> Kontrak & DO
-        </a>
-        <a href="{{ url_for('master.master_halaman') }}"
-           class="sidebar-link{% if halaman == 'master' %} sidebar-link-active{% endif %}">
-            <i class="fa-solid fa-database w-4"></i> Data Master
-        </a>
+        {% endfor %}
     {% endif %}
     </nav>
 </aside>

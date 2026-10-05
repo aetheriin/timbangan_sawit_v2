@@ -52,7 +52,7 @@ def load_user(user_id):
     if (row.sesi_versi or 0) != session.get("_versi", 0):
         log_keamanan("SESI_DICABUT", f"username={row.username}")
         return None
-    return User(row.id_user, row.username, row.nama, row.role)
+    return User.dari_row(row)
 
 @login_manager.unauthorized_handler
 def belum_login():

@@ -2,7 +2,6 @@
 from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 
-ROLE_VALID = ("ADMIN", "HO", "SECURITY", "OPERATOR_TIMBANG", "SORTASI", "LAB")
 TIPE_SUPPLIER = ("CUSTOMER", "PENGANGKUTAN")     # customer bisa membeli / menjual; pengangkutan = angkutan pihak ketiga
 KATEGORI_PRODUK = ("TBS", "PRODUK_PKS")
 
@@ -29,14 +28,21 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
         conn.close()
 
 
-# ===== USER =====
+# ===== USER (level, department, area dari tabel; hak akses di utils/hak_akses.py) =====
+_SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
+                         u.id_department, d.nama AS department, u.id_comp_area, a.nama AS area,
+                         u.is_active, u.last_login, u.created_at
+                  FROM users u JOIN level lv ON lv.id_level = u.id_level
+                  JOIN department d ON d.id_department = u.id_department
+                  JOIN comp_area a ON a.id_comp_area = u.id_comp_area"""
+
+
 def daftar_user():
-    return _query("""SELECT id_user, username, nama, role, is_active, last_login, created_at
-                     FROM users ORDER BY is_active DESC, role, nama""")
+    return _query(_SELECT_USER + " ORDER BY u.is_active DESC, lv.is_admin DESC, lv.nama, u.nama")
 
 
 def get_user(id_user):
-    rows = _query("SELECT id_user, username, nama, role, is_active FROM users WHERE id_user = ?", id_user)
+    rows = _query(_SELECT_USER + " WHERE u.id_user = ?", id_user)
     return rows[0] if rows else None
 
 
@@ -46,18 +52,21 @@ def username_dipakai(username, kecuali=None):
 
 
 def jumlah_admin_aktif(kecuali=None):
-    rows = _query("SELECT id_user FROM users WHERE role = 'ADMIN' AND is_active = 1")
+    rows = _query("""SELECT u.id_user FROM users u JOIN level lv ON lv.id_level = u.id_level
+                     WHERE lv.is_admin = 1 AND lv.is_active = 1 AND u.is_active = 1""")
     return len([r for r in rows if r["id_user"] != kecuali])
 
 
-def tambah_user(username, nama, role, password_hash):
-    _ubah("INSERT INTO users (username, nama, role, password) VALUES (?, ?, ?, ?)", username, nama, role, password_hash)
+def tambah_user(username, nama, id_level, id_department, id_comp_area, password_hash):
+    _ubah("""INSERT INTO users (username, nama, id_level, id_department, id_comp_area, password)
+             VALUES (?, ?, ?, ?, ?, ?)""", username, nama, id_level, id_department, id_comp_area, password_hash)
 
 
-def ubah_user(id_user, nama, role):
-    """Ganti role -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
-    _ubah("""UPDATE users SET nama = ?, sesi_versi = sesi_versi + CASE WHEN role <> ? THEN 1 ELSE 0 END,
-             role = ?, updated_at = GETDATE() WHERE id_user = ?""", nama, role, role, id_user)
+def ubah_user(id_user, nama, id_level, id_department, id_comp_area):
+    """Ganti level -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
+    _ubah("""UPDATE users SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
+             id_level = ?, id_department = ?, id_comp_area = ?, updated_at = GETDATE() WHERE id_user = ?""",
+          nama, id_level, id_level, id_department, id_comp_area, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 

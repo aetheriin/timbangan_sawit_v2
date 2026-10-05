@@ -2,7 +2,7 @@
 {% from "partials/layout/_macros.html" import tab_header %}
 {% block title %}Data Master · Weighbridge{% endblock %}
 
-{# Data Master: Driver (personel kategori DRIVER) & Kendaraan. Tambah / ubah: SECURITY & HO, role lain hanya melihat. #}
+{# Data Master: Driver (personel kategori DRIVER) & Kendaraan. Tombol tambah / ubah sesuai Admin › Hak Akses. #}
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
@@ -16,10 +16,8 @@
 {% endblock %}
 
 {% block modals %}
-    {% if boleh_ubah %}
-    {% include "partials/face_recognition/personel_modals.html" %}
-    {% include "partials/master/kendaraan_modal.html" %}
-    {% endif %}
+    {% if boleh_ubah %}{% include "partials/face_recognition/personel_modals.html" %}{% endif %}
+    {% if boleh_kendaraan %}{% include "partials/master/kendaraan_modal.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}

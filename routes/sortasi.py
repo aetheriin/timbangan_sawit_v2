@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.db_utils import simpan_sortasi, get_history_umum, cari_transaksi_aktif
+from utils.hak_akses import izin
 
 sortasi_bp = Blueprint('sortasi', __name__)
 
 @sortasi_bp.route("/api/sortasi/simpan", methods=["POST"])
 @login_required
-@role_required('SORTASI')
+@izin('FORM_SORTASI', 'tambah')
 def sortasi_simpan():
     no_tiket = request.form.get("no_tiket")
     if not no_tiket:

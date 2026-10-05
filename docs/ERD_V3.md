@@ -626,6 +626,12 @@ Pengaturan, Perangkat, Log, Kesehatan). Void tiket tetap di menu Admin seperti s
 | Upload surat | path di kolom tabel | `dokumen` + `dokumen_file` (satu fungsi upload untuk semua jenis) |
 | Audit | 4 fungsi / tabel | `catat_log(aksi, tabel, id, lama, baru)` |
 
+## Status pengerjaan
+
+| Fase | Status |
+|---|---|
+| 1. Organisasi & hak akses | **Selesai** (migrasi `008_organisasi_hak_akses.sql`). Catatan: tabel `users` belum di-rename menjadi `akun` dan PK masih `id_user`, supaya semua FK lama (`created_by`, `security_id`, operator, dll.) tetap utuh. Rename + `id_personel` wajib dilakukan di fase bersih-bersih, setelah semua akun dihubungkan ke personel |
+
 ## Rencana migrasi
 
 | Fase | Isi | Pindah data |

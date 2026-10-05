@@ -1,0 +1,20 @@
+{% from "partials/layout/_macros.html" import section_header %}
+{% for key, judul, kolom in [('company', 'Company', ['Kode', 'Nama', 'Jumlah Area']),
+                             ('area', 'Area (Site)', ['Kode', 'Nama', 'Company', 'Alamat', 'User Aktif']),
+                             ('department', 'Department', ['Nama', 'Keterangan', 'User Aktif'])] %}
+<div class="section-box">
+    {% call section_header('org-' ~ key, judul) %}
+    <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaOrganisasi" data-arg="{{ key }}">
+        <i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+    {% endcall %}
+    <div id="body-org-{{ key }}" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr>{% for k in kolom %}<th class="table-cell">{{ k }}</th>{% endfor %}
+                    <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelOrg-{{ key }}" data-kolom="{{ kolom | length + 2 }}" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}

@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.db_utils import (get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif,
                             get_history_standar)
+from utils.hak_akses import izin
 
 lab_bp = Blueprint('lab', __name__)
 
@@ -14,7 +14,7 @@ def lab_standar(id_produk):
 
 @lab_bp.route("/api/lab/standar/update", methods=["POST"])
 @login_required
-@role_required('LAB')
+@izin('FORM_LAB', 'ubah')
 def lab_standar_update():
     f = request.form
     try:
@@ -35,7 +35,7 @@ def lab_standar_history():
 
 @lab_bp.route("/api/lab/simpan", methods=["POST"])
 @login_required
-@role_required('LAB')
+@izin('FORM_LAB', 'tambah')
 def lab_simpan():
     f = request.form
     no_tiket, keputusan = f.get("no_tiket"), f.get("keputusan")

@@ -1,0 +1,36 @@
+<!-- MODAL: Tambah / Ubah Level -->
+<div id="modalLevel" class="modal-overlay">
+    <form id="formLevel" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalLevel" class="font-bold">Tambah Level</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalLevel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_level">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="levelKode">Kode</label>
+                    <input type="text" id="levelKode" name="kode" maxlength="30" class="input-field uppercase" placeholder="SUPERVISOR">
+                    <p class="field-hint">Tidak bisa diubah setelah dibuat.</p>
+                </div>
+                <div>
+                    <label class="field-label" for="levelNama">Nama</label>
+                    <input type="text" id="levelNama" name="nama" required maxlength="100" class="input-field">
+                </div>
+            </div>
+            <div>
+                <label class="field-label" for="levelAwal">Halaman Awal Setelah Login</label>
+                <input type="text" id="levelAwal" name="halaman_awal" required maxlength="100" class="input-field" placeholder="/weighbridge?tab=security">
+                <p class="field-hint">Contoh: /dashboard, /weighbridge?tab=timbangan, /master</p>
+            </div>
+            <div>
+                <label class="field-label" for="levelKet">Keterangan</label>
+                <input type="text" id="levelKet" name="keterangan" maxlength="255" class="input-field">
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalLevel" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

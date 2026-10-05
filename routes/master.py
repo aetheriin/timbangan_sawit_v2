@@ -1,21 +1,19 @@
-"""Menu Data Master: Driver (personel kategori DRIVER) & Kendaraan. Tambah / ubah oleh SECURITY dan HO."""
+"""Menu Data Master: Driver (personel kategori DRIVER) & Kendaraan. Aksi sesuai Admin › Hak Akses."""
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from extensions import role_required
 from utils import db_master as db
 from utils.plat_utils import normalisasi_plat
+from utils.hak_akses import izin, boleh
 
 master_bp = Blueprint("master", __name__)
-
-ROLE_UBAH = ("SECURITY", "HO")
-
 
 @master_bp.route("/master")
 @login_required
 def master_halaman():
     return render_template("master/master.html", halaman="master", kategori_tetap="DRIVER",
-                           boleh_ubah=current_user.role in ROLE_UBAH, driver_list=db.daftar_driver_aktif())
+                           boleh_ubah=boleh("MASTER_DRIVER"), boleh_kendaraan=boleh("MASTER_KENDARAAN"),
+                           driver_list=db.daftar_driver_aktif())
 
 
 @master_bp.route("/api/master/kendaraan")
@@ -26,7 +24,7 @@ def kendaraan_daftar():
 
 @master_bp.route("/api/master/kendaraan/simpan", methods=["POST"])
 @login_required
-@role_required(*ROLE_UBAH)
+@izin('MASTER_KENDARAAN', 'tambah', 'ubah')
 def kendaraan_simpan():
     f = request.form
     id_kendaraan = int(f["id_kendaraan"]) if (f.get("id_kendaraan") or "").isdigit() else None
@@ -55,7 +53,7 @@ def kendaraan_simpan():
 
 @master_bp.route("/api/master/kendaraan/<int:id_kendaraan>/aktif", methods=["POST"])
 @login_required
-@role_required(*ROLE_UBAH)
+@izin('MASTER_KENDARAAN', 'ubah')
 def kendaraan_aktif(id_kendaraan):
     aktif = request.form.get("aktif") in ("1", "true")
     k = db.get_kendaraan(id_kendaraan)

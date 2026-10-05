@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from flask_login import login_required, current_user
-from extensions import role_required, UPLOAD_FOLDER
+from extensions import UPLOAD_FOLDER
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
@@ -18,6 +18,7 @@ from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
 from utils.personel_utils import format_nama_personel
 from utils.face_cache import slot_proses_wajah, cari_terdekat
+from utils.hak_akses import izin
 
 security_bp = Blueprint('security', __name__)
 
@@ -36,7 +37,7 @@ JENIS_TRANSAKSI = ("PEMBELIAN", "PENJUALAN", "PENIMBANGAN_SAJA")
 
 @security_bp.route("/api/security/buat-tiket", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def buat_tiket():
     f = request.form
     no_tiket = f.get("no_tiket", "").strip()
@@ -138,7 +139,7 @@ def _data_verif(d, is_updated=None):
 
 @security_bp.route("/api/driver/tambah", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def driver_tambah():
     nik = request.form.get("nik", "").strip()
     nama = request.form.get("nama", "").strip()
@@ -182,7 +183,7 @@ def driver_tambah():
 
 @security_bp.route("/api/driver/update-identitas", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def driver_update_identitas():
     f = request.form
     id_driver, nik, nama, no_sim = f.get("id_driver", "").strip(), f.get("nik", "").strip(), \
@@ -223,7 +224,7 @@ def driver_update_identitas():
 
 @security_bp.route("/api/kamera/start", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def kamera_start():
     verif.mulai_scan(id_pos(), current_user.id)
     return jsonify({"status": "SUCCESS"}), 200

@@ -1,0 +1,39 @@
+{% from "partials/layout/_macros.html" import section_header %}
+{# Level = pengganti role. Semua level non-admin melihat semua menu; yang diatur di sini hanya aksi tambah / ubah / hapus. #}
+<div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+    <div class="xl:col-span-2 section-box">
+        {% call section_header('daftar-level', 'Level') %}
+        <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaLevel"><i class="fa-solid fa-plus mr-1"></i> Tambah Level</button>
+        {% endcall %}
+        <div id="body-daftar-level" class="section-body overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Level</th><th class="table-cell">Halaman Awal</th><th class="table-cell">User</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody id="tabelLevel" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="xl:col-span-3 section-box">
+        {% call section_header('matriks-akses', 'Hak Akses') %}
+        <span id="judulMatriks" class="text-sm text-slate-500" data-henti-klik>Pilih level di sebelah kiri</span>
+        {% endcall %}
+        <form id="formAkses" class="section-body">
+            <div id="infoAdmin" class="note-warning m-4 hidden">Level admin hanya membuka menu Admin dan tidak punya aksi operasional.</div>
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Menu</th>
+                        <th class="table-cell text-center">Tambah</th><th class="table-cell text-center">Ubah</th><th class="table-cell text-center">Hapus</th></tr>
+                </thead>
+                <tbody id="tabelAkses" class="divide-y divide-slate-100">
+                    <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Pilih level dulu</td></tr>
+                </tbody>
+            </table>
+            <div class="flex justify-end gap-2 p-4">
+                <button type="submit" id="btnSimpanAkses" class="btn-primary" disabled>Simpan Hak Akses</button>
+            </div>
+        </form>
+    </div>
+</div>

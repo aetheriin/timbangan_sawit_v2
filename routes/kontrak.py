@@ -4,9 +4,9 @@ from datetime import date
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from extensions import role_required
 from utils import db_kontrak as db
 from utils.db_utils import get_semua_produk
+from utils.hak_akses import izin, boleh
 
 kontrak_bp = Blueprint("kontrak", __name__)
 
@@ -24,10 +24,10 @@ def _json_do(d):
 @kontrak_bp.route("/kontrak")
 @login_required
 def kontrak_halaman():
-    """Semua role bisa melihat; hanya HO yang bisa menambah / mengubah (dicek juga di API)."""
+    """Semua level bisa melihat; tambah / ubah sesuai Admin › Hak Akses (dicek juga di API)."""
     mitra = db.daftar_mitra()
     return render_template("kontrak/kontrak.html", halaman="kontrak", jenis_list=db.JENIS_VALID,
-                           boleh_ubah=current_user.role == "HO",
+                           boleh_ubah=boleh("KONTRAK_DO"),
                            customer_list=[m for m in mitra if m["tipe"] == "CUSTOMER"],
                            angkutan_list=[m for m in mitra if m["tipe"] == "PENGANGKUTAN"],
                            produk_list=get_semua_produk())
@@ -41,7 +41,7 @@ def do_daftar():
 
 @kontrak_bp.route("/api/kontrak/terakhir")
 @login_required
-@role_required("HO")
+@izin('KONTRAK_DO', 'tambah')
 def do_kontrak_terakhir():
     d = db.kontrak_terakhir((request.args.get("no_kontrak") or "").strip().upper())
     return jsonify(_json_do(d) if d else {})
@@ -70,7 +70,7 @@ def _id(nama, wajib=True):
 
 @kontrak_bp.route("/api/kontrak/do/simpan", methods=["POST"])
 @login_required
-@role_required("HO")
+@izin('KONTRAK_DO', 'tambah', 'ubah')
 def do_simpan():
     f = request.form
     try:
@@ -103,7 +103,7 @@ def do_simpan():
 
 @kontrak_bp.route("/api/kontrak/do/<int:id_do>/aktif", methods=["POST"])
 @login_required
-@role_required("HO")
+@izin('KONTRAK_DO', 'ubah')
 def do_aktif(id_do):
     aktif = request.form.get("aktif") in ("1", "true")
     try:

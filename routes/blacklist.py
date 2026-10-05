@@ -2,13 +2,13 @@
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.db_blacklist import TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
 from utils.upload_utils import simpan_upload, hapus_file, SURAT_EKSTENSI
+from utils.hak_akses import izin
 
 blacklist_bp = Blueprint('blacklist', __name__)
 
@@ -33,7 +33,7 @@ def blacklist_cari_target():
 
 @blacklist_bp.route("/api/blacklist/cari-wajah", methods=["POST"])
 @login_required
-@role_required('HO')
+@izin('BLACKLIST', 'tambah')
 def blacklist_cari_wajah():
     """Target blacklist dari wajah: foto kamera atau upload -> personel yang paling mirip. Foto tidak disimpan."""
     try:
@@ -68,7 +68,7 @@ def _terkait(f):
 
 @blacklist_bp.route("/api/blacklist/tambah", methods=["POST"])
 @login_required
-@role_required('HO')
+@izin('BLACKLIST', 'tambah')
 def blacklist_tambah():
     f = request.form
     tipe = f.get("tipe_entitas", "").upper()

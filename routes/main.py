@@ -1,4 +1,5 @@
 import io
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 import qrcode
 import qrcode.image.svg
@@ -15,11 +16,14 @@ from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan, kiosk
 from utils.keamanan import id_pos
+from utils.hak_akses import boleh
 
 main_bp = Blueprint('main', __name__)
 
 # Tahap yang ditangani tiap role: halaman List default ke tahap ini, Form default ke tab ini
-TAHAP_ROLE = {"SECURITY": "security", "OPERATOR_TIMBANG": "timbangan", "SORTASI": "sortasi", "LAB": "lab"}
+def _tab_awal():
+    """Tab / tahap awal dari halaman awal level (mis. /weighbridge?tab=timbangan, Admin › Hak Akses)."""
+    return parse_qs(urlparse(current_user.halaman_awal or "").query).get("tab", [""])[0]
 
 
 @main_bp.route("/weighbridge")
@@ -28,9 +32,9 @@ def weighbridge():
     """List = daftar tiket aktif per tahap (tanpa info bar & tab). Form = info bar + tab Security..Lab."""
     if request.args.get("view") != "form":
         return render_template("site/list.html", halaman="site", view="list", produk_list=get_semua_produk(),
-                               tahap_awal=TAHAP_ROLE.get(current_user.role, ""))
+                               tahap_awal=_tab_awal())
     return render_template("site/weighbridge.html", halaman="site", view="form",
-                           tab_awal=TAHAP_ROLE.get(current_user.role, "security"),
+                           tab_awal=_tab_awal() or "security",
                            supplier_list=get_semua_supplier(), produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH"),
                            pos_list=kiosk.daftar_aktif(), pos_dipilih=id_pos())
@@ -47,7 +51,7 @@ def history_produk():
 @login_required
 def face_recognition():
     """Satu halaman, tab Absensi | Personel | Blacklist | Audit Log (tanpa info bar)."""
-    return render_template("face_recognition/face_recognition.html", halaman="face")
+    return render_template("face_recognition/face_recognition.html", halaman="face", boleh_ubah=boleh("PERSONEL"))
 
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required

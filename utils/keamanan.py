@@ -105,7 +105,9 @@ def pasang_cookie(app):
 
     @app.context_processor
     def info_sesi():
-        return {"sesi_idle_detik": pengaturan.nilai("SESI_IDLE_MENIT") * 60}
+        from utils import hak_akses
+        return {"sesi_idle_detik": pengaturan.nilai("SESI_IDLE_MENIT") * 60,
+                "boleh": hak_akses.boleh, "menu_sidebar": hak_akses.menu_sidebar}
 
 
 def mulai_sesi(user, sesi_versi=0):
@@ -164,12 +166,12 @@ def pasang_batas_admin(app):
     def batas_admin():
         if not current_user.is_authenticated or request.path.startswith(PATH_UMUM) or request.path == "/":
             return None
-        admin = current_user.role == "ADMIN"
+        admin = current_user.is_admin
         if admin == _area_admin(request.path):
             return None
-        log_keamanan("AKSES_DITOLAK", f"role {current_user.role} ke {request.path}")
+        log_keamanan("AKSES_DITOLAK", f"level {current_user.role} ke {request.path}")
         if request.path.startswith("/api/"):
-            return jsonify({"error": "Akses ditolak untuk role Anda"}), 403
+            return jsonify({"error": "Akses ditolak untuk level Anda"}), 403
         if admin:
             return redirect("/admin")
         abort(403)

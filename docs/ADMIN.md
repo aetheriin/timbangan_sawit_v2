@@ -1,22 +1,23 @@
 # Halaman Admin (Super Admin)
 
-Hanya role `ADMIN`. Admin **hanya** melihat menu Admin (tidak bisa membuka Weighbridge / Face Recognition,
+Hanya level dengan tanda admin (`level.is_admin = 1`, bawaan: `ADMIN`). Admin **hanya** melihat menu Admin (tidak bisa membuka Weighbridge / Face Recognition,
 tidak bisa membuat tiket / menimbang). Role lain yang membuka `/admin` mendapat 403.
 Tampilan memakai `base.html` yang sama: tanpa info bar dan tanpa tab, menu ada di sidebar.
 Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recognition.
 
 ## Cara memasang
 
-1. Jalankan migrasi `database/migrations/004_admin.sql` di SSMS (setelah 001–003). Migrasi ini **wajib**: login
-   sekarang membaca kolom `users.sesi_versi`.
+1. Jalankan migrasi `database/migrations/` 001–008 berurutan di SSMS. **008 wajib** untuk versi ini: login membaca
+   tabel `level` (kolom `users.role` diganti `users.id_level`).
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
 
    ```sql
-   INSERT INTO users (nama, username, password, role)
-   VALUES ('Super Admin', 'admin',
-           'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
-           'ADMIN');
+   INSERT INTO users (nama, username, password, id_level, id_department, id_comp_area)
+   SELECT 'Super Admin', 'admin',
+          'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
+          (SELECT id_level FROM level WHERE kode = 'ADMIN'), (SELECT MIN(id_department) FROM department),
+          (SELECT MIN(id_comp_area) FROM comp_area);
    ```
 3. `pip install -r requirements.txt` lalu jalankan aplikasi. Login sebagai admin langsung masuk ke `/admin/users`.
 
@@ -24,7 +25,9 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 | Menu | Isi | Berlaku |
 |---|---|---|
-| Kelola User | Tambah user, ubah nama / role, reset password, aktif / nonaktif. User tidak dihapus | Ganti role, reset password, nonaktif → semua sesi user itu langsung berakhir |
+| Kelola User | Tambah user, ubah nama / level / department / area, reset password, aktif / nonaktif. User tidak dihapus | Ganti level, reset password, nonaktif → semua sesi user itu langsung berakhir |
+| Level & Hak Akses | Tambah / ubah level (pengganti role), halaman awal setelah login, aktif / nonaktif level. Matriks centang Tambah / Ubah / Hapus per menu | ±30 detik di semua PC, tanpa login ulang |
+| Organisasi | Company, area (site), department | Langsung muncul di pilihan Kelola User |
 | Sesi Aktif | Siapa yang login dari semua PC (tabel `sesi_login`, migrasi 007), IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
 | Supplier & Produk | Tambah / ubah / aktif / nonaktif supplier (Supplier Pembelian / Buyer Penjualan) dan produk (TBS / Produk PKS) | Langsung muncul / hilang di pilihan Form |
 | Void Tiket | Batalkan tiket salah input (wajib alasan). Status jadi VOID: keluar dari daftar aktif, QR tidak berlaku, tidak bisa ditimbang. Data tidak dihapus | Langsung |
@@ -63,7 +66,7 @@ Kunci login yang sedang berjalan bisa dibuka lebih cepat di **Sesi Aktif › Log
 ## Keamanan halaman admin
 
 - Semua aksi lewat POST + token CSRF; semua tercatat di Audit Admin (+ reset password / paksa keluar juga di log keamanan).
-- Admin tidak bisa menonaktifkan / menurunkan role akunnya sendiri, dan sistem menolak bila admin aktif tinggal 0.
+- Admin tidak bisa menonaktifkan / menurunkan level akunnya sendiri, dan sistem menolak bila admin aktif tinggal 0.
 - Password minimal 8 karakter, disimpan sebagai hash pbkdf2. User hanya mengganti password sendiri saat login
   dengan password kedaluwarsa / baru direset (muncul popup lalu halaman ganti password). Ganti sebelum kedaluwarsa
   lewat admin (Kelola User › Reset Password).
