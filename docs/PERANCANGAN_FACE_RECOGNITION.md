@@ -165,7 +165,7 @@ ERD lengkap (gambar, tabel relasi, kode Mermaid & DBML) ada di **[docs/ERD.md](E
 `schema.sql` + migrasi 001 + migrasi 002. Ringkasan tambahan dari migrasi 002 ada di bagian
 "Perubahan dari migrasi 002" pada dokumen tersebut.
 
-![ERD](erd.png)
+![ERD](erd/lengkap.png) (ERD final terbaru: [ERD.md](ERD.md))
 
 ### 4.1 Perbedaan dengan ERD usulan awal
 
