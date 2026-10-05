@@ -14,7 +14,7 @@ Database: SQL Server 2022 (JSON disimpan di `NVARCHAR(MAX)` + `CHECK (ISJSON(...
 3. **Satu sumber kebenaran**: orang hanya di `personel`, blacklist hanya di `blacklist`, file hanya di `dokumen_file`,
    riwayat perubahan hanya di `log_aktivitas`.
 4. **Angka turunan tidak disimpan**: netto, realisasi / sisa DO dihitung lewat view.
-5. Semua role (selain ADMIN) **melihat semua menu**; yang dibedakan hanya aksi tambah / ubah / hapus / setujui.
+5. Semua role (selain ADMIN) **melihat semua menu**; yang dibedakan hanya aksi tambah / ubah / hapus.
 
 ## Ringkasan perubahan dari v2 (yang sekarang)
 
@@ -24,13 +24,16 @@ Database: SQL Server 2022 (JSON disimpan di `NVARCHAR(MAX)` + `CHECK (ISJSON(...
 | `role_required('SECURITY')` di kode | `menu` + `level_akses` | Hak akses diatur Admin dari layar matriks |
 | `personel.no_sim`, `kategori` teks | `personel_sim` + `jenis_sim`, `kategori_personel` | SIM hanya driver, bisa > 1, ada masa berlaku |
 | `personel.face_embedding_data`, `foto_path`, `foto_sumber` | `personel_wajah` | Bisa beberapa foto / embedding, riwayat tidak hilang |
-| – | `kunjungan` + `keperluan_kunjungan` | Tamu = personel kategori TAMU, setiap kedatangan dicatat dengan orang yang dituju |
+| – | `kunjungan` + `keperluan_kunjungan` | Tamu = personel kategori TAMU (tanpa akun), scan wajah tiap datang, dicatat dengan orang yang dituju |
 | `supplier` | `mitra` | Isinya customer & pengangkutan, bukan hanya supplier |
-| `delivery_order.no_kontrak` (teks), `id_customer`, `id_produk`, `jenis_transaksi` | `kontrak` → `delivery_order` (FK) | Customer, produk, harga, qty ada di kontrak; DO tinggal menunjuk kontrak |
+| `delivery_order.no_kontrak` (teks), `id_customer`, `id_produk`, `jenis_transaksi` | `kontrak` (1 kontrak 1 produk) → `delivery_order` (FK) | Customer, produk, harga, qty ada di kontrak; DO (= nomor pengangkutan) tinggal menunjuk kontrak |
+| `id_pengangkutan` (NULL = customer sendiri) | `cara_angkut` PENGIRIM / PENERIMA / PIHAK_KETIGA + `id_pengangkutan` hanya untuk pihak ketiga | 3 kemungkinan pengangkutan tercatat jelas |
+| `kendaraan.no_stnk` boleh kosong | wajib & unik | Setiap kendaraan terdaftar wajib STNK |
+| `jadwal_kerja` (satu untuk semua) | per area (`id_comp_area`, `hari`) | Jam kerja tiap site bisa berbeda |
 | `transaksi.no_do` (teks) | `transaksi.id_do` FK | Integritas data |
 | status_alur di kode (TBS → sortasi, PKS → lab) | `mill` → `alur` → `alur_tahap` | Arah tahap ditentukan data |
 | `timbangan` (bruto + tara dalam 1 baris, tara NULL sebelum keluar) | `penimbangan` (baris ke-1 & ke-2) + `jembatan_timbang` | Tanpa NULL; masuk & keluar wajib di jembatan yang sama |
-| `transaksi.alasan_void`, `void_by`, `void_at`, `alasan_reject`, `rejected_by` | `pembatalan_tiket` | Kolom NULL di hampir semua tiket; siap untuk persetujuan |
+| `transaksi.alasan_void`, `void_by`, `void_at`, `alasan_reject`, `rejected_by` | `pembatalan_tiket` | Kolom NULL di hampir semua tiket. Void tetap oleh Admin; berita acara boleh menyusul |
 | `blacklist.file_surat_blacklist` | `dokumen` + `dokumen_file` (`jenis_dokumen`) | Satu tempat untuk surat blacklist, BA void, COA, scan SIM / STNK |
 | `admin_audit_logs`, `security_audit_logs`, `personel_audit_logs`, `standar_mutu_log`, `timeline_monitoring` | `log_aktivitas` (JSON + rantai hash) | Satu riwayat untuk semua |
 | `transaksi.is_driver_changed`, `prev_driver_id` | `log_aktivitas` (aksi `GANTI_DRIVER`) | Jarang terisi |
@@ -98,7 +101,6 @@ erDiagram
         bit bisa_tambah
         bit bisa_ubah
         bit bisa_hapus
-        bit bisa_setujui
     }
     akun {
         int id_personel PK, FK
@@ -149,6 +151,7 @@ erDiagram
         varchar kode UK "DRIVER, SECURITY, KARYAWAN, TAMU"
         nvarchar nama
         bit wajib_sim
+        bit boleh_akun "TAMU & DRIVER = 0"
     }
     personel {
         int id_personel PK
@@ -207,6 +210,7 @@ erDiagram
         int dicatat_oleh FK
     }
     jadwal_kerja {
+        int id_comp_area PK, FK
         tinyint hari PK
         time jam_masuk
         time jam_pulang
@@ -238,7 +242,7 @@ erDiagram
     kendaraan {
         int id_kendaraan PK
         varchar no_plat UK "BM 1455 JJ"
-        varchar no_stnk
+        varchar no_stnk UK "wajib"
         int id_jenis_kendaraan FK
         int id_dokumen_stnk FK "opsional"
         bit is_blacklisted "cache"
@@ -304,7 +308,8 @@ erDiagram
         int id_do PK
         nvarchar no_do UK
         int id_kontrak FK
-        int id_pengangkutan FK "NULL = customer sendiri"
+        varchar cara_angkut "PENGIRIM | PENERIMA | PIHAK_KETIGA"
+        int id_pengangkutan FK "hanya PIHAK_KETIGA"
         date tanggal_do
         date berlaku_sampai
         decimal qty_kg
@@ -344,7 +349,8 @@ erDiagram
         int id_mitra FK "customer"
         int id_produk FK
         int id_do FK "NULL = tanpa DO"
-        int id_pengangkutan FK "NULL = customer sendiri"
+        varchar cara_angkut "dari DO / diisi Security"
+        int id_pengangkutan FK "hanya PIHAK_KETIGA"
         int id_kendaraan FK
         int id_driver FK
         int id_jembatan FK "diisi saat timbang ke-1"
@@ -393,11 +399,9 @@ erDiagram
         varchar no_tiket PK, FK
         varchar jenis "VOID | REJECT"
         nvarchar alasan
-        int id_dokumen FK "BA, wajib untuk VOID"
-        int diajukan_oleh FK
-        datetime diajukan_at
-        int disetujui_oleh FK "tahap berikutnya"
-        datetime disetujui_at
+        int id_dokumen FK "berita acara, boleh menyusul"
+        int oleh FK "akun Admin"
+        datetime waktu
     }
 
     %% ===== BLACKLIST, DOKUMEN, LOG =====
@@ -479,6 +483,8 @@ erDiagram
     personel ||--o{ kunjungan : "dituju"
     keperluan_kunjungan ||--o{ kunjungan : ""
     personel |o--o{ absensi : ""
+    comp_area ||--o{ jadwal_kerja : ""
+    mitra |o--o{ transaksi : "pihak ketiga"
     perangkat_kiosk ||--o{ absensi : ""
 
     jenis_kendaraan |o--o{ kendaraan : ""
@@ -492,7 +498,7 @@ erDiagram
     produk ||--o{ kontrak : ""
     mill ||--o{ kontrak : ""
     kontrak ||--o{ delivery_order : ""
-    mitra |o--o{ delivery_order : "pengangkutan"
+    mitra |o--o{ delivery_order : "pihak ketiga"
 
     alur ||--o{ alur_tahap : ""
     tahap ||--o{ alur_tahap : ""
@@ -528,13 +534,16 @@ erDiagram
 
 | Tabel | Aturan |
 |---|---|
-| `akun` | `id_personel` = PK sekaligus FK → satu orang maksimal satu akun. Kategori personel tidak menentukan hak akses; `level` yang menentukan |
+| `akun` | `id_personel` = PK sekaligus FK → satu orang maksimal satu akun. Hanya personel dengan `kategori_personel.boleh_akun = 1` (Security, Karyawan); tamu & driver tidak punya akun. Hak akses ditentukan `level`, bukan kategori |
+| `delivery_order`, `transaksi` | `CHECK ((cara_angkut = 'PIHAK_KETIGA') = (id_pengangkutan IS NOT NULL))`. Pengirim / penerima mengikuti jenis transaksi: PEMBELIAN → pengirim = mitra, penerima = PT kita; PENJUALAN → sebaliknya |
+| `kendaraan` | `no_stnk` NOT NULL + UNIQUE |
+| `jadwal_kerja` | Absensi dinilai dengan jadwal area tempat scan (`perangkat_kiosk.id_comp_area`) |
 | `personel_sim` | Wajib minimal 1 SIM aktif bila `kategori_personel.wajib_sim = 1` (dicek aplikasi saat simpan driver) |
 | `personel_wajah` | Maks 1 `is_utama = 1` per personel (filtered unique index) |
 | `blacklist` | `CHECK ((id_personel IS NULL) <> (id_kendaraan IS NULL))`; permanen (trigger menolak UPDATE / DELETE); trigger mengisi `is_blacklisted` di `personel` / `kendaraan` |
 | `penimbangan` | `CHECK (ke IN (1, 2))`; trigger: `ke = 2` wajib `id_jembatan` sama dengan `ke = 1`, dan `transaksi.id_jembatan` diisi saat `ke = 1` |
 | `transaksi` | Tahap berikutnya = baris `alur_tahap` setelah `tahap_sekarang` pada alur milik `mill` tiket |
-| `pembatalan_tiket` | `jenis = 'VOID'` wajib `id_dokumen` (berita acara) |
+| `pembatalan_tiket` | VOID oleh Admin seperti sekarang (wajib alasan). `id_dokumen` (berita acara) boleh menyusul |
 | `dokumen` | Minimal satu `dokumen_file` bila `jenis_dokumen.wajib_file = 1`; `sha256` dihitung saat upload |
 | `log_aktivitas` | Hanya INSERT (trigger menolak UPDATE / DELETE). `hash_baris = SHA256(hash_sebelum + isi baris)` → baris yang diubah / dihapus ketahuan |
 | JSON | `nilai_lama`, `nilai_baru`: `CHECK (ISJSON(...) = 1)`; yang sering dicari (aksi, tabel, id_baris, waktu) kolom biasa + index |
@@ -569,8 +578,8 @@ erDiagram
 | KUNJUNGAN (tamu, baru) | – | tambah, ubah | – | – | – |
 | LIST, ABSENSI, AUDIT_LOG | lihat | lihat | lihat | lihat | lihat |
 
-ADMIN: semua menu `ADMIN_*` (Kelola User, Hak Akses (baru), Sesi Aktif, Master, Void Tiket = setujui, Jadwal,
-Pengaturan, Perangkat, Log, Kesehatan).
+ADMIN: semua menu `ADMIN_*` (Kelola User, Hak Akses (baru), Sesi Aktif, Master, Void Tiket, Jadwal,
+Pengaturan, Perangkat, Log, Kesehatan). Void tiket tetap di menu Admin seperti sekarang.
 
 **alur / alur_tahap**
 
@@ -580,7 +589,9 @@ Pengaturan, Perangkat, Log, Kesehatan).
 | PKS | SECURITY → TIMBANG_1 → LAB → TIMBANG_2 |
 | TIMBANG_SAJA | SECURITY → TIMBANG_1 → TIMBANG_2 |
 
-**kategori_personel**: DRIVER (wajib_sim), SECURITY, KARYAWAN, TAMU.
+**kategori_personel**: DRIVER (wajib_sim, tanpa akun), SECURITY (boleh akun), KARYAWAN (boleh akun), TAMU (tanpa akun).
+
+**Alur tamu**: Security mendaftarkan tamu sebagai personel kategori TAMU + foto wajah (`personel_wajah`). Setiap datang, scan wajah → baris `kunjungan` (orang yang dituju, keperluan); keluar → `waktu_keluar` diisi.
 **jenis_sim**: A, B1, B1_UMUM, B2, B2_UMUM.
 **jenis_dokumen**: SURAT_BLACKLIST (wajib file), BA_VOID (wajib file), COA, SIM, STNK, KONTRAK.
 **keperluan_kunjungan**: Rapat, Pengiriman Barang, Perbaikan / Servis, Audit, Lainnya.
@@ -603,18 +614,23 @@ Pengaturan, Perangkat, Log, Kesehatan).
 |---|---|---|
 | 1 | Organisasi & akses: company, comp_area, department, level, menu, level_akses, akun | `users` → `personel` (bila belum ada) + `akun`; role → level |
 | 2 | Personel: kategori, SIM, wajah, kunjungan | `personel.no_sim` → `personel_sim`; embedding & foto → `personel_wajah` |
-| 3 | Dokumen & pembatalan | `blacklist.file_surat_blacklist` → `dokumen`; kolom void / reject → `pembatalan_tiket` |
-| 4 | Proses: alur, mill, jembatan, penimbangan, kontrak → DO, mitra | `timbangan` → 2 baris `penimbangan`; `no_kontrak` teks → `kontrak`; `no_do` → `id_do` |
+| 3 | Dokumen & pembatalan | `blacklist.file_surat_blacklist` → `dokumen`; kolom void / reject → `pembatalan_tiket` (berita acara kosong dulu) |
+| 4 | Proses: alur, mill, jembatan, penimbangan, kontrak → DO, mitra, jadwal per area | `timbangan` → 2 baris `penimbangan`; `no_kontrak` teks → `kontrak`; `no_do` → `id_do`; `id_pengangkutan` → `cara_angkut`; kendaraan tanpa STNK dilengkapi dulu (Data Master › Kendaraan), lalu STNK dijadikan wajib di form |
 | 5 | Log tunggal | 4 tabel audit → `log_aktivitas`; tabel lama dihapus setelah diverifikasi |
 
 Setiap fase: migrasi SQL + skrip pindah data + uji di `DbSistemTimbangan_Test` dulu.
 
-## Perlu keputusan saat peninjauan
+## Keputusan
 
-1. **Satu kontrak satu produk?** Draf ini ya (`kontrak.id_produk`). Bila satu kontrak bisa beberapa produk → tambah `kontrak_produk`.
-2. **Mitra bisa customer sekaligus pengangkutan?** Draf: satu tipe per mitra. Bila bisa keduanya → `mitra_peran`.
-3. **`kendaraan.no_stnk` wajib?** Draf: boleh kosong (data lama). Bisa dibuat wajib setelah data dilengkapi.
-4. **`jadwal_kerja` per area / per department?** Draf: satu jadwal untuk semua.
-5. **Pengaturan per area?** Draf: global. Bila tiap site beda (mis. ambang wajah) → tambah `id_comp_area` ke kunci.
-6. **Persetujuan void** (`disetujui_oleh`) mulai dipakai sekarang atau tahap berikutnya?
-7. **Tamu boleh punya akun?** Draf: tidak (akun hanya untuk karyawan / security).
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | Satu kontrak satu produk? | Ya (`kontrak.id_produk`) |
+| 2 | Pengangkutan | No DO = nomor pengangkutan. 3 kemungkinan: kendaraan PT pengirim, kendaraan PT penerima, atau pihak ketiga (`cara_angkut`) |
+| 3 | STNK wajib? | Ya, untuk setiap kendaraan yang didaftarkan |
+| 4 | Jadwal kerja per area? | Ya |
+| 5 | Void | Tetap seperti sekarang oleh Admin; berita acara menyusul (tanpa persetujuan dulu) |
+| 6 | Tamu punya akun? | Tidak. Tamu hanya personel + scan wajah |
+
+Masih terbuka (draf memakai pilihan dalam kurung):
+1. Mitra boleh berperan ganda, mis. customer sekaligus pengangkutan? (tidak, satu tipe per mitra)
+2. Pengaturan site (ambang wajah, sesi, dll.) per area? (tidak, global)
