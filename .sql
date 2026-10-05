@@ -1,4 +1,4 @@
-USE DbSistemTimbangan;
-GO
+USE DbSistemTimbangan_Test;
 
-SELECT * FROM DbSistemTimbangan.dbo.driver
+SELECT username, role, LEFT(password, 20) AS awal_hash, LEN(password) AS panjang
+FROM users WHERE username = 'ho';

@@ -1,0 +1,113 @@
+<!-- MODAL: Tambah / Update Personel (satu form, mode diatur personel.js) -->
+<div id="modalPersonel" class="modal-overlay">
+    <div class="modal-box modal-box-lg">
+        <div class="modal-header">
+            <h3 class="font-bold"><span id="personelJudul">Tambah Personel</span>
+                <span id="personelSubjudul" class="font-normal text-slate-300"></span></h3>
+            <button type="button" data-on-click="tutupModalPersonel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div id="personelNoteUpdate" class="note-warning hidden">
+                Perubahan tercatat di Audit Log (Perubahan Data Personel)
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-5">
+                <!-- Foto wajah: upload atau kamera -->
+                <div class="space-y-3">
+                    <p class="text-sm font-semibold text-slate-700">Foto Wajah</p>
+                    <div class="seg">
+                        <button type="button" id="segUpload" class="seg-item seg-item-active" data-on-click="setSumberFoto" data-arg="UPLOAD">Upload Foto</button>
+                        <button type="button" id="segKamera" class="seg-item" data-on-click="setSumberFoto" data-arg="KAMERA">Kamera</button>
+                    </div>
+
+                    <div id="panelUpload" class="drop-zone" data-on-click="klikElemen" data-arg="personelFile"
+                         data-on-drop="dropFotoPersonel" data-arg="$event">
+                        <div id="personelPreview" class="w-28 h-32 mx-auto mb-2 rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden">
+                            <i class="fa-solid fa-user text-slate-400 text-3xl"></i>
+                        </div>
+                        <p id="personelDropTeks" class="text-xs font-medium text-slate-600">Seret foto ke sini atau klik untuk memilih</p>
+                        <p class="text-xs text-slate-400">JPG / PNG, maks 5 MB, wajib tepat 1 wajah</p>
+                        <input type="file" id="personelFile" accept=".jpg,.jpeg,.png" class="hidden" data-on-change="pilihFotoPersonel" data-arg="$file">
+                    </div>
+
+                    <div id="panelKamera" class="hidden space-y-2">
+                        <video id="personelVideo" autoplay playsinline muted class="w-full rounded-lg bg-black video-mirror"></video>
+                        <button type="button" id="btnAmbilFoto" data-on-click="ambilFotoKamera" class="btn-success w-full">Ambil Foto</button>
+                    </div>
+
+                    <ul id="personelCek" class="space-y-1 text-xs font-medium">
+                        <li data-cek="satu_wajah">Terdeteksi tepat 1 wajah</li>
+                        <li data-cek="tidak_mirip_personel">Tidak mirip personel lain</li>
+                        <li data-cek="tidak_mirip_blacklist">Tidak mirip daftar blacklist</li>
+                    </ul>
+                    <p id="personelCekPesan" class="text-xs text-red-600"></p>
+                </div>
+
+                <!-- Data personel -->
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="field-label" for="personelId">ID Personel</label>
+                            <div class="relative">
+                                <input type="text" id="personelId" readonly placeholder="otomatis" class="input-field bg-slate-50 pr-8">
+                                <i class="fa-solid fa-lock absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            </div>
+                            <p class="field-hint">otomatis, tidak pernah berubah</p>
+                        </div>
+                        <div>
+                            <label class="field-label" for="personelKode">Kode Personel</label>
+                            <input type="text" id="personelKode" class="input-field uppercase">
+                            <p id="personelSaranKode" class="field-hint">diisi / diubah HO</p>
+                        </div>
+                        <div>
+                            <label class="field-label" for="personelNama">Nama Lengkap</label>
+                            <input type="text" id="personelNama" class="input-field">
+                        </div>
+                        <div>
+                            <label class="field-label" for="personelNik">NIK</label>
+                            <input type="text" id="personelNik" maxlength="16" inputmode="numeric" class="input-field">
+                        </div>
+                        <div{% if kategori_tetap %} class="hidden"{% endif %}>
+                            <label class="field-label" for="personelKategori">Kategori</label>
+                            <select id="personelKategori" class="input-field" data-on-change="perbaruiHintSim">
+                                <option value="DRIVER">DRIVER</option>
+                                <option value="SECURITY">SECURITY</option>
+                                <option value="EMPLOYEE">EMPLOYEE HO</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="personelSim">No. SIM</label>
+                            <input type="text" id="personelSim" class="input-field">
+                            <p id="personelHintSim" class="field-hint text-amber-700">wajib untuk DRIVER</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" data-on-click="tutupModalPersonel" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSimpanPersonel" data-on-click="simpanPersonel" class="btn-primary">Simpan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Hapus Personel (soft delete) -->
+<div id="modalHapusPersonel" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Hapus Personel</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalHapusPersonel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div id="hapusTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-3 text-sm"></div>
+            <p class="text-sm text-slate-700">Hapus personel ini? Wajahnya tidak lagi dikenali saat scan absensi maupun Create Ticket.</p>
+            <div class="note-warning">Riwayat absensi & tiket tetap tersimpan, dan penghapusan tercatat di Audit Log.</div>
+            <div class="flex gap-3">
+                <button type="button" data-on-click="closeModal" data-arg="modalHapusPersonel" class="btn-secondary flex-1">Batal</button>
+                <button type="button" id="btnKonfirmasiHapus" data-on-click="konfirmasiHapusPersonel" class="btn-danger flex-1">Hapus</button>
+            </div>
+        </div>
+    </div>
+</div>

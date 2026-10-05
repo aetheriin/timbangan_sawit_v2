@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import role_required
@@ -11,6 +12,7 @@ from utils.serializers import serialisasi_tiket
 timbangan_bp = Blueprint('timbangan', __name__)
 
 @timbangan_bp.route("/api/timbang/status")
+@login_required
 def timbang_status():
     return jsonify(baca_status_asli())
 
@@ -43,11 +45,23 @@ def timbang_scan_qr():
         return jsonify({"error": "Tiket tidak ditemukan / sudah selesai"}), 404
     return jsonify(serialisasi_tiket(row)), 200
 
+HARI_HISTORY_MAKS = 30
+
+
 @timbangan_bp.route("/api/history-timbangan-supplier")
 @login_required
 def history_supplier():
     id_supplier = request.args.get("id_supplier")
-    return jsonify(get_history_timbangan_by_supplier(id_supplier) if id_supplier else [])
+    tanggal = None
+    if request.args.get("tanggal"):            # filter per hari, hanya 30 hari terakhir
+        try:
+            tanggal = datetime.strptime(request.args["tanggal"], "%Y-%m-%d").date()
+        except ValueError:
+            return jsonify({"error": "Format tanggal salah"}), 400
+        if not 0 <= (date.today() - tanggal).days < HARI_HISTORY_MAKS:
+            return jsonify({"error": f"Tanggal hanya bisa dipilih {HARI_HISTORY_MAKS} hari terakhir"}), 400
+    rows = get_history_timbangan_by_supplier(id_supplier, tanggal=tanggal) if id_supplier else []
+    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M") if r["created_at"] else None} for r in rows])
 
 @timbangan_bp.route("/api/timbang/simpan", methods=["POST"])
 @login_required

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Tiket {{ t.no_tiket }}</title>
+    <style>
+        /* Halaman cetak mandiri: tidak tergantung tailwind / CDN, ukuran struk 80mm */
+        @page { size: 80mm auto; margin: 4mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #000; background: #e2e8f0; }
+        .struk { width: 72mm; margin: 12px auto; padding: 4mm; background: #fff; }
+        h1 { font-size: 14px; text-align: center; margin: 0 0 2px; }
+        .sub { font-size: 10px; text-align: center; margin: 0 0 6px; }
+        .qr { width: 46mm; height: 46mm; margin: 0 auto; display: block; }
+        .qr svg { width: 100%; height: 100%; }
+        .no-tiket { font-family: "Courier New", monospace; font-weight: bold; font-size: 12px; text-align: center;
+                    margin: 4px 0 8px; word-break: break-all; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        td { padding: 2px 0; vertical-align: top; }
+        td:first-child { width: 34%; color: #333; }
+        .plat { font-size: 16px; font-weight: bold; }
+        .garis { border-top: 1px dashed #000; margin: 6px 0; }
+        .kaki { font-size: 9px; text-align: center; }
+        .aksi { text-align: center; margin: 12px; }
+        .aksi button { font-size: 14px; padding: 8px 20px; cursor: pointer; }
+        @media print {
+            body { background: #fff; }
+            .struk { margin: 0; padding: 0; }
+            .aksi { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="aksi">
+        <button id="btnCetak">Cetak</button>
+        <button id="btnTutup">Tutup</button>
+    </div>
+
+    <div class="struk">
+        <h1>TIKET TIMBANGAN</h1>
+        <p class="sub">Tunjukkan QR ini di setiap pos</p>
+
+        <div class="qr">{{ qr_svg | safe }}</div>
+        <div class="no-tiket">{{ t.no_tiket }}</div>
+
+        <table>
+            <tr><td>No. Plat</td><td class="plat">{{ t.no_plat }}</td></tr>
+            <tr><td>Supir</td><td>{% if t.kode_personel %}{{ t.kode_personel }} &middot; {% endif %}{{ t.nama_driver }}</td></tr>
+            <tr><td>NIK</td><td>{{ t.nik }}</td></tr>
+            <tr><td>Jenis</td><td>{{ t.jenis_transaksi | replace('_', ' ') }}</td></tr>
+            <tr><td>Supplier</td><td>{{ t.nama_supplier }}</td></tr>
+            <tr><td>Produk</td><td>{{ t.nama_produk }}</td></tr>
+            {% if t.no_do %}<tr><td>No. DO</td><td>{{ t.no_do }}</td></tr>{% endif %}
+            <tr><td>Masuk</td><td>{{ t.created_at.strftime('%d-%m-%Y %H:%M') if t.created_at.strftime is defined else t.created_at }}</td></tr>
+            <tr><td>Berlaku s/d</td><td>{{ t.qr_expired_at.strftime('%d-%m-%Y %H:%M') if t.qr_expired_at.strftime is defined else t.qr_expired_at }}</td></tr>
+        </table>
+
+        <div class="garis"></div>
+        <p class="kaki">{% if cetakan_ke > 1 %}CETAK ULANG ke-{{ cetakan_ke - 1 }} &middot; {% endif %}Dicetak {{ now }}</p>
+    </div>
+    <script src="{{ url_for('static', filename='js/site/cetak_tiket.js') }}"></script>
+</body>
+</html>

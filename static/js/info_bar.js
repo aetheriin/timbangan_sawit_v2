@@ -1,0 +1,131 @@
+// ===== INFO BAR (kontainer atas halaman site) =====
+let statusValidasi = 'none'; // none | draft | done
+const ICON_USER = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
+
+function perbaruiTombolValidasi() {
+    const btn = document.getElementById('btnValidasi');
+    if (!btn) return;
+    btn.classList.toggle('hidden', !(getTabAktif() === 'security' && statusValidasi !== 'done'));
+}
+
+window.addEventListener('tabChange', perbaruiTombolValidasi);
+
+// ===== INPUT PLAT =====
+// Tab / Enter -> cari (data-on-enter di template, lihat aksi.js).
+// Selain itu plat juga otomatis dirapikan & dicari saat mouse meninggalkan kotak atau fokus pindah
+// (misal user lupa menekan Tab). Otomatis hanya bila format plat sudah lengkap, supaya ketikan yang
+// belum selesai tidak memunculkan pesan error.
+const POLA_PLAT = /^[A-Z]{1,2}[\s.\-]*[1-9][0-9]{0,3}[\s.\-]*[A-Z]{0,3}$/;
+let platTerakhirDicari = '';
+
+function platPerluDicari(input) {
+    const val = input.value.trim().toUpperCase();
+    if (!val || val === platTerakhirDicari) return false;
+    return val.startsWith('TKT-') || POLA_PLAT.test(val);
+}
+
+function cariPlatOtomatis(e) {
+    const input = e.target;
+    // mouseleave saat kotak tidak sedang diketik (tidak fokus) diabaikan
+    if (e.type === 'mouseleave' && document.activeElement !== input) return;
+    if (platPerluDicari(input)) lookupPlat(input.value);
+}
+
+document.querySelectorAll('[data-plat-otomatis]').forEach(input => {
+    input.addEventListener('mouseleave', cariPlatOtomatis);
+    input.addEventListener('blur', cariPlatOtomatis);
+    input.addEventListener('input', () => { platTerakhirDicari = ''; });   // diketik ulang -> boleh dicari lagi
+});
+
+// No. Tiket (hasil scanner barcode / QR) -> cari tiket aktif
+async function lookupTiket(noTiket) {
+    const data = await kirimForm('/api/timbang/scan-qr', { no_tiket: noTiket });
+    if (data.status === 'ADA_TIKET') terapkanHasilLookup(data);
+    else Notif.gagal(data.error || 'Tiket tidak ditemukan');
+}
+
+async function lookupPlat(noPlatRaw) {
+    const noPlat = (noPlatRaw || '').trim().toUpperCase();
+    if (!noPlat) return;
+    platTerakhirDicari = noPlat;
+    // Scanner barcode yang diarahkan ke kolom plat akan mengetik No. Tiket
+    if (noPlat.startsWith('TKT-')) { await lookupTiket(noPlat); return; }
+
+    const data = await kirimForm('/api/plat/lookup', { no_plat: noPlat });
+    if (data.error) { Notif.gagal(data.error); return; }
+
+    data.no_plat = data.no_plat || noPlat;   // server mengembalikan format baku, mis. 'BM 1455 JJ'
+    platTerakhirDicari = data.no_plat;
+    terapkanHasilLookup(data);
+}
+
+function terapkanHasilLookup(data) {
+    const tab = getTabAktif();
+
+    // Tiket hanya boleh dibuat di Security
+    if (data.status === 'DRAFT' && tab !== 'security') {
+        kosongkanInfoBar();
+        document.getElementById('infoPlat').value = data.no_plat;
+        Notif.peringatan('Plat ini belum punya tiket aktif. Daftarkan dulu di tab Security.');
+        window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
+        return;
+    }
+
+    document.getElementById('infoPlat').value = data.no_plat;
+
+    if (data.status === 'ADA_TIKET') {
+        document.getElementById('infoNoTiket').value = data.no_tiket || '';
+        document.getElementById('infoNoDO').value = data.no_do || '';
+        document.getElementById('infoSupplier').value = data.supplier || '';
+        document.getElementById('infoProduk').value = data.produk || '';
+        document.getElementById('infoJenis').value = labelKode(data.jenis_transaksi);
+        statusValidasi = 'done';
+    } else {
+        document.getElementById('infoNoTiket').value = data.no_tiket_reserved || '';
+        document.getElementById('infoNoDO').value = '';
+        ['infoSupplier', 'infoProduk', 'infoJenis'].forEach(id => document.getElementById(id).value = '');
+        statusValidasi = 'draft';
+    }
+    document.getElementById('infoSupir').value = data.driver
+        ? formatNamaPersonel(data.driver.kode_personel, data.driver.id_driver, data.driver.nama) : '';
+    // Plat blacklist ditandai merah; detail & banner ditampilkan di Form (security.js)
+    document.getElementById('infoPlat').classList.toggle('border-red-500', !!data.kendaraan_blacklist);
+    tampilkanFotoDriver(data.driver ? data.driver.foto_path : null);
+    perbaruiTombolValidasi();
+
+    window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
+}
+
+function kosongkanInfoBar() {
+    ['infoNoTiket', 'infoNoDO', 'infoSupplier', 'infoProduk', 'infoJenis', 'infoSupir'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('infoPlat').classList.remove('border-red-500');
+    tampilkanFotoDriver(null);
+    statusValidasi = 'none';
+    perbaruiTombolValidasi();
+}
+
+function tampilkanFotoDriver(path) {
+    const box = document.getElementById('infoFotoBox');
+    box.innerHTML = path
+        ? `<img src="${escapeHtml(urlBerkas(path))}" class="w-full h-full object-cover" alt="">`
+        : ICON_USER;
+}
+
+// ===== 3 JALUR MENUJU CREATE FORM =====
+// Jalur 1: tombol Validasi di bawah foto
+async function klikValidasi() {
+    const plat = document.getElementById('infoPlat').value.trim();
+    if (!plat) {
+        Notif.peringatan('Ketik nomor plat dulu');
+        document.getElementById('infoPlat').focus();
+        return;
+    }
+    if (!document.getElementById('infoNoTiket').value) await lookupPlat(plat);
+    switchTab('security');
+}
+
+// Dari halaman List (tombol Buka): /weighbridge?view=form&tab=...&plat=BM 1455 JJ -> plat langsung dicari
+document.addEventListener('DOMContentLoaded', () => {
+    const plat = new URLSearchParams(window.location.search).get('plat');
+    if (plat) lookupPlat(plat);
+});

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}List Tiket · Weighbridge{% endblock %}
+
+{# Halaman List: tanpa info bar & tanpa tab. Tiket aktif per tahap (default tahap role) + history per produk. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+<div class="page-header">
+    <div class="page-header-icon"><i class="fa-solid fa-list"></i></div>
+    <div>
+        <h1 class="text-sm font-semibold">List Tiket</h1>
+        <p class="page-header-sub">Tiket aktif per tahap: Security → Timbangan → Sortasi / Lab → Timbangan</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/site/list_tiket.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/site/list.js') }}"></script>
+{% endblock %}

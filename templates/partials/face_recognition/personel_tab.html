@@ -1,0 +1,44 @@
+{% from "partials/layout/_macros.html" import section_header %}
+{# kategori_tetap (Data Master > Driver): hanya kategori itu, tanpa chip filter #}
+<div data-tab-content="personel" class="hidden" data-kategori-tetap="{{ kategori_tetap or '' }}">
+
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+        {% if not kategori_tetap %}
+        <div id="chipKategoriPersonel" class="flex gap-1.5">
+            <button type="button" class="chip chip-active" data-filter="" data-on-click="filterPersonel" data-arg="$el">Semua</button>
+            <button type="button" class="chip" data-filter="DRIVER" data-on-click="filterPersonel" data-arg="$el">Driver</button>
+            <button type="button" class="chip" data-filter="SECURITY" data-on-click="filterPersonel" data-arg="$el">Security</button>
+            <button type="button" class="chip" data-filter="EMPLOYEE" data-on-click="filterPersonel" data-arg="$el">Employee HO</button>
+            <button type="button" class="chip" data-filter="BLACKLIST" data-on-click="filterPersonel" data-arg="$el">Blacklist</button>
+        </div>
+        {% endif %}
+        <div class="flex-1"></div>
+        <div class="relative">
+            <input type="text" id="cariPersonel" placeholder="Cari ID, kode, nama, NIK" class="input-field pl-9 w-64"
+                   data-on-input="cariPersonelTunda">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        </div>
+        {% if boleh_ubah is not defined or boleh_ubah %}
+        <button type="button" data-on-click="bukaTambahPersonel" class="btn-primary">
+            <i class="fa-solid fa-plus mr-1"></i> Tambah {{ 'Driver' if kategori_tetap == 'DRIVER' else 'Personel' }}
+        </button>
+        {% endif %}
+    </div>
+
+    <div class="section-box">
+        {{ section_header('daftar-personel', 'Daftar Driver' if kategori_tetap == 'DRIVER' else 'Daftar Personel') }}
+        <div id="body-daftar-personel" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr>
+                        <th class="table-cell">ID</th><th class="table-cell">Kode</th><th class="table-cell">Nama</th>
+                        <th class="table-cell">NIK</th><th class="table-cell">Kategori</th><th class="table-cell">Sumber Foto</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody data-per-halaman="20" data-boleh-ubah="{{ 0 if (boleh_ubah is defined and not boleh_ubah) else 1 }}" id="tabelPersonel" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-xs text-slate-500">Personel yang di blacklist tidak bisa dihapus</p>
+</div>

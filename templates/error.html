@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ kode }} · Weighbridge</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/inter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+</head>
+<body class="font-sans antialiased bg-slate-100 min-h-screen flex items-center justify-center p-6">
+    <div class="bg-white rounded-xl border border-slate-200 p-8 max-w-md w-full text-center space-y-3">
+        <p class="text-4xl font-bold text-slate-300">{{ kode }}</p>
+        <h1 class="text-lg font-semibold text-slate-800">{{ pesan }}</h1>
+        <div class="flex justify-center gap-3 pt-2">
+            <a href="{{ request.referrer or url_for('main.weighbridge') }}" class="btn-secondary">Kembali</a>
+            <a href="{{ url_for('main.weighbridge') }}" class="btn-primary">Ke Beranda</a>
+        </div>
+    </div>
+</body>
+</html>

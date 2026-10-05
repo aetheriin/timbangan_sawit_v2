@@ -1,0 +1,51 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div id="chipTahap" class="flex gap-1.5" data-awal="{{ tahap_awal }}">
+        {% for kode, label in [('', 'Semua'), ('security', 'Security'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
+        <button type="button" class="chip{% if kode == tahap_awal %} chip-active{% endif %}" data-tahap="{{ kode }}"
+                data-on-click="filterTahap" data-arg="$el">{{ label }}</button>
+        {% endfor %}
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="searchTiket" placeholder="Cari tiket / plat / customer" class="input-field pl-9 w-64"
+               data-on-input="saringTabel" data-arg="$value">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+    <a href="{{ url_for('main.weighbridge', view='form', tab='security') }}" class="btn-primary"><i class="fa-solid fa-plus mr-1"></i> Create Ticket</a>
+</div>
+
+<div class="section-box">
+    {{ section_header('ticket-aktif', 'Tiket Aktif') }}
+    <div id="body-ticket-aktif" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">No. Tiket</th><th class="table-cell">No. Plat</th>
+                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Jenis Transaksi</th>
+                    <th class="table-cell">Status</th><th class="table-cell">Menunggu</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelTicketAktif" class="divide-y divide-slate-100">
+                <tr><td colspan="9" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section-box">
+    {% call section_header('history-produk', 'History per Produk (7 Hari Terakhir)') %}
+    <select id="filterProdukHistory" class="input-field py-1.5 w-48" data-henti-klik data-on-change="muatHistoryProduk">
+        <option value="">Semua produk</option>
+        {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
+    </select>
+    {% endcall %}
+    <div id="body-history-produk" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">No. Tiket</th><th class="table-cell">No. Plat</th>
+                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Jenis Transaksi</th>
+                    <th class="table-cell text-right">Netto (Kg)</th><th class="table-cell">Status</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelHistoryProduk" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

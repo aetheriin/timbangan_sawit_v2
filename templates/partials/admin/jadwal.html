@@ -1,0 +1,13 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="section-box">
+    {{ section_header('jadwal-kerja', 'Jadwal Kerja Mingguan') }}
+    <div id="body-jadwal-kerja" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Hari</th><th class="table-cell">Libur</th><th class="table-cell">Jam Masuk</th>
+                    <th class="table-cell">Jam Pulang</th><th class="table-cell">Toleransi (menit)</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelJadwal" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

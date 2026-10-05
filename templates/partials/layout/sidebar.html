@@ -1,0 +1,42 @@
+{# Sidebar: List & Form = halaman site (/weighbridge), Face Recognition = /face-recognition.
+   Di halaman site, klik List / Form tidak memuat ulang halaman (ditangani base.js).
+   ADMIN (super admin) hanya melihat menu Admin (routes/admin.py HALAMAN). #}
+<aside id="sidebar" class="sidebar">
+    <div class="sidebar-title">MENU</div>
+    <nav>
+    {% if current_user.role == 'ADMIN' %}
+        <div class="sidebar-section">Admin</div>
+        {% for key, (judul_menu, ikon_menu, _) in (menu_admin or {}).items() %}
+        <a href="{{ url_for('admin.admin_halaman', halaman=key) }}"
+           class="sidebar-link{% if admin_aktif == key %} sidebar-link-active{% endif %}">
+            <i class="fa-solid {{ ikon_menu }} w-4"></i> {{ judul_menu }}
+        </a>
+        {% endfor %}
+    {% else %}
+        <a href="{{ url_for('dashboard.dashboard_halaman') }}"
+           class="sidebar-link{% if halaman == 'dashboard' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-chart-line w-4"></i> Dashboard
+        </a>
+        <a href="{{ url_for('main.weighbridge', view='list') }}" data-view="list"
+           class="sidebar-link{% if halaman == 'site' and view != 'form' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-list w-4"></i> List
+        </a>
+        <a href="{{ url_for('main.weighbridge', view='form') }}" data-view="form"
+           class="sidebar-link{% if halaman == 'site' and view == 'form' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-file-pen w-4"></i> Form
+        </a>
+        <a href="{{ url_for('main.face_recognition') }}"
+           class="sidebar-link{% if halaman == 'face' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-face-smile w-4"></i> Face Recognition
+        </a>
+        <a href="{{ url_for('kontrak.kontrak_halaman') }}"
+           class="sidebar-link{% if halaman == 'kontrak' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-file-contract w-4"></i> Kontrak & DO
+        </a>
+        <a href="{{ url_for('master.master_halaman') }}"
+           class="sidebar-link{% if halaman == 'master' %} sidebar-link-active{% endif %}">
+            <i class="fa-solid fa-database w-4"></i> Data Master
+        </a>
+    {% endif %}
+    </nav>
+</aside>

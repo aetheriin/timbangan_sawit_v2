@@ -1,0 +1,20 @@
+<header class="topbar">
+    <div class="flex items-center gap-3">
+        <button type="button" data-on-click="toggleSidebar" class="text-white" title="Tampilkan / sembunyikan menu">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <h1 class="font-bold text-lg">Weighbridge</h1>
+    </div>
+    {% if current_user.is_authenticated %}
+    <div class="flex items-center gap-3 text-sm">
+        <span>{{ current_user.nama_lengkap }} <span class="text-slate-400">({{ current_user.role }})</span></span>
+        {# Logout wajib POST + token CSRF (tidak bisa dipicu lewat link dari halaman lain) #}
+        <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="text-slate-300 hover:text-red-400" title="Keluar">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</header>

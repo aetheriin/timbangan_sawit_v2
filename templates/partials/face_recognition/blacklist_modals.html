@@ -1,0 +1,98 @@
+<!-- MODAL: Tambah Blacklist (permanen) -->
+<div id="modalBlacklist" class="modal-overlay">
+    <div class="modal-box max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="modal-header">
+            <h3 class="font-bold">Tambah Blacklist</h3>
+            <button type="button" data-on-click="tutupModalBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="seg">
+                    <button type="button" id="segBlPersonel" class="seg-item seg-item-active" data-on-click="setTipeBlacklist" data-arg="PERSONEL">Personel</button>
+                    <button type="button" id="segBlKendaraan" class="seg-item" data-on-click="setTipeBlacklist" data-arg="KENDARAAN">Kendaraan</button>
+                </div>
+                <div class="relative flex-1">
+                    <input type="text" id="blCari" placeholder="Cari kode / NIK / nama" class="input-field pl-9"
+                           data-on-input="cariTargetTunda">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <ul id="blHasilCari" class="hidden absolute z-10 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto text-sm"></ul>
+                </div>
+            </div>
+
+            <!-- Personel: cari lewat nama/NIK, no SIM, wajah (kamera), atau upload foto -->
+            <div id="blCaraPersonel" class="space-y-3">
+                <div class="seg">
+                    <button type="button" class="seg-item seg-item-active" data-cara="TEKS" data-on-click="setCaraBlacklist" data-arg="TEKS">Nama / NIK</button>
+                    <button type="button" class="seg-item" data-cara="SIM" data-on-click="setCaraBlacklist" data-arg="SIM">No SIM</button>
+                    <button type="button" class="seg-item" data-cara="KAMERA" data-on-click="setCaraBlacklist" data-arg="KAMERA">Wajah (Kamera)</button>
+                    <button type="button" class="seg-item" data-cara="UPLOAD" data-on-click="setCaraBlacklist" data-arg="UPLOAD">Upload Foto</button>
+                </div>
+                <div id="blPanelKamera" class="hidden flex items-start gap-3">
+                    <video id="blVideo" autoplay playsinline muted class="w-64 rounded-lg bg-black video-mirror"></video>
+                    <button type="button" id="btnBlCocokKamera" class="btn-primary" data-on-click="cocokkanWajahKamera" data-arg="$el">
+                        <i class="fa-solid fa-camera mr-1"></i> Ambil & Cocokkan</button>
+                </div>
+                <div id="blPanelUpload" class="hidden drop-zone flex items-center gap-3 text-left" data-on-click="klikElemen" data-arg="blFotoWajah">
+                    <i class="fa-solid fa-image text-xl text-slate-500"></i>
+                    <p class="text-sm font-medium text-slate-700">Pilih foto wajah (JPG / PNG) untuk dicocokkan</p>
+                    <input type="file" id="blFotoWajah" accept=".jpg,.jpeg,.png" class="hidden" data-on-change="cocokkanWajahUpload" data-arg="$file">
+                </div>
+            </div>
+
+            <div id="blTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm text-slate-400">
+                Belum ada target dipilih.
+            </div>
+
+            <!-- Data terkait saat blacklist (personel): plat selalu bisa diisi (mis. tamu), customer & pengangkutan bila ia supir -->
+            <div id="blTerkait" class="hidden grid grid-cols-3 gap-3">
+                <div>
+                    <label class="field-label" for="blPlatTerkait">No. Plat Kendaraan</label>
+                    <input type="text" id="blPlatTerkait" maxlength="15" class="input-field uppercase" placeholder="Opsional">
+                </div>
+                <div id="blCustomerBox">
+                    <label class="field-label">Customer saat itu</label>
+                    <input type="text" id="blCustomerTerkait" readonly class="input-field bg-slate-50">
+                </div>
+                <div id="blAngkutBox">
+                    <label class="field-label">Pengangkutan saat itu</label>
+                    <input type="text" id="blAngkutTerkait" readonly class="input-field bg-slate-50">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="blNoSurat">No. Surat</label>
+                    <input type="text" id="blNoSurat" placeholder="017/HO-SEC/VIII/2026" class="input-field">
+                </div>
+                <div>
+                    <label class="field-label" for="blTanggal">Tanggal Surat</label>
+                    <input type="date" id="blTanggal" class="input-field">
+                </div>
+            </div>
+            <div>
+                <label class="field-label" for="blAlasan">Alasan</label>
+                <textarea id="blAlasan" rows="3" maxlength="500" class="input-field"></textarea>
+            </div>
+
+            <div class="drop-zone flex items-center gap-3 text-left" data-on-click="klikElemen" data-arg="blFile">
+                <i class="fa-solid fa-file-arrow-up text-xl text-slate-500"></i>
+                <div>
+                    <p class="text-sm font-medium text-slate-700">Upload Surat (PDF / JPG / PNG, maks 5 MB), wajib</p>
+                    <p id="blFileNama" class="text-xs text-blue-700"></p>
+                </div>
+                <input type="file" id="blFile" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
+                       data-on-change="tampilkanNamaFile" data-arg="$el|blFileNama">
+            </div>
+
+            <div class="note-warning">
+                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                Blacklist bersifat <b>PERMANEN</b>, tidak bisa diubah atau dihapus. Wajah & kendaraan terkait ditolak di semua site.
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" data-on-click="tutupModalBlacklist" class="btn-secondary">Batal</button>
+                <button type="button" id="btnSimpanBlacklist" data-on-click="simpanBlacklist" data-arg="$el" class="btn-danger">Tetapkan Blacklist Permanen</button>
+            </div>
+        </div>
+    </div>
+</div>

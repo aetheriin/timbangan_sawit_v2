@@ -1,0 +1,43 @@
+{# Kontainer atas halaman site. Logika di static/js/info_bar.js #}
+<div class="info-bar">
+    <div class="info-grid">
+        <div>
+            <label class="info-field-label" for="infoNoTiket">No Tiket</label>
+            <input type="text" id="infoNoTiket" readonly class="info-field-input">
+        </div>
+        <div>
+            <label class="info-field-label" for="infoPlat">No. Plat</label>
+            <input type="text" id="infoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab"
+                   class="info-field-input uppercase" data-on-enter="lookupPlat" data-arg="$value" data-plat-otomatis>
+        </div>
+        <div>
+            <label class="info-field-label" for="infoNoDO">Nomor DO</label>
+            <input type="text" id="infoNoDO" readonly class="info-field-input">
+        </div>
+        <div>
+            <label class="info-field-label" for="infoSupplier">Customer</label>
+            <input type="text" id="infoSupplier" readonly class="info-field-input">
+        </div>
+        <div>
+            <label class="info-field-label" for="infoProduk">Produk</label>
+            <input type="text" id="infoProduk" readonly class="info-field-input">
+        </div>
+        <div>
+            <label class="info-field-label" for="infoJenis">Jenis Transaksi</label>
+            <input type="text" id="infoJenis" readonly class="info-field-input">
+        </div>
+        <div>
+            <label class="info-field-label" for="infoSupir">Supir</label>
+            <input type="text" id="infoSupir" readonly class="info-field-input">
+        </div>
+    </div>
+
+    <div class="text-center">
+        <div id="infoFotoBox" class="info-photo-box">
+            <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
+        </div>
+        <button type="button" id="btnValidasi" data-on-click="klikValidasi" class="btn-primary mt-2 text-xs hidden">
+            Validasi
+        </button>
+    </div>
+</div>

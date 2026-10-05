@@ -12,14 +12,15 @@
   .sidebar { @apply bg-slate-900 text-slate-300 w-56 flex-shrink-0 transition-all duration-200 overflow-hidden; }
   .sidebar-collapsed { @apply w-0; }
   .sidebar-link { @apply w-full text-left px-5 py-3 text-sm font-medium hover:bg-slate-800 transition flex items-center gap-2; }
-  .sidebar-link-active { @apply bg-blue-600 text-white; }
+  .sidebar-link-active { @apply bg-blue-600 text-white hover:bg-blue-600; }
+  .sidebar-title { @apply px-5 py-5 text-white font-bold text-sm border-b border-slate-800; }
   .main-area { @apply flex-1 flex flex-col overflow-y-auto; }
   .main-area > * { flex-shrink: 0; }
   .topbar { @apply bg-black text-white px-6 py-4 flex items-center justify-between; }
 
   /* Info bar */
   .info-bar { @apply bg-white m-4 rounded-xl border border-slate-200 p-5 flex items-start justify-between gap-6; }
-  .info-grid { @apply grid grid-cols-2 lg:grid-cols-3 gap-4 flex-1; }
+  .info-grid { @apply grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1; }
   .info-field-label { @apply text-xs font-semibold text-slate-500 mb-1 block; }
   .info-field-input { @apply w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50; }
   .info-photo-box { @apply w-28 h-28 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50 flex-shrink-0 overflow-hidden; }
@@ -27,8 +28,18 @@
   /* Tabs */
   .tab-header { @apply flex bg-slate-900 mx-4 rounded-t-xl overflow-hidden; }
   .tab-btn { @apply flex-1 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition text-center; }
-  .tab-btn-active { @apply bg-white text-blue-700; }
+  .tab-btn-active { @apply bg-white text-blue-700 hover:bg-white; }
   .tab-body { @apply bg-slate-100 mx-4 mb-4 rounded-b-xl; }
+
+  /* Halaman Admin: judul halaman di posisi header tab (tanpa tab), menu di sidebar */
+  .page-header { @apply flex items-center gap-3 bg-slate-900 text-white mx-4 mt-4 px-5 py-3.5 rounded-t-xl; }
+  .page-header-icon { @apply w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-sm; }
+  .page-header-sub { @apply text-xs text-slate-400; }
+  .sidebar-section { @apply px-5 pt-4 pb-1 text-[10px] font-semibold tracking-wider text-slate-500 uppercase; }
+  .stat-card { @apply bg-white rounded-xl border border-slate-200 p-4; }
+  .stat-label { @apply text-xs font-medium text-slate-500; }
+  .stat-value { @apply text-xl font-semibold text-slate-800 mt-1; }
+  .token-box { @apply font-mono text-xs bg-slate-900 text-emerald-300 rounded-lg p-3 break-all select-all; }
 
   /* Collapsible section */
   .section-box { @apply bg-white rounded-xl border border-slate-200 mb-4 overflow-hidden; }
@@ -43,6 +54,35 @@
   .btn-primary { @apply bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
   .btn-secondary { @apply bg-slate-500 hover:bg-slate-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
   .btn-success { @apply bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition; }
+  .btn-danger { @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition disabled:bg-slate-300 disabled:cursor-not-allowed; }
+  .btn-outline-danger { @apply bg-white border border-red-600 text-red-600 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg text-sm transition; }
+  .link-aksi { @apply text-xs font-medium hover:underline; }
+
+  /* Kartu putih di dalam section / tab body */
+  .card { @apply bg-white rounded-xl border border-slate-200 p-5; }
+  .card-title { @apply text-sm font-semibold text-slate-700 mb-4 pb-2 border-b; }
+
+  /* Filter chip & segmented control (menu Face Recognition) */
+  .chip { @apply px-3.5 py-1.5 rounded-full text-xs font-medium border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 transition; }
+  .chip-active { @apply bg-slate-900 border-slate-900 text-white hover:bg-slate-900; }
+  .seg { @apply inline-flex bg-slate-200 rounded-lg p-1 gap-1; }
+  .seg-item { @apply px-4 py-1.5 rounded-md text-xs font-medium text-slate-500 transition; }
+  .seg-item-active { @apply bg-white text-blue-700 font-semibold shadow-sm; }
+
+  /* Catatan & upload */
+  .note-warning { @apply bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700; }
+  .note-danger { @apply bg-red-50 border border-red-500 rounded-xl p-4 text-sm text-red-700; }
+  .drop-zone { @apply border-2 border-dashed border-slate-300 rounded-lg p-4 text-center bg-slate-50 cursor-pointer hover:border-blue-400 transition; }
+  .field-hint { @apply text-xs text-slate-500 mt-1; }
+
+  /* Notifikasi toast (ui.js: Notif) */
+  .notif-wadah { @apply fixed top-16 right-4 z-[60] flex flex-col gap-2 w-96 max-w-[calc(100vw-2rem)]; }
+  .notif { @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg; animation: notif-masuk 0.15s ease-out; }
+  .notif-sukses { @apply bg-emerald-50 border-emerald-200 text-emerald-800; }
+  .notif-gagal { @apply bg-red-50 border-red-200 text-red-800; }
+  .notif-peringatan { @apply bg-amber-50 border-amber-200 text-amber-800; }
+  .notif-info { @apply bg-blue-50 border-blue-200 text-blue-800; }
+  .notif-tutup { @apply opacity-60 hover:opacity-100; }
 
   /* Form */
   .input-field { @apply w-full border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500; }
@@ -55,6 +95,7 @@
   /* Modal */
   .modal-overlay { @apply fixed inset-0 bg-slate-900/60 hidden items-center justify-center z-50 p-4; }
   .modal-box { @apply bg-white rounded-xl w-full max-w-md overflow-hidden shadow-2xl; }
+  .modal-box-lg { @apply max-w-3xl max-h-[90vh] overflow-y-auto; }
   .modal-header { @apply bg-slate-600 text-white px-6 py-4 flex justify-between items-center; }
   .modal-tab { @apply py-2.5 text-sm font-medium text-slate-500 bg-slate-100 border-b-2 border-transparent transition; }
   .modal-tab-active { @apply bg-white text-blue-700 border-blue-600; }
@@ -70,4 +111,9 @@
 
   /* Video */
   .video-mirror { transform: scaleX(-1); }
+}
+
+@keyframes notif-masuk {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
 }

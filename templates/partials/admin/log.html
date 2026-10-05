@@ -1,0 +1,29 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex gap-1.5 flex-wrap">
+        {% for kode, label in [('', 'Semua'), ('LOGIN', 'Login'), ('LOGIN_GAGAL', 'Login Gagal'), ('LOGIN_TERKUNCI', 'Terkunci'),
+                               ('AKSES_DITOLAK', 'Akses Ditolak'), ('KIOSK_DITOLAK', 'Kiosk Ditolak'), ('CSRF_GAGAL', 'CSRF Gagal'),
+                               ('SESI_IDLE_HABIS', 'Sesi Habis'), ('PAKSA_KELUAR', 'Paksa Keluar'), ('RESET_PASSWORD', 'Reset Password')] %}
+        <button type="button" class="chip{% if loop.first %} chip-active{% endif %}" data-jenis="{{ kode }}" data-on-click="filterLog" data-arg="$el">{{ label }}</button>
+        {% endfor %}
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="cariLog" placeholder="Cari user / IP / detail" class="input-field pl-9 w-60" data-on-input="cariLog" data-arg="$value">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+    <button type="button" class="btn-secondary" data-on-click="muatUlang" data-arg="$el|muatLog"><i class="fa-solid fa-rotate"></i></button>
+</div>
+
+<div class="section-box">
+    {{ section_header('log-keamanan', 'Kejadian Terbaru (logs/keamanan.log)') }}
+    <div id="body-log-keamanan" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">Kejadian</th><th class="table-cell">User</th>
+                    <th class="table-cell">IP</th><th class="table-cell">Detail</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelLog" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

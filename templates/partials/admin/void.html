@@ -1,0 +1,27 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex gap-1.5">
+        <button type="button" class="chip chip-active" data-hari="1" data-on-click="filterHariVoid" data-arg="$el">Hari Ini</button>
+        <button type="button" class="chip" data-hari="7" data-on-click="filterHariVoid" data-arg="$el">7 Hari</button>
+        <button type="button" class="chip" data-hari="30" data-on-click="filterHariVoid" data-arg="$el">30 Hari</button>
+    </div>
+    <div class="flex-1"></div>
+    <div class="relative">
+        <input type="text" id="cariTiketVoid" placeholder="Cari No Tiket / Plat / DO" class="input-field pl-9 w-64" data-on-input="cariTiketVoid">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    </div>
+</div>
+
+<div class="section-box">
+    {{ section_header('daftar-tiket-void', 'Tiket') }}
+    <div id="body-daftar-tiket-void" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">No Tiket</th><th class="table-cell">Plat</th>
+                    <th class="table-cell">Customer</th><th class="table-cell">No DO</th><th class="table-cell">Status</th>
+                    <th class="table-cell">Keterangan Void</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelTiketVoid" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

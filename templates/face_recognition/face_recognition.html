@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import tab_header %}
+{% block title %}Face Recognition · Weighbridge{% endblock %}
+
+{# Tanpa info bar (kontainer atas khusus site) #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'),
+                   ('blacklist', 'Blacklist'), ('audit', 'Audit Log')], 'mt-4') }}
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/face_recognition/absensi_tab.html" %}
+    {% include "partials/face_recognition/personel_tab.html" %}
+    {% include "partials/face_recognition/blacklist_tab.html" %}
+    {% include "partials/face_recognition/audit_tab.html" %}
+{% endblock %}
+
+{% block modals %}
+    {% include "partials/face_recognition/personel_modals.html" %}
+    {% include "partials/face_recognition/blacklist_modals.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/absensi.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/personel.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/audit.js') }}"></script>
+{% endblock %}

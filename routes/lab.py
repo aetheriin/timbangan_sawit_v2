@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import role_required
-from utils.db_utils import get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif
+from utils.db_utils import (get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif,
+                            get_history_standar)
 
 lab_bp = Blueprint('lab', __name__)
 
@@ -16,8 +17,21 @@ def lab_standar(id_produk):
 @role_required('LAB')
 def lab_standar_update():
     f = request.form
-    update_standar_mutu(f.get("id_produk"), f.get("maks_ffa"), f.get("maks_air"), f.get("maks_kotoran"))
+    try:
+        nilai = [float(f.get(k, "")) for k in ("maks_ffa", "maks_air", "maks_kotoran")]
+        id_produk = int(f.get("id_produk", ""))
+    except ValueError:
+        return jsonify({"error": "Produk dan semua batas standar wajib diisi angka"}), 400
+    if any(v < 0 or v > 100 for v in nilai):
+        return jsonify({"error": "Batas standar harus 0 - 100 %"}), 400
+    update_standar_mutu(id_produk, *nilai, user_id=current_user.id)
     return jsonify({"message": "Standar mutu diperbarui"}), 200
+
+
+@lab_bp.route("/api/lab/standar/history")
+@login_required
+def lab_standar_history():
+    return jsonify([{**r, "updated_at": r["updated_at"].strftime("%Y-%m-%d %H:%M")} for r in get_history_standar(2)])
 
 @lab_bp.route("/api/lab/simpan", methods=["POST"])
 @login_required

@@ -1,0 +1,195 @@
+<div data-tab-content="security" class="hidden">
+
+    <!-- ===== FORM PENDAFTARAN TIKET (tab Security di halaman Form) ===== -->
+    <div>
+
+        <!-- Banner merah: kendaraan / supir masuk blacklist (diisi security.js) -->
+        <div id="bannerBlacklist" class="note-danger hidden mb-4 items-center gap-4">
+            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-600"></i>
+            <div class="flex-1">
+                <p id="bannerBlacklistJudul" class="font-bold text-red-700"></p>
+                <p id="bannerBlacklistDetail" class="text-xs text-slate-700"></p>
+            </div>
+            <a id="bannerBlacklistSurat" href="#" target="_blank" class="btn-outline-danger hidden">Lihat surat</a>
+        </div>
+
+        <div class="section-box">
+            <div class="bg-slate-800 text-white px-5 py-3 flex justify-between items-center">
+                <span class="font-medium">Form Pendaftaran Tiket</span>
+                <button data-on-click="setSidebarView" data-arg="list" class="btn-secondary text-xs">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Kembali ke List
+                </button>
+            </div>
+
+            <div class="p-4 space-y-4">
+
+                <!-- 1. Informasi Kendaraan Produk -->
+                <div class="section-box mb-0">
+                    <div class="section-header" data-on-click="toggleSection" data-arg="form-kendaraan">
+                        <span class="section-header-text">
+                            <i id="chevron-form-kendaraan" class="fa-solid fa-chevron-down section-chevron"></i>
+                            1. Informasi Kendaraan Produk
+                        </span>
+                    </div>
+                    <div id="body-form-kendaraan" class="section-body p-5">
+
+                        <!-- Baris atas: data kendaraan | pengemudi terakhir -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="field-label">No. Plat Kendaraan</label>
+                                    <input type="text" id="formNoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab" class="input-field uppercase" data-on-enter="lookupPlat" data-arg="$value" data-plat-otomatis>
+                                </div>
+                                <div>
+                                    <label class="field-label">No. Ticket</label>
+                                    <input type="text" id="formNoTiket" readonly placeholder="Terisi setelah Submit" class="input-field bg-slate-50 text-slate-400">
+                                </div>
+                                <div>
+                                    <label class="field-label">No. STNK</label>
+                                    <input type="text" id="formNoStnk" class="input-field">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="field-label">Pengemudi Terakhir Truk</label>
+                                <div class="border border-slate-200 rounded-lg p-4 flex items-center gap-4 bg-slate-50 h-[calc(100%-1.75rem)]">
+                                    <div id="pengemudiFotoBox" class="info-photo-box">
+                                        <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
+                                    </div>
+                                    <div id="pengemudiTerakhirInfo" class="text-sm text-slate-500">
+                                        Belum ada riwayat
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Baris bawah: transaksi -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4 pt-4 border-t border-slate-100">
+                            <div>
+                                <label class="field-label">Nomor DO (Delivery Order)</label>
+                                <input type="text" id="formNoDo" class="input-field uppercase" placeholder="Ketik No DO lalu Tab (kosongkan bila tidak ada)"
+                                       data-on-enter="cariDO" data-arg="$value">
+                                <p id="infoDO" class="text-xs mt-1 hidden"></p>
+                            </div>
+                            <div>
+                                <label class="field-label">Jenis Transaksi</label>
+                                <select id="formJenisTransaksi" class="input-field" data-cari>
+                                    <option value="">-- Pilih --</option>
+                                    <option value="PEMBELIAN">Pembelian</option>
+                                    <option value="PENJUALAN">Penjualan</option>
+                                    <option value="PENIMBANGAN_SAJA">Penimbangan Saja</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label">Customer</label>
+                                <select id="formSupplier" class="input-field" data-cari>
+                                    <option value="">-- Pilih --</option>
+                                    {% for s in supplier_list %}
+                                    <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label">Produk</label>
+                                <select id="formProduk" class="input-field" data-cari>
+                                    <option value="">-- Pilih --</option>
+                                    {% for p in produk_list %}
+                                    <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3 mt-4">
+                            <button id="btnMulaiValidasi" data-on-click="mulaiValidasiAwal" class="btn-primary">Mulai Validasi Awal</button>
+                            <button id="btnCetakQR" data-on-click="cetakQRDariForm" class="btn-success hidden">
+                                <i class="fa-solid fa-print mr-1"></i> Cetak QR Code
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Informasi Driver -->
+                <div id="sectionInfoDriver" class="section-box mb-0 section-disabled">
+                    <div class="section-header" data-on-click="toggleSection" data-arg="form-driver">
+                        <span class="section-header-text">
+                            <i id="chevron-form-driver" class="fa-solid fa-chevron-down section-chevron"></i>
+                            2. Informasi Driver
+                        </span>
+                    </div>
+                    <div id="body-form-driver" class="section-body p-5">
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <!-- Scan wajah -->
+                            <div class="border border-slate-200 rounded-lg p-5 text-center bg-slate-50">
+                                <div id="fotoDriverBox" class="photo-circle mb-3">
+                                    <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
+                                </div>
+                                <video id="videoScanWajah" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+                                <canvas id="canvasScanWajah" class="hidden"></canvas>
+                                {# Pos kamera (kiosk) yang dipakai PC ini, diingat di browser. Daftar pos: Admin > Perangkat / Kiosk #}
+                                {% if pos_list %}
+                                <div class="flex items-center justify-center gap-2 mb-3 text-sm">
+                                    <label for="pilihPos" class="text-slate-600">Pos kamera</label>
+                                    <select id="pilihPos" class="input-field w-auto py-1.5" data-on-change="pilihPosKamera" data-arg="$value">
+                                        {% if pos_dipilih not in pos_list | map(attribute='id_pos') | list %}<option value="">-- Pilih pos --</option>{% endif %}
+                                        {% for p in pos_list %}
+                                        <option value="{{ p.id_pos }}" {% if p.id_pos == pos_dipilih %}selected{% endif %}>{{ p.nama }} ({{ p.id_pos }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% endif %}
+                                <button id="btnScanWajah" data-on-click="mulaiScanWajah" class="btn-success">Mulai Scan Wajah</button>
+                                <p id="statusScanWajah" class="text-xs text-slate-500 mt-2"></p>
+                                <p id="driverBadgeUpdate" class="hidden text-amber-600 text-xs mt-1">⚠ Data Pernah Diperbarui</p>
+                            </div>
+
+                            <!-- Data driver -->
+                            <div class="border border-slate-200 rounded-lg p-5 space-y-3">
+                                <input type="hidden" id="driverIdDriver">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="field-label">ID Personel <span class="text-xs text-slate-400">otomatis</span></label>
+                                        <div class="relative">
+                                            <input type="text" id="driverIdTampil" readonly class="input-field bg-slate-50 pr-8">
+                                            <i class="fa-solid fa-lock absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="field-label">Kode Personel</label>
+                                        <input type="text" id="driverKode" readonly class="input-field bg-slate-50">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="field-label">Nama Driver</label>
+                                    <input type="text" id="driverNama" readonly class="input-field bg-slate-50">
+                                </div>
+                                <div>
+                                    <label class="field-label">NIK</label>
+                                    <input type="text" id="driverNik" readonly class="input-field bg-slate-50">
+                                </div>
+                                <div>
+                                    <label class="field-label">SIM</label>
+                                    <input type="text" id="driverSim" readonly class="input-field bg-slate-50">
+                                </div>
+                                <div class="flex items-center gap-2 text-sm text-slate-700">
+                                    Status <span id="driverStatusBadge"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tambah = supir baru | Update = ganti/edit supir, supir & kontrak truk | Submit = buat tiket -->
+                        <div class="flex gap-3 mt-5">
+                            <button id="btnTambahSupir" data-on-click="bukaTambahSupir" data-arg="tiket" class="btn-success">Tambah</button>
+                            <button id="btnUpdateSupir" data-on-click="bukaModalUpdate" class="btn-secondary">Update</button>
+                            <button id="btnSubmitTiket" data-on-click="submitCreateTiket" data-arg="$el" disabled
+                                class="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed">Submit</button>
+                        </div>
+                        <p id="hintSubmit" class="text-xs text-slate-500 mt-2"></p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>

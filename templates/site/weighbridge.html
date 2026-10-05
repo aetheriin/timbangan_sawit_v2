@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Weighbridge{% endblock %}
+
+{# Halaman Form: info bar + tab Security (pendaftaran tiket), Timbangan, Sortasi, Laboratorium.
+   Halaman List terpisah: site/list.html. Tab awal dari ?tab= (default sesuai role). #}
+{% block extra_head %}
+<meta name="wajib-scan-wajah" content="{{ 'true' if wajib_scan_wajah else 'false' }}">
+<meta name="tab-awal" content="{{ tab_awal }}">
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/site/security_tab.html" %}
+    {% include "partials/site/timbangan_tab.html" %}
+    {% include "partials/site/sortasi_tab.html" %}
+    {% include "partials/site/lab_tab.html" %}
+{% endblock %}
+
+{% block modals %}
+    {% include "partials/site/security_modals.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='vendor/html5-qrcode/html5-qrcode.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/security.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/kendaraan.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/timbangan.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/sortasi.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/site/lab.js') }}"></script>
+{% endblock %}

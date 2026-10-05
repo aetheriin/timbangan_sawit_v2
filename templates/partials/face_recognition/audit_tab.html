@@ -1,0 +1,45 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div data-tab-content="audit" class="hidden">
+
+    <div class="flex items-center gap-2 mb-4">
+        <div id="chipRentangAudit" class="flex gap-1.5">
+            <button type="button" class="chip chip-active" data-hari="1" data-on-click="filterAudit" data-arg="$el">Hari ini</button>
+            <button type="button" class="chip" data-hari="7" data-on-click="filterAudit" data-arg="$el">7 hari</button>
+            <button type="button" class="chip" data-hari="30" data-on-click="filterAudit" data-arg="$el">30 hari</button>
+        </div>
+        <div class="flex-1"></div>
+        <a id="btnExportAudit" href="/api/audit/export?hari=1" class="btn-secondary">
+            <i class="fa-solid fa-download mr-1"></i> Export
+        </a>
+    </div>
+
+    <div class="section-box">
+        {{ section_header('audit-security', 'Aktivitas Security') }}
+        <div id="body-audit-security" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr>
+                        <th class="table-cell">Waktu</th><th class="table-cell">User</th><th class="table-cell">Aksi</th>
+                        <th class="table-cell">No. Tiket</th><th class="table-cell">Detail</th><th class="table-cell">IP</th>
+                    </tr>
+                </thead>
+                <tbody data-per-halaman="20" id="tabelAuditSecurity" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-box">
+        {{ section_header('audit-personel', 'Perubahan Data Personel') }}
+        <div id="body-audit-personel" class="section-body">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr>
+                        <th class="table-cell">Waktu</th><th class="table-cell">ID</th><th class="table-cell">Aksi</th>
+                        <th class="table-cell">Perubahan (lama → baru)</th><th class="table-cell">Oleh</th>
+                    </tr>
+                </thead>
+                <tbody data-per-halaman="20" id="tabelAuditPersonel" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>

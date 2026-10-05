@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import section_header %}
+{% block title %}Dashboard · Weighbridge{% endblock %}
+
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+<div class="page-header">
+    <div class="page-header-icon"><i class="fa-solid fa-chart-line"></i></div>
+    <div>
+        <h1 class="text-sm font-semibold">Dashboard</h1>
+        <p class="page-header-sub">Harga CPO, harga kernel, OER CPO, dan biaya olah</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block tab_content %}
+<div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="flex gap-1.5">
+        {% for h in (7, 30, 90) %}
+        <button type="button" class="chip{% if h == 30 %} chip-active{% endif %}" data-hari="{{ h }}" data-on-click="filterHariDashboard" data-arg="$el">{{ h }} Hari</button>
+        {% endfor %}
+    </div>
+    <div class="flex-1"></div>
+    {% if boleh_ubah %}
+    <button type="button" class="btn-primary" data-on-click="bukaIsiHarga"><i class="fa-solid fa-plus mr-1"></i> Isi Harga</button>
+    {% endif %}
+</div>
+
+<div id="kartuDashboard" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4"></div>
+
+<div class="section-box">
+    {{ section_header('riwayat-harga', 'Riwayat Harga') }}
+    <div id="body-riwayat-harga" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Tanggal</th><th class="table-cell text-right">Harga CPO (Rp/kg)</th><th class="table-cell text-right">Harga Kernel (Rp/kg)</th>
+                    <th class="table-cell text-right">OER CPO (%)</th><th class="table-cell text-right">Biaya Olah (Rp/kg TBS)</th><th class="table-cell">Diisi Oleh</th>
+                    {% if boleh_ubah %}<th class="table-cell text-right">Aksi</th>{% endif %}</tr>
+            </thead>
+            <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelHarga" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% if boleh_ubah %}
+<div id="modalHarga" class="modal-overlay">
+    <form id="formHarga" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Isi Harga</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalHarga" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <div class="col-span-2">
+                <label class="field-label" for="hrgTanggal">Tanggal</label>
+                <input type="date" id="hrgTanggal" name="tanggal" required class="input-field">
+            </div>
+            {% for nama, label, step in [('harga_cpo', 'Harga CPO (Rp/kg)', '0.01'), ('harga_kernel', 'Harga Kernel (Rp/kg)', '0.01'),
+                                         ('oer_cpo', 'OER CPO (%)', '0.01'), ('biaya_olah', 'Biaya Olah (Rp/kg TBS)', '0.01')] %}
+            <div>
+                <label class="field-label" for="hrg_{{ nama }}">{{ label }}</label>
+                <input type="number" id="hrg_{{ nama }}" name="{{ nama }}" required min="0" step="{{ step }}" class="input-field">
+            </div>
+            {% endfor %}
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalHarga" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/admin/admin.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/dashboard/dashboard.js') }}"></script>
+{% endblock %}
