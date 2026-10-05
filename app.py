@@ -28,6 +28,7 @@ from routes.sistem import sistem_bp
 from routes.admin import admin_bp
 from routes.kontrak import kontrak_bp
 from routes.master import master_bp
+from routes.kunjungan import kunjungan_bp
 from routes.dashboard import dashboard_bp
 
 load_dotenv()
@@ -70,7 +71,7 @@ def belum_login():
     return redirect("/login")
 
 for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
-           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp):
+           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp, kunjungan_bp):
     app.register_blueprint(bp)
 
 # Endpoint yang dipanggil kiosk kamera (tanpa sesi browser) dilindungi token perangkat, bukan CSRF

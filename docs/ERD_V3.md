@@ -28,7 +28,7 @@ Database: SQL Server 2022 (JSON disimpan di `NVARCHAR(MAX)` + `CHECK (ISJSON(...
 | `supplier` (satu tipe) | `mitra` + `mitra_peran` | Satu perusahaan bisa customer sekaligus pengangkutan |
 | `pengaturan` (global) | `pengaturan` (global) + `pengaturan_area` (penimpa per area) | Aturan operasional tiap site bisa berbeda, kebijakan keamanan tetap satu |
 | `delivery_order.no_kontrak` (teks), `id_customer`, `id_produk`, `jenis_transaksi` | `kontrak` (1 kontrak 1 produk) → `delivery_order` (FK) | Customer, produk, harga, qty ada di kontrak; DO (= nomor pengangkutan) tinggal menunjuk kontrak |
-| `id_pengangkutan` (NULL = customer sendiri) | `cara_angkut` PENGIRIM / PENERIMA / PIHAK_KETIGA + `id_pengangkutan` hanya untuk pihak ketiga | 3 kemungkinan pengangkutan tercatat jelas |
+| `id_pengangkutan` (NULL = customer sendiri) | `do_pengangkutan`: satu DO punya beberapa pengangkutan, masing-masing PENGIRIM / PENERIMA / PIHAK_KETIGA | 1 kontrak = 1 DO, tetapi truknya bisa dari beberapa supplier pengangkutan |
 | `kendaraan.no_stnk` boleh kosong | wajib & unik | Setiap kendaraan terdaftar wajib STNK |
 | `jadwal_kerja` (satu untuk semua) | per area (`id_comp_area`, `hari`) | Jam kerja tiap site bisa berbeda |
 | `transaksi.no_do` (teks) | `transaksi.id_do` FK | Integritas data |
@@ -156,8 +156,7 @@ erDiagram
 
     %% ===== PERSONEL =====
     kategori_personel {
-        int id_kategori PK
-        varchar kode UK "DRIVER, SECURITY, KARYAWAN, TAMU"
+        varchar kode PK "DRIVER, SECURITY, EMPLOYEE, TAMU"
         nvarchar nama
         bit wajib_sim
         bit boleh_akun "TAMU & DRIVER = 0"
@@ -319,15 +318,21 @@ erDiagram
     delivery_order {
         int id_do PK
         nvarchar no_do UK
-        int id_kontrak FK
-        varchar cara_angkut "PENGIRIM | PENERIMA | PIHAK_KETIGA"
-        int id_pengangkutan FK "hanya PIHAK_KETIGA"
+        int id_kontrak FK, UK "1 kontrak = 1 DO"
         date tanggal_do
         date berlaku_sampai
         decimal qty_kg
         bit is_active
         int created_by FK
         datetime created_at
+    }
+    do_pengangkutan {
+        int id_do_angkut PK
+        int id_do FK
+        varchar cara_angkut "PENGIRIM | PENERIMA | PIHAK_KETIGA"
+        int id_pengangkutan FK "hanya PIHAK_KETIGA"
+        decimal qty_kg "alokasi, opsional"
+        bit is_active
     }
     harga_harian {
         date tanggal PK
@@ -513,7 +518,8 @@ erDiagram
     produk ||--o{ kontrak : ""
     mill ||--o{ kontrak : ""
     kontrak ||--o{ delivery_order : ""
-    mitra |o--o{ delivery_order : "pihak ketiga"
+    delivery_order ||--|{ do_pengangkutan : ""
+    mitra |o--o{ do_pengangkutan : "pihak ketiga"
 
     alur ||--o{ alur_tahap : ""
     tahap ||--o{ alur_tahap : ""
@@ -550,9 +556,9 @@ erDiagram
 | Tabel | Aturan |
 |---|---|
 | `akun` | `id_personel` = PK sekaligus FK → satu orang maksimal satu akun. Hanya personel dengan `kategori_personel.boleh_akun = 1` (Security, Karyawan); tamu & driver tidak punya akun. Hak akses ditentukan `level`, bukan kategori |
-| `delivery_order`, `transaksi` | `CHECK ((cara_angkut = 'PIHAK_KETIGA') = (id_pengangkutan IS NOT NULL))`. Pengirim / penerima mengikuti jenis transaksi: PEMBELIAN → pengirim = mitra, penerima = PT kita; PENJUALAN → sebaliknya |
+| `do_pengangkutan`, `transaksi` | `CHECK ((cara_angkut = 'PIHAK_KETIGA') = (id_pengangkutan IS NOT NULL))`. Tiket dengan DO hanya boleh memakai pengangkutan yang terdaftar di `do_pengangkutan` DO itu; total `qty_kg` alokasi tidak melebihi `delivery_order.qty_kg`. Pengirim / penerima mengikuti jenis transaksi: PEMBELIAN → pengirim = mitra, penerima = PT kita; PENJUALAN → sebaliknya |
 | `kendaraan` | `no_stnk` NOT NULL + UNIQUE |
-| `kontrak` → `delivery_order` | Satu kontrak dibagi ke banyak DO, tiap DO satu pengangkutan (mis. kontrak 500 ton: DO-A 200 ton angkutan X, DO-B 300 ton angkutan Y). Total `qty_kg` DO tidak boleh melebihi `kontrak.qty_kg` |
+| `kontrak` → `delivery_order` → `do_pengangkutan` | 1 kontrak = 1 DO (`UNIQUE (id_kontrak)`). 1 DO bisa diangkut beberapa pihak, mis. kontrak 500 ton → DO-001 → CV Angkut X (200 ton), PT Trans Y (200 ton), kendaraan PT penerima (100 ton) |
 | `mitra_peran` | `kontrak.id_mitra` harus berperan CUSTOMER; `id_pengangkutan` harus berperan PENGANGKUTAN |
 | `pengaturan_area` | Hanya untuk kunci dengan `boleh_per_area = 1`. Nilai dibaca: area → global → `.env` → bawaan kode |
 | `jadwal_kerja` | Absensi dinilai dengan jadwal area tempat scan (`perangkat_kiosk.id_comp_area`) |
@@ -572,7 +578,7 @@ erDiagram
 |---|---|
 | `v_tiket_berat` | Per tiket: berat ke-1, ke-2, bruto = maks, tara = min, netto = selisih, netto akhir = netto − potongan sortasi |
 | `v_do_realisasi` | Per DO: qty, realisasi = jumlah netto akhir tiket SELESAI, sisa |
-| `v_kontrak_realisasi` | Per kontrak: qty, total qty DO yang diterbitkan, realisasi semua DO-nya, sisa |
+| `v_kontrak_realisasi` | Per kontrak: qty, realisasi semua DO-nya, sisa |
 | `v_hak_akses` | Per akun: menu + aksi yang boleh (dipakai aplikasi, di-cache ±30 detik) |
 
 ## Isi awal master
@@ -607,7 +613,7 @@ Pengaturan, Perangkat, Log, Kesehatan). Void tiket tetap di menu Admin seperti s
 | PKS | SECURITY → TIMBANG_1 → LAB → TIMBANG_2 |
 | TIMBANG_SAJA | SECURITY → TIMBANG_1 → TIMBANG_2 |
 
-**kategori_personel**: DRIVER (wajib_sim, tanpa akun), SECURITY (boleh akun), KARYAWAN (boleh akun), TAMU (tanpa akun).
+**kategori_personel** (PK = kode, supaya kolom `personel.kategori` lama tetap dipakai): DRIVER (wajib_sim, tanpa akun), SECURITY (boleh akun), EMPLOYEE / Karyawan (boleh akun), TAMU (tanpa akun).
 
 **Alur tamu**: Security mendaftarkan tamu sebagai personel kategori TAMU + foto wajah (`personel_wajah`). Setiap datang, scan wajah → baris `kunjungan` (orang yang dituju, keperluan); keluar → `waktu_keluar` diisi.
 **jenis_sim**: A, B1, B1_UMUM, B2, B2_UMUM.
@@ -631,6 +637,7 @@ Pengaturan, Perangkat, Log, Kesehatan). Void tiket tetap di menu Admin seperti s
 | Fase | Status |
 |---|---|
 | 1. Organisasi & hak akses | **Selesai** (migrasi `008_organisasi_hak_akses.sql`). Catatan: tabel `users` belum di-rename menjadi `akun` dan PK masih `id_user`, supaya semua FK lama (`created_by`, `security_id`, operator, dll.) tetap utuh. Rename + `id_personel` wajib dilakukan di fase bersih-bersih, setelah semua akun dihubungkan ke personel |
+| 2. Personel | **Selesai** (migrasi `009_personel_sim_wajah_kunjungan.sql`): `kategori_personel` (PK = kode, sehingga kolom `personel.kategori` tetap dipakai sebagai FK), `jenis_sim` + `personel_sim`, `personel_wajah` (semua wajah aktif dipakai untuk pencocokan), `keperluan_kunjungan` + `kunjungan`, menu Face Recognition › Kunjungan Tamu. Kolom `personel.no_sim`, `face_embedding_data`, `foto_path`, `foto_sumber` dihapus; aplikasi membaca bentuk lamanya lewat view `v_personel`. SIM data lama memakai jenis `BELUM_DIISI` (tanpa masa berlaku) sampai dilengkapi lewat form Personel / Data Master › Driver |
 
 ## Rencana migrasi
 
@@ -654,7 +661,7 @@ Setiap fase: migrasi SQL + skrip pindah data + uji di `DbSistemTimbangan_Test` d
 | 4 | Jadwal kerja per area? | Ya |
 | 5 | Void | Tetap seperti sekarang oleh Admin; berita acara menyusul (tanpa persetujuan dulu) |
 | 6 | Tamu punya akun? | Tidak. Tamu hanya personel + scan wajah |
-| 7 | Banyak pengangkutan per kontrak / mitra peran ganda | Ya: kontrak dibagi ke beberapa DO (satu pengangkutan per DO), dan satu mitra boleh punya beberapa peran (`mitra_peran`) |
+| 7 | Banyak pengangkutan / mitra peran ganda | 1 kontrak = 1 DO; 1 DO boleh beberapa pengangkutan (`do_pengangkutan`). Satu mitra boleh punya beberapa peran (`mitra_peran`) |
 | 8 | Pengaturan per area | Global + penimpa per area (`pengaturan_area`), hanya untuk pengaturan operasional |
 
 **Pengaturan: mana yang boleh per area**

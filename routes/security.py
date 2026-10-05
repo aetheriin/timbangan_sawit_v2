@@ -19,6 +19,7 @@ from utils.audit_utils import catat_security_audit
 from utils.personel_utils import format_nama_personel
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.hak_akses import izin
+from utils.db_personel import sim_dipakai
 
 security_bp = Blueprint('security', __name__)
 
@@ -143,13 +144,15 @@ def _data_verif(d, is_updated=None):
 def driver_tambah():
     nik = request.form.get("nik", "").strip()
     nama = request.form.get("nama", "").strip()
-    no_sim = request.form.get("no_sim", "").strip()
+    no_sim = request.form.get("no_sim", "").strip().upper()
     file = request.files.get("foto")
 
     if not all([nik, nama, no_sim, file]):
         return jsonify({"error": "Semua field wajib diisi, termasuk foto wajah"}), 400
     if cek_nik_ada(nik):
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
+    if sim_dipakai(no_sim):
+        return jsonify({"error": f"No. SIM {no_sim} sudah dipakai personel lain"}), 400
 
     try:
         filepath, foto_path = _simpan_foto(file)
@@ -187,13 +190,15 @@ def driver_tambah():
 def driver_update_identitas():
     f = request.form
     id_driver, nik, nama, no_sim = f.get("id_driver", "").strip(), f.get("nik", "").strip(), \
-        f.get("nama", "").strip(), f.get("no_sim", "").strip()
+        f.get("nama", "").strip(), f.get("no_sim", "").strip().upper()
     file = request.files.get("foto")
 
     if not all([id_driver, nik, nama, no_sim]) or not id_driver.isdigit():
         return jsonify({"error": "Semua field wajib diisi"}), 400
     if cek_nik_ada(nik, exclude_id=int(id_driver)):
         return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
+    if sim_dipakai(no_sim, int(id_driver)):
+        return jsonify({"error": f"No. SIM {no_sim} sudah dipakai personel lain"}), 400
 
     embedding_binary, foto_path = None, None
     if file and file.filename:

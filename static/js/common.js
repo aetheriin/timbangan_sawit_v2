@@ -32,6 +32,7 @@ const LABEL_KATEGORI = {
     DRIVER: ['DRIVER', 'bg-blue-100 text-blue-700'],
     SECURITY: ['SECURITY', 'bg-slate-900 text-white'],
     EMPLOYEE: ['EMPLOYEE HO', 'bg-slate-200 text-slate-600'],
+    TAMU: ['TAMU', 'bg-amber-100 text-amber-700'],
 };
 
 const WARNA_BADGE = {

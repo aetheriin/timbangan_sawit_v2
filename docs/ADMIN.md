@@ -7,8 +7,8 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 
 ## Cara memasang
 
-1. Jalankan migrasi `database/migrations/` 001–008 berurutan di SSMS. **008 wajib** untuk versi ini: login membaca
-   tabel `level` (kolom `users.role` diganti `users.id_level`).
+1. Jalankan migrasi `database/migrations/` 001–009 berurutan di SSMS. **008 & 009 wajib** untuk versi ini: login membaca
+   tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
 

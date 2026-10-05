@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 from utils import db_master as db
 from utils.plat_utils import normalisasi_plat
 from utils.hak_akses import izin, boleh
+from utils.db_personel import daftar_jenis_sim
 
 master_bp = Blueprint("master", __name__)
 
@@ -13,7 +14,7 @@ master_bp = Blueprint("master", __name__)
 def master_halaman():
     return render_template("master/master.html", halaman="master", kategori_tetap="DRIVER",
                            boleh_ubah=boleh("MASTER_DRIVER"), boleh_kendaraan=boleh("MASTER_KENDARAAN"),
-                           driver_list=db.daftar_driver_aktif())
+                           driver_list=db.daftar_driver_aktif(), jenis_sim_list=daftar_jenis_sim())
 
 
 @master_bp.route("/api/master/kendaraan")

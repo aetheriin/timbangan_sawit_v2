@@ -1,6 +1,6 @@
 # Hak Akses per Level
 
-Sejak migrasi `008_organisasi_hak_akses.sql`, hak akses **tidak lagi ditulis di kode**. Diatur Admin di
+Sejak migrasi `008_organisasi_hak_akses.sql` (+ menu Kunjungan di `009`), hak akses **tidak lagi ditulis di kode**. Diatur Admin di
 **Admin › Level & Hak Akses** dan disimpan di tabel:
 
 | Tabel | Isi |
@@ -27,6 +27,7 @@ Aturan:
 | Form › Laboratorium (`FORM_LAB`): hasil lab (tambah), standar mutu (ubah) | – | – | – | – | tambah, ubah |
 | Face Recognition › Personel (`PERSONEL`): semua kategori | tambah, ubah, hapus | – | – | – | – |
 | Face Recognition › Blacklist (`BLACKLIST`) | tambah | – | – | – | – |
+| Face Recognition › Kunjungan Tamu (`KUNJUNGAN`, migrasi 009): scan wajah, daftar tamu, catat masuk / keluar | – | tambah, ubah | – | – | – |
 | Kontrak & DO (`KONTRAK_DO`) | tambah, ubah, hapus | – | – | – | – |
 | Data Master › Driver (`MASTER_DRIVER`): hanya kategori Driver | tambah, ubah, hapus | tambah, ubah, hapus | – | – | – |
 | Data Master › Kendaraan (`MASTER_KENDARAAN`) | tambah, ubah | tambah, ubah | – | – | – |

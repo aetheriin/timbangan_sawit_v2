@@ -76,6 +76,9 @@ def absensi_scan():
                                  ip_address=ip)
             return jsonify({"status": "DITOLAK_BLACKLIST", "error": f"{nama} masuk daftar BLACKLIST. Absensi ditolak."}), 403
 
+        if p["kategori"] == "TAMU":         # tamu tidak absen; kedatangannya dicatat di Kunjungan Tamu
+            return jsonify({"status": "TAMU", "error": f"{nama} terdaftar sebagai tamu. Catat di menu Kunjungan Tamu."}), 400
+
         terakhir, sudah_masuk = get_scan_terakhir(id_personel, sekarang.date())
         if is_duplikat(terakhir, sekarang):
             return jsonify({"status": "DUPLIKAT", "error": f"{nama} sudah absen pukul {terakhir:%H:%M}. Scan diabaikan."}), 409

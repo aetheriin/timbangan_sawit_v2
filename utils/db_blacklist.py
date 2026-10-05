@@ -53,7 +53,7 @@ _SELECT_PERSONEL = """
            p.foto_path, p.is_blacklisted, tr.no_plat AS plat_terakhir, tr.id_supplier AS id_customer_terakhir,
            tr.customer AS customer_terakhir, tr.id_pengangkutan AS id_pengangkutan_terakhir,
            tr.pengangkutan AS pengangkutan_terakhir, tr.created_at AS waktu_terakhir
-    FROM personel p
+    FROM v_personel p
     OUTER APPLY (SELECT TOP 1 k.no_plat, t.id_supplier, s.nama_supplier AS customer, t.id_pengangkutan,
                         a.nama_supplier AS pengangkutan, t.created_at
                  FROM transaksi t JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan

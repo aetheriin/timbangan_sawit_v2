@@ -69,7 +69,7 @@ def get_absensi_harian(tanggal, kategori=None):
         OUTER APPLY (SELECT TOP 1 waktu, status_waktu, selisih_menit FROM absensi a
                      WHERE a.id_personel = p.id_personel AND a.tanggal = ? AND a.status = 'BERHASIL' AND a.jenis = 'PULANG'
                      ORDER BY a.waktu DESC) k
-        WHERE p.is_active = 1"""
+        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'"""
     params = [tanggal, tanggal]
     if kategori:
         sql += " AND p.kategori = ?"
@@ -101,7 +101,7 @@ def get_rekap_bulanan(tahun, bulan):
         FROM personel p
         LEFT JOIN absensi a ON a.id_personel = p.id_personel AND a.status = 'BERHASIL'
                            AND a.tanggal >= ? AND a.tanggal < ?
-        WHERE p.is_active = 1
+        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'
         GROUP BY p.id_personel, p.kode_personel, p.nama_personel, p.kategori
         ORDER BY CASE WHEN p.kode_personel IS NULL THEN 1 ELSE 0 END, p.kode_personel, p.id_personel
     """, awal, akhir)

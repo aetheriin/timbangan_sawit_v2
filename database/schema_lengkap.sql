@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA LENGKAP Sistem Timbangan Sawit (Weighbridge + Face Recognition)
-   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-008 dalam satu file.
-   Database yang SUDAH ada cukup menjalankan migrasi 001-008 berurutan.
+   Untuk membuat DATABASE BARU dari nol = schema.sql (main) + migrasi 001-009 dalam satu file.
+   Database yang SUDAH ada cukup menjalankan migrasi 001-009 berurutan.
 
    Cara pakai (SSMS): ganti nama database di 2 baris di bawah, lalu Execute (F5).
    Urutan tabel mengikuti ketergantungan foreign key. Diagram: docs/ERD.md
@@ -69,26 +69,27 @@ GO
 
 /* =========================== MASTER =========================== */
 
--- Personel: supir, security, karyawan HO (wajah untuk face recognition)
+-- Personel: supir, security, karyawan HO, tamu. SIM & wajah di tabel sendiri (migrasi 009), lihat v_personel
+CREATE TABLE dbo.kategori_personel (
+    kode        VARCHAR(20)   NOT NULL PRIMARY KEY,
+    nama        NVARCHAR(50)  NOT NULL,
+    wajib_sim   BIT NOT NULL CONSTRAINT DF_KatPersonel_Sim DEFAULT (0),
+    boleh_akun  BIT NOT NULL CONSTRAINT DF_KatPersonel_Akun DEFAULT (0),
+    is_active   BIT NOT NULL CONSTRAINT DF_KatPersonel_Aktif DEFAULT (1)
+);
 CREATE TABLE dbo.personel (
     id_personel          INT IDENTITY(1,1) PRIMARY KEY,
     kode_personel        VARCHAR(20)  NULL,                     -- diisi HO, mis. PRGBS-001
     nik                  VARCHAR(20)  NOT NULL CONSTRAINT UX_Personel_Nik UNIQUE,
     nama_personel        VARCHAR(100) NOT NULL,
-    no_sim               VARCHAR(30)  NULL,
-    kategori             VARCHAR(20)  NOT NULL CONSTRAINT DF_Personel_Kategori DEFAULT ('DRIVER'),
-    face_embedding_data  VARBINARY(MAX) NULL,
-    foto_path            VARCHAR(255) NULL,
-    foto_sumber          VARCHAR(10)  NULL,
+    kategori             VARCHAR(20)  NOT NULL CONSTRAINT DF_Personel_Kategori DEFAULT ('DRIVER')
+                         CONSTRAINT FK_Personel_Kategori REFERENCES dbo.kategori_personel (kode),
     is_updated           BIT NOT NULL CONSTRAINT DF_Personel_Updated DEFAULT (0),
     current_hash         VARCHAR(64)  NULL,
     is_blacklisted       BIT NOT NULL CONSTRAINT DF_Personel_Blacklist DEFAULT (0),
     is_active            BIT NOT NULL CONSTRAINT DF_Personel_Aktif DEFAULT (1),
     created_at           DATETIME NOT NULL CONSTRAINT DF_Personel_Created DEFAULT (GETDATE()),
-    updated_at           DATETIME NOT NULL CONSTRAINT DF_Personel_Modified DEFAULT (GETDATE()),
-    CONSTRAINT CK_Personel_Kategori   CHECK (kategori IN ('DRIVER', 'SECURITY', 'EMPLOYEE')),
-    CONSTRAINT CK_Personel_SimDriver  CHECK (kategori <> 'DRIVER' OR no_sim IS NOT NULL),
-    CONSTRAINT CK_Personel_FotoSumber CHECK (foto_sumber IS NULL OR foto_sumber IN ('UPLOAD', 'KAMERA'))
+    updated_at           DATETIME NOT NULL CONSTRAINT DF_Personel_Modified DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_Personel_Kode ON dbo.personel (kode_personel) WHERE kode_personel IS NOT NULL;
 CREATE INDEX IX_Personel_Aktif_Kategori ON dbo.personel (is_active, kategori) INCLUDE (kode_personel, nama_personel);
@@ -112,6 +113,77 @@ CREATE TABLE dbo.users (
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_Users_Personel ON dbo.users (id_personel) WHERE id_personel IS NOT NULL;
+GO
+
+/* SIM, wajah, kunjungan tamu (migrasi 009) */
+CREATE TABLE dbo.jenis_sim (
+    id_jenis_sim INT IDENTITY(1,1) PRIMARY KEY,
+    kode         VARCHAR(20)  NOT NULL CONSTRAINT UX_JenisSim_Kode UNIQUE,
+    nama         NVARCHAR(50) NOT NULL,
+    is_active    BIT NOT NULL CONSTRAINT DF_JenisSim_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.personel_sim (
+    id_sim          INT IDENTITY(1,1) PRIMARY KEY,
+    id_personel     INT NOT NULL CONSTRAINT FK_PersonelSim_Personel REFERENCES dbo.personel (id_personel),
+    id_jenis_sim    INT NOT NULL CONSTRAINT FK_PersonelSim_Jenis REFERENCES dbo.jenis_sim (id_jenis_sim),
+    no_sim          VARCHAR(30) NOT NULL,
+    berlaku_sampai  DATE NULL,                 -- NULL hanya untuk data lama yang belum dilengkapi
+    is_active       BIT NOT NULL CONSTRAINT DF_PersonelSim_Aktif DEFAULT (1),
+    created_by      INT NULL CONSTRAINT FK_PersonelSim_User REFERENCES dbo.users (id_user),
+    created_at      DATETIME NOT NULL CONSTRAINT DF_PersonelSim_Created DEFAULT (GETDATE())
+);
+CREATE UNIQUE INDEX UX_PersonelSim_NoAktif ON dbo.personel_sim (no_sim) WHERE is_active = 1;
+CREATE INDEX IX_PersonelSim_Personel ON dbo.personel_sim (id_personel, is_active);
+CREATE TABLE dbo.personel_wajah (
+    id_wajah     INT IDENTITY(1,1) PRIMARY KEY,
+    id_personel  INT NOT NULL CONSTRAINT FK_PersonelWajah_Personel REFERENCES dbo.personel (id_personel),
+    embedding    VARBINARY(MAX) NOT NULL,
+    foto_path    VARCHAR(255) NULL,
+    sumber       VARCHAR(10)  NULL CONSTRAINT CK_PersonelWajah_Sumber CHECK (sumber IN ('UPLOAD', 'KAMERA')),
+    is_utama     BIT NOT NULL CONSTRAINT DF_PersonelWajah_Utama DEFAULT (1),
+    is_active    BIT NOT NULL CONSTRAINT DF_PersonelWajah_Aktif DEFAULT (1),
+    created_by   INT NULL CONSTRAINT FK_PersonelWajah_User REFERENCES dbo.users (id_user),
+    created_at   DATETIME NOT NULL CONSTRAINT DF_PersonelWajah_Created DEFAULT (GETDATE())
+);
+CREATE UNIQUE INDEX UX_PersonelWajah_Utama ON dbo.personel_wajah (id_personel) WHERE is_utama = 1 AND is_active = 1;
+CREATE INDEX IX_PersonelWajah_Aktif ON dbo.personel_wajah (is_active) INCLUDE (id_personel);
+CREATE TABLE dbo.keperluan_kunjungan (
+    id_keperluan INT IDENTITY(1,1) PRIMARY KEY,
+    nama         NVARCHAR(100) NOT NULL CONSTRAINT UX_Keperluan_Nama UNIQUE,
+    is_active    BIT NOT NULL CONSTRAINT DF_Keperluan_Aktif DEFAULT (1)
+);
+CREATE TABLE dbo.kunjungan (
+    id_kunjungan     INT IDENTITY(1,1) PRIMARY KEY,
+    id_personel      INT NOT NULL CONSTRAINT FK_Kunjungan_Tamu REFERENCES dbo.personel (id_personel),
+    id_dituju        INT NOT NULL CONSTRAINT FK_Kunjungan_Dituju REFERENCES dbo.personel (id_personel),
+    id_keperluan     INT NOT NULL CONSTRAINT FK_Kunjungan_Keperluan REFERENCES dbo.keperluan_kunjungan (id_keperluan),
+    keterangan       NVARCHAR(255) NULL,
+    asal_perusahaan  NVARCHAR(100) NULL,
+    no_plat          VARCHAR(15)   NULL,
+    id_comp_area     INT NOT NULL CONSTRAINT FK_Kunjungan_Area REFERENCES dbo.comp_area (id_comp_area),
+    foto_masuk_path  VARCHAR(255)  NULL,      -- snapshot wajah saat datang
+    waktu_masuk      DATETIME NOT NULL CONSTRAINT DF_Kunjungan_Masuk DEFAULT (GETDATE()),
+    waktu_keluar     DATETIME NULL,           -- NULL = tamu masih di dalam
+    dicatat_oleh     INT NOT NULL CONSTRAINT FK_Kunjungan_User REFERENCES dbo.users (id_user),
+    CONSTRAINT CK_Kunjungan_Keluar CHECK (waktu_keluar IS NULL OR waktu_keluar >= waktu_masuk)
+);
+CREATE INDEX IX_Kunjungan_Masuk ON dbo.kunjungan (waktu_masuk DESC);
+CREATE INDEX IX_Kunjungan_Didalam ON dbo.kunjungan (id_personel) WHERE waktu_keluar IS NULL;
+GO
+CREATE OR ALTER VIEW dbo.v_personel AS
+SELECT p.id_personel, p.kode_personel, p.nik, p.nama_personel, p.kategori, p.is_updated, p.current_hash,
+       p.is_blacklisted, p.is_active, p.created_at, p.updated_at,
+       s.no_sim, s.id_jenis_sim, s.kode_jenis_sim, s.berlaku_sampai AS sim_berlaku_sampai,
+       w.embedding AS face_embedding_data, w.foto_path, w.sumber AS foto_sumber
+FROM dbo.personel p
+OUTER APPLY (SELECT TOP 1 ps.no_sim, ps.id_jenis_sim, j.kode AS kode_jenis_sim, ps.berlaku_sampai
+             FROM dbo.personel_sim ps JOIN dbo.jenis_sim j ON j.id_jenis_sim = ps.id_jenis_sim
+             WHERE ps.id_personel = p.id_personel AND ps.is_active = 1
+             ORDER BY ps.berlaku_sampai DESC, ps.id_sim DESC) s
+OUTER APPLY (SELECT TOP 1 pw.embedding, pw.foto_path, pw.sumber
+             FROM dbo.personel_wajah pw
+             WHERE pw.id_personel = p.id_personel AND pw.is_active = 1
+             ORDER BY pw.is_utama DESC, pw.id_wajah DESC) w;
 GO
 
 -- Customer (membeli / menjual) & pengangkutan pihak ketiga
@@ -502,6 +574,18 @@ END
 GO
 
 /* =========================== DATA AWAL =========================== */
+-- Kategori personel, jenis SIM, keperluan kunjungan (migrasi 009)
+INSERT INTO dbo.kategori_personel (kode, nama, wajib_sim, boleh_akun) VALUES
+    ('DRIVER',   N'Driver',   1, 0),
+    ('SECURITY', N'Security', 0, 1),
+    ('EMPLOYEE', N'Karyawan', 0, 1),
+    ('TAMU',     N'Tamu',     0, 0);
+INSERT INTO dbo.jenis_sim (kode, nama) VALUES
+    ('A', N'SIM A'), ('B1', N'SIM B1'), ('B1_UMUM', N'SIM B1 Umum'), ('B2', N'SIM B2'), ('B2_UMUM', N'SIM B2 Umum');
+INSERT INTO dbo.jenis_sim (kode, nama, is_active) VALUES ('BELUM_DIISI', N'Belum dilengkapi', 0);
+INSERT INTO dbo.keperluan_kunjungan (nama) VALUES
+    (N'Rapat / Bertemu'), (N'Pengiriman Barang'), (N'Perbaikan / Servis'), (N'Audit / Inspeksi'), (N'Lainnya');
+GO
 -- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
 INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)');
 INSERT INTO dbo.comp_area (id_company, kode, nama)
@@ -550,6 +634,13 @@ FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
              ('LAB',              'FORM_LAB',         1, 1, 0)) v (lv, mn, t, u, h)
 JOIN dbo.level l ON l.kode = v.lv
 JOIN dbo.menu m ON m.kode = v.mn;
+-- Menu Kunjungan Tamu (migrasi 009)
+INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
+SELECT 'KUNJUNGAN', N'Face Recognition › Kunjungan Tamu', id_menu, 5 FROM dbo.menu WHERE kode = 'FACE_RECOGNITION';
+INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
+SELECT l.id_level, m.id_menu, 1, 1, 0
+FROM dbo.level l CROSS JOIN dbo.menu m
+WHERE l.kode = 'SECURITY' AND m.kode = 'KUNJUNGAN';
 GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
 INSERT INTO dbo.users (nama, username, password, id_level, id_department, id_comp_area)

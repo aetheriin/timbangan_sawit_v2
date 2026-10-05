@@ -170,7 +170,7 @@ def get_supir_kendaraan(id_kendaraan):
         SELECT d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
                d.foto_path, d.is_updated, d.is_blacklisted, kd.is_utama
         FROM kendaraan_driver kd
-        JOIN personel d ON kd.id_driver = d.id_personel
+        JOIN v_personel d ON kd.id_driver = d.id_personel
         WHERE kd.id_kendaraan = ? AND kd.is_active = 1 AND d.is_active = 1
         ORDER BY kd.is_utama DESC, d.nama_personel
     """, id_kendaraan)
@@ -312,7 +312,10 @@ def get_all_driver_embeddings():
     """Semua personel aktif (bukan hanya DRIVER), supaya wajah security/karyawan tidak terbaca sebagai supir lain."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_personel, nama_personel, face_embedding_data FROM personel WHERE is_active = 1")
+    # Semua wajah aktif (personel_wajah, migrasi 009); satu personel bisa punya lebih dari satu
+    cursor.execute("""SELECT p.id_personel, p.nama_personel, w.embedding FROM personel_wajah w
+                      JOIN personel p ON p.id_personel = w.id_personel
+                      WHERE p.is_active = 1 AND w.is_active = 1""")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -320,7 +323,7 @@ def get_all_driver_embeddings():
 def get_driver_by_id(driver_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM personel d WHERE d.id_personel = ?", driver_id)
+    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM v_personel d WHERE d.id_personel = ?", driver_id)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -358,29 +361,21 @@ def hitung_hash_driver(nik, nama, no_sim, timestamp, secret_key=None):
     return hashlib.sha256(data.encode()).hexdigest()
 
 def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated_by, embedding_binary=None, foto_path=None):
+    """Ubah identitas supir dari Form Security (modal Update). SIM & wajah lewat personel_sim / personel_wajah."""
+    from utils.db_personel import simpan_sim, simpan_wajah
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT nik, nama_personel, no_sim, kode_personel FROM personel WHERE id_personel = ?", driver_id)
+    cursor.execute("SELECT nik, nama_personel, no_sim, kode_personel FROM v_personel WHERE id_personel = ?", driver_id)
     lama = cursor.fetchone()
 
     timestamp = datetime.now()
     hash_baru = hitung_hash_driver(nik_baru, nama_baru, sim_baru, timestamp)
-
+    cursor.execute("UPDATE personel SET nik=?, nama_personel=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_personel=?",
+                   nik_baru, nama_baru, hash_baru, driver_id)
+    simpan_sim(cursor, driver_id, sim_baru, user_id=updated_by)
     if embedding_binary is not None:
-        cursor.execute(
-            "UPDATE personel SET nik=?, nama_personel=?, no_sim=?, face_embedding_data=?, foto_path=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_personel=?",
-            nik_baru, nama_baru, sim_baru, embedding_binary, foto_path, hash_baru, driver_id
-        )
-    else:
-        cursor.execute(
-            "UPDATE personel SET nik=?, nama_personel=?, no_sim=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_personel=?",
-            nik_baru, nama_baru, sim_baru, hash_baru, driver_id
-        )
-
-    if embedding_binary is not None:
-        from utils.face_cache import invalidate
-        invalidate()
+        simpan_wajah(cursor, driver_id, embedding_binary, foto_path, "KAMERA", updated_by)
     cursor.execute(
         """INSERT INTO personel_audit_logs
            (id_personel, aksi, kode_personel_lama, kode_personel_baru, nik_lama, nik_baru, nama_lama, nama_baru,
@@ -391,6 +386,9 @@ def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated
     )
     conn.commit()
     conn.close()
+    if embedding_binary is not None:
+        from utils.face_cache import invalidate
+        invalidate()
 
 def cari_riwayat_driver_by_plat(no_plat):
     """Cari transaksi TERAKHIR untuk plat ini (apapun statusnya) untuk menyarankan supir & foto."""
@@ -400,7 +398,7 @@ def cari_riwayat_driver_by_plat(no_plat):
         SELECT TOP 1 {SQL_KOLOM_DRIVER}, k.id_kendaraan, k.no_stnk
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN personel d ON t.id_driver = d.id_personel
+        JOIN v_personel d ON t.id_driver = d.id_personel
         WHERE k.no_plat = ?
         ORDER BY t.created_at DESC
     """, no_plat)
@@ -411,7 +409,7 @@ def cari_riwayat_driver_by_plat(no_plat):
 def cari_driver_by_nik(nik):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM personel d WHERE d.nik = ? AND d.is_active = 1", nik)
+    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM v_personel d WHERE d.nik = ? AND d.is_active = 1", nik)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -436,7 +434,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN supplier s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
-        JOIN personel d ON t.id_driver = d.id_personel
+        JOIN v_personel d ON t.id_driver = d.id_personel
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
           AND (k.no_plat = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
@@ -645,7 +643,7 @@ def get_history_driver(limit=20):
                d.nama_personel AS nama_driver, d.nik, d.no_sim, d.is_blacklisted
         FROM transaksi t
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN personel d ON t.id_driver = d.id_personel
+        JOIN v_personel d ON t.id_driver = d.id_personel
         ORDER BY t.created_at DESC
     """)
     columns = [c[0] for c in cursor.description]
