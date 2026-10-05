@@ -25,7 +25,8 @@ Database: SQL Server 2022 (JSON disimpan di `NVARCHAR(MAX)` + `CHECK (ISJSON(...
 | `personel.no_sim`, `kategori` teks | `personel_sim` + `jenis_sim`, `kategori_personel` | SIM hanya driver, bisa > 1, ada masa berlaku |
 | `personel.face_embedding_data`, `foto_path`, `foto_sumber` | `personel_wajah` | Bisa beberapa foto / embedding, riwayat tidak hilang |
 | – | `kunjungan` + `keperluan_kunjungan` | Tamu = personel kategori TAMU (tanpa akun), scan wajah tiap datang, dicatat dengan orang yang dituju |
-| `supplier` | `mitra` | Isinya customer & pengangkutan, bukan hanya supplier |
+| `supplier` (satu tipe) | `mitra` + `mitra_peran` | Satu perusahaan bisa customer sekaligus pengangkutan |
+| `pengaturan` (global) | `pengaturan` (global) + `pengaturan_area` (penimpa per area) | Aturan operasional tiap site bisa berbeda, kebijakan keamanan tetap satu |
 | `delivery_order.no_kontrak` (teks), `id_customer`, `id_produk`, `jenis_transaksi` | `kontrak` (1 kontrak 1 produk) → `delivery_order` (FK) | Customer, produk, harga, qty ada di kontrak; DO (= nomor pengangkutan) tinggal menunjuk kontrak |
 | `id_pengangkutan` (NULL = customer sendiri) | `cara_angkut` PENGIRIM / PENERIMA / PIHAK_KETIGA + `id_pengangkutan` hanya untuk pihak ketiga | 3 kemungkinan pengangkutan tercatat jelas |
 | `kendaraan.no_stnk` boleh kosong | wajib & unik | Setiap kendaraan terdaftar wajib STNK |
@@ -140,7 +141,15 @@ erDiagram
     }
     pengaturan {
         varchar kunci PK
-        nvarchar nilai
+        nvarchar nilai "nilai global"
+        bit boleh_per_area
+        int updated_by FK
+        datetime updated_at
+    }
+    pengaturan_area {
+        int id_comp_area PK, FK
+        varchar kunci PK, FK
+        nvarchar nilai "menimpa nilai global"
         int updated_by FK
         datetime updated_at
     }
@@ -261,8 +270,11 @@ erDiagram
         int id_mitra PK
         varchar kode UK
         nvarchar nama
-        varchar tipe "CUSTOMER | PENGANGKUTAN"
         bit is_active
+    }
+    mitra_peran {
+        int id_mitra PK, FK
+        varchar peran PK "CUSTOMER | PENGANGKUTAN"
     }
     kontrak_kendaraan {
         int id_kontrak_kendaraan PK
@@ -474,6 +486,9 @@ erDiagram
     akun ||--o{ akun_password_lama : ""
     akun ||--o{ sesi_login : ""
     akun |o--o{ pengaturan : "updated_by"
+    pengaturan ||--o{ pengaturan_area : ""
+    comp_area ||--o{ pengaturan_area : ""
+    mitra ||--|{ mitra_peran : ""
 
     kategori_personel ||--o{ personel : ""
     personel ||--o{ personel_sim : ""
@@ -537,6 +552,9 @@ erDiagram
 | `akun` | `id_personel` = PK sekaligus FK → satu orang maksimal satu akun. Hanya personel dengan `kategori_personel.boleh_akun = 1` (Security, Karyawan); tamu & driver tidak punya akun. Hak akses ditentukan `level`, bukan kategori |
 | `delivery_order`, `transaksi` | `CHECK ((cara_angkut = 'PIHAK_KETIGA') = (id_pengangkutan IS NOT NULL))`. Pengirim / penerima mengikuti jenis transaksi: PEMBELIAN → pengirim = mitra, penerima = PT kita; PENJUALAN → sebaliknya |
 | `kendaraan` | `no_stnk` NOT NULL + UNIQUE |
+| `kontrak` → `delivery_order` | Satu kontrak dibagi ke banyak DO, tiap DO satu pengangkutan (mis. kontrak 500 ton: DO-A 200 ton angkutan X, DO-B 300 ton angkutan Y). Total `qty_kg` DO tidak boleh melebihi `kontrak.qty_kg` |
+| `mitra_peran` | `kontrak.id_mitra` harus berperan CUSTOMER; `id_pengangkutan` harus berperan PENGANGKUTAN |
+| `pengaturan_area` | Hanya untuk kunci dengan `boleh_per_area = 1`. Nilai dibaca: area → global → `.env` → bawaan kode |
 | `jadwal_kerja` | Absensi dinilai dengan jadwal area tempat scan (`perangkat_kiosk.id_comp_area`) |
 | `personel_sim` | Wajib minimal 1 SIM aktif bila `kategori_personel.wajib_sim = 1` (dicek aplikasi saat simpan driver) |
 | `personel_wajah` | Maks 1 `is_utama = 1` per personel (filtered unique index) |
@@ -554,7 +572,7 @@ erDiagram
 |---|---|
 | `v_tiket_berat` | Per tiket: berat ke-1, ke-2, bruto = maks, tara = min, netto = selisih, netto akhir = netto − potongan sortasi |
 | `v_do_realisasi` | Per DO: qty, realisasi = jumlah netto akhir tiket SELESAI, sisa |
-| `v_kontrak_realisasi` | Per kontrak: qty, realisasi semua DO-nya, sisa |
+| `v_kontrak_realisasi` | Per kontrak: qty, total qty DO yang diterbitkan, realisasi semua DO-nya, sisa |
 | `v_hak_akses` | Per akun: menu + aksi yang boleh (dipakai aplikasi, di-cache ±30 detik) |
 
 ## Isi awal master
@@ -630,7 +648,16 @@ Setiap fase: migrasi SQL + skrip pindah data + uji di `DbSistemTimbangan_Test` d
 | 4 | Jadwal kerja per area? | Ya |
 | 5 | Void | Tetap seperti sekarang oleh Admin; berita acara menyusul (tanpa persetujuan dulu) |
 | 6 | Tamu punya akun? | Tidak. Tamu hanya personel + scan wajah |
+| 7 | Banyak pengangkutan per kontrak / mitra peran ganda | Ya: kontrak dibagi ke beberapa DO (satu pengangkutan per DO), dan satu mitra boleh punya beberapa peran (`mitra_peran`) |
+| 8 | Pengaturan per area | Global + penimpa per area (`pengaturan_area`), hanya untuk pengaturan operasional |
 
-Masih terbuka (draf memakai pilihan dalam kurung):
-1. Mitra boleh berperan ganda, mis. customer sekaligus pengangkutan? (tidak, satu tipe per mitra)
-2. Pengaturan site (ambang wajah, sesi, dll.) per area? (tidak, global)
+**Pengaturan: mana yang boleh per area**
+
+| Per area (operasional, `boleh_per_area = 1`) | Global saja (kebijakan keamanan) |
+|---|---|
+| Wajib scan wajah, ambang kemiripan wajah | Batas salah password, lama kunci login |
+| Masa berlaku QR tiket, toleransi stabil timbangan | Password kedaluwarsa, 1 user 1 perangkat |
+| (jadwal kerja sudah per area di tabelnya sendiri) | Logout idle, umur sesi maksimal |
+
+Area yang dipakai: area perangkat / PC tempat kejadian (kiosk, jembatan timbang), bila tidak ada → area akun.
+Kebijakan login tetap global karena satu akun bisa dipakai di area mana pun.
