@@ -1,0 +1,24 @@
+erDiagram
+    log_aktivitas {
+        bigint id_log PK
+        datetime2 waktu
+        int id_user FK "NULL"
+        int id_comp_area FK "NULL"
+        varchar kategori
+        varchar aksi
+        varchar tabel "NULL"
+        varchar id_baris "NULL"
+        nvarchar nilai_lama "NULL"
+        nvarchar nilai_baru "NULL"
+        varchar ip "NULL"
+        char hash_sebelum "NULL"
+        char hash_baris
+    }
+    akun {
+        int id_user PK
+    }
+    comp_area {
+        int id_comp_area PK
+    }
+    comp_area |o--o{ log_aktivitas : "id_comp_area"
+    akun |o--o{ log_aktivitas : "id_user"
