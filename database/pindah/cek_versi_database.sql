@@ -1,11 +1,18 @@
 /* =====================================================================
    CEK VERSI DATABASE: bandingkan database ini dengan struktur final (database/schema.sql, migrasi 001-016).
-   Pilih database yang mau dicek (USE di bawah atau pilih di VS Code / SSMS), lalu Execute.
+   Sesuaikan nama database di baris USE di bawah, lalu Execute.
    Hasil kosong = database sudah lengkap. Bila ada baris, jalankan ulang migrasi di kolom "jalankan",
    lalu cek lagi. Migrasi 008-016 aman dijalankan ulang; 001-007 JANGAN dijalankan ulang di database yang
    sudah melewati migrasi 008 (bila kolom "jalankan" menyebut 001-007, hubungi pengembang).
    ===================================================================== */
+USE [DbSistemTimbangan_Test];      -- ganti dengan nama database yang mau dicek (DB_NAME di .env)
+GO
 SET NOCOUNT ON;
+IF OBJECT_ID('dbo.transaksi', 'U') IS NULL
+BEGIN
+    SELECT DB_NAME() AS database_terpilih, N'Bukan database aplikasi: ganti nama di baris USE di atas' AS masalah;
+    RETURN;
+END
 DECLARE @kolom TABLE (tabel SYSNAME, kolom SYSNAME, asal VARCHAR(20));
 INSERT INTO @kolom VALUES
 ('absensi','id_absensi','migrasi 002'),
