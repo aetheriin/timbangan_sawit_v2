@@ -9,3 +9,9 @@ static/uploads/*
 data/
 logs/
 paket_offline/
+agen/venv/
+agen/.env
+agen/build/
+agen/dist/
+agen/*.spec
+agen/agen_timbang.exe

@@ -1,8 +1,8 @@
 # ERD Sistem Timbangan Sawit (final, ERD v3)
 
-Sumber kebenaran: **`database/schema.sql`** (membuat database baru dari nol; setara schema awal + migrasi 001–016).
+Sumber kebenaran: **`database/schema.sql`** (membuat database baru dari nol; setara schema awal + migrasi 001–017).
 Gambar di bawah **dibuat otomatis dari katalog SQL Server** hasil `schema.sql` dengan `tools/gen_erd.py`, jadi selalu sama
-dengan database yang sebenarnya: **47 tabel, 350 kolom, 82 foreign key**.
+dengan database yang sebenarnya: **47 tabel, 361 kolom, 82 foreign key**.
 
 Diuji di SQL Server 2022: `schema.sql` dari nol menghasilkan struktur yang sama dengan database lama yang dijalankan
 migrasi 001–016, lalu aplikasi dijalankan ke database itu (alur admin → kontrak & DO → tiket → timbang → sortasi / lab →
@@ -67,7 +67,7 @@ di diagram lengkap supaya diagram per kelompok tetap terbaca.
 |---|---|
 | `tahap`, `alur` → `alur_tahap` | Urutan tahap per alur: TBS (sortasi), PKS (lab), penimbangan saja |
 | `mill` | Per area, menunjuk alur; tiket baru memakai mill aktif di area Security sesuai alur produk |
-| `jembatan_timbang` | Beberapa jembatan per area, masing-masing port serial |
+| `jembatan_timbang` | Beberapa jembatan per area; profil indikator per jembatan (mode LOKAL / AGEN, data bit, parity, format, stabil, berat minimum). Lihat [TIMBANGAN.md](TIMBANGAN.md) |
 | `transaksi` | Tiket: mitra, produk, kendaraan, supir, mill, DO (`id_do`), `cara_angkut` + `id_pengangkutan`, jembatan masuk |
 | `penimbangan` | 2 baris per tiket (ke-1 masuk, ke-2 keluar); trigger: keluar **wajib di jembatan yang sama**. View `v_timbangan` memberi bruto / tara / netto |
 | `sortasi`, `lab_hasil` | Inspeksi; COA lab = `dokumen` |

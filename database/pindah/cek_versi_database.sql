@@ -1,8 +1,8 @@
 /* =====================================================================
-   CEK VERSI DATABASE: bandingkan database ini dengan struktur final (database/schema.sql, migrasi 001-016).
+   CEK VERSI DATABASE: bandingkan database ini dengan struktur final (database/schema.sql, migrasi 001-017).
    Sesuaikan nama database di baris USE di bawah, lalu Execute.
    Hasil kosong = database sudah lengkap. Bila ada baris, jalankan ulang migrasi di kolom "jalankan",
-   lalu cek lagi. Migrasi 008-016 aman dijalankan ulang; 001-007 JANGAN dijalankan ulang di database yang
+   lalu cek lagi. Migrasi 008-017 aman dijalankan ulang; 001-007 JANGAN dijalankan ulang di database yang
    sudah melewati migrasi 008 (bila kolom "jalankan" menyebut 001-007, hubungi pengembang).
    ===================================================================== */
 USE [DbSistemTimbangan_Test];      -- ganti dengan nama database yang mau dicek (DB_NAME di .env)
@@ -128,6 +128,17 @@ INSERT INTO @kolom VALUES
 ('jembatan_timbang','baudrate','migrasi 011'),
 ('jembatan_timbang','is_active','migrasi 011'),
 ('jembatan_timbang','created_at','migrasi 011'),
+('jembatan_timbang','mode','migrasi 017'),
+('jembatan_timbang','data_bits','migrasi 017'),
+('jembatan_timbang','parity','migrasi 017'),
+('jembatan_timbang','stop_bits','migrasi 017'),
+('jembatan_timbang','format_data','migrasi 017'),
+('jembatan_timbang','pola','migrasi 017'),
+('jembatan_timbang','faktor','migrasi 017'),
+('jembatan_timbang','toleransi_kg','migrasi 017'),
+('jembatan_timbang','durasi_stabil','migrasi 017'),
+('jembatan_timbang','berat_min_kg','migrasi 017'),
+('jembatan_timbang','wajib_st','migrasi 017'),
 ('jenis_dokumen','id_jenis','migrasi 010'),
 ('jenis_dokumen','kode','migrasi 010'),
 ('jenis_dokumen','nama','migrasi 010'),

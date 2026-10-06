@@ -24,8 +24,18 @@ window.addEventListener('platLookup', (e) => {
 const pollingBerat = new Poller(async () => {
     const r = await Api.get('/api/timbang/status', { timeout: 3000, polling: true });
     const el = document.getElementById('beratLiveDisplay');
-    el.textContent = r.ok ? `${r.data.berat} Kg` : '— Kg';
-    el.classList.toggle('opacity-40', !r.ok);         // koneksi timbangan / server terputus
+    const st = r.data && r.data.berat !== undefined ? r.data : null;     // status putus tetap berisi data + sebabnya
+    const putus = !st || !st.terhubung;
+    el.textContent = st ? `${st.berat} Kg` : '— Kg';
+    el.classList.toggle('opacity-40', putus);          // koneksi timbangan / server terputus
+    // Status: putus (dengan sebab), di bawah berat minimum, bergerak, atau stabil siap disimpan
+    const ket = document.getElementById('statusBeratLive');
+    const [teks, warna] = !st ? ['Server tidak menjawab', 'text-red-400']
+        : putus ? [`Tidak terhubung: ${st.error || 'cek kabel / agen timbangan'}`, 'text-red-400']
+        : st.berat_min_kg && st.berat < st.berat_min_kg ? [`Kosong (di bawah ${st.berat_min_kg} kg)`, 'text-slate-400']
+        : st.siap_kunci ? ['● Stabil, siap disimpan', 'text-emerald-400'] : ['○ Bergerak, tunggu stabil', 'text-amber-400'];
+    ket.textContent = teks;
+    ket.className = `text-sm mt-3 ${warna}`;
 }, 500);
 
 window.addEventListener('tabChange', e => {

@@ -57,6 +57,17 @@ erDiagram
         int baudrate
         bit is_active
         datetime created_at
+        varchar mode
+        tinyint data_bits
+        char parity
+        decimal stop_bits
+        varchar format_data
+        varchar pola "NULL"
+        decimal faktor
+        decimal toleransi_kg
+        decimal durasi_stabil
+        decimal berat_min_kg
+        bit wajib_st
     }
     penimbangan {
         varchar no_tiket PK,FK

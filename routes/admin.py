@@ -21,7 +21,7 @@ from utils import verifikasi_state as verif
 from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
-from utils.serial_reader import semua_status, pastikan_pembaca
+from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
 from utils import alur, log_aktivitas
 
@@ -96,6 +96,7 @@ def admin_halaman(halaman):
                            level_list=[lv for lv in hak_akses.daftar_level() if lv["is_active"]],
                            department_list=[d for d in org.daftar_department() if d["is_active"]],
                            area_list=[a for a in org.daftar_area() if a["is_active"]],
+                           format_timbangan=FORMAT_TIMBANGAN,
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            alur_list=alur.daftar_alur(),
                            kategori_produk=db.KATEGORI_PRODUK, password_min=PASSWORD_MIN)
@@ -700,7 +701,7 @@ def perangkat_daftar():
                       "kamera_aktif": verif.kamera_aktif(p["id_pos"])})
     status = semua_status()
     jembatan = [{**j, "created_at": j["created_at"].strftime("%Y-%m-%d") if j["created_at"] else None,
-                 "status": status.get(j["port"])} for j in _daftar_jembatan_aman()]
+                 "status": status.get(j["id_jembatan"])} for j in _daftar_jembatan_aman()]
     return jsonify({"perangkat": hasil, "token_env": bool(os.getenv("KIOSK_TOKEN")), "jembatan": jembatan,
                     "timbangan": {"terhubung": sum(1 for s in status.values() if s["terhubung"]), "jumlah": len(status)}})
 
@@ -713,6 +714,63 @@ def _daftar_jembatan_aman():
 
 
 POLA_PORT = re.compile(r"^(COM\d{1,3}|/dev/tty[A-Za-z0-9]{1,12})$")
+POLA_PORT_LAN = re.compile(r"^(socket|rfc2217)://[A-Za-z0-9.-]{1,60}:\d{1,5}$")       # alat serial-to-LAN
+
+
+def _angka_form(nama, label, minimal, maksimal, bawaan):
+    teks = (request.form.get(nama) or "").strip().replace(",", ".")
+    try:
+        nilai = float(teks) if teks else float(bawaan)
+    except ValueError:
+        raise ValueError(f"{label} harus angka")
+    if not minimal <= nilai <= maksimal:
+        raise ValueError(f"{label} harus {minimal:g} - {maksimal:g}")
+    return nilai
+
+
+def _profil_jembatan_form(port):
+    """Profil indikator dari form Admin (lihat utils/serial_reader.py)."""
+    f = request.form
+    mode = (f.get("mode") or "LOKAL").upper()
+    if mode not in ("LOKAL", "AGEN"):
+        raise ValueError("Sumber data tidak dikenal")
+    if mode == "AGEN" and POLA_PORT_LAN.match(port):
+        raise ValueError("Mode agen membaca COM di PC jembatan; alamat socket:// dipakai mode Lokal (alat serial-to-LAN)")
+    fmt = (f.get("format_data") or "ST_GS").upper()
+    if fmt not in FORMAT_TIMBANGAN:
+        raise ValueError("Format data tidak dikenal")
+    pola = (f.get("pola") or "").strip()[:200] or None
+    if fmt == "POLA":
+        try:
+            if "berat" not in re.compile(pola or "").groupindex:
+                raise ValueError("Pola wajib punya grup (?P<berat>...)")
+        except re.error as e:
+            raise ValueError(f"Pola regex tidak valid: {e}")
+    parity = (f.get("parity") or "E").upper()
+    if parity not in ("N", "E", "O", "M", "S"):
+        raise ValueError("Parity: N / E / O")
+    data_bits = int(f.get("data_bits") or 7)
+    if data_bits not in (5, 6, 7, 8):
+        raise ValueError("Data bits: 7 atau 8")
+    stop_bits = _angka_form("stop_bits", "Stop bits", 1, 2, 1)
+    if stop_bits not in (1, 1.5, 2):
+        raise ValueError("Stop bits: 1 atau 2")
+    return {"mode": mode, "data_bits": data_bits, "parity": parity, "stop_bits": stop_bits, "format_data": fmt,
+            "pola": pola if fmt == "POLA" else None,
+            "faktor": _angka_form("faktor", "Faktor", 0.0001, 100000, 1),
+            "toleransi_kg": _angka_form("toleransi_kg", "Toleransi stabil", 0, 500, 5),
+            "durasi_stabil": _angka_form("durasi_stabil", "Durasi stabil", 0.5, 30, 3),
+            "berat_min_kg": _angka_form("berat_min_kg", "Berat minimum", 0, 100000, 100),
+            "wajib_st": f.get("wajib_st") in ("1", "true", "on")}
+
+
+def _atur_pembaca():
+    """Perubahan jembatan dari Admin langsung berlaku di pembaca timbangan (tanpa restart)."""
+    try:
+        atur_pembaca(jembatan_db.daftar_jembatan())
+    except Exception:       # noqa: BLE001
+        import logging
+        logging.getLogger("weighbridge").exception("Gagal menerapkan pengaturan jembatan")
 
 
 @admin_bp.route("/api/admin/jembatan/simpan", methods=["POST"])
@@ -727,18 +785,19 @@ def jembatan_simpan():
             raise ValueError("Kode 2-10 karakter: huruf besar, angka, - atau _ (mis. JT-1)")
         if jembatan_db.kode_dipakai(id_area, kode, kecuali=id_j):
             raise ValueError(f"Kode {kode} sudah dipakai di area ini")
-        port = _teks("port", maks=30)
+        port = _teks("port", maks=100)
         port = port.upper() if port.upper().startswith("COM") else port
-        if not POLA_PORT.match(port):
-            raise ValueError("Port serial: COM1-COM999 (Windows) atau /dev/ttyUSB0 (Linux)")
+        if not (POLA_PORT.match(port) or POLA_PORT_LAN.match(port)):
+            raise ValueError("Port: COM1-COM999, /dev/ttyUSB0, atau socket://IP:PORT (alat serial-to-LAN)")
         baud = int(request.form.get("baudrate") or 9600)
         if baud not in (1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200):
             raise ValueError("Baudrate tidak umum")
-        jembatan_db.simpan_jembatan(id_j, id_area, kode, _teks("nama"), port, baud)
-        pastikan_pembaca(port, baud)            # mulai dibaca tanpa restart (port baru)
-        _audit("JEMBATAN_SIMPAN", kode, f"{port} {baud}")
-        return jsonify({"message": f"Jembatan {kode} disimpan" +
-                        (". Perubahan port / baudrate jembatan lama berlaku setelah server di-restart." if id_j else "")})
+        profil = _profil_jembatan_form(port)
+        jembatan_db.simpan_jembatan(id_j, id_area, kode, _teks("nama"), port, baud, profil)
+        _atur_pembaca()
+        _audit("JEMBATAN_SIMPAN", kode, f"{profil['mode']} {port} {baud} {profil['data_bits']}{profil['parity']}"
+                                        f"{profil['stop_bits']:g} {profil['format_data']}")
+        return jsonify({"message": f"Jembatan {kode} disimpan dan langsung berlaku"})
     return _jalankan(aksi)
 
 
@@ -748,9 +807,20 @@ def jembatan_aktif(id_jembatan):
     def aksi():
         aktif = _aktif_dari_form()
         jembatan_db.set_aktif_jembatan(id_jembatan, aktif)
+        _atur_pembaca()
         _audit("JEMBATAN_AKTIF" if aktif else "JEMBATAN_NONAKTIF", str(id_jembatan))
         return jsonify({"message": "Jembatan " + ("diaktifkan" if aktif else "dinonaktifkan")})
     return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/jembatan/<int:id_jembatan>/mentah")
+@_admin
+def jembatan_mentah(id_jembatan):
+    """Bingkai data terakhir dari indikator + hasil bacanya, untuk menyetel format / baudrate di lokasi."""
+    hasil = data_mentah(id_jembatan)
+    if hasil is None:
+        return jsonify({"error": "Jembatan tidak aktif / belum dibaca"}), 404
+    return jsonify(hasil)
 
 
 def _id_pos_form():

@@ -4,28 +4,32 @@ from types import SimpleNamespace as NS
 from unittest.mock import MagicMock, patch
 
 for _m in ("pyodbc", "serial", "face_recognition", "cv2", "mediapipe"):
-    sys.modules.setdefault(_m, MagicMock())
+    try:
+        __import__(_m)
+    except ImportError:
+        sys.modules[_m] = MagicMock()
 
 from utils import serial_reader
 
-JT1 = {"id_jembatan": 1, "kode": "JT-1", "port": "COM3", "is_active": True}
-JT2 = {"id_jembatan": 2, "kode": "JT-2", "port": "COM4", "is_active": True}
+JT1 = {"id_jembatan": 1, "kode": "JT-1", "port": "COM3", "is_active": True, "berat_min_kg": 100}
+JT2 = {"id_jembatan": 2, "kode": "JT-2", "port": "COM4", "is_active": True, "berat_min_kg": 100}
 
 
-class TestSerialPerPort(unittest.TestCase):
+class TestSerialPerJembatan(unittest.TestCase):
     def setUp(self):
         serial_reader._pembaca.clear()
-        for port, berat in (("COM3", 1000), ("COM4", 2000)):
-            serial_reader._pembaca[port] = {"state": {**serial_reader._state_baru(), "berat": berat, "terhubung": True},
-                                            "riwayat": {"berat_terakhir": 5, "waktu_mulai_stabil": 1}, "baudrate": 9600}
+        for id_j, berat in ((1, 1000), (2, 2000)):
+            d = serial_reader._data_baru(serial_reader.BAWAAN)
+            d["state"].update(berat=berat, terhubung=True)
+            d["riwayat"].update(berat_terakhir=5, waktu_mulai_stabil=1)
+            serial_reader._pembaca[id_j] = d
 
-    def test_status_per_port(self):
-        self.assertEqual(serial_reader.baca_status_asli("COM4")["berat"], 2000)
-        self.assertEqual(serial_reader.baca_status_asli()["berat"], 1000)            # bawaan: port pertama
-        self.assertFalse(serial_reader.baca_status_asli("COM9")["terhubung"])       # port belum dibaca
-        serial_reader.reset_deteksi_stabil("COM4")
-        self.assertIsNone(serial_reader._pembaca["COM4"]["riwayat"]["berat_terakhir"])
-        self.assertEqual(serial_reader._pembaca["COM3"]["riwayat"]["berat_terakhir"], 5)
+    def test_status_per_jembatan(self):
+        self.assertEqual(serial_reader.baca_status(2)["berat"], 2000)
+        self.assertFalse(serial_reader.baca_status(9)["terhubung"])                 # jembatan belum dibaca
+        serial_reader.reset_deteksi_stabil(2)
+        self.assertIsNone(serial_reader._pembaca[2]["riwayat"]["berat_terakhir"])
+        self.assertEqual(serial_reader._pembaca[1]["riwayat"]["berat_terakhir"], 5)
         self.assertEqual(len(serial_reader.semua_status()), 2)
 
 
@@ -43,7 +47,7 @@ class TestTimbangKeluarJembatanSama(unittest.TestCase):
     def _simpan(self, jembatan, data_lama):
         trx = NS(status_alur="TIMBANG_2", kategori="TBS")
         with patch.object(self.rtb, "jembatan_dipilih", return_value=jembatan), \
-                patch.object(self.rtb, "baca_status_asli", return_value={"siap_kunci": True, "berat": 15000}), \
+                patch.object(self.rtb, "baca_status", return_value={"terhubung": True, "siap_kunci": True, "berat": 15000}), \
                 patch.object(self.rtb, "cari_transaksi_aktif", return_value=trx), \
                 patch.object(self.rtb, "get_data_timbangan", return_value=data_lama), \
                 patch.object(self.rtb, "simpan_timbang_kedua", return_value=9000) as kedua, \

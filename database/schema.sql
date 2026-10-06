@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
    Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-016). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
+   (setara schema awal + migrasi 001-017). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
@@ -413,11 +413,27 @@ CREATE TABLE dbo.jembatan_timbang (
     id_comp_area  INT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.comp_area (id_comp_area),
     kode          VARCHAR(10)   NOT NULL,
     nama          NVARCHAR(100) NOT NULL,
-    port          VARCHAR(30)   NOT NULL,                 -- COM3 (Windows) / /dev/ttyUSB0
+    port          VARCHAR(100)  NOT NULL,                 -- COM3 / /dev/ttyUSB0 / socket://IP:PORT (alat serial-to-LAN)
     baudrate      INT NOT NULL CONSTRAINT DF_Jembatan_Baud DEFAULT (9600),
     is_active     BIT NOT NULL CONSTRAINT DF_Jembatan_Aktif DEFAULT (1),
     created_at    DATETIME NOT NULL CONSTRAINT DF_Jembatan_Created DEFAULT (GETDATE()),
-    CONSTRAINT UX_Jembatan_AreaKode UNIQUE (id_comp_area, kode)
+    -- Profil indikator (migrasi 017): LOKAL = dibaca server, AGEN = dibaca agen_timbang.py di PC jembatan
+    mode           VARCHAR(10)   NOT NULL CONSTRAINT DF_Jembatan_Mode DEFAULT ('LOKAL'),
+    data_bits      TINYINT       NOT NULL CONSTRAINT DF_Jembatan_DataBits DEFAULT (7),
+    parity         CHAR(1)       NOT NULL CONSTRAINT DF_Jembatan_Parity DEFAULT ('E'),
+    stop_bits      DECIMAL(2, 1) NOT NULL CONSTRAINT DF_Jembatan_StopBits DEFAULT (1),
+    format_data    VARCHAR(20)   NOT NULL CONSTRAINT DF_Jembatan_Format DEFAULT ('ST_GS'),
+    pola           VARCHAR(200)  NULL,
+    faktor         DECIMAL(10, 4) NOT NULL CONSTRAINT DF_Jembatan_Faktor DEFAULT (1),
+    toleransi_kg   DECIMAL(9, 2) NOT NULL CONSTRAINT DF_Jembatan_Toleransi DEFAULT (5),
+    durasi_stabil  DECIMAL(4, 1) NOT NULL CONSTRAINT DF_Jembatan_Durasi DEFAULT (3),
+    berat_min_kg   DECIMAL(10, 2) NOT NULL CONSTRAINT DF_Jembatan_BeratMin DEFAULT (100),
+    wajib_st       BIT           NOT NULL CONSTRAINT DF_Jembatan_WajibSt DEFAULT (0),
+    CONSTRAINT UX_Jembatan_AreaKode UNIQUE (id_comp_area, kode),
+    CONSTRAINT CK_Jembatan_Profil CHECK (
+        mode IN ('LOKAL', 'AGEN') AND data_bits IN (5, 6, 7, 8) AND parity IN ('N', 'E', 'O', 'M', 'S')
+        AND stop_bits IN (1, 1.5, 2) AND format_data IN ('ST_GS', 'ANGKA', 'TERBALIK', 'POLA')
+        AND faktor > 0 AND toleransi_kg >= 0 AND durasi_stabil >= 0.5 AND berat_min_kg >= 0)
 );
 GO
 CREATE TABLE dbo.transaksi (

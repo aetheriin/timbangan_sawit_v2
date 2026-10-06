@@ -27,14 +27,26 @@ def _ubah(sql, *params):
         conn.close()
 
 
+PROFIL = ("mode", "data_bits", "parity", "stop_bits", "format_data", "pola", "faktor", "toleransi_kg", "durasi_stabil",
+          "berat_min_kg", "wajib_st")
+
+
 @cache_ttl(30)
 def daftar_jembatan():
-    rows = _query("""SELECT j.id_jembatan, j.id_comp_area, a.nama AS area, j.kode, j.nama, j.port, j.baudrate,
-                            j.is_active, j.created_at
-                     FROM jembatan_timbang j JOIN comp_area a ON a.id_comp_area = j.id_comp_area
-                     ORDER BY j.is_active DESC, a.nama, j.kode""")
+    """Jembatan + profil indikator (migrasi 017). Sebelum migrasi 017 profil memakai nilai bawaan (perilaku lama)."""
+    dasar = """SELECT j.id_jembatan, j.id_comp_area, a.nama AS area, j.kode, j.nama, j.port, j.baudrate,
+                      j.is_active, j.created_at{tambahan}
+               FROM jembatan_timbang j JOIN comp_area a ON a.id_comp_area = j.id_comp_area
+               ORDER BY j.is_active DESC, a.nama, j.kode"""
+    try:
+        rows = _query(dasar.format(tambahan="".join(f", j.{k}" for k in PROFIL)))
+    except Exception:       # noqa: BLE001 - kolom profil belum ada (migrasi 017 belum dijalankan)
+        from utils.serial_reader import BAWAAN
+        rows = [{**{k: BAWAAN[k] for k in PROFIL}, **r} for r in _query(dasar.format(tambahan=""))]
     for r in rows:
-        r["is_active"] = bool(r["is_active"])
+        r["is_active"], r["wajib_st"] = bool(r["is_active"]), bool(r["wajib_st"])
+        for k in ("stop_bits", "faktor", "toleransi_kg", "durasi_stabil", "berat_min_kg"):
+            r[k] = float(r[k])
     return rows
 
 
@@ -56,13 +68,16 @@ def kode_dipakai(id_area, kode, kecuali=None):
                for j in daftar_jembatan())
 
 
-def simpan_jembatan(id_jembatan, id_area, kode, nama, port, baudrate):
+def simpan_jembatan(id_jembatan, id_area, kode, nama, port, baudrate, profil):
+    """profil: dict kunci PROFIL (sudah divalidasi routes/admin.py)."""
+    nilai = [profil[k] for k in PROFIL]
     if id_jembatan is None:
-        _ubah("""INSERT INTO jembatan_timbang (id_comp_area, kode, nama, port, baudrate) VALUES (?, ?, ?, ?, ?)""",
-              id_area, kode, nama, port, baudrate)
+        _ubah(f"""INSERT INTO jembatan_timbang (id_comp_area, kode, nama, port, baudrate, {", ".join(PROFIL)})
+                  VALUES (?, ?, ?, ?, ?{", ?" * len(PROFIL)})""", id_area, kode, nama, port, baudrate, *nilai)
     else:
-        _ubah("""UPDATE jembatan_timbang SET id_comp_area = ?, kode = ?, nama = ?, port = ?, baudrate = ?
-                 WHERE id_jembatan = ?""", id_area, kode, nama, port, baudrate, id_jembatan)
+        _ubah(f"""UPDATE jembatan_timbang SET id_comp_area = ?, kode = ?, nama = ?, port = ?, baudrate = ?,
+                  {", ".join(f"{k} = ?" for k in PROFIL)} WHERE id_jembatan = ?""",
+              id_area, kode, nama, port, baudrate, *nilai, id_jembatan)
     daftar_jembatan.hapus()
 
 
