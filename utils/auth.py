@@ -1,8 +1,6 @@
 from flask_login import UserMixin
 
-
 class User(UserMixin):
-    """Akun login. role = kode level (ADMIN, HO, SECURITY, ...); hak akses dari tabel level_akses (utils/hak_akses)."""
     def __init__(self, id, username, nama_lengkap, role, id_level=None, is_admin=False, halaman_awal="/weighbridge"):
         self.id = id
         self.username = username

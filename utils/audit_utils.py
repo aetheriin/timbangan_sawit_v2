@@ -1,4 +1,3 @@
-"""Aktivitas security yang dipantau HO (menu Face Recognition > Audit Log), kategori SECURITY di log_aktivitas."""
 from utils import log_aktivitas
 
 AKSI_VALID = ("TRY_SCAN_BLACKLIST", "OVERRIDE_DRIVER", "MANUAL_INPUT")

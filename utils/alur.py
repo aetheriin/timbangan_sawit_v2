@@ -1,12 +1,3 @@
-"""Alur tahap tiket dari database (tabel alur, alur_tahap, mill; migrasi 012).
-
-Status tiket (transaksi.status_alur) tetap memakai kode lama supaya List & tab Form tidak berubah:
-    SECURITY_REGISTER  = menunggu timbang masuk
-    TIMBANG_1          = sudah timbang masuk, menunggu inspeksi (sortasi / lab)
-    TIMBANG_2          = siap timbang keluar
-    SELESAI / REJECTED / VOID
-Urutan tahapnya dibaca dari alur_tahap, jadi alur baru (mis. TBS tanpa sortasi, atau sortasi + lab) cukup
-ditambah barisnya tanpa mengubah kode."""
 from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 

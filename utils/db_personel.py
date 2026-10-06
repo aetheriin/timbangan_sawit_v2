@@ -1,7 +1,3 @@
-"""Query personel (menu Face Recognition > Personel, Data Master > Driver).
-
-Sejak migrasi 009: SIM di personel_sim, wajah di personel_wajah. Dibaca lewat view v_personel
-(kolom no_sim, foto_path, face_embedding_data tetap ada di view), ditulis lewat simpan_sim / simpan_wajah."""
 from datetime import datetime
 from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver
 from utils.personel_utils import PREFIX_KODE, kode_berikutnya
