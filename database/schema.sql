@@ -16,6 +16,9 @@ SET QUOTED_IDENTIFIER ON;
 GO
 IF DB_ID('DbSistemTimbangan') IS NULL CREATE DATABASE DbSistemTimbangan;
 GO
+/* Baca data tidak menunggu kunci tulis (migrasi 018) */
+ALTER DATABASE DbSistemTimbangan SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;
+GO
 USE [DbSistemTimbangan]
 GO
 

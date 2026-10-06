@@ -10,7 +10,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 Komputer / laptop baru: ikuti [PINDAH_LAPTOP.md](PINDAH_LAPTOP.md) (library tanpa kompilasi dlib, SQL Server Express,
 backup / restore database). Database baru dari nol: `database/schema.sql`.
 
-1. Jalankan migrasi `database/migrations/` 001–017 berurutan di SSMS (hentikan `serve.py` saat menjalankan 016). **008–017 wajib** untuk versi ini: login membaca
+1. Jalankan migrasi `database/migrations/` 001–018 berurutan di SSMS (hentikan `serve.py` saat menjalankan 016). **008–018 wajib** untuk versi ini: login membaca
    tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
