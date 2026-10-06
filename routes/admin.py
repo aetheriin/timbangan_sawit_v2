@@ -34,7 +34,6 @@ HALAMAN = {
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
     "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), department, dan mill"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
-    "master": ("Mitra & Produk", "fa-boxes-stacked", "Mitra (customer / pengangkutan) dan produk"),
     "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
@@ -99,7 +98,7 @@ def admin_halaman(halaman):
                            format_timbangan=FORMAT_TIMBANGAN,
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            alur_list=alur.daftar_alur(),
-                           kategori_produk=db.KATEGORI_PRODUK, password_min=PASSWORD_MIN)
+                           password_min=PASSWORD_MIN)
 
 
 # ===== KELOLA USER =====
@@ -459,76 +458,6 @@ def sesi_buka_semua():
         return jsonify({"error": "Tidak ada login yang terkunci"}), 400
     _audit("BUKA_KUNCI_LOGIN", "SEMUA", f"{jumlah} kunci")
     return jsonify({"message": f"{jumlah} kunci login dibuka"})
-
-
-# ===== SUPPLIER & PRODUK =====
-@admin_bp.route("/api/admin/supplier")
-@_admin
-def supplier_daftar():
-    return jsonify([{**s, "created_at": s["created_at"].strftime("%Y-%m-%d") if s["created_at"] else None}
-                    for s in db.daftar_supplier()])
-
-
-@admin_bp.route("/api/admin/supplier/simpan", methods=["POST"])
-@_admin
-def supplier_simpan():
-    def aksi():
-        id_supplier = int(request.form.get("id_supplier") or 0) or None
-        kode, nama = _teks("kode_supplier", maks=20).upper(), _teks("nama_supplier")
-        peran = [p for p, f in zip(db.PERAN_SUPPLIER, ("is_customer", "is_angkutan")) if request.form.get(f)]
-        if not peran:
-            raise ValueError("Pilih minimal satu peran: customer / pengangkutan")
-        if db.kode_supplier_dipakai(kode, kecuali=id_supplier):
-            raise ValueError(f"Kode {kode} sudah dipakai")
-        db.simpan_supplier(id_supplier, kode, nama, peran)
-        _audit("SUPPLIER_UBAH" if id_supplier else "SUPPLIER_TAMBAH", kode, nama)
-        return jsonify({"message": f"Supplier {nama} disimpan"})
-    return _jalankan(aksi)
-
-
-@admin_bp.route("/api/admin/supplier/<int:id_supplier>/aktif", methods=["POST"])
-@_admin
-def supplier_aktif(id_supplier):
-    def aksi():
-        aktif = _aktif_dari_form()
-        db.set_aktif_supplier(id_supplier, aktif)
-        _audit("SUPPLIER_AKTIF" if aktif else "SUPPLIER_NONAKTIF", str(id_supplier))
-        return jsonify({"message": "Supplier " + ("diaktifkan" if aktif else "dinonaktifkan")})
-    return _jalankan(aksi)
-
-
-@admin_bp.route("/api/admin/produk")
-@_admin
-def produk_daftar():
-    return jsonify(db.daftar_produk())
-
-
-@admin_bp.route("/api/admin/produk/simpan", methods=["POST"])
-@_admin
-def produk_simpan():
-    def aksi():
-        id_produk = int(request.form.get("id_produk") or 0) or None
-        nama, kategori = _teks("nama_produk"), _teks("kategori").upper()
-        if kategori not in db.KATEGORI_PRODUK:
-            raise ValueError("Kategori tidak dikenal")
-        if db.nama_produk_dipakai(nama, kecuali=id_produk):
-            raise ValueError(f"Produk {nama} sudah ada")
-        id_alur = _id_form("id_alur", {a["id_alur"] for a in alur.daftar_alur()}, "alur")
-        db.simpan_produk(id_produk, nama, kategori, id_alur)
-        _audit("PRODUK_UBAH" if id_produk else "PRODUK_TAMBAH", nama, kategori)
-        return jsonify({"message": f"Produk {nama} disimpan"})
-    return _jalankan(aksi)
-
-
-@admin_bp.route("/api/admin/produk/<int:id_produk>/aktif", methods=["POST"])
-@_admin
-def produk_aktif(id_produk):
-    def aksi():
-        aktif = _aktif_dari_form()
-        db.set_aktif_produk(id_produk, aktif)
-        _audit("PRODUK_AKTIF" if aktif else "PRODUK_NONAKTIF", str(id_produk))
-        return jsonify({"message": "Produk " + ("diaktifkan" if aktif else "dinonaktifkan")})
-    return _jalankan(aksi)
 
 
 # ===== VOID TIKET =====

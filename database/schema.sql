@@ -834,7 +834,9 @@ FROM (VALUES ('FORM_SECURITY',    N'Form › Security',          'FORM', 1),
              ('BLACKLIST',        N'Face Recognition › Blacklist', 'FACE_RECOGNITION', 3),
              ('AUDIT_LOG',        N'Face Recognition › Audit Log', 'FACE_RECOGNITION', 4),
              ('MASTER_DRIVER',    N'Data Master › Driver',     'MASTER', 1),
-             ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2)) v (kode, nama, induk, urutan)
+             ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2),
+             ('MASTER_MITRA',     N'Data Master › Mitra',      'MASTER', 3),
+             ('MASTER_PRODUK',    N'Data Master › Produk',     'MASTER', 4)) v (kode, nama, induk, urutan)
 JOIN dbo.menu p ON p.kode = v.induk;
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
 SELECT l.id_level, m.id_menu, v.t, v.u, v.h
@@ -844,6 +846,8 @@ FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
              ('HO',               'KONTRAK_DO',       1, 1, 1),
              ('HO',               'MASTER_DRIVER',    1, 1, 1),
              ('HO',               'MASTER_KENDARAAN', 1, 1, 0),
+             ('HO',               'MASTER_MITRA',     1, 1, 0),
+             ('HO',               'MASTER_PRODUK',    1, 1, 0),
              ('SECURITY',         'FORM_SECURITY',    1, 1, 0),
              ('SECURITY',         'MASTER_DRIVER',    1, 1, 1),
              ('SECURITY',         'MASTER_KENDARAAN', 1, 1, 0),

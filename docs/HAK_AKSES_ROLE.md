@@ -31,9 +31,10 @@ Aturan:
 | Kontrak & DO (`KONTRAK_DO`) | tambah, ubah, hapus | – | – | – | – |
 | Data Master › Driver (`MASTER_DRIVER`): hanya kategori Driver | tambah, ubah, hapus | tambah, ubah, hapus | – | – | – |
 | Data Master › Kendaraan (`MASTER_KENDARAAN`) | tambah, ubah | tambah, ubah | – | – | – |
+| Data Master › Mitra (`MASTER_MITRA`), Produk (`MASTER_PRODUK`) | tambah, ubah | – | – | – | – |
 | List, Absensi, Audit Log | lihat | lihat | lihat | lihat | lihat |
 
-ADMIN: semua menu Admin (Kelola User, Level & Hak Akses, Organisasi, Sesi Aktif, Supplier & Produk, Void Tiket,
+ADMIN: semua menu Admin (Kelola User, Level & Hak Akses, Organisasi, Sesi Aktif, Void Tiket,
 Jadwal Kerja, Pengaturan Site, Perangkat / Kiosk, Log Keamanan, Audit Admin, Kesehatan Sistem).
 
 ## Cukup login (semua level non-admin)

@@ -10,7 +10,7 @@ Desain Figma: layar A01–A09 + modal M14–M15 di file Weighbridge + Face Recog
 Komputer / laptop baru: ikuti [PINDAH_LAPTOP.md](PINDAH_LAPTOP.md) (library tanpa kompilasi dlib, SQL Server Express,
 backup / restore database). Database baru dari nol: `database/schema.sql`.
 
-1. Jalankan migrasi `database/migrations/` 001–018 berurutan di SSMS (hentikan `serve.py` saat menjalankan 016). **008–018 wajib** untuk versi ini: login membaca
+1. Jalankan migrasi `database/migrations/` 001–019 berurutan di SSMS (hentikan `serve.py` saat menjalankan 016). **008–019 wajib** untuk versi ini: login membaca
    tabel `level` (kolom `users.role` diganti `users.id_level`), SIM & wajah dibaca dari `personel_sim` / `personel_wajah`.
 2. Pastikan ada minimal satu akun ADMIN. Contoh membuat akun `admin` / `admin12345` (ganti password setelah login
    lewat menu Kelola User › Reset Password):
@@ -32,7 +32,6 @@ backup / restore database). Database baru dari nol: `database/schema.sql`.
 | Level & Hak Akses | Tambah / ubah level (pengganti role), halaman awal setelah login, aktif / nonaktif level. Matriks centang Tambah / Ubah / Hapus per menu | ±30 detik di semua PC, tanpa login ulang |
 | Organisasi | Company, area (site), department, mill (alur tahap per area) | Langsung muncul di pilihan Kelola User; mill dipakai tiket baru |
 | Sesi Aktif | Siapa yang login dari semua PC (tabel `sesi_login`, migrasi 007), IP, sejak kapan, berapa lama tidak aktif (diperbarui otomatis tiap 10 detik). Paksa keluar. Daftar login terkunci + username yang dicoba dari IP itu; Buka Kunci per baris, ketik username / IP, atau Buka Semua | Langsung |
-| Mitra & Produk | Tambah / ubah / aktif / nonaktif mitra (peran Customer dan/atau Pengangkutan) dan produk (kategori + alur tahap) | Langsung muncul / hilang di pilihan Form |
 | Void Tiket | Batalkan tiket salah input (wajib alasan). Status jadi VOID: keluar dari daftar aktif, QR tidak berlaku, tidak bisa ditimbang. Data tidak dihapus. Berita acara (No, tanggal, file) dilampirkan saat void atau menyusul lewat tombol Lampirkan BA | Langsung |
 | Jadwal Kerja | Per area: libur, jam masuk, jam pulang, toleransi per hari (area baru menyalin jadwal area pertama) | Scan absensi berikutnya (jadwal area akun yang men-scan) |
 | Pengaturan Site | Global: semua pengaturan. Per area (pilih area di atas): wajib scan wajah & ambang kemiripan wajah; keamanan (sesi, login, password) selalu global | ±30 detik, tanpa restart |
