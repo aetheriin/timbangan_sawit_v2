@@ -148,7 +148,8 @@ END
 GO
 
 /* ---------- 4. users: level, department, area (role dihapus) ---------- */
-IF COL_LENGTH('dbo.users', 'id_level') IS NULL
+-- users sudah di-rename menjadi akun (migrasi 016) -> bagian ini dilewati, aman dijalankan ulang
+IF OBJECT_ID('dbo.users', 'U') IS NOT NULL AND COL_LENGTH('dbo.users', 'id_level') IS NULL
     ALTER TABLE dbo.users ADD
         id_level      INT NULL CONSTRAINT FK_Users_Level REFERENCES dbo.level (id_level),
         id_department INT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),
@@ -164,13 +165,19 @@ BEGIN
                 WHEN ''OPERATOR_TIMBANG'' THEN N''Timbangan'' WHEN ''LAB'' THEN N''QC / Lab'' ELSE N''Umum'' END
            WHERE u.id_department IS NULL');
 END
-EXEC('UPDATE dbo.users SET id_comp_area = (SELECT MIN(id_comp_area) FROM dbo.comp_area) WHERE id_comp_area IS NULL');
-EXEC('UPDATE dbo.users SET id_department = (SELECT id_department FROM dbo.department WHERE nama = N''Umum'') WHERE id_department IS NULL');
+IF OBJECT_ID('dbo.users', 'U') IS NOT NULL
+BEGIN
+    EXEC('UPDATE dbo.users SET id_comp_area = (SELECT MIN(id_comp_area) FROM dbo.comp_area) WHERE id_comp_area IS NULL');
+    EXEC('UPDATE dbo.users SET id_department = (SELECT id_department FROM dbo.department WHERE nama = N''Umum'') WHERE id_department IS NULL');
+END
 GO
 
-ALTER TABLE dbo.users ALTER COLUMN id_level INT NOT NULL;
-ALTER TABLE dbo.users ALTER COLUMN id_department INT NOT NULL;
-ALTER TABLE dbo.users ALTER COLUMN id_comp_area INT NOT NULL;
+IF COLUMNPROPERTY(OBJECT_ID('dbo.users'), 'id_level', 'AllowsNull') = 1
+BEGIN
+    ALTER TABLE dbo.users ALTER COLUMN id_level INT NOT NULL;
+    ALTER TABLE dbo.users ALTER COLUMN id_department INT NOT NULL;
+    ALTER TABLE dbo.users ALTER COLUMN id_comp_area INT NOT NULL;
+END
 GO
 
 /* Kolom role diganti level: hapus CHECK / DEFAULT yang menempel, lalu kolomnya */

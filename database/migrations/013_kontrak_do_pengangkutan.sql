@@ -15,7 +15,8 @@ GO
    ===================================================================================== */
 
 /* ---------- 1. Peran mitra ---------- */
-IF OBJECT_ID('dbo.supplier_peran', 'U') IS NULL
+-- sudah di-rename menjadi mitra_peran oleh migrasi 016 -> lewati (aman dijalankan ulang)
+IF OBJECT_ID('dbo.supplier_peran', 'U') IS NULL AND OBJECT_ID('dbo.mitra_peran', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.supplier_peran (
         id_supplier  INT NOT NULL CONSTRAINT FK_SupPeran_Supplier REFERENCES dbo.supplier (id_supplier),
