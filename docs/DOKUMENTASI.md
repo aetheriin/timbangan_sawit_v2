@@ -383,7 +383,7 @@ Perubahan profil langsung berlaku: pembaca di server menyambung ulang, agen di P
    `netsh advfirewall firewall add rule name="Weighbridge 5000" dir=in action=allow protocol=TCP localport=5000`
 
 **B. Admin › Perangkat / Kiosk**
-1. **Tambah Pos** untuk tiap PC jembatan: ID `POS-JT1` … `POS-JT4`. Token tampil **sekali**: salin. Hilang → **Ganti token**.
+1. **Tambah Pos** untuk tiap PC jembatan: ID `POS-JT1` … `POS-JT4`, area jembatannya. Token tampil **sekali**: salin. Hilang → **Ganti token**.
    Pos bukan hanya untuk kamera; pos = PC yang boleh mengirim data ke server. PC yang juga menjadi kiosk kamera boleh
    memakai pos yang sama.
 2. **Tambah Jembatan Timbang** JT-1 … JT-4: kabel = PC jembatan, Port = COM di PC itu, profil indikator (6.3).

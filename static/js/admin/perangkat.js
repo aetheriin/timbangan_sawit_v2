@@ -26,7 +26,7 @@ async function muatPerangkat() {
         <tr class="hover:bg-slate-50${p.is_active ? '' : ' text-slate-400'}">
             <td class="table-cell font-mono">${escapeHtml(p.id_pos)}</td>
             <td class="table-cell">${escapeHtml(p.nama)}</td>
-            <td class="table-cell">${escapeHtml(p.lokasi || '-')}</td>
+            <td class="table-cell">${escapeHtml(p.area || '-')}${p.lokasi ? `<span class="text-slate-400"> · ${escapeHtml(p.lokasi)}</span>` : ''}</td>
             <td class="table-cell">${badgeAktif(p.is_active)}</td>
             <td class="table-cell">${p.terakhir_detik == null ? '<span class="text-slate-400">Belum terhubung</span>'
                 : `${durasiSingkat(p.terakhir_detik)} lalu`}</td>

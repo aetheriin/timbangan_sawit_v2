@@ -44,7 +44,9 @@ function pasangPilihCari(sel) {
     const ikon = document.createElement('i');
     ikon.className = 'fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none';
     const daftar = document.createElement('div');
-    daftar.className = 'absolute z-40 left-0 right-0 mt-1 min-w-full w-max max-w-md bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-auto hidden';
+    // position: fixed supaya daftar tidak terpotong modal / tabel (overflow), bisa digulir bila pilihan banyak
+    daftar.className = 'bg-white border border-slate-200 rounded-lg shadow-lg overflow-y-auto hidden';
+    Object.assign(daftar.style, { position: 'fixed', zIndex: '1000', maxWidth: '28rem' });
     bungkus.append(sel, input, ikon, daftar);
 
     // Tak terlihat tetapi tetap bisa difokus browser, supaya pesan "wajib diisi" (required) tetap muncul
@@ -70,9 +72,23 @@ function pasangPilihCari(sel) {
         daftar.innerHTML = cocok.length
             ? cocok.map((o, i) => `<div data-i="${i}" class="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50${o.value === '' ? ' text-slate-400' : ''}">${escapeHtml(o.text)}</div>`).join('')
             : '<div class="px-3 py-2 text-sm text-slate-400">Tidak ditemukan</div>';
-        tandai();
         daftar.classList.remove('hidden');
+        posisi();
+        tandai();
     }
+    // Di bawah kotak ketik; pindah ke atas bila ruang di bawah sempit. Tinggi maks 15rem / sisa layar.
+    function posisi() {
+        const k = input.getBoundingClientRect();
+        const bawah = window.innerHeight - k.bottom - 8, atas = k.top - 8;
+        const keAtas = bawah < 180 && atas > bawah;
+        daftar.style.left = `${k.left}px`;
+        daftar.style.minWidth = `${k.width}px`;
+        daftar.style.maxHeight = `${Math.max(120, Math.min(240, keAtas ? atas : bawah))}px`;
+        daftar.style.top = keAtas ? `${Math.max(8, k.top - 4 - daftar.offsetHeight)}px` : `${k.bottom + 4}px`;
+    }
+    const ikutiLayar = () => { if (!daftar.classList.contains('hidden')) posisi(); };
+    window.addEventListener('resize', ikutiLayar);
+    window.addEventListener('scroll', e => { if (e.target !== daftar) ikutiLayar(); }, true);
     function tandai() {
         daftar.querySelectorAll('[data-i]').forEach(el => el.classList.toggle('bg-blue-100', Number(el.dataset.i) === sorot));
         const el = daftar.querySelector(`[data-i="${sorot}"]`);

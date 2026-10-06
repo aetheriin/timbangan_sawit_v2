@@ -759,12 +759,16 @@ def _id_pos_form():
     return id_pos
 
 
+def _area_pos_form():
+    return _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
+
+
 @admin_bp.route("/api/admin/perangkat/tambah", methods=["POST"])
 @_admin
 def perangkat_tambah():
     def aksi():
         id_pos, nama, lokasi = _id_pos_form(), _teks("nama"), _teks("lokasi", wajib=False)
-        token = kiosk.tambah(id_pos, nama, lokasi)
+        token = kiosk.tambah(id_pos, nama, lokasi, _area_pos_form())
         _audit("KIOSK_TAMBAH", id_pos, nama)
         return jsonify({"message": f"Pos {id_pos} ditambahkan", "id_pos": id_pos, "token": token})
     return _jalankan(aksi)
@@ -775,7 +779,7 @@ def perangkat_tambah():
 def perangkat_ubah():
     def aksi():
         id_pos = _id_pos_form()
-        kiosk.ubah(id_pos, _teks("nama"), _teks("lokasi", wajib=False))
+        kiosk.ubah(id_pos, _teks("nama"), _teks("lokasi", wajib=False), _area_pos_form())
         _audit("KIOSK_UBAH", id_pos)
         return jsonify({"message": f"Pos {id_pos} diperbarui"})
     return _jalankan(aksi)

@@ -15,6 +15,12 @@
                 <input type="text" id="posNama" name="nama" required maxlength="100" class="input-field">
             </div>
             <div>
+                <label class="field-label" for="posArea">Area</label>
+                <select id="posArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select>
+            </div>
+            <div>
                 <label class="field-label" for="posLokasi">Lokasi (opsional)</label>
                 <input type="text" id="posLokasi" name="lokasi" maxlength="100" class="input-field">
             </div>
