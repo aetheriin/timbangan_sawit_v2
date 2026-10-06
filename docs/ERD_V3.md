@@ -1,7 +1,7 @@
 # ERD v3: rencana & keputusan desain (riwayat)
 
 Status: **sudah dikerjakan semua (migrasi 008–016)**. Dokumen ini catatan rencana & keputusan. Gambar di bawah adalah
-draf rencana; **ERD final yang sesuai database ada di [ERD.md](ERD.md)** (beberapa nama berbeda dari draf, mis. kolom
+draf rencana; **ERD final yang sesuai database ada di [DOKUMENTASI.md bagian 3](DOKUMENTASI.md#3-database--erd)** (beberapa nama berbeda dari draf, mis. kolom
 tetap `id_user` / `id_supplier`, `log_aktivitas.kategori`).
 Database: SQL Server 2022 (JSON disimpan di `NVARCHAR(MAX)` + `CHECK (ISJSON(...) = 1)`).
 

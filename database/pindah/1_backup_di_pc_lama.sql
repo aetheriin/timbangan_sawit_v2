@@ -1,5 +1,5 @@
 /* =====================================================================
-   PINDAH LAPTOP langkah 1: backup database di PC lama (docs/PINDAH_LAPTOP.md).
+   PINDAH LAPTOP langkah 1: backup database di PC lama (docs/DOKUMENTASI.md).
    1. Hentikan aplikasi (tutup jendela serve.py) supaya tidak ada transaksi yang sedang berjalan.
    2. Ganti @db (lihat DB_NAME di .env) dan @folder bila perlu, lalu Execute.
    3. Salin file .bak yang terbentuk ke laptop (flashdisk / jaringan).

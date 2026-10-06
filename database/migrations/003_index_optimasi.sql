@@ -1,6 +1,6 @@
 /* =====================================================================
    Migrasi 003: index untuk query yang paling sering dipakai aplikasi
-   (lihat docs/OPTIMASI_WEB.md poin 8). Tidak mengubah data / struktur tabel.
+   (lihat docs/DOKUMENTASI.md bagian 9). Tidak mengubah data / struktur tabel.
 
    Jalankan SETELAH 001 & 002, di SSMS (ganti nama di baris USE).
    Aman dijalankan ulang: setiap index dicek dulu sebelum dibuat.

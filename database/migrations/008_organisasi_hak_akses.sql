@@ -127,7 +127,7 @@ BEGIN
         CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
     );
 
-    /* Sama dengan hak akses sebelum Fase 1 (docs/HAK_AKSES_ROLE.md). Semua level non-admin melihat semua menu. */
+    /* Sama dengan hak akses sebelum Fase 1 (docs/DOKUMENTASI.md). Semua level non-admin melihat semua menu. */
     INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
     SELECT l.id_level, m.id_menu, v.t, v.u, v.h
     FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),

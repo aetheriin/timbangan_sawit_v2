@@ -1,5 +1,5 @@
 // ===== AKSI: pengganti onclick="..." / oninput="..." di HTML =====
-// CSP melarang script inline (docs/KEAMANAN_WEB.md #15), jadi elemen cukup menyebut NAMA fungsinya:
+// CSP melarang script inline (docs/DOKUMENTASI.md bagian 8), jadi elemen cukup menyebut NAMA fungsinya:
 //   <button data-on-click="switchTab" data-arg="security">       -> switchTab('security')
 //   <button data-on-click="filterAudit" data-arg="$el">           -> filterAudit(tombol itu)
 //   <input  data-on-enter="cariSupirByNik" data-arg="$el">        -> Tab / Enter -> cariSupirByNik(input)

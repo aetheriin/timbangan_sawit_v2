@@ -1,5 +1,5 @@
 /* =====================================================================
-   Akun SQL khusus aplikasi dengan hak minimal (docs/KEAMANAN_WEB.md #19).
+   Akun SQL khusus aplikasi dengan hak minimal (docs/DOKUMENTASI.md bagian 8).
    Aplikasi hanya perlu SELECT / INSERT / UPDATE, DELETE untuk beberapa tabel relasi, EXECUTE sp_catat_log.
    Jalankan ulang setelah migrasi 016 (nama tabel akun / mitra).
 

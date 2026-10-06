@@ -1,4 +1,4 @@
-# HTTPS di jaringan site (docs/KEAMANAN_WEB.md #23)
+# HTTPS di jaringan site (docs/DOKUMENTASI.md bagian 8)
 # Caddy menerima HTTPS di port 443 lalu meneruskan ke waitress (serve.py) di port 5000.
 # 1. Download caddy.exe (https://caddyserver.com/download), taruh di folder ini.
 # 2. Ganti 192.168.1.10 dengan IP LAN PC server.

@@ -45,7 +45,7 @@
             </div>
             <div>
                 <label class="field-label" for="prodKategori">Kategori</label>
-                <select id="prodKategori" name="kategori" class="input-field">
+                <select id="prodKategori" name="kategori" required class="input-field">
                     {% for k in kategori_produk %}<option value="{{ k }}">{{ k.replace('_', ' ').title() }}</option>{% endfor %}
                 </select>
             </div>

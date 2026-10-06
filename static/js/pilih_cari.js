@@ -2,12 +2,31 @@
 // Otomatis untuk semua <select class="input-field"> (juga yang ditambahkan belakangan lewat JS).
 // Tidak mau? beri atribut data-tanpa-cari. <select> lama tetap ada (tak terlihat) sebagai sumber nilai, jadi
 // select.value = ..., .disabled, isi <option>, form.reset(), data-on-change, dan validasi required tetap jalan.
+// Select wajib (required) di dalam form diberi pilihan kosong "-- Pilih ... --": saat Tambah tidak ada yang
+// langsung terpilih, user harus memilih sendiri. Daftar pilihan baru muncul saat diklik / diketik.
 const PILIH_CARI = 'select.input-field:not([data-tanpa-cari]), select[data-cari]';
 const KELAS_TATA_LETAK = /(^|:)(w-|min-w-|max-w-|col-span-|flex-|grow|shrink|basis-)/;
+
+function labelPilihan(sel) {
+    const label = sel.id && document.querySelector(`label[for="${sel.id}"]`);
+    const teks = label ? label.textContent.replace(/[*:]/g, '').trim() : '';
+    return teks ? `-- Pilih ${teks.toLowerCase()} --` : '-- Pilih --';
+}
+
+// Pilihan kosong (tak bisa dipilih ulang) sebagai bawaan form.reset(), supaya Tambah dimulai dari kosong
+function pasangPilihanKosong(sel, pilihKosong = true) {
+    if (!sel.required || !sel.form || Array.from(sel.options).some(o => o.value === '')) return;
+    const kosong = new Option(labelPilihan(sel), '', true, false);
+    kosong.disabled = kosong.hidden = true;
+    const terpilih = sel.selectedIndex >= 0 && sel.options[sel.selectedIndex].defaultSelected;
+    sel.insertBefore(kosong, sel.firstChild);
+    if (pilihKosong && !terpilih) sel.selectedIndex = 0;
+}
 
 function pasangPilihCari(sel) {
     if (sel.dataset.cariTerpasang || sel.multiple || Number(sel.size) > 1) return;
     sel.dataset.cariTerpasang = '1';
+    pasangPilihanKosong(sel);
 
     // Lebar / posisi grid ikut ke pembungkus, sisanya (ukuran teks, padding) ke kotak ketik
     const kelas = sel.className.split(/\s+/).filter(Boolean);
@@ -71,7 +90,8 @@ function pasangPilihCari(sel) {
         }
     }
 
-    input.addEventListener('focus', () => { input.select(); render(''); });
+    // Fokus (mis. otomatis saat modal dibuka) belum membuka daftar; klik / ketik / panah bawah yang membukanya
+    input.addEventListener('focus', () => input.select());
     input.addEventListener('click', () => { if (daftar.classList.contains('hidden')) render(''); });
     input.addEventListener('input', () => render(input.value));
     input.addEventListener('keydown', e => {
@@ -126,7 +146,7 @@ function pasangPilihCari(sel) {
         input.disabled = sel.disabled;
         input.classList.toggle('bg-slate-50', sel.disabled);
     };
-    new MutationObserver(() => { aturDisabled(); tampil(); })
+    new MutationObserver(() => { pasangPilihanKosong(sel, false); aturDisabled(); tampil(); })
         .observe(sel, { attributes: true, attributeFilter: ['disabled'], childList: true, subtree: true, characterData: true });
     aturDisabled();
     tampil();

@@ -1,5 +1,5 @@
 /* =====================================================================
-   PINDAH LAPTOP langkah 2: restore database di laptop (docs/PINDAH_LAPTOP.md).
+   PINDAH LAPTOP langkah 2: restore database di laptop (docs/DOKUMENTASI.md).
    1. Taruh file .bak di folder yang bisa dibaca SQL Server, mis. folder Backup bawaan:
       C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\
    2. Isi @file (lokasi .bak) dan @db (nama database, samakan dengan DB_NAME di .env), lalu Execute.

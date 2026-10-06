@@ -5,11 +5,11 @@
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
-   (database/migrations/), atau pindahkan dengan backup / restore (docs/PINDAH_LAPTOP.md).
+   (database/migrations/), atau pindahkan dengan backup / restore (docs/DOKUMENTASI.md).
 
    Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
    Login awal: admin / admin12345 (wajib ganti password saat login pertama).
-   Diagram: docs/ERD.md
+   Diagram: docs/DOKUMENTASI.md
    ===================================================================== */
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;

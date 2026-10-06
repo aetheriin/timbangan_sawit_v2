@@ -1,6 +1,6 @@
 """Keamanan web: secret key, cookie sesi, header keamanan, sesi idle, token perangkat kiosk, log keamanan.
 
-Semua dipasang dari app.py lewat pasang_keamanan(app). Rincian: docs/KEAMANAN_WEB.md."""
+Semua dipasang dari app.py lewat pasang_keamanan(app). Rincian: docs/DOKUMENTASI.md."""
 import hmac
 import logging
 import os
