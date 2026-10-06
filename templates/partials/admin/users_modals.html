@@ -15,7 +15,6 @@
                 <label class="field-label" for="userUsername">Username</label>
                 <input type="text" id="userUsername" name="username" required maxlength="50" class="input-field lowercase"
                        pattern="[a-z0-9._]{3,50}" title="3-50 karakter: huruf kecil, angka, titik, garis bawah">
-                <p class="field-hint">Huruf kecil, angka, titik, garis bawah. Tidak bisa diubah setelah dibuat.</p>
             </div>
             <div class="grid grid-cols-3 gap-3">
                 <div>
@@ -36,7 +35,6 @@
                         {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
                     </select>
                 </div>
-                <p class="field-hint col-span-3">Aksi yang boleh untuk tiap level diatur di menu Level &amp; Hak Akses.</p>
             </div>
             <div id="blokPasswordUser" class="grid grid-cols-2 gap-3">
                 <div>
