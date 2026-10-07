@@ -37,7 +37,10 @@
 </div>
 <div class="section-box">
     {% call section_header('jembatan-timbang', 'Jembatan Timbang') %}
-    <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaJembatan"><i class="fa-solid fa-plus mr-1"></i> Tambah Jembatan</button>
+    <div class="flex items-center gap-2" data-henti-klik>
+        <a href="/agen/unduh" class="btn-secondary py-1.5" title="Paket agen untuk PC jembatan (exe, jalankan.bat, deteksi.bat, .env)"><i class="fa-solid fa-download mr-1"></i> Unduh Agen</a>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaJembatan"><i class="fa-solid fa-plus mr-1"></i> Tambah Jembatan</button>
+    </div>
     {% endcall %}
     <div id="body-jembatan-timbang" class="section-body overflow-x-auto">
         <table class="w-full text-left text-sm">

@@ -154,7 +154,7 @@ def pasang_sesi_idle(app):
 # ===== AREA ADMIN =====
 # ADMIN (super admin) hanya mengelola sistem: halaman lain tidak terbuka untuknya,
 # dan halaman admin hanya untuk ADMIN.
-PATH_UMUM = ("/static/", "/login", "/logout", "/api/sesi/perpanjang", "/health", "/ganti-password")
+PATH_UMUM = ("/static/", "/login", "/logout", "/api/sesi/perpanjang", "/health", "/ganti-password", "/agen/unduh")
 
 
 def _area_admin(path):

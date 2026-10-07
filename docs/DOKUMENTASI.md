@@ -391,9 +391,10 @@ Perubahan profil langsung berlaku: pembaca di server menyambung ulang, agen di P
 
 **C. Tiap PC jembatan**
 1. Ada Python: salin folder `agen\`, klik `pasang.bat` sekali.
-   Tidak ada Python: di laptop klik `agen\buat_exe.bat` sekali (butuh internet) → `agen_timbang.exe`. Salin ke folder
-   `C:\agen` di PC jembatan: `agen_timbang.exe`, `jalankan.bat`, `deteksi.bat`, `.env.contoh`.
-2. Ganti nama `.env.contoh` menjadi `.env`, isi:
+   Tidak ada Python: di laptop klik `agen\buat_exe.bat` sekali (butuh internet) → `agen_timbang.exe`. Lalu di PC jembatan
+   buka Chrome ke `http://IP-SERVER:5000/agen/unduh` (login dulu; Admin: tombol **Unduh Agen** di Perangkat / Kiosk) →
+   `agen.zip` berisi `agen_timbang.exe`, `jalankan.bat`, `deteksi.bat`, `.env`. Ekstrak ke mis. `D:\agen` (tanpa flashdisk).
+2. Isi `.env` (dari zip; bila menyalin manual: ganti nama `.env.contoh` menjadi `.env`):
    ```
    WEIGHBRIDGE_URL=http://192.168.1.10:5000
    JEMBATAN_ID=1              ← ID agen JT-1
