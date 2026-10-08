@@ -1,4 +1,6 @@
 // ===== TAB BLACKLIST: riwayat & tambah (permanen, tanpa update / hapus) =====
+let dataBlacklist = [];          // baris daftar terakhir (lampirkan surat menyusul)
+let idSuratBlacklist = null;
 let blacklistDimuat = false;
 let tipeFilterBlacklist = '';
 let timerCariBlacklist = null;
@@ -37,17 +39,20 @@ async function muatBlacklist() {
     const data = await ambilJson(`/api/blacklist?${params}`);
     const tbody = document.getElementById('tabelBlacklist');
     if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
+    dataBlacklist = data;
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell whitespace-nowrap">${escapeHtml(r.tgl_blacklist)}</td>
             <td class="table-cell">${r.tipe_entitas === 'PERSONEL' ? badge('Personel', WARNA_BADGE.biru) : badge('Kendaraan', WARNA_BADGE.abu)}</td>
             <td class="table-cell">${escapeHtml(namaTarget(r))}${r.no_plat_terkait || r.customer_terkait ? `<div class="text-xs text-slate-500">
                 ${escapeHtml([r.no_plat_terkait, r.customer_terkait, r.pengangkutan_terkait].filter(Boolean).join(' · '))}</div>` : ''}</td>
-            <td class="table-cell">${escapeHtml(r.no_surat_blacklist)}</td>
+            <td class="table-cell">${r.no_surat_blacklist ? escapeHtml(r.no_surat_blacklist) : badge('Surat menyusul', WARNA_BADGE.oranye)}</td>
             <td class="table-cell max-w-xs truncate" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</td>
-            <td class="table-cell">${escapeHtml(r.oleh)} (${escapeHtml(r.role_oleh)})</td>
+            <td class="table-cell">${escapeHtml(r.oleh)} (${escapeHtml(r.role_oleh)})${r.area_oleh ? `<div class="text-xs text-slate-500">${escapeHtml(r.area_oleh)}</div>` : ''}</td>
             <td class="table-cell text-right">${r.file_surat_blacklist
-                ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>` : '-'}</td>
+                ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
+                : (!r.id_dokumen && tbody.dataset.bolehTambah === '1'
+                    ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan</button>` : '-')}</td>
         </tr>`).join('') || barisKosong(7, 'Belum ada blacklist');
     catatanBatas(tbody, data.length, 200, 7);
 }
@@ -192,7 +197,8 @@ async function simpanBlacklist(btn) {
     const file = document.getElementById('blFile').files[0];
     const noSurat = document.getElementById('blNoSurat').value.trim();
     const alasan = document.getElementById('blAlasan').value.trim();
-    if (!noSurat || !alasan || !file) { Notif.peringatan('No. surat, alasan, dan file surat wajib diisi'); return; }
+    if (!alasan) { Notif.peringatan('Alasan wajib diisi'); return; }
+    if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat bersama-sama, atau kosongkan keduanya (surat menyusul)'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
     const ok = await Dialog.konfirmasi({ judul: 'Tetapkan blacklist permanen?', teksYa: 'Tetapkan Blacklist', bahaya: true,
         pesan: `${nama} akan masuk blacklist secara PERMANEN dan tidak bisa dicabut.\nWajah / kendaraan ini ditolak di semua site.` });
@@ -204,7 +210,7 @@ async function simpanBlacklist(btn) {
     formData.append('no_surat', noSurat);
     formData.append('tgl_blacklist', document.getElementById('blTanggal').value);
     formData.append('alasan', alasan);
-    formData.append('file_surat', file);
+    if (file) formData.append('file_surat', file);
     if (tipeBlacklistBaru === 'PERSONEL') {
         formData.append('no_plat_terkait', document.getElementById('blPlatTerkait').value.trim());
         if (targetBlacklist.plat_terakhir) {
@@ -219,4 +225,29 @@ async function simpanBlacklist(btn) {
     Kamera.stop();
     muatBlacklist();
     if (typeof muatPersonel === 'function' && personelDimuat) muatPersonel();
+}
+
+// ===== SURAT MENYUSUL =====
+function bukaSuratBlacklist(id) {
+    const r = dataBlacklist.find(x => x.id_blacklist === id);
+    if (!r) return;
+    idSuratBlacklist = id;
+    document.getElementById('suratBlTarget').textContent = namaTarget(r);
+    ['suratBlNo', 'suratBlFile'].forEach(i => document.getElementById(i).value = '');
+    document.getElementById('suratBlTanggal').value = new Date().toISOString().slice(0, 10);
+    openModal('modalSuratBlacklist');
+}
+
+async function simpanSuratBlacklist(btn) {
+    const file = document.getElementById('suratBlFile').files[0];
+    const no = document.getElementById('suratBlNo').value.trim();
+    if (!no || !file) { Notif.peringatan('No. surat dan file surat wajib diisi'); return; }
+    const formData = new FormData();
+    formData.append('no_surat', no);
+    formData.append('tgl_blacklist', document.getElementById('suratBlTanggal').value);
+    formData.append('file_surat', file);
+    const data = await denganTombol(btn, () => kirimForm(`/api/blacklist/${idSuratBlacklist}/surat`, formData), 'Menyimpan...');
+    if (!tampilkanHasil(data)) return;
+    closeModal('modalSuratBlacklist');
+    muatBlacklist();
 }

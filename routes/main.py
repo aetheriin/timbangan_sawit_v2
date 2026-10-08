@@ -66,10 +66,25 @@ def history_produk():
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M")} for r in rows])
 
 
+@main_bp.route("/blacklist")
+@login_required
+def halaman_blacklist():
+    """Menu Blacklist (dulu tab Face Recognition). Berlaku di semua area; siapa yang boleh menetapkan: hak BLACKLIST."""
+    return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"))
+
+
+@main_bp.route("/tamu")
+@login_required
+def halaman_tamu():
+    """Menu Tamu: scan wajah, daftar tamu baru, catat masuk / keluar (hak KUNJUNGAN)."""
+    return render_template("face_recognition/tamu.html", halaman="tamu", keperluan_list=daftar_keperluan(),
+                           boleh_kunjungan=boleh("KUNJUNGAN"))
+
+
 @main_bp.route("/face-recognition")
 @login_required
 def face_recognition():
-    """Satu halaman, tab Absensi | Personel | Blacklist | Audit Log (tanpa info bar)."""
+    """Satu halaman, tab Absensi | Personel | Audit Log (tanpa info bar). Blacklist & Tamu menu sendiri."""
     return render_template("face_recognition/face_recognition.html", halaman="face", boleh_ubah=boleh("PERSONEL"),
                            jenis_sim_list=daftar_jenis_sim(), keperluan_list=daftar_keperluan(),
                            boleh_kunjungan=boleh("KUNJUNGAN"), kategori_list=list(daftar_kategori().values()),

@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
    Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-020). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
+   (setara schema awal + migrasi 001-021). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
@@ -579,7 +579,7 @@ CREATE TABLE dbo.blacklist (
     id_personel           INT NULL CONSTRAINT FK_Blacklist_Personel REFERENCES dbo.personel (id_personel),
     id_kendaraan          INT NULL CONSTRAINT FK_Blacklist_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
     alasan_blacklist      VARCHAR(500) NOT NULL,
-    id_dokumen            INT NOT NULL CONSTRAINT FK_Blacklist_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- surat (migrasi 010)
+    id_dokumen            INT NULL CONSTRAINT FK_Blacklist_Dokumen REFERENCES dbo.dokumen (id_dokumen),       -- surat; NULL = menyusul (migrasi 021)
     created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.akun (id_user),
     created_at            DATETIME NOT NULL CONSTRAINT DF_Blacklist_Created DEFAULT (GETDATE()),
     no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
@@ -823,6 +823,8 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('FORM',             N'Form',             '/weighbridge?view=form', 'fa-file-pen',     30),
     ('FACE_RECOGNITION', N'Face Recognition', '/face-recognition',     'fa-face-smile',    40),
     ('KONTRAK_DO',       N'Kontrak & DO',     '/kontrak',              'fa-file-contract', 50),
+    ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
+    ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
     ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
@@ -832,7 +834,6 @@ FROM (VALUES ('FORM_SECURITY',    N'Form › Security',          'FORM', 1),
              ('FORM_LAB',         N'Form › Laboratorium',      'FORM', 4),
              ('ABSENSI',          N'Face Recognition › Absensi', 'FACE_RECOGNITION', 1),
              ('PERSONEL',         N'Face Recognition › Personel', 'FACE_RECOGNITION', 2),
-             ('BLACKLIST',        N'Face Recognition › Blacklist', 'FACE_RECOGNITION', 3),
              ('AUDIT_LOG',        N'Face Recognition › Audit Log', 'FACE_RECOGNITION', 4),
              ('MASTER_DRIVER',    N'Data Master › Driver',     'MASTER', 1),
              ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2),
@@ -890,9 +891,7 @@ FROM dbo.comp_area ar
 CROSS JOIN (VALUES ('TBS', N'Penerimaan TBS', 'TBS'), ('PKS', N'Produk PKS', 'PKS'),
                    ('TS', N'Penimbangan Saja', 'TIMBANG_SAJA')) v (kode, nama, alur)
 JOIN dbo.alur al ON al.kode = v.alur;
--- Menu Kunjungan Tamu (migrasi 009)
-INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
-SELECT 'KUNJUNGAN', N'Face Recognition › Kunjungan Tamu', id_menu, 5 FROM dbo.menu WHERE kode = 'FACE_RECOGNITION';
+-- Hak menu Tamu (KUNJUNGAN) untuk Security
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
 SELECT l.id_level, m.id_menu, 1, 1, 0
 FROM dbo.level l CROSS JOIN dbo.menu m

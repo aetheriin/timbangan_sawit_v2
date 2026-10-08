@@ -124,8 +124,6 @@ def kunjungan_masuk():
             raise ValueError("Scan wajah tamu dulu")
         if p["kategori"] != "TAMU":
             raise ValueError(f"{p['nama_personel']} bukan tamu (kategori {p['kategori']})")
-        if p["is_blacklisted"]:
-            raise ValueError(f"{p['nama_personel']} masuk BLACKLIST. Tamu tidak boleh masuk.")
         if db.kunjungan_aktif(id_tamu):
             raise ValueError(f"{p['nama_personel']} masih tercatat di dalam. Catat keluar dulu.")
         id_dituju = _id_pilihan("id_dituju", {d["id_personel"] for d in db.daftar_dituju()}, "orang yang dituju")
@@ -140,6 +138,11 @@ def kunjungan_masuk():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+    if p["is_blacklisted"]:             # blacklist = peringatan: tamu tetap dicatat, tercatat di Audit Log
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
+                             details={"keterangan": f"Tamu blacklist dicatat masuk: "
+                                                    f"{format_nama_personel(p['kode_personel'], id_tamu, p['nama_personel'])}",
+                                      "id_personel": id_tamu})
     foto = None
     if request.files.get("foto"):
         try:

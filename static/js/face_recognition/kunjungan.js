@@ -111,21 +111,34 @@ async function scanWajahTamu(btn) {
     tampilkanTamu(data);
 }
 
+let tamuBlacklist = null;        // nama tamu blacklist yang sedang dipilih (konfirmasi sebelum catat masuk)
+
 function tampilkanTamu(p) {
     const hasil = document.getElementById('tamuHasil');
-    const masalah = p.is_blacklisted ? 'BLACKLIST: tamu tidak boleh masuk.'
-        : p.kategori !== 'TAMU' ? `Terdaftar sebagai ${labelKode(p.kategori)}, bukan tamu.`
+    // Blacklist = peringatan (tamu tetap bisa dicatat), bukan penghalang
+    const masalah = p.kategori !== 'TAMU' ? `Terdaftar sebagai ${labelKode(p.kategori)}, bukan tamu.`
         : p.kunjungan_aktif ? 'Masih tercatat di dalam. Catat keluar dulu di tabel di bawah.' : '';
-    hasil.className = `border rounded-lg p-4 text-sm flex items-center gap-4 ${p.is_blacklisted ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`;
+    tamuBlacklist = p.is_blacklisted ? p.nama_tampil : null;
+    hasil.className = `rounded-lg p-4 text-sm flex items-center gap-4 ${p.is_blacklisted ? 'border-2 border-red-500 bg-red-50' : 'border border-slate-200 bg-white'}`;
     hasil.innerHTML = `
-        <div class="w-20 h-24 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0">
+        <div class="w-20 h-24 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0${p.is_blacklisted ? ' ring-4 ring-red-600' : ''}">
             ${p.foto_path ? `<img src="${escapeHtml(urlBerkas(p.foto_path))}" class="w-full h-full object-cover" alt="">` : ''}
         </div>
         <div class="flex-1 space-y-1">
             <p class="font-semibold text-slate-800">${escapeHtml(p.nama_tampil)} ${badgeKategori(p.kategori)}</p>
             <p class="text-xs text-slate-500">NIK ${escapeHtml(p.nik)}${p.jarak_wajah != null ? ` · kemiripan ${escapeHtml(p.jarak_wajah)}` : ''}</p>
+            ${p.is_blacklisted ? `<p><span class="px-2 py-0.5 rounded bg-red-600 text-white text-xs font-bold">BLACKLIST</span></p>
+                <p id="tamuInfoBlacklist" class="text-xs text-red-700">Masuk daftar blacklist · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Audit Log.</p>` : ''}
             ${masalah ? `<p class="text-xs font-semibold text-red-600">${escapeHtml(masalah)}</p>` : ''}
         </div>`;
+    if (p.is_blacklisted) {
+        ambilJson(`/api/blacklist/info/PERSONEL/${p.id_personel}`).then(bl => {
+            const el = document.getElementById('tamuInfoBlacklist');
+            if (!el || bl.error || !bl.oleh) return;
+            el.textContent = `${bl.no_surat_blacklist ? `No. surat ${bl.no_surat_blacklist} · ` : ''}ditetapkan ${bl.tgl_blacklist} oleh ` +
+                `${bl.oleh}${bl.area_oleh ? ` (${bl.area_oleh})` : ''} · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Audit Log.`;
+        });
+    }
     const form = document.getElementById('formKunjungan');
     form.classList.toggle('hidden', !!masalah);
     form.elements.id_personel.value = masalah ? '' : p.id_personel;
@@ -146,11 +159,14 @@ async function daftarkanTamu(btn) {
 document.getElementById('formKunjungan')?.addEventListener('submit', async e => {
     e.preventDefault();
     const form = e.target;
+    if (tamuBlacklist && !await Dialog.konfirmasi({ judul: 'Tamu masuk daftar blacklist', teksYa: 'Tetap catat masuk',
+        bahaya: true, pesan: `${tamuBlacklist} masuk daftar blacklist. Tetap catat masuk? Tercatat di Audit Log.` })) return;
     const fd = new FormData(form);
     if (fotoTamu) fd.append('foto', fotoTamu, 'kunjungan.jpg');
     const data = await denganTombol(form.querySelector('[type=submit]'), () => kirimForm('/api/kunjungan/masuk', fd));
     if (!tampilkanHasil(data)) return;
     resetFormTamu();
+    tamuBlacklist = null;
     fotoTamu = null;
     document.getElementById('tamuFoto').classList.add('hidden');
     document.getElementById('tamuHasil').className = 'border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm text-slate-400';

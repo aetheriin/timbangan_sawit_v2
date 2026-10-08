@@ -13,9 +13,11 @@
                    data-on-input="cariBlacklistTunda">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
         </div>
+        {% if boleh_blacklist is not defined or boleh_blacklist %}
         <button type="button" data-on-click="bukaTambahBlacklist" class="btn-danger">
             <i class="fa-solid fa-plus mr-1"></i> Tambah Blacklist
         </button>
+        {% endif %}
     </div>
 
     <div class="section-box">
@@ -29,7 +31,7 @@
                         <th class="table-cell text-right">Surat</th>
                     </tr>
                 </thead>
-                <tbody data-per-halaman="20" id="tabelBlacklist" class="divide-y divide-slate-100"></tbody>
+                <tbody data-per-halaman="20" id="tabelBlacklist" data-boleh-tambah="{{ 1 if boleh_blacklist else 0 }}" class="divide-y divide-slate-100"></tbody>
             </table>
         </div>
     </div>

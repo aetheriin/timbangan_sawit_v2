@@ -77,7 +77,8 @@
             <div class="drop-zone flex items-center gap-3 text-left" data-on-click="klikElemen" data-arg="blFile">
                 <i class="fa-solid fa-file-arrow-up text-xl text-slate-500"></i>
                 <div>
-                    <p class="text-sm font-medium text-slate-700">Upload Surat (PDF / JPG / PNG, maks 5 MB), wajib</p>
+                    <p class="text-sm font-medium text-slate-700">Upload Surat (PDF / JPG / PNG, maks 5 MB)</p>
+                    <p class="text-xs text-slate-500">Belum ada surat? Kosongkan No. surat &amp; file, lampirkan menyusul dari daftar Blacklist.</p>
                     <p id="blFileNama" class="text-xs text-blue-700"></p>
                 </div>
                 <input type="file" id="blFile" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
@@ -93,6 +94,31 @@
                 <button type="button" data-on-click="tutupModalBlacklist" class="btn-secondary">Batal</button>
                 <button type="button" id="btnSimpanBlacklist" data-on-click="simpanBlacklist" data-arg="$el" class="btn-danger">Tetapkan Blacklist Permanen</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Lampirkan surat blacklist yang menyusul -->
+<div id="modalSuratBlacklist" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Lampirkan Surat Blacklist</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalSuratBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p id="suratBlTarget" class="text-sm font-semibold text-slate-700"></p>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="field-label" for="suratBlNo">No. Surat</label>
+                    <input type="text" id="suratBlNo" maxlength="100" class="input-field"></div>
+                <div><label class="field-label" for="suratBlTanggal">Tanggal Surat</label>
+                    <input type="date" id="suratBlTanggal" class="input-field"></div>
+            </div>
+            <div><label class="field-label" for="suratBlFile">File Surat (PDF / JPG / PNG, maks 5 MB)</label>
+                <input type="file" id="suratBlFile" accept=".pdf,.jpg,.jpeg,.png" class="input-field"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalSuratBlacklist" class="btn-secondary">Batal</button>
+            <button type="button" data-on-click="simpanSuratBlacklist" data-arg="$el" class="btn-primary">Simpan</button>
         </div>
     </div>
 </div>

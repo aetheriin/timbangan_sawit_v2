@@ -18,8 +18,8 @@ def _format(r):
 def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
     sql = """
         SELECT TOP (?) b.id_blacklist, b.tipe_entitas, dk.no_dokumen AS no_surat_blacklist, b.alasan_blacklist,
-               df.file_path AS file_surat_blacklist, dk.tanggal AS tgl_blacklist, b.id_dokumen,
-               b.created_at, u.nama AS oleh, lv.kode AS role_oleh,
+               df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
+               b.id_dokumen, b.created_at, u.nama AS oleh, lv.kode AS role_oleh, ar.nama AS area_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
                c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait
         FROM blacklist b
@@ -27,9 +27,10 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
         LEFT JOIN mitra a ON b.id_pengangkutan_terkait = a.id_supplier
         JOIN akun u ON b.created_by = u.id_user
         JOIN level lv ON lv.id_level = u.id_level
+        LEFT JOIN comp_area ar ON ar.id_comp_area = u.id_comp_area
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
-        JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
+        LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen          -- NULL = surat menyusul
         OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
         WHERE 1 = 1"""
     params = [batas]
@@ -41,7 +42,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
         sql += """ AND (p.kode_personel LIKE ? OR p.nama_personel LIKE ? OR p.nik LIKE ?
                         OR k.no_plat LIKE ? OR dk.no_dokumen LIKE ?)"""
         params += [pola] * 5
-    sql += " ORDER BY dk.tanggal DESC, b.id_blacklist DESC"
+    sql += " ORDER BY b.created_at DESC, b.id_blacklist DESC"
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(sql, *params)
@@ -141,8 +142,8 @@ def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, us
             raise ValueError("Target tidak ditemukan")
         if row.is_blacklisted:
             raise ValueError("Target sudah masuk blacklist")
-        id_dokumen = buat_dokumen(cursor, "SURAT_BLACKLIST", no_surat, tgl_surat, f"Blacklist {tipe.lower()}",
-                                  [file_info] if file_info else [], user_id)
+        id_dokumen = (buat_dokumen(cursor, "SURAT_BLACKLIST", no_surat, tgl_surat, f"Blacklist {tipe.lower()}",
+                                   [file_info] if file_info else [], user_id) if no_surat else None)   # None = menyusul
         cursor.execute(f"""INSERT INTO blacklist (tipe_entitas, {kolom}, alasan_blacklist, id_dokumen, created_by,
                                                   no_plat_terkait, id_customer_terkait, id_pengangkutan_terkait)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -157,19 +158,42 @@ def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, us
         conn.close()
 
 
+def lampirkan_surat(id_blacklist, no_surat, tgl_surat, file_info, user_id):
+    """Surat blacklist yang menyusul. Error bila blacklist tidak ada / surat sudah dilampirkan."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT tipe_entitas, id_dokumen FROM blacklist WITH (UPDLOCK) WHERE id_blacklist = ?", id_blacklist)
+        row = cursor.fetchone()
+        if row is None:
+            raise ValueError("Blacklist tidak ditemukan")
+        if row.id_dokumen is not None:
+            raise ValueError("Surat sudah dilampirkan")
+        id_dokumen = buat_dokumen(cursor, "SURAT_BLACKLIST", no_surat, tgl_surat, f"Blacklist {row.tipe_entitas.lower()}",
+                                  [file_info], user_id)
+        cursor.execute("UPDATE blacklist SET id_dokumen = ? WHERE id_blacklist = ?", id_dokumen, id_blacklist)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def get_surat_blacklist(tipe, id_target):
     """Surat blacklist terbaru untuk banner di Form Create Ticket."""
     kolom = "id_personel" if tipe == "PERSONEL" else "id_kendaraan"
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist, dk.tanggal AS tgl_blacklist,
+    cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist,
+                              COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
                               df.file_path AS file_surat_blacklist, u.nama AS oleh, ar.nama AS area_oleh
                        FROM blacklist b JOIN akun u ON b.created_by = u.id_user
                        LEFT JOIN comp_area ar ON ar.id_comp_area = u.id_comp_area
-                       JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
+                       LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                     WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
-                       WHERE b.{kolom} = ? ORDER BY dk.tanggal DESC, b.id_blacklist DESC""", id_target)
+                       WHERE b.{kolom} = ? ORDER BY b.created_at DESC, b.id_blacklist DESC""", id_target)
     data = _rows_to_dicts(cursor)
     conn.close()
     return _format(data[0]) if data else None

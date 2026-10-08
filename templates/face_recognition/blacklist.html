@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import tab_header %}
+{% block title %}Blacklist · Weighbridge{% endblock %}
+
+{# Menu Blacklist (sidebar). Hak aksi: Admin › Level & Hak Akses › BLACKLIST #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ tab_header([('blacklist', 'Blacklist')], 'mt-4') }}
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/face_recognition/blacklist_tab.html" %}
+{% endblock %}
+
+{% block modals %}
+    {% include "partials/face_recognition/blacklist_modals.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
+{% endblock %}

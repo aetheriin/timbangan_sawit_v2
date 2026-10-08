@@ -3,7 +3,7 @@ from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from utils.db_blacklist import (TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel,
-                                get_surat_blacklist)
+                                get_surat_blacklist, lampirkan_surat)
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
@@ -89,14 +89,17 @@ def blacklist_tambah():
     no_surat, alasan = f.get("no_surat", "").strip(), f.get("alasan", "").strip()
     if tipe not in TIPE_VALID or not id_target:
         return jsonify({"error": "Pilih target blacklist dulu"}), 400
-    if not no_surat or not alasan:
-        return jsonify({"error": "No. surat dan alasan wajib diisi"}), 400
-    try:
-        tgl = date.fromisoformat(f.get("tgl_blacklist", "").strip())
-    except ValueError:
-        return jsonify({"error": "Tanggal surat tidak valid"}), 400
-    if tgl > date.today():
-        return jsonify({"error": "Tanggal surat tidak boleh setelah hari ini"}), 400
+    if not alasan:
+        return jsonify({"error": "Alasan wajib diisi"}), 400
+    file = request.files.get("file_surat")
+    ada_file = bool(file and file.filename)
+    if not no_surat and ada_file:
+        return jsonify({"error": "Isi No. surat untuk file yang diunggah, atau kosongkan keduanya (surat menyusul)"}), 400
+    if no_surat and not ada_file:
+        return jsonify({"error": "Unggah file surat, atau kosongkan No. surat (surat menyusul)"}), 400
+    tgl, error = _tanggal_surat(f) if no_surat else (None, None)
+    if error:
+        return jsonify({"error": error}), 400
 
     try:
         terkait = _terkait(f) if tipe == "PERSONEL" else None
@@ -104,16 +107,55 @@ def blacklist_tambah():
         return jsonify({"error": str(e)}), 400
     if len(no_surat) > 100:
         return jsonify({"error": "No. surat maksimal 100 karakter"}), 400
+    info = None
+    if no_surat:
+        try:
+            info = simpan_file(file, "SURAT_BLACKLIST")
+        except ValueError as e:
+            return jsonify({"error": f"Surat: {e}"}), 400
+
+    try:
+        tambah_blacklist(tipe, id_target, no_surat or None, alasan, info, tgl, current_user.id, terkait)
+    except Exception as e:
+        if info:
+            hapus_file_info([info])
+        if isinstance(e, ValueError):
+            return jsonify({"error": str(e)}), 400
+        raise
+    return jsonify({"message": "Blacklist ditetapkan (permanen)" + ("" if no_surat else ". Surat bisa dilampirkan menyusul.")})
+
+
+def _tanggal_surat(f):
+    try:
+        tgl = date.fromisoformat(f.get("tgl_blacklist", "").strip())
+    except ValueError:
+        return None, "Tanggal surat tidak valid"
+    if tgl > date.today():
+        return None, "Tanggal surat tidak boleh setelah hari ini"
+    return tgl, None
+
+
+@blacklist_bp.route("/api/blacklist/<int:id_blacklist>/surat", methods=["POST"])
+@login_required
+@izin('BLACKLIST', 'tambah')
+def blacklist_lampirkan_surat(id_blacklist):
+    """Lampirkan surat blacklist yang menyusul (No. surat, tanggal, file)."""
+    f = request.form
+    no_surat = f.get("no_surat", "").strip()
+    if not no_surat or len(no_surat) > 100:
+        return jsonify({"error": "No. surat wajib diisi (maks 100 karakter)"}), 400
+    tgl, error = _tanggal_surat(f)
+    if error:
+        return jsonify({"error": error}), 400
     try:
         info = simpan_file(request.files.get("file_surat"), "SURAT_BLACKLIST")
     except ValueError as e:
         return jsonify({"error": f"Surat: {e}"}), 400
-
     try:
-        tambah_blacklist(tipe, id_target, no_surat, alasan, info, tgl, current_user.id, terkait)
+        lampirkan_surat(id_blacklist, no_surat, tgl, info, current_user.id)
     except Exception as e:
         hapus_file_info([info])
         if isinstance(e, ValueError):
             return jsonify({"error": str(e)}), 400
         raise
-    return jsonify({"message": "Blacklist ditetapkan (permanen)"})
+    return jsonify({"message": "Surat blacklist dilampirkan"})

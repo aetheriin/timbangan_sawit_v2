@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import tab_header %}
+{% block title %}Tamu · Weighbridge{% endblock %}
+
+{# Menu Tamu (sidebar). Hak aksi: Admin › Level & Hak Akses › KUNJUNGAN #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ tab_header([('kunjungan', 'Tamu')], 'mt-4') }}
+{% endblock %}
+
+{% block tab_content %}
+    {% include "partials/face_recognition/kunjungan_tab.html" %}
+{% endblock %}
+
+{% block modals %}{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/kunjungan.js') }}"></script>
+{% endblock %}
