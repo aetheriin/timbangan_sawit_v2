@@ -1,0 +1,125 @@
+erDiagram
+    mitra {
+        int id_supplier PK
+        varchar kode_supplier UK
+        varchar nama_supplier
+        bit is_active
+        datetime created_at
+    }
+    mitra_peran {
+        int id_supplier PK,FK
+        varchar peran PK
+    }
+    jenis_kendaraan {
+        int id_jenis_kendaraan PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    kendaraan {
+        int id_kendaraan PK
+        varchar no_plat UK
+        varchar no_stnk UK
+        int id_jenis_kendaraan FK "NULL"
+        bit is_blacklisted
+        bit is_active
+        datetime created_at
+    }
+    kendaraan_driver {
+        int id_kendaraan_driver PK
+        int id_kendaraan FK
+        int id_driver FK
+        bit is_utama
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+        datetime updated_at
+    }
+    kontrak_kendaraan {
+        int id_kontrak PK
+        varchar no_kontrak "NULL"
+        int id_kendaraan FK
+        int id_supplier FK
+        int id_produk FK "NULL"
+        varchar jenis_transaksi "NULL"
+        date tanggal_mulai
+        date tanggal_selesai "NULL"
+        bit is_active
+        varchar keterangan "NULL"
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    kontrak {
+        int id_kontrak PK
+        varchar no_kontrak UK
+        varchar jenis_transaksi
+        int id_customer FK
+        int id_produk FK
+        date tanggal
+        decimal qty_kg "NULL"
+        decimal harga_per_kg "NULL"
+        varchar keterangan "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    delivery_order {
+        int id_do PK
+        varchar no_do UK
+        int id_kontrak FK,UK
+        date tanggal_do
+        date berlaku_sampai "NULL"
+        varchar keterangan "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    do_pengangkutan {
+        int id_do_angkut PK
+        int id_do FK
+        varchar cara_angkut
+        int id_pengangkutan FK "NULL"
+        decimal qty_kg "NULL"
+    }
+    produk {
+        int id_produk PK
+        varchar nama_produk
+        varchar kategori
+        int id_alur FK
+        bit is_active
+    }
+    standar_mutu {
+        int id_produk PK,FK
+        float maks_ffa
+        float maks_air
+        float maks_kotoran
+    }
+    alur {
+        int id_alur PK
+    }
+    harga_harian {
+        date tanggal PK
+        decimal harga_cpo
+        decimal harga_kernel
+        decimal oer_cpo
+        decimal biaya_olah
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    personel {
+        int id_personel PK
+    }
+    kontrak ||--o| delivery_order : "id_kontrak"
+    delivery_order ||--o{ do_pengangkutan : "id_do"
+    mitra |o--o{ do_pengangkutan : "id_pengangkutan"
+    jenis_kendaraan |o--o{ kendaraan : "id_jenis_kendaraan"
+    personel ||--o{ kendaraan_driver : "id_driver"
+    kendaraan ||--o{ kendaraan_driver : "id_kendaraan"
+    mitra ||--o{ kontrak : "id_customer"
+    produk ||--o{ kontrak : "id_produk"
+    kendaraan ||--o{ kontrak_kendaraan : "id_kendaraan"
+    produk |o--o{ kontrak_kendaraan : "id_produk"
+    mitra ||--o{ kontrak_kendaraan : "id_supplier"
+    mitra ||--o{ mitra_peran : "id_supplier"
+    alur ||--o{ produk : "id_alur"
+    produk ||--o| standar_mutu : "id_produk"

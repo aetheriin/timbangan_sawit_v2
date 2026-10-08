@@ -38,15 +38,15 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="field-label">No. Plat Kendaraan</label>
-                                    <input type="text" id="formNoPlat" placeholder="Contoh: BM 1455 JJ lalu Tab" class="input-field uppercase" data-on-enter="lookupPlat" data-arg="$value" data-plat-otomatis>
+                                    <input type="text" id="formNoPlat" class="input-field uppercase" data-on-enter="lookupPlat" data-arg="$value" data-plat-otomatis>
                                 </div>
                                 <div>
                                     <label class="field-label">No. Ticket</label>
-                                    <input type="text" id="formNoTiket" readonly placeholder="Terisi setelah Submit" class="input-field bg-slate-50 text-slate-400">
+                                    <input type="text" id="formNoTiket" readonly class="input-field bg-slate-50 text-slate-400">
                                 </div>
                                 <div>
                                     <label class="field-label">No. STNK</label>
-                                    <input type="text" id="formNoStnk" class="input-field">
+                                    <input type="text" id="formNoStnk" class="input-field uppercase" maxlength="50">
                                 </div>
                             </div>
 
@@ -67,8 +67,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4 pt-4 border-t border-slate-100">
                             <div>
                                 <label class="field-label">Nomor DO (Delivery Order)</label>
-                                <input type="text" id="formNoDo" class="input-field uppercase" placeholder="Ketik No DO lalu Tab (kosongkan bila tidak ada)"
-                                       data-on-enter="cariDO" data-arg="$value">
+                                <input type="text" id="formNoDo" class="input-field uppercase" data-on-enter="cariDO" data-arg="$value">
                                 <p id="infoDO" class="text-xs mt-1 hidden"></p>
                             </div>
                             <div>
@@ -77,7 +76,7 @@
                                     <option value="">-- Pilih --</option>
                                     <option value="PEMBELIAN">Pembelian</option>
                                     <option value="PENJUALAN">Penjualan</option>
-                                    <option value="PENIMBANGAN_SAJA">Penimbangan Saja</option>
+                                    <option value="PENIMBANGAN_SAJA">Penimbangan</option>
                                 </select>
                             </div>
                             <div>
@@ -95,6 +94,17 @@
                                     <option value="">-- Pilih --</option>
                                     {% for p in produk_list %}
                                     <option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="field-label">Pengangkutan</label>
+                                <select id="formAngkut" class="input-field" data-cari>
+                                    <option value="">-- Pilih --</option>
+                                    <option value="PENGIRIM" data-cara>Kendaraan pengirim</option>
+                                    <option value="PENERIMA" data-cara>Kendaraan penerima</option>
+                                    {% for a in angkutan_list %}
+                                    <option value="PIHAK_KETIGA:{{ a.id_supplier }}">{{ a.nama_supplier }} (pihak ketiga)</option>
                                     {% endfor %}
                                 </select>
                             </div>

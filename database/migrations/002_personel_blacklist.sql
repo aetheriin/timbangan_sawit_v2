@@ -1,6 +1,6 @@
 /* =====================================================================
    Migrasi 002: face recognition personel, blacklist, absensi
-   (terintegrasi di aplikasi Weighbridge / main, lihat docs/PERANCANGAN_FACE_RECOGNITION.md)
+   (terintegrasi di aplikasi Weighbridge / main, lihat docs/DOKUMENTASI.md)
 
    Prinsip: skema main TETAP. Tahap Security, Timbangan, Sortasi, Lab, status_alur tiket,
    dan role lama tidak diubah. Migrasi ini hanya MENAMBAH:

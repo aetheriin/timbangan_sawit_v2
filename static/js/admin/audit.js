@@ -35,3 +35,18 @@ async function muatAuditAdmin() {
 function cariAuditAdmin(teks) {
     saringBaris('tabelAuditAdmin', teks);
 }
+
+// Rantai hash log_aktivitas: setiap baris membawa hash baris sebelumnya, jadi ubah / hapus langsung di DB ketahuan
+async function verifikasiLog(btn) {
+    const data = await denganTombol(btn, () => ambilJson('/api/admin/audit/verifikasi'), 'Memeriksa...');
+    const el = document.getElementById('hasilVerifikasiLog');
+    if (data.error) { el.className = 'text-xs text-red-600'; el.textContent = data.error; return; }
+    if (data.utuh) {
+        el.className = 'text-xs text-emerald-600';
+        el.textContent = `✓ ${Number(data.jumlah).toLocaleString('id-ID')} log utuh`;
+        return;
+    }
+    el.className = 'text-xs text-red-600 font-semibold';
+    const r = data.rusak[0];
+    el.textContent = `✗ Rantai rusak mulai log #${r.id_log} (${r.waktu}, ${r.kategori} ${r.aksi}: ${labelKode(r.masalah)})`;
+}

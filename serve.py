@@ -1,8 +1,3 @@
-"""Menjalankan aplikasi untuk dipakai di site (produksi): server waitress, tanpa mode debug.
-
-    python serve.py
-
-Pengaturan lewat .env: HOST (default 0.0.0.0), PORT (5000), THREADS (8)."""
 import os
 from waitress import serve
 from app import app, jalankan_layanan_latar

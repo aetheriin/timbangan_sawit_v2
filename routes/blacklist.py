@@ -2,13 +2,15 @@
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.db_blacklist import TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
-from utils.upload_utils import simpan_upload, hapus_file, SURAT_EKSTENSI
+from utils.db_kunjungan import area_akun
+from utils.upload_utils import simpan_upload, hapus_file
+from utils.hak_akses import izin
+from utils.dokumen import simpan_file, hapus_file_info
 
 blacklist_bp = Blueprint('blacklist', __name__)
 
@@ -33,7 +35,7 @@ def blacklist_cari_target():
 
 @blacklist_bp.route("/api/blacklist/cari-wajah", methods=["POST"])
 @login_required
-@role_required('HO')
+@izin('BLACKLIST', 'tambah')
 def blacklist_cari_wajah():
     """Target blacklist dari wajah: foto kamera atau upload -> personel yang paling mirip. Foto tidak disimpan."""
     try:
@@ -47,7 +49,7 @@ def blacklist_cari_wajah():
         hapus_file(path_disk)
     if jumlah != 1:
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH"))
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
     target = get_target_personel(id_personel) if id_personel else None
     if not target:
         return jsonify({"error": "Wajah tidak cocok dengan personel mana pun. Daftarkan dulu di menu Personel."}), 404
@@ -68,7 +70,7 @@ def _terkait(f):
 
 @blacklist_bp.route("/api/blacklist/tambah", methods=["POST"])
 @login_required
-@role_required('HO')
+@izin('BLACKLIST', 'tambah')
 def blacklist_tambah():
     f = request.form
     tipe = f.get("tipe_entitas", "").upper()
@@ -89,14 +91,18 @@ def blacklist_tambah():
         terkait = _terkait(f) if tipe == "PERSONEL" else None
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    if len(no_surat) > 100:
+        return jsonify({"error": "No. surat maksimal 100 karakter"}), 400
     try:
-        path_disk, relatif = simpan_upload(request.files.get("file_surat"), "surat_blacklist", SURAT_EKSTENSI)
+        info = simpan_file(request.files.get("file_surat"), "SURAT_BLACKLIST")
     except ValueError as e:
         return jsonify({"error": f"Surat: {e}"}), 400
 
     try:
-        tambah_blacklist(tipe, id_target, no_surat, alasan, relatif, tgl, current_user.id, terkait)
-    except ValueError as e:
-        hapus_file(path_disk)
-        return jsonify({"error": str(e)}), 400
+        tambah_blacklist(tipe, id_target, no_surat, alasan, info, tgl, current_user.id, terkait)
+    except Exception as e:
+        hapus_file_info([info])
+        if isinstance(e, ValueError):
+            return jsonify({"error": str(e)}), 400
+        raise
     return jsonify({"message": "Blacklist ditetapkan (permanen)"})

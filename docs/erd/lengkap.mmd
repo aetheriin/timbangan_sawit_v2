@@ -1,0 +1,538 @@
+erDiagram
+    absensi {
+        int id_absensi PK
+        int id_personel FK "NULL"
+        varchar jenis "NULL"
+        varchar status
+        varchar status_waktu "NULL"
+        int selisih_menit "NULL"
+        float jarak_wajah "NULL"
+        varchar tantangan_liveness "NULL"
+        varchar foto_path "NULL"
+        varchar perangkat "NULL"
+        varchar ip_address "NULL"
+        datetime waktu
+        date tanggal "NULL"
+    }
+    akun {
+        int id_user PK
+        varchar nama
+        varchar username UK
+        varchar password
+        int id_level FK
+        int id_department FK
+        int id_comp_area FK
+        int id_personel FK,UK "NULL"
+        bit is_active
+        datetime last_login "NULL"
+        int sesi_versi
+        datetime password_changed_at "NULL"
+        datetime created_at
+        datetime updated_at
+    }
+    alur {
+        int id_alur PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    alur_tahap {
+        int id_alur PK,FK
+        tinyint urutan PK
+        varchar kode_tahap FK
+    }
+    blacklist {
+        int id_blacklist PK
+        varchar tipe_entitas
+        int id_personel FK "NULL"
+        int id_kendaraan FK "NULL"
+        varchar alasan_blacklist
+        int id_dokumen FK
+        int created_by FK
+        datetime created_at
+        varchar no_plat_terkait "NULL"
+        int id_customer_terkait FK "NULL"
+        int id_pengangkutan_terkait FK "NULL"
+    }
+    comp_area {
+        int id_comp_area PK
+        int id_company FK
+        varchar kode UK
+        nvarchar nama
+        nvarchar alamat "NULL"
+        bit is_active
+        datetime created_at
+    }
+    company {
+        int id_company PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+        datetime created_at
+    }
+    delivery_order {
+        int id_do PK
+        varchar no_do UK
+        int id_kontrak FK,UK
+        date tanggal_do
+        date berlaku_sampai "NULL"
+        varchar keterangan "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    department {
+        int id_department PK
+        nvarchar nama UK
+        nvarchar keterangan "NULL"
+        bit is_active
+    }
+    do_pengangkutan {
+        int id_do_angkut PK
+        int id_do FK
+        varchar cara_angkut
+        int id_pengangkutan FK "NULL"
+        decimal qty_kg "NULL"
+    }
+    dokumen {
+        int id_dokumen PK
+        int id_jenis FK
+        nvarchar no_dokumen
+        date tanggal
+        nvarchar perihal "NULL"
+        int created_by FK
+        datetime created_at
+    }
+    dokumen_file {
+        int id_file PK
+        int id_dokumen FK
+        varchar file_path
+        nvarchar nama_asli "NULL"
+        varchar mime "NULL"
+        int ukuran_byte "NULL"
+        char sha256 "NULL"
+        tinyint urutan
+        datetime created_at
+    }
+    harga_harian {
+        date tanggal PK
+        decimal harga_cpo
+        decimal harga_kernel
+        decimal oer_cpo
+        decimal biaya_olah
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    jadwal_kerja {
+        int id_comp_area PK,FK
+        tinyint hari PK
+        varchar nama_hari
+        time jam_masuk "NULL"
+        time jam_pulang "NULL"
+        bit is_libur
+        int toleransi_menit
+    }
+    jembatan_timbang {
+        int id_jembatan PK
+        int id_comp_area FK
+        varchar kode
+        nvarchar nama
+        varchar port
+        int baudrate
+        bit is_active
+        datetime created_at
+        varchar mode
+        tinyint data_bits
+        char parity
+        decimal stop_bits
+        varchar format_data
+        varchar pola "NULL"
+        decimal faktor
+        decimal toleransi_kg
+        decimal durasi_stabil
+        decimal berat_min_kg
+        bit wajib_st
+    }
+    jenis_dokumen {
+        int id_jenis PK
+        varchar kode UK
+        nvarchar nama
+        bit wajib_file
+        bit is_active
+    }
+    jenis_kendaraan {
+        int id_jenis_kendaraan PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    jenis_sim {
+        int id_jenis_sim PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    kategori_personel {
+        varchar kode PK
+        nvarchar nama
+        bit wajib_sim
+        bit boleh_akun
+        bit is_active
+    }
+    kendaraan {
+        int id_kendaraan PK
+        varchar no_plat UK
+        varchar no_stnk UK
+        int id_jenis_kendaraan FK "NULL"
+        bit is_blacklisted
+        bit is_active
+        datetime created_at
+    }
+    kendaraan_driver {
+        int id_kendaraan_driver PK
+        int id_kendaraan FK
+        int id_driver FK
+        bit is_utama
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+        datetime updated_at
+    }
+    keperluan_kunjungan {
+        int id_keperluan PK
+        nvarchar nama UK
+        bit is_active
+    }
+    kontrak {
+        int id_kontrak PK
+        varchar no_kontrak UK
+        varchar jenis_transaksi
+        int id_customer FK
+        int id_produk FK
+        date tanggal
+        decimal qty_kg "NULL"
+        decimal harga_per_kg "NULL"
+        varchar keterangan "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    kontrak_kendaraan {
+        int id_kontrak PK
+        varchar no_kontrak "NULL"
+        int id_kendaraan FK
+        int id_supplier FK
+        int id_produk FK "NULL"
+        varchar jenis_transaksi "NULL"
+        date tanggal_mulai
+        date tanggal_selesai "NULL"
+        bit is_active
+        varchar keterangan "NULL"
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    kunjungan {
+        int id_kunjungan PK
+        int id_personel FK
+        int id_dituju FK
+        int id_keperluan FK
+        nvarchar keterangan "NULL"
+        nvarchar asal_perusahaan "NULL"
+        varchar no_plat "NULL"
+        int id_comp_area FK
+        varchar foto_masuk_path "NULL"
+        datetime waktu_masuk
+        datetime waktu_keluar "NULL"
+        int dicatat_oleh FK
+    }
+    lab_hasil {
+        int id_lab PK
+        varchar no_tiket FK,UK
+        float ffa "NULL"
+        float kadar_air "NULL"
+        float kadar_kotoran "NULL"
+        varchar warna_locis "NULL"
+        varchar keputusan "NULL"
+        int id_dokumen FK "NULL"
+        int operator_lab_id FK "NULL"
+        datetime waktu_pemeriksaan "NULL"
+    }
+    level {
+        int id_level PK
+        varchar kode UK
+        nvarchar nama
+        bit is_admin
+        varchar halaman_awal
+        nvarchar keterangan "NULL"
+        bit is_active
+    }
+    level_akses {
+        int id_level PK,FK
+        int id_menu PK,FK
+        bit bisa_tambah
+        bit bisa_ubah
+        bit bisa_hapus
+    }
+    log_aktivitas {
+        bigint id_log PK
+        datetime2 waktu
+        int id_user FK "NULL"
+        int id_comp_area FK "NULL"
+        varchar kategori
+        varchar aksi
+        varchar tabel "NULL"
+        varchar id_baris "NULL"
+        nvarchar nilai_lama "NULL"
+        nvarchar nilai_baru "NULL"
+        varchar ip "NULL"
+        char hash_sebelum "NULL"
+        char hash_baris
+    }
+    menu {
+        int id_menu PK
+        varchar kode UK
+        nvarchar nama
+        varchar url "NULL"
+        varchar ikon "NULL"
+        int id_parent FK "NULL"
+        int urutan
+        bit is_active
+    }
+    mill {
+        int id_mill PK
+        int id_comp_area FK
+        varchar kode
+        nvarchar nama
+        int id_alur FK
+        bit is_active
+    }
+    mitra {
+        int id_supplier PK
+        varchar kode_supplier UK
+        varchar nama_supplier
+        bit is_active
+        datetime created_at
+    }
+    mitra_peran {
+        int id_supplier PK,FK
+        varchar peran PK
+    }
+    pembatalan_tiket {
+        varchar no_tiket PK,FK
+        varchar jenis
+        nvarchar alasan
+        int id_dokumen FK "NULL"
+        int oleh FK "NULL"
+        datetime waktu
+    }
+    pengaturan {
+        varchar kunci PK
+        varchar nilai
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    pengaturan_area {
+        int id_comp_area PK,FK
+        varchar kunci PK
+        varchar nilai
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    penimbangan {
+        varchar no_tiket PK,FK
+        tinyint ke PK
+        int id_jembatan FK
+        decimal berat_kg
+        datetime waktu
+        int operator FK "NULL"
+        char hash "NULL"
+    }
+    perangkat_kiosk {
+        varchar id_pos PK
+        varchar nama
+        varchar lokasi "NULL"
+        char token_hash
+        int id_comp_area FK
+        bit is_active
+        datetime created_at
+    }
+    personel {
+        int id_personel PK
+        varchar kode_personel UK "NULL"
+        varchar nik UK
+        varchar nama_personel
+        varchar kategori FK
+        bit is_updated
+        varchar current_hash "NULL"
+        bit is_blacklisted
+        bit is_active
+        datetime created_at
+        datetime updated_at
+    }
+    personel_sim {
+        int id_sim PK
+        int id_personel FK
+        int id_jenis_sim FK
+        varchar no_sim UK
+        date berlaku_sampai "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    personel_wajah {
+        int id_wajah PK
+        int id_personel FK,UK
+        varbinary embedding
+        varchar foto_path "NULL"
+        varchar sumber "NULL"
+        bit is_utama
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    produk {
+        int id_produk PK
+        varchar nama_produk
+        varchar kategori
+        int id_alur FK
+        bit is_active
+    }
+    sesi_login {
+        varchar sid PK
+        int user_id FK
+        varchar ip "NULL"
+        varchar agen "NULL"
+        datetime login_at
+        datetime terakhir_aktif
+        datetime berakhir_at "NULL"
+        varchar alasan "NULL"
+    }
+    sortasi {
+        int id_sortasi PK
+        varchar no_tiket FK,UK
+        float persen_buah_mentah "NULL"
+        float persen_buah_busuk "NULL"
+        float persen_tangkai_panjang "NULL"
+        float persen_sampah_kotoran "NULL"
+        float persen_buah_matang "NULL"
+        float persen_brondolan "NULL"
+        float total_potongan_kg "NULL"
+        varchar catatan "NULL"
+        int operator_sortasi_id FK "NULL"
+        datetime waktu_sortasi "NULL"
+    }
+    standar_mutu {
+        int id_produk PK,FK
+        float maks_ffa
+        float maks_air
+        float maks_kotoran
+    }
+    tahap {
+        varchar kode PK
+        nvarchar nama
+        tinyint urutan
+    }
+    transaksi {
+        varchar no_tiket PK
+        varchar jenis_transaksi
+        int id_supplier FK
+        int id_produk FK
+        int id_kendaraan FK
+        int id_driver FK
+        int id_pengangkutan FK "NULL"
+        int id_kontrak FK "NULL"
+        varchar no_do "NULL"
+        varchar status_alur
+        bit is_qr_active
+        datetime qr_expired_at
+        int qr_reprint_count
+        varchar driver_photo_path "NULL"
+        int security_id FK
+        int id_jembatan FK "NULL"
+        int id_mill FK "NULL"
+        int id_do FK "NULL"
+        varchar cara_angkut
+        datetime created_at
+    }
+    personel |o--o{ absensi : "id_personel"
+    comp_area ||--o{ akun : "id_comp_area"
+    department ||--o{ akun : "id_department"
+    level ||--o{ akun : "id_level"
+    personel |o--o| akun : "id_personel"
+    alur ||--o{ alur_tahap : "id_alur"
+    tahap ||--o{ alur_tahap : "kode_tahap"
+    akun ||--o{ blacklist : "created_by"
+    mitra |o--o{ blacklist : "id_customer_terkait"
+    dokumen ||--o{ blacklist : "id_dokumen"
+    kendaraan |o--o{ blacklist : "id_kendaraan"
+    mitra |o--o{ blacklist : "id_pengangkutan_terkait"
+    personel |o--o{ blacklist : "id_personel"
+    company ||--o{ comp_area : "id_company"
+    akun |o--o{ delivery_order : "created_by"
+    kontrak ||--o| delivery_order : "id_kontrak"
+    delivery_order ||--o{ do_pengangkutan : "id_do"
+    mitra |o--o{ do_pengangkutan : "id_pengangkutan"
+    akun ||--o{ dokumen : "created_by"
+    jenis_dokumen ||--o{ dokumen : "id_jenis"
+    dokumen ||--o{ dokumen_file : "id_dokumen"
+    akun |o--o{ harga_harian : "updated_by"
+    comp_area ||--o{ jadwal_kerja : "id_comp_area"
+    comp_area ||--o{ jembatan_timbang : "id_comp_area"
+    jenis_kendaraan |o--o{ kendaraan : "id_jenis_kendaraan"
+    akun |o--o{ kendaraan_driver : "created_by"
+    personel ||--o{ kendaraan_driver : "id_driver"
+    kendaraan ||--o{ kendaraan_driver : "id_kendaraan"
+    akun |o--o{ kontrak : "created_by"
+    mitra ||--o{ kontrak : "id_customer"
+    produk ||--o{ kontrak : "id_produk"
+    akun |o--o{ kontrak_kendaraan : "created_by"
+    kendaraan ||--o{ kontrak_kendaraan : "id_kendaraan"
+    produk |o--o{ kontrak_kendaraan : "id_produk"
+    mitra ||--o{ kontrak_kendaraan : "id_supplier"
+    akun ||--o{ kunjungan : "dicatat_oleh"
+    comp_area ||--o{ kunjungan : "id_comp_area"
+    personel ||--o{ kunjungan : "id_dituju"
+    keperluan_kunjungan ||--o{ kunjungan : "id_keperluan"
+    personel ||--o{ kunjungan : "id_personel"
+    dokumen |o--o{ lab_hasil : "id_dokumen"
+    transaksi ||--o| lab_hasil : "no_tiket"
+    akun |o--o{ lab_hasil : "operator_lab_id"
+    level ||--o{ level_akses : "id_level"
+    menu ||--o{ level_akses : "id_menu"
+    comp_area |o--o{ log_aktivitas : "id_comp_area"
+    akun |o--o{ log_aktivitas : "id_user"
+    menu |o--o{ menu : "id_parent"
+    alur ||--o{ mill : "id_alur"
+    comp_area ||--o{ mill : "id_comp_area"
+    mitra ||--o{ mitra_peran : "id_supplier"
+    dokumen |o--o{ pembatalan_tiket : "id_dokumen"
+    transaksi ||--o| pembatalan_tiket : "no_tiket"
+    akun |o--o{ pembatalan_tiket : "oleh"
+    akun |o--o{ pengaturan : "updated_by"
+    comp_area ||--o{ pengaturan_area : "id_comp_area"
+    akun |o--o{ pengaturan_area : "updated_by"
+    jembatan_timbang ||--o{ penimbangan : "id_jembatan"
+    transaksi ||--o{ penimbangan : "no_tiket"
+    akun |o--o{ penimbangan : "operator"
+    comp_area ||--o{ perangkat_kiosk : "id_comp_area"
+    kategori_personel ||--o{ personel : "kategori"
+    akun |o--o{ personel_sim : "created_by"
+    jenis_sim ||--o{ personel_sim : "id_jenis_sim"
+    personel ||--o{ personel_sim : "id_personel"
+    akun |o--o{ personel_wajah : "created_by"
+    personel ||--o| personel_wajah : "id_personel"
+    alur ||--o{ produk : "id_alur"
+    akun ||--o{ sesi_login : "user_id"
+    transaksi ||--o| sortasi : "no_tiket"
+    akun |o--o{ sortasi : "operator_sortasi_id"
+    produk ||--o| standar_mutu : "id_produk"
+    delivery_order |o--o{ transaksi : "id_do"
+    personel ||--o{ transaksi : "id_driver"
+    jembatan_timbang |o--o{ transaksi : "id_jembatan"
+    kendaraan ||--o{ transaksi : "id_kendaraan"
+    kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
+    mill |o--o{ transaksi : "id_mill"
+    mitra |o--o{ transaksi : "id_pengangkutan"
+    produk ||--o{ transaksi : "id_produk"
+    mitra ||--o{ transaksi : "id_supplier"
+    akun ||--o{ transaksi : "security_id"

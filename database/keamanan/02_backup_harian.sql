@@ -1,5 +1,5 @@
 /* =====================================================================
-   Backup database harian (docs/KEAMANAN_WEB.md #22).
+   Backup database harian (docs/DOKUMENTASI.md bagian 8).
    Jadwalkan lewat SQL Server Agent (Job, harian 23:00) atau Windows Task Scheduler:
        sqlcmd -S <server> -E -i "C:\path\database\keamanan\02_backup_harian.sql"
    Simpan salinan folder backup juga di komputer / disk lain.

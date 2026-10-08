@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from flask_login import login_required, current_user
-from extensions import role_required, UPLOAD_FOLDER
+from extensions import UPLOAD_FOLDER
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
@@ -18,13 +18,20 @@ from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
 from utils.personel_utils import format_nama_personel
 from utils.face_cache import slot_proses_wajah, cari_terdekat
+from utils.hak_akses import izin
+from utils.db_personel import sim_dipakai
+from utils import alur
+from utils.db_master import stnk_dipakai
+from utils.db_kunjungan import area_akun
 
 security_bp = Blueprint('security', __name__)
 
 @security_bp.route("/api/security/list-tiket-aktif")
 @login_required
 def list_tiket_aktif():
-    return jsonify([{**t, "created_at": t["created_at"].strftime("%Y-%m-%d %H:%M")} for t in get_list_tiket_aktif()])
+    return jsonify([{**t, "created_at": t["created_at"].strftime("%Y-%m-%d %H:%M"),
+                     "alur_tahap": alur.tahap_alur(t.get("id_alur")) if t.get("id_alur") else []}
+                    for t in get_list_tiket_aktif()])
 
 @security_bp.route("/api/security/history-driver")
 @login_required
@@ -36,7 +43,7 @@ JENIS_TRANSAKSI = ("PEMBELIAN", "PENJUALAN", "PENIMBANGAN_SAJA")
 
 @security_bp.route("/api/security/buat-tiket", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def buat_tiket():
     f = request.form
     no_tiket = f.get("no_tiket", "").strip()
@@ -55,8 +62,22 @@ def buat_tiket():
     jenis, id_supplier, id_produk = f.get("jenis_transaksi", "").strip(), f.get("id_supplier", ""), f.get("id_produk", "")
     if jenis not in JENIS_TRANSAKSI:
         return jsonify({"error": "Pilih jenis transaksi"}), 400
-    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier()}:
+    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier() if s.is_customer}:
         return jsonify({"error": "Pilih customer dari daftar"}), 400
+    # Pengangkutan: dengan DO harus salah satu pengangkut DO itu; tanpa DO kendaraan pengirim / penerima / pihak ketiga
+    angkut = f.get("angkut", "").strip().upper()
+    cara, _, id_angkut = angkut.partition(":")
+    pilihan_do = {(a["cara_angkut"], a["id_pengangkutan"]) for a in do["angkutan"]} if do else None
+    if cara == "PIHAK_KETIGA":
+        if not id_angkut.isdigit() or int(id_angkut) not in {s.id_supplier for s in get_semua_supplier() if s.is_angkutan}:
+            return jsonify({"error": "Pilih pengangkutan pihak ketiga dari daftar"}), 400
+        id_angkut = int(id_angkut)
+    elif cara in ("PENGIRIM", "PENERIMA"):
+        id_angkut = None
+    else:
+        return jsonify({"error": "Pilih pengangkutan"}), 400
+    if pilihan_do is not None and (cara, id_angkut) not in pilihan_do:
+        return jsonify({"error": f"Pengangkutan ini tidak terdaftar di DO {no_do}"}), 400
     if not id_produk.isdigit() or int(id_produk) not in {p.id_produk for p in get_semua_produk()}:
         return jsonify({"error": "Pilih produk dari daftar"}), 400
 
@@ -76,6 +97,15 @@ def buat_tiket():
     kendaraan = get_kendaraan_by_plat(no_plat)
     if kendaraan and not kendaraan.is_active:
         return jsonify({"error": f"Kendaraan {no_plat} dinonaktifkan di Data Master > Kendaraan"}), 400
+    # STNK wajib & unik (migrasi 014)
+    no_stnk = f.get("no_stnk", "").strip().upper()
+    if not no_stnk:
+        return jsonify({"error": "No. STNK wajib diisi"}), 400
+    if len(no_stnk) > 50:
+        return jsonify({"error": "No. STNK maksimal 50 karakter"}), 400
+    plat_stnk = stnk_dipakai(no_stnk, kecuali=kendaraan.id_kendaraan if kendaraan else None)
+    if plat_stnk:
+        return jsonify({"error": f"No. STNK {no_stnk} sudah dipakai kendaraan {plat_stnk}"}), 400
     peringatan = []
     if kendaraan and kendaraan.is_blacklisted:
         peringatan.append(f"kendaraan {no_plat}")
@@ -84,16 +114,23 @@ def buat_tiket():
 
     v = verif.ambil(id_pos(), current_user.id)
     terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)
-    if pengaturan.nilai("WAJIB_SCAN_WAJAH") and not terverifikasi:
+    if pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)) and not terverifikasi:
         return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
 
     # Supir berbeda dari saran (supir utama / terakhir truk ini) -> dicatat
     saran = f.get("id_driver_saran", "").strip()
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
-    buat_transaksi_full(no_tiket, no_plat, f.get("no_stnk", "").strip() or None, jenis,
+    # Mill (arah tahap: sortasi / lab) dari alur produk; penimbangan saja memakai alur TIMBANG_SAJA
+    produk = next(p for p in get_semua_produk() if p.id_produk == int(id_produk))
+    id_alur = alur.id_alur_kode("TIMBANG_SAJA") if jenis == "PENIMBANGAN_SAJA" else produk.id_alur
+    mill = alur.pilih_mill(area_akun(current_user.id), id_alur)
+    if mill is None:
+        return jsonify({"error": "Mill untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Mill)"}), 400
+
+    buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
-                        current_user.id, prev_driver_id, do["id_pengangkutan"] if do else None)
+                        current_user.id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)
@@ -138,17 +175,19 @@ def _data_verif(d, is_updated=None):
 
 @security_bp.route("/api/driver/tambah", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def driver_tambah():
     nik = request.form.get("nik", "").strip()
     nama = request.form.get("nama", "").strip()
-    no_sim = request.form.get("no_sim", "").strip()
+    no_sim = request.form.get("no_sim", "").strip().upper()
     file = request.files.get("foto")
 
     if not all([nik, nama, no_sim, file]):
         return jsonify({"error": "Semua field wajib diisi, termasuk foto wajah"}), 400
     if cek_nik_ada(nik):
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
+    if sim_dipakai(no_sim):
+        return jsonify({"error": f"No. SIM {no_sim} sudah dipakai personel lain"}), 400
 
     try:
         filepath, foto_path = _simpan_foto(file)
@@ -182,17 +221,19 @@ def driver_tambah():
 
 @security_bp.route("/api/driver/update-identitas", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def driver_update_identitas():
     f = request.form
     id_driver, nik, nama, no_sim = f.get("id_driver", "").strip(), f.get("nik", "").strip(), \
-        f.get("nama", "").strip(), f.get("no_sim", "").strip()
+        f.get("nama", "").strip(), f.get("no_sim", "").strip().upper()
     file = request.files.get("foto")
 
     if not all([id_driver, nik, nama, no_sim]) or not id_driver.isdigit():
         return jsonify({"error": "Semua field wajib diisi"}), 400
     if cek_nik_ada(nik, exclude_id=int(id_driver)):
         return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
+    if sim_dipakai(no_sim, int(id_driver)):
+        return jsonify({"error": f"No. SIM {no_sim} sudah dipakai personel lain"}), 400
 
     embedding_binary, foto_path = None, None
     if file and file.filename:
@@ -223,7 +264,7 @@ def driver_update_identitas():
 
 @security_bp.route("/api/kamera/start", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'tambah')
 def kamera_start():
     verif.mulai_scan(id_pos(), current_user.id)
     return jsonify({"status": "SUCCESS"}), 200
@@ -261,7 +302,7 @@ def verifikasi_wajah():
         if embedding_baru is None:
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
 
-        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH"))
+        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
         if id_cocok is None:
             verif.batal(pos)
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404

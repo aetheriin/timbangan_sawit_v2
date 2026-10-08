@@ -66,7 +66,9 @@ def daftar():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_pos, nama, lokasi, is_active, created_at FROM perangkat_kiosk ORDER BY id_pos")
+        cursor.execute("""SELECT k.id_pos, k.nama, k.lokasi, k.id_comp_area, a.nama AS area, k.is_active, k.created_at
+                          FROM perangkat_kiosk k LEFT JOIN comp_area a ON a.id_comp_area = k.id_comp_area
+                          ORDER BY k.id_pos""")
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -80,7 +82,7 @@ def daftar_aktif():
         return []
 
 
-def tambah(id_pos, nama, lokasi):
+def tambah(id_pos, nama, lokasi, id_comp_area):
     """Kembalikan token asli (tampilkan sekali ke admin)."""
     token = token_baru()
     conn = get_connection()
@@ -89,8 +91,8 @@ def tambah(id_pos, nama, lokasi):
         cursor.execute("SELECT 1 FROM perangkat_kiosk WHERE id_pos = ?", id_pos)
         if cursor.fetchone():
             raise ValueError(f"ID pos {id_pos} sudah dipakai")
-        cursor.execute("INSERT INTO perangkat_kiosk (id_pos, nama, lokasi, token_hash) VALUES (?, ?, ?, ?)",
-                       id_pos, nama, lokasi or None, hash_token(token))
+        cursor.execute("INSERT INTO perangkat_kiosk (id_pos, nama, lokasi, id_comp_area, token_hash) VALUES (?, ?, ?, ?, ?)",
+                       id_pos, nama, lokasi or None, id_comp_area, hash_token(token))
         conn.commit()
     finally:
         conn.close()
@@ -104,8 +106,9 @@ def ganti_token(id_pos):
     return token
 
 
-def ubah(id_pos, nama, lokasi):
-    _ubah("UPDATE perangkat_kiosk SET nama = ?, lokasi = ? WHERE id_pos = ?", nama, lokasi or None, id_pos)
+def ubah(id_pos, nama, lokasi, id_comp_area):
+    _ubah("UPDATE perangkat_kiosk SET nama = ?, lokasi = ?, id_comp_area = ? WHERE id_pos = ?",
+          nama, lokasi or None, id_comp_area, id_pos)
 
 
 def set_aktif(id_pos, aktif):

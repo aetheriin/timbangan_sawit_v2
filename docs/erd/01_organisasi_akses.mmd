@@ -1,0 +1,123 @@
+erDiagram
+    company {
+        int id_company PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+        datetime created_at
+    }
+    comp_area {
+        int id_comp_area PK
+        int id_company FK
+        varchar kode UK
+        nvarchar nama
+        nvarchar alamat "NULL"
+        bit is_active
+        datetime created_at
+    }
+    department {
+        int id_department PK
+        nvarchar nama UK
+        nvarchar keterangan "NULL"
+        bit is_active
+    }
+    level {
+        int id_level PK
+        varchar kode UK
+        nvarchar nama
+        bit is_admin
+        varchar halaman_awal
+        nvarchar keterangan "NULL"
+        bit is_active
+    }
+    menu {
+        int id_menu PK
+        varchar kode UK
+        nvarchar nama
+        varchar url "NULL"
+        varchar ikon "NULL"
+        int id_parent FK "NULL"
+        int urutan
+        bit is_active
+    }
+    level_akses {
+        int id_level PK,FK
+        int id_menu PK,FK
+        bit bisa_tambah
+        bit bisa_ubah
+        bit bisa_hapus
+    }
+    akun {
+        int id_user PK
+        varchar nama
+        varchar username UK
+        varchar password
+        int id_level FK
+        int id_department FK
+        int id_comp_area FK
+        int id_personel FK,UK "NULL"
+        bit is_active
+        datetime last_login "NULL"
+        int sesi_versi
+        datetime password_changed_at "NULL"
+        datetime created_at
+        datetime updated_at
+    }
+    sesi_login {
+        varchar sid PK
+        int user_id FK
+        varchar ip "NULL"
+        varchar agen "NULL"
+        datetime login_at
+        datetime terakhir_aktif
+        datetime berakhir_at "NULL"
+        varchar alasan "NULL"
+    }
+    pengaturan {
+        varchar kunci PK
+        varchar nilai
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    pengaturan_area {
+        int id_comp_area PK,FK
+        varchar kunci PK
+        varchar nilai
+        int updated_by FK "NULL"
+        datetime updated_at
+    }
+    perangkat_kiosk {
+        varchar id_pos PK
+        varchar nama
+        varchar lokasi "NULL"
+        char token_hash
+        int id_comp_area FK
+        bit is_active
+        datetime created_at
+    }
+    jadwal_kerja {
+        int id_comp_area PK,FK
+        tinyint hari PK
+        varchar nama_hari
+        time jam_masuk "NULL"
+        time jam_pulang "NULL"
+        bit is_libur
+        int toleransi_menit
+    }
+    personel {
+        int id_personel PK
+    }
+    comp_area ||--o{ akun : "id_comp_area"
+    department ||--o{ akun : "id_department"
+    level ||--o{ akun : "id_level"
+    personel |o--o| akun : "id_personel"
+    company ||--o{ comp_area : "id_company"
+    comp_area ||--o{ jadwal_kerja : "id_comp_area"
+    level ||--o{ level_akses : "id_level"
+    menu ||--o{ level_akses : "id_menu"
+    menu |o--o{ menu : "id_parent"
+    akun |o--o{ pengaturan : "updated_by"
+    comp_area ||--o{ pengaturan_area : "id_comp_area"
+    akun |o--o{ pengaturan_area : "updated_by"
+    comp_area ||--o{ perangkat_kiosk : "id_comp_area"
+    akun ||--o{ sesi_login : "user_id"

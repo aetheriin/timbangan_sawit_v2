@@ -17,17 +17,20 @@ def _jadwal_dict(r):
 
 
 @cache_ttl(300)
-def get_jadwal_kerja():
+def get_jadwal_kerja(id_comp_area=None):
+    """Jadwal mingguan satu area (migrasi 014). Tanpa area -> area pertama."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit FROM jadwal_kerja ORDER BY hari")
+    cursor.execute("""SELECT hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit FROM jadwal_kerja
+                      WHERE id_comp_area = COALESCE(?, (SELECT MIN(id_comp_area) FROM jadwal_kerja))
+                      ORDER BY hari""", id_comp_area)
     data = [_jadwal_dict(r) for r in _rows_to_dicts(cursor)]
     conn.close()
     return data
 
 
-def get_jadwal_hari(hari):
-    return next((j for j in get_jadwal_kerja() if j["hari"] == hari), None)
+def get_jadwal_hari(hari, id_comp_area=None):
+    return next((j for j in get_jadwal_kerja(id_comp_area) if j["hari"] == hari), None)
 
 
 def get_scan_terakhir(id_personel, tanggal):
@@ -69,7 +72,7 @@ def get_absensi_harian(tanggal, kategori=None):
         OUTER APPLY (SELECT TOP 1 waktu, status_waktu, selisih_menit FROM absensi a
                      WHERE a.id_personel = p.id_personel AND a.tanggal = ? AND a.status = 'BERHASIL' AND a.jenis = 'PULANG'
                      ORDER BY a.waktu DESC) k
-        WHERE p.is_active = 1"""
+        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'"""
     params = [tanggal, tanggal]
     if kategori:
         sql += " AND p.kategori = ?"
@@ -101,7 +104,7 @@ def get_rekap_bulanan(tahun, bulan):
         FROM personel p
         LEFT JOIN absensi a ON a.id_personel = p.id_personel AND a.status = 'BERHASIL'
                            AND a.tanggal >= ? AND a.tanggal < ?
-        WHERE p.is_active = 1
+        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'
         GROUP BY p.id_personel, p.kode_personel, p.nama_personel, p.kategori
         ORDER BY CASE WHEN p.kode_personel IS NULL THEN 1 ELSE 0 END, p.kode_personel, p.id_personel
     """, awal, akhir)

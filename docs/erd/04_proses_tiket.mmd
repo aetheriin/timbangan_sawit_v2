@@ -1,0 +1,157 @@
+erDiagram
+    transaksi {
+        varchar no_tiket PK
+        varchar jenis_transaksi
+        int id_supplier FK
+        int id_produk FK
+        int id_kendaraan FK
+        int id_driver FK
+        int id_pengangkutan FK "NULL"
+        int id_kontrak FK "NULL"
+        varchar no_do "NULL"
+        varchar status_alur
+        bit is_qr_active
+        datetime qr_expired_at
+        int qr_reprint_count
+        varchar driver_photo_path "NULL"
+        int security_id FK
+        int id_jembatan FK "NULL"
+        int id_mill FK "NULL"
+        int id_do FK "NULL"
+        varchar cara_angkut
+        datetime created_at
+    }
+    tahap {
+        varchar kode PK
+        nvarchar nama
+        tinyint urutan
+    }
+    alur {
+        int id_alur PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    alur_tahap {
+        int id_alur PK,FK
+        tinyint urutan PK
+        varchar kode_tahap FK
+    }
+    mill {
+        int id_mill PK
+        int id_comp_area FK
+        varchar kode
+        nvarchar nama
+        int id_alur FK
+        bit is_active
+    }
+    comp_area {
+        int id_comp_area PK
+    }
+    jembatan_timbang {
+        int id_jembatan PK
+        int id_comp_area FK
+        varchar kode
+        nvarchar nama
+        varchar port
+        int baudrate
+        bit is_active
+        datetime created_at
+        varchar mode
+        tinyint data_bits
+        char parity
+        decimal stop_bits
+        varchar format_data
+        varchar pola "NULL"
+        decimal faktor
+        decimal toleransi_kg
+        decimal durasi_stabil
+        decimal berat_min_kg
+        bit wajib_st
+    }
+    penimbangan {
+        varchar no_tiket PK,FK
+        tinyint ke PK
+        int id_jembatan FK
+        decimal berat_kg
+        datetime waktu
+        int operator FK "NULL"
+        char hash "NULL"
+    }
+    sortasi {
+        int id_sortasi PK
+        varchar no_tiket FK,UK
+        float persen_buah_mentah "NULL"
+        float persen_buah_busuk "NULL"
+        float persen_tangkai_panjang "NULL"
+        float persen_sampah_kotoran "NULL"
+        float persen_buah_matang "NULL"
+        float persen_brondolan "NULL"
+        float total_potongan_kg "NULL"
+        varchar catatan "NULL"
+        int operator_sortasi_id FK "NULL"
+        datetime waktu_sortasi "NULL"
+    }
+    lab_hasil {
+        int id_lab PK
+        varchar no_tiket FK,UK
+        float ffa "NULL"
+        float kadar_air "NULL"
+        float kadar_kotoran "NULL"
+        varchar warna_locis "NULL"
+        varchar keputusan "NULL"
+        int id_dokumen FK "NULL"
+        int operator_lab_id FK "NULL"
+        datetime waktu_pemeriksaan "NULL"
+    }
+    pembatalan_tiket {
+        varchar no_tiket PK,FK
+        varchar jenis
+        nvarchar alasan
+        int id_dokumen FK "NULL"
+        int oleh FK "NULL"
+        datetime waktu
+    }
+    produk {
+        int id_produk PK
+    }
+    mitra {
+        int id_supplier PK
+    }
+    kendaraan {
+        int id_kendaraan PK
+    }
+    personel {
+        int id_personel PK
+    }
+    delivery_order {
+        int id_do PK
+    }
+    kontrak_kendaraan {
+        int id_kontrak PK
+    }
+    dokumen {
+        int id_dokumen PK
+    }
+    alur ||--o{ alur_tahap : "id_alur"
+    tahap ||--o{ alur_tahap : "kode_tahap"
+    comp_area ||--o{ jembatan_timbang : "id_comp_area"
+    dokumen |o--o{ lab_hasil : "id_dokumen"
+    transaksi ||--o| lab_hasil : "no_tiket"
+    alur ||--o{ mill : "id_alur"
+    comp_area ||--o{ mill : "id_comp_area"
+    dokumen |o--o{ pembatalan_tiket : "id_dokumen"
+    transaksi ||--o| pembatalan_tiket : "no_tiket"
+    jembatan_timbang ||--o{ penimbangan : "id_jembatan"
+    transaksi ||--o{ penimbangan : "no_tiket"
+    alur ||--o{ produk : "id_alur"
+    transaksi ||--o| sortasi : "no_tiket"
+    delivery_order |o--o{ transaksi : "id_do"
+    personel ||--o{ transaksi : "id_driver"
+    jembatan_timbang |o--o{ transaksi : "id_jembatan"
+    kendaraan ||--o{ transaksi : "id_kendaraan"
+    kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
+    mill |o--o{ transaksi : "id_mill"
+    mitra |o--o{ transaksi : "id_pengangkutan"
+    produk ||--o{ transaksi : "id_produk"
+    mitra ||--o{ transaksi : "id_supplier"

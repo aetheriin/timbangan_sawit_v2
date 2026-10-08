@@ -1,25 +1,34 @@
 from datetime import date, datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
-from utils.serial_reader import baca_status_asli, reset_deteksi_stabil
+from utils.serial_reader import baca_status, reset_deteksi_stabil
 from utils.db_utils import (
     get_data_timbangan, simpan_timbang_pertama, simpan_timbang_kedua, catat_timeline,
     cari_transaksi_aktif, get_history_timbangan_by_supplier
 )
 from utils.serializers import serialisasi_tiket
+from utils.hak_akses import izin
+from utils.db_jembatan import jembatan_dipilih
+from utils import alur
 
 timbangan_bp = Blueprint('timbangan', __name__)
 
 @timbangan_bp.route("/api/timbang/status")
 @login_required
 def timbang_status():
-    return jsonify(baca_status_asli())
+    """Berat live jembatan yang dipilih PC ini (dibaca terus, walau belum ada tiket)."""
+    j = jembatan_dipilih(request)
+    if j is None:
+        return jsonify({"berat": 0, "stabil": False, "terhubung": False, "siap_kunci": False, "jembatan": None,
+                        "error": "Pilih jembatan timbang untuk PC ini"})
+    return jsonify({**baca_status(j["id_jembatan"]), "jembatan": j["kode"]})
 
 @timbangan_bp.route("/api/timbang/reset-baseline", methods=["POST"])
 @login_required
 def timbang_reset():
-    reset_deteksi_stabil()
+    j = jembatan_dipilih(request)
+    if j:
+        reset_deteksi_stabil(j["id_jembatan"])
     return jsonify({"message": "Baseline direset"}), 200
 
 @timbangan_bp.route("/api/timbang/data/<no_tiket>")
@@ -30,7 +39,8 @@ def timbang_data(no_tiket):
         return jsonify({"berat_bruto": None, "berat_tara": None, "berat_netto": None,
                         "potongan_kg": None, "netto_akhir": None})
     return jsonify({"berat_bruto": row.berat_bruto, "berat_tara": row.berat_tara, "berat_netto": row.berat_netto,
-                    "potongan_kg": row.total_potongan_kg, "netto_akhir": _netto_akhir(row)})
+                    "potongan_kg": row.total_potongan_kg, "netto_akhir": _netto_akhir(row),
+                    "jembatan_masuk": row.kode_jembatan})
 
 def _netto_akhir(row):
     if row.berat_netto is None:
@@ -65,15 +75,23 @@ def history_supplier():
 
 @timbangan_bp.route("/api/timbang/simpan", methods=["POST"])
 @login_required
-@role_required('OPERATOR_TIMBANG')
+@izin('FORM_TIMBANGAN', 'tambah')
 def timbang_simpan():
     no_tiket = request.form.get("no_tiket", "").strip()
     if not no_tiket:
         return jsonify({"error": "No. Tiket wajib ada"}), 400
 
-    status = baca_status_asli()
+    jembatan = jembatan_dipilih(request)
+    if jembatan is None:
+        return jsonify({"error": "Pilih jembatan timbang untuk PC ini dulu (di atas tampilan berat)"}), 400
+    status = baca_status(jembatan["id_jembatan"])
+    if not status.get("terhubung"):
+        return jsonify({"error": f"Timbangan {jembatan['kode']} tidak terhubung: {status.get('error') or '-'}"}), 400
     if not status.get("siap_kunci"):
         return jsonify({"error": "Berat belum stabil"}), 400
+    if status["berat"] < jembatan.get("berat_min_kg", 0):
+        return jsonify({"error": f"Berat {status['berat']:g} kg di bawah minimum {jembatan['berat_min_kg']:g} kg "
+                                 f"(timbangan kosong / truk belum naik penuh)"}), 400
 
     trx = cari_transaksi_aktif(no_tiket=no_tiket)
     data_lama = get_data_timbangan(no_tiket)
@@ -84,21 +102,29 @@ def timbang_simpan():
 
     berat = status["berat"]
     if data_lama.berat_bruto is None and data_lama.berat_tara is None:
-        jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id)
-        reset_deteksi_stabil()
+        jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
+        reset_deteksi_stabil(jembatan["id_jembatan"])
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
             return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg"}), 200
         label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
-        return jsonify({"message": f"{label} tersimpan: {berat} kg. Menunggu timbang kedua."}), 200
+        return jsonify({"message": f"{label} tersimpan di {jembatan['kode']}: {berat} kg. "
+                                   f"Timbang keluar juga harus di {jembatan['kode']}."}), 200
 
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)
     if trx.status_alur != 'TIMBANG_2':
-        menunggu = "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)"
+        menunggu = (alur.menunggu(trx.id_alur, trx.status_alur) if trx.id_alur
+                    else "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)")
         return jsonify({"error": f"Belum bisa timbang kedua, tiket masih menunggu {menunggu}"}), 400
 
-    netto = simpan_timbang_kedua(no_tiket, berat, current_user.id)
-    reset_deteksi_stabil()
+    if data_lama.id_jembatan != jembatan["id_jembatan"]:
+        return jsonify({"error": f"Tiket ini masuk di {data_lama.kode_jembatan}. Timbang keluar harus di "
+                                 f"{data_lama.kode_jembatan}, bukan {jembatan['kode']}."}), 400
+    try:
+        netto = simpan_timbang_kedua(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    reset_deteksi_stabil(jembatan["id_jembatan"])
     catat_timeline(no_tiket, 'TIMBANG_KELUAR', current_user.id)
     hasil = get_data_timbangan(no_tiket)
     pesan = f"Selesai! Netto: {netto} kg"

@@ -1,0 +1,97 @@
+<!-- MODAL: Company -->
+<div id="modalOrg-company" class="modal-overlay">
+    <form id="formOrg-company" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/company/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Company</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-company" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-3 gap-3">
+            <input type="hidden" name="id_company">
+            <div><label class="field-label" for="orgCompKode">Kode</label>
+                <input type="text" id="orgCompKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
+            <div class="col-span-2"><label class="field-label" for="orgCompNama">Nama</label>
+                <input type="text" id="orgCompNama" name="nama" required maxlength="100" class="input-field"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-company" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Area -->
+<div id="modalOrg-area" class="modal-overlay">
+    <form id="formOrg-area" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/area/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Area</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-3 gap-3">
+            <input type="hidden" name="id_comp_area">
+            <div class="col-span-3"><label class="field-label" for="orgAreaCompany">Company</label>
+                <select id="orgAreaCompany" name="id_company" required class="input-field">
+                    {% for c in company_list %}<option value="{{ c.id_company }}">{{ c.nama }}</option>{% endfor %}
+                </select></div>
+            <div><label class="field-label" for="orgAreaKode">Kode</label>
+                <input type="text" id="orgAreaKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
+            <div class="col-span-2"><label class="field-label" for="orgAreaNama">Nama</label>
+                <input type="text" id="orgAreaNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div class="col-span-3"><label class="field-label" for="orgAreaAlamat">Alamat</label>
+                <input type="text" id="orgAreaAlamat" name="alamat" maxlength="255" class="input-field"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Department -->
+<div id="modalOrg-department" class="modal-overlay">
+    <form id="formOrg-department" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/department/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Department</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-department" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id_department">
+            <div><label class="field-label" for="orgDeptNama">Nama</label>
+                <input type="text" id="orgDeptNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div><label class="field-label" for="orgDeptKet">Keterangan</label>
+                <input type="text" id="orgDeptKet" name="keterangan" maxlength="255" class="input-field"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-department" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Mill -->
+<div id="modalOrg-mill" class="modal-overlay">
+    <form id="formOrg-mill" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/mill/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Mill</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-3 gap-3">
+            <input type="hidden" name="id_mill">
+            <div class="col-span-3"><label class="field-label" for="orgMillArea">Area</label>
+                <select id="orgMillArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+            <div><label class="field-label" for="orgMillKode">Kode</label>
+                <input type="text" id="orgMillKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
+            <div class="col-span-2"><label class="field-label" for="orgMillNama">Nama</label>
+                <input type="text" id="orgMillNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div class="col-span-3"><label class="field-label" for="orgMillAlur">Alur Tahap</label>
+                <select id="orgMillAlur" name="id_alur" required class="input-field">
+                    {% for a in alur_list %}<option value="{{ a.id_alur }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

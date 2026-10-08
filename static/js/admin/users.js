@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', muatUser);
 async function muatUser() {
     const data = await ambilJson('/api/admin/users');
     const tbody = document.getElementById('tabelUser');
-    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(9, data.error); return; }
     daftarUser = data;
     tampilkanUser();
 }
@@ -20,7 +20,9 @@ function tampilkanUser() {
         <tr class="hover:bg-slate-50${u.is_active ? '' : ' text-slate-400'}" data-cari="${escapeHtml(`${u.username} ${u.nama}`.toLowerCase())}">
             <td class="table-cell font-mono">${escapeHtml(u.username)}${u.is_saya ? ' <span class="text-xs text-blue-600">(Anda)</span>' : ''}</td>
             <td class="table-cell">${escapeHtml(u.nama)}</td>
-            <td class="table-cell">${badgeRole(u.role)}</td>
+            <td class="table-cell">${badgeRole(u.role, u.nama_level)}</td>
+            <td class="table-cell">${escapeHtml(u.department)}</td>
+            <td class="table-cell">${escapeHtml(u.area)}</td>
             <td class="table-cell">${badgeAktif(u.is_active)}</td>
             <td class="table-cell">${escapeHtml(u.last_login || 'Belum pernah')}</td>
             <td class="table-cell">${escapeHtml(u.created_at || '-')}</td>
@@ -30,7 +32,7 @@ function tampilkanUser() {
                 ${u.is_saya ? '' : `<button type="button" class="link-aksi ${u.is_active ? 'text-red-600' : 'text-emerald-600'}"
                     data-on-click="ubahAktifUser" data-arg="${u.id_user}">${u.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
             </td>
-        </tr>`).join('') || barisKosong(7, 'Belum ada user');
+        </tr>`).join('') || barisKosong(9, 'Belum ada user');
     saringBaris('tabelUser', document.getElementById('cariUser').value);
 }
 
@@ -68,7 +70,8 @@ function bukaTambahUser() {
 
 function bukaUbahUser(id) {
     const u = cariDataUser(id);
-    isiForm(siapkanModalUser(true), { id_user: u.id_user, nama: u.nama, username: u.username, role: u.role });
+    isiForm(siapkanModalUser(true), { id_user: u.id_user, nama: u.nama, username: u.username, id_level: u.id_level,
+                                      id_department: u.id_department, id_comp_area: u.id_comp_area });
     openModal('modalUser');
 }
 

@@ -32,6 +32,7 @@ const LABEL_KATEGORI = {
     DRIVER: ['DRIVER', 'bg-blue-100 text-blue-700'],
     SECURITY: ['SECURITY', 'bg-slate-900 text-white'],
     EMPLOYEE: ['EMPLOYEE HO', 'bg-slate-200 text-slate-600'],
+    TAMU: ['TAMU', 'bg-amber-100 text-amber-700'],
 };
 
 const WARNA_BADGE = {
@@ -104,4 +105,10 @@ function barisKosong(kolom, teks) {
 // Filter chip: aktifkan chip yang diklik di dalam grupnya
 function aktifkanChip(el) {
     el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.toggle('chip-active', c === el));
+}
+
+// Tiket melewati tahap ini? (alur_tahap dari mill tiket; tiket lama tanpa mill memakai kategori produk)
+function tiketPunyaTahap(t, kode) {
+    if (t.alur_tahap && t.alur_tahap.length) return t.alur_tahap.includes(kode);
+    return t.kategori_produk === (kode === 'SORTASI' ? 'TBS' : 'PRODUK_PKS');
 }

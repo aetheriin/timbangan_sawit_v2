@@ -2,10 +2,20 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
         <div class="section-box p-5">
-            <h3 class="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b">Live Weight Display</h3>
+            <div class="flex items-center justify-between gap-2 mb-4 pb-2 border-b">
+                <h3 class="text-sm font-semibold text-slate-700">Live Weight Display</h3>
+                {# Jembatan timbang yang dipakai PC ini (diingat di browser). Masuk & keluar wajib di jembatan yang sama. #}
+                <select id="pilihJembatan" class="input-field w-auto py-1 text-sm" data-on-change="pilihJembatanTimbang" data-arg="$value">
+                    {% if not jembatan_dipilih %}<option value="">-- Pilih jembatan --</option>{% endif %}
+                    {% for j in jembatan_list %}
+                    <option value="{{ j.id_jembatan }}"{% if jembatan_dipilih and j.id_jembatan == jembatan_dipilih.id_jembatan %} selected{% endif %}>{{ j.kode }} · {{ j.nama }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             {# Ukuran display berat: tinggi = py-14 (atas-bawah), lebar isi = px-6, besar angka = text-7xl #}
             <div class="bg-black rounded-lg py-14 px-6 text-center mb-4">
                 <span id="beratLiveDisplay" class="text-cyan-400 font-mono font-bold text-7xl tracking-tight">0 Kg</span>
+                <p id="statusBeratLive" class="text-sm mt-3 text-slate-400">&nbsp;</p>
             </div>
             <div class="grid grid-cols-3 gap-3 mb-4">
                 <div class="bg-slate-100 rounded-lg p-2 text-center">
@@ -31,6 +41,7 @@
                     <p id="tbNettoAkhir" class="font-bold text-sm text-emerald-600">-</p>
                 </div>
             </div>
+            <p id="tbJembatanMasuk" class="text-xs text-slate-500 mb-2 hidden"></p>
             <button data-on-click="simpanHasilTimbangan" data-arg="$el" class="btn-primary w-full">Simpan Hasil Timbangan</button>
             <button data-on-click="bukaScanQRTimbangan" class="text-xs text-blue-600 hover:underline mt-2 block text-center">
                 atau Scan QR Code

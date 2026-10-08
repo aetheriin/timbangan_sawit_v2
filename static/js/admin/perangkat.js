@@ -12,10 +12,10 @@ async function muatPerangkat() {
 
     const t = data.timbangan;
     const elT = document.getElementById('statTimbangan');
-    elT.textContent = t.terhubung ? 'Terhubung' : 'Tidak terhubung';
-    elT.className = `stat-value ${t.terhubung ? 'text-emerald-600' : 'text-red-600'}`;
-    document.getElementById('statTimbanganInfo').textContent =
-        `Port ${t.port}` + (t.terhubung ? ` · ${t.berat} Kg${t.stabil ? ' (stabil)' : ''}` : ' · cek kabel / port COM');
+    elT.textContent = `${t.terhubung} / ${t.jumlah}`;
+    elT.className = `stat-value ${t.jumlah && t.terhubung === t.jumlah ? 'text-emerald-600' : 'text-red-600'}`;
+    document.getElementById('statTimbanganInfo').textContent = 'Port serial yang sedang dibaca server';
+    tampilkanJembatan(data.jembatan || []);
     document.getElementById('statJumlahPos').textContent = daftarPos.length;
     document.getElementById('statPosAktif').textContent = `${daftarPos.filter(p => p.is_active).length} aktif`;
     const elEnv = document.getElementById('statTokenEnv');
@@ -26,7 +26,7 @@ async function muatPerangkat() {
         <tr class="hover:bg-slate-50${p.is_active ? '' : ' text-slate-400'}">
             <td class="table-cell font-mono">${escapeHtml(p.id_pos)}</td>
             <td class="table-cell">${escapeHtml(p.nama)}</td>
-            <td class="table-cell">${escapeHtml(p.lokasi || '-')}</td>
+            <td class="table-cell">${escapeHtml(p.area || '-')}${p.lokasi ? `<span class="text-slate-400"> · ${escapeHtml(p.lokasi)}</span>` : ''}</td>
             <td class="table-cell">${badgeAktif(p.is_active)}</td>
             <td class="table-cell">${p.terakhir_detik == null ? '<span class="text-slate-400">Belum terhubung</span>'
                 : `${durasiSingkat(p.terakhir_detik)} lalu`}</td>
@@ -92,5 +92,105 @@ function ubahAktifPos(idPos) {
     konfirmasiAktif({
         url: '/api/admin/perangkat/aktif', data: { id_pos: idPos }, aktif: !p.is_active, nama: `Pos ${idPos}`, jenis: 'pos kiosk',
         pesanNonaktif: 'Kiosk di pos ini ditolak server sampai diaktifkan lagi.', setelahnya: muatPerangkat,
+    });
+}
+
+// ===== JEMBATAN TIMBANG =====
+let daftarJembatan = [];
+
+function tampilkanJembatan(data) {
+    daftarJembatan = data;
+    document.getElementById('tabelJembatan').innerHTML = data.map(j => {
+        const st = j.status;
+        const live = !st ? '<span class="text-slate-400">Tidak dibaca</span>'
+            : st.terhubung ? `${escapeHtml(st.berat)} Kg${st.siap_kunci ? ' <span class="text-emerald-600">(stabil)</span>' : ''}`
+            : `<span class="text-red-600" title="${escapeHtml(st.error || '')}">Tidak terhubung</span>`;
+        const sambung = j.mode === 'AGEN'
+            ? `Agen di PC jembatan · ID agen <b>${j.id_jembatan}</b><br>${escapeHtml(j.port)}`
+            : escapeHtml(j.port);
+        return `<tr class="hover:bg-slate-50${j.is_active ? '' : ' text-slate-400'}">
+            <td class="table-cell font-mono">${escapeHtml(j.kode)}</td>
+            <td class="table-cell">${escapeHtml(j.nama)}</td>
+            <td class="table-cell">${escapeHtml(j.area)}</td>
+            <td class="table-cell text-xs">${sambung} · ${Number(j.baudrate)} ${j.data_bits}${escapeHtml(j.parity)}${Number(j.stop_bits)}
+                · ${escapeHtml(j.format_data)}</td>
+            <td class="table-cell">${live}</td>
+            <td class="table-cell">${badgeAktif(j.is_active)}</td>
+            <td class="table-cell text-right whitespace-nowrap space-x-3">
+                ${j.is_active ? `<button type="button" class="link-aksi text-slate-700" data-on-click="bukaMentah" data-arg="${j.id_jembatan}">Data mentah</button>` : ''}
+                <button type="button" class="link-aksi text-blue-600" data-on-click="bukaJembatan" data-arg="${j.id_jembatan}">Ubah</button>
+                <button type="button" class="link-aksi ${j.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifJembatan"
+                    data-arg="${j.id_jembatan}">${j.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+            </td></tr>`;
+    }).join('') || barisKosong(7, 'Belum ada jembatan timbang');
+}
+
+function bukaJembatan(id) {
+    const form = document.getElementById('formJembatan');
+    const j = daftarJembatan.find(x => x.id_jembatan === id);
+    form.reset();
+    isiForm(form, j ? { ...j, stop_bits: String(Number(j.stop_bits)), pola: j.pola || '' }
+                    : { id_jembatan: '', mode: 'AGEN', baudrate: 9600, data_bits: 7, parity: 'E', stop_bits: '1', format_data: 'ST_GS',
+                        faktor: 1, toleransi_kg: 5, durasi_stabil: 3, berat_min_kg: 100, wajib_st: false });
+    aturModeJembatan();
+    document.getElementById('judulModalJembatan').textContent = j ? `Ubah Jembatan ${j.kode}` : 'Tambah Jembatan Timbang';
+    openModal('modalJembatan');
+    document.getElementById('jtKode').focus();
+}
+
+function aturModeJembatan() {
+    const agen = document.getElementById('jtMode').value === 'AGEN';
+    document.getElementById('jtPortHint').textContent = agen
+        ? 'COM di PC jembatan (lihat Device Manager › Ports di PC itu)'
+        : 'COM di PC server ini, atau socket://IP:PORT untuk alat serial-to-LAN';
+    document.getElementById('jtPolaBox').classList.toggle('hidden', document.getElementById('jtFormat').value !== 'POLA');
+}
+
+// ===== DATA MENTAH: menyetel baudrate / parity / format di lokasi =====
+let timerMentah = null;
+
+function bukaMentah(id) {
+    const j = daftarJembatan.find(x => x.id_jembatan === id);
+    document.getElementById('judulMentah').textContent = `Data mentah ${j.kode} (${j.port} ${j.baudrate} ${j.data_bits}${j.parity}${Number(j.stop_bits)} · ${j.format_data})`;
+    document.getElementById('tabelMentah').innerHTML = '';
+    openModal('modalMentah');
+    muatMentah(id);
+    clearInterval(timerMentah);
+    timerMentah = setInterval(() => muatMentah(id), 1000);
+}
+
+function tutupMentah() {
+    clearInterval(timerMentah);
+    closeModal('modalMentah');
+    muatPerangkat();
+}
+
+async function muatMentah(id) {
+    const data = await ambilJson(`/api/admin/jembatan/${id}/mentah`);
+    const status = document.getElementById('statusMentah');
+    if (data.error) { status.innerHTML = `<span class="text-red-600">${escapeHtml(data.error)}</span>`; return; }
+    const st = data.status;
+    status.innerHTML = st.terhubung
+        ? `<span class="text-emerald-600 font-semibold">Terhubung</span> · berat <b>${escapeHtml(st.berat)} kg</b>
+           ${st.siap_kunci ? '· <span class="text-emerald-600">stabil, boleh disimpan</span>' : '· belum stabil'}
+           ${st.detik_sejak_data != null ? `· data terakhir ${st.detik_sejak_data} detik lalu` : ''}`
+        : `<span class="text-red-600 font-semibold">Tidak terhubung</span> · ${escapeHtml(st.error || '-')}`;
+    document.getElementById('tabelMentah').innerHTML = data.baris.map(b => `
+        <tr><td class="table-cell">${escapeHtml(b.waktu)}</td><td class="table-cell whitespace-pre">${escapeHtml(JSON.stringify(b.teks))}</td>
+            <td class="table-cell text-right">${b.berat == null ? '<span class="text-red-600">tidak terbaca</span>' : escapeHtml(b.berat)}</td>
+            <td class="table-cell">${b.stabil ? 'ST' : ''}</td></tr>`).join('')
+        || barisKosong(4, data.sisa_buffer ? `Belum ada bingkai utuh. Sisa diterima: ${JSON.stringify(data.sisa_buffer)}` : 'Belum ada data diterima');
+}
+
+document.getElementById('formJembatan').addEventListener('submit', e => {
+    e.preventDefault();
+    kirimFormAdmin(e.target, '/api/admin/jembatan/simpan', { modal: 'modalJembatan', setelahnya: muatPerangkat });
+});
+
+function ubahAktifJembatan(id) {
+    const j = daftarJembatan.find(x => x.id_jembatan === id);
+    konfirmasiAktif({
+        url: `/api/admin/jembatan/${id}/aktif`, aktif: !j.is_active, nama: `Jembatan ${j.kode}`, jenis: 'jembatan timbang',
+        pesanNonaktif: 'Tidak bisa dipilih lagi di PC operator timbang.', setelahnya: muatPerangkat,
     });
 }

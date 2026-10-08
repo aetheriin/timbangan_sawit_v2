@@ -52,7 +52,7 @@ async function muatPersonel() {
             <td class="table-cell">${escapeHtml(p.nik)}</td>
             <td class="table-cell">${badgeKategori(p.kategori)}</td>
             <td class="table-cell">${LABEL_SUMBER_FOTO[p.foto_sumber] || '-'}</td>
-            <td class="table-cell">${p.is_blacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau)}</td>
+            <td class="table-cell space-x-1">${p.is_blacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau)}${badgeSim(p)}</td>
             <td class="table-cell text-right space-x-2 whitespace-nowrap">${tbody.dataset.bolehUbah === '0' ? '' : `
                 <button type="button" data-on-click="bukaEditPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-blue-600">Edit</button>
                 ${p.is_blacklisted ? '' : `<button type="button" data-on-click="bukaHapusPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-red-600">Hapus</button>`}`}
@@ -61,9 +61,23 @@ async function muatPersonel() {
     catatanBatas(tbody, data.length, 200, 8);
 }
 
+// SIM driver: kedaluwarsa / belum dilengkapi (data lama dari sebelum migrasi 009)
+function badgeSim(p) {
+    if (!p.no_sim) return p.kategori === 'DRIVER' ? badge('SIM kosong', WARNA_BADGE.merah) : '';
+    if (!p.sim_berlaku_sampai || p.kode_jenis_sim === 'BELUM_DIISI') return badge('SIM belum lengkap', WARNA_BADGE.oranye);
+    if (p.sim_berlaku_sampai < tanggalHariIni()) return badge('SIM kedaluwarsa', WARNA_BADGE.merah);
+    return '';
+}
+
+function tanggalHariIni() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // ===== MODAL TAMBAH / UPDATE =====
 function resetFormPersonel() {
-    ['personelId', 'personelKode', 'personelNama', 'personelNik', 'personelSim'].forEach(id => document.getElementById(id).value = '');
+    ['personelId', 'personelKode', 'personelNama', 'personelNik', 'personelSim', 'personelJenisSim', 'personelSimBerlaku']
+        .forEach(id => document.getElementById(id).value = '');
     document.getElementById('personelKategori').value = KATEGORI_TETAP || 'DRIVER';
     document.getElementById('personelFile').value = '';
     document.getElementById('personelCekPesan').textContent = '';
@@ -110,6 +124,8 @@ async function bukaEditPersonel(id) {
     document.getElementById('personelNik').value = p.nik;
     document.getElementById('personelKategori').value = p.kategori;
     document.getElementById('personelSim').value = p.no_sim || '';
+    document.getElementById('personelJenisSim').value = p.kode_jenis_sim === 'BELUM_DIISI' ? '' : (p.id_jenis_sim || '');
+    document.getElementById('personelSimBerlaku').value = p.sim_berlaku_sampai || '';
     tampilkanPreviewPersonel(p.foto_path ? urlBerkas(p.foto_path) : null);
     perbaruiHintSim();
     openModal('modalPersonel');
@@ -230,7 +246,8 @@ async function simpanPersonel() {
     if (modePersonel === 'tambah' && !fotoPersonel) { Notif.peringatan('Foto wajah wajib diisi (upload atau kamera)'); return; }
     const formData = new FormData();
     [['kode_personel', 'personelKode'], ['nama', 'personelNama'], ['nik', 'personelNik'],
-     ['kategori', 'personelKategori'], ['no_sim', 'personelSim']]
+     ['kategori', 'personelKategori'], ['no_sim', 'personelSim'], ['id_jenis_sim', 'personelJenisSim'],
+     ['sim_berlaku', 'personelSimBerlaku']]
         .forEach(([k, id]) => formData.append(k, document.getElementById(id).value.trim()));
     formData.append('foto_sumber', sumberFotoPersonel);
     if (fotoPersonel) formData.append('foto', fotoPersonel, fotoPersonel.name || 'foto.jpg');

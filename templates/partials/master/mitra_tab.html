@@ -1,0 +1,25 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div data-tab-content="mitra" class="hidden">
+    <div class="section-box">
+        {% call section_header('master-mitra', 'Customer & Pengangkutan') %}
+        <div class="flex items-center gap-2" data-henti-klik>
+            <div class="relative">
+                <input type="text" id="cariMitra" placeholder="Cari kode / nama" class="input-field py-1.5 pl-9 w-56" data-on-input="cariMitra" data-arg="$value">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            </div>
+            {% if hak.mitra.tambah %}
+            <button type="button" class="btn-primary py-1.5" data-on-click="bukaMitra"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+            {% endif %}
+        </div>
+        {% endcall %}
+        <div id="body-master-mitra" class="section-body overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Peran</th>
+                        <th class="table-cell">Status</th><th class="table-cell">Dibuat</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if hak.mitra.ubah else 0 }}" id="tabelMitra" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>

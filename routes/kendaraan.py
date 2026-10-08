@@ -1,13 +1,13 @@
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.plat_utils import normalisasi_plat
 from utils.db_utils import (
     get_or_create_kendaraan, get_kendaraan_by_plat, get_driver_by_id,
     get_supir_kendaraan, tambah_supir_kendaraan, nonaktifkan_supir_kendaraan,
     get_kontrak_kendaraan, tambah_kontrak, akhiri_kontrak
 )
+from utils.hak_akses import izin
 
 kendaraan_bp = Blueprint('kendaraan', __name__)
 
@@ -52,7 +52,7 @@ def kendaraan_detail():
 
 @kendaraan_bp.route("/api/kendaraan/supir/tambah", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def kendaraan_supir_tambah():
     no_plat, error = _plat_dari_form()
     if error:
@@ -71,7 +71,7 @@ def kendaraan_supir_tambah():
 
 @kendaraan_bp.route("/api/kendaraan/supir/utama", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def kendaraan_supir_utama():
     no_plat, error = _plat_dari_form()
     if error:
@@ -86,7 +86,7 @@ def kendaraan_supir_utama():
 
 @kendaraan_bp.route("/api/kendaraan/supir/hapus", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def kendaraan_supir_hapus():
     no_plat, error = _plat_dari_form()
     if error:
@@ -102,7 +102,7 @@ def kendaraan_supir_hapus():
 
 @kendaraan_bp.route("/api/kendaraan/kontrak/tambah", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def kendaraan_kontrak_tambah():
     f = request.form
     no_plat, error = _plat_dari_form()
@@ -137,7 +137,7 @@ def kendaraan_kontrak_tambah():
 
 @kendaraan_bp.route("/api/kendaraan/kontrak/akhiri", methods=["POST"])
 @login_required
-@role_required('SECURITY')
+@izin('FORM_SECURITY', 'ubah')
 def kendaraan_kontrak_akhiri():
     no_plat, error = _plat_dari_form()
     if error:

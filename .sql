@@ -1,4 +1,3 @@
-USE DbSistemTimbangan_Test;
+USE DbSistemTimbangan;
 
-SELECT username, role, LEFT(password, 20) AS awal_hash, LEN(password) AS panjang
-FROM users WHERE username = 'ho';
+SELECT name, is_read_committed_snapshot_on FROM sys.databases WHERE name = 'DbSistemTimbangan';

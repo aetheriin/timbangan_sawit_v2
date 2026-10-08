@@ -1,8 +1,16 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import role_required
 from utils.db_utils import (get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif,
                             get_history_standar)
+from utils.hak_akses import izin
+from utils import alur
+
+
+def _tahap_ada(trx, kode):
+    """Tahap ini ada di alur mill tiket; tiket lama tanpa mill memakai kategori produk."""
+    if trx.id_alur:
+        return alur.punya_tahap(trx.id_alur, kode)
+    return trx.kategori == ("TBS" if kode == "SORTASI" else "PRODUK_PKS")
 
 lab_bp = Blueprint('lab', __name__)
 
@@ -14,7 +22,7 @@ def lab_standar(id_produk):
 
 @lab_bp.route("/api/lab/standar/update", methods=["POST"])
 @login_required
-@role_required('LAB')
+@izin('FORM_LAB', 'ubah')
 def lab_standar_update():
     f = request.form
     try:
@@ -35,7 +43,7 @@ def lab_standar_history():
 
 @lab_bp.route("/api/lab/simpan", methods=["POST"])
 @login_required
-@role_required('LAB')
+@izin('FORM_LAB', 'tambah')
 def lab_simpan():
     f = request.form
     no_tiket, keputusan = f.get("no_tiket"), f.get("keputusan")
@@ -46,8 +54,8 @@ def lab_simpan():
     trx = cari_transaksi_aktif(no_tiket=no_tiket)
     if trx is None:
         return jsonify({"error": "Tiket tidak ditemukan / sudah selesai / ditolak"}), 404
-    if trx.kategori != 'PRODUK_PKS':
-        return jsonify({"error": "Pemeriksaan lab hanya untuk produk PKS"}), 400
+    if not _tahap_ada(trx, "LAB"):
+        return jsonify({"error": "Pemeriksaan lab tidak ada di alur tiket ini (lihat Admin › Organisasi › Mill)"}), 400
     if trx.status_alur not in ('TIMBANG_1', 'TIMBANG_2'):
         return jsonify({"error": "Pemeriksaan lab dilakukan setelah timbang pertama"}), 400
     no_coa = f"COA-{no_tiket}" if keputusan == 'APPROVE' else None

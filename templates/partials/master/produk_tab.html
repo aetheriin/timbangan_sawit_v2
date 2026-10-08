@@ -1,0 +1,19 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div data-tab-content="produk" class="hidden">
+    <div class="section-box">
+        {% call section_header('master-produk', 'Produk') %}
+        {% if hak.produk.tambah %}
+        <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaProduk"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+        {% endif %}
+        {% endcall %}
+        <div id="body-master-produk" class="section-body overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Nama Produk</th><th class="table-cell">Kategori</th><th class="table-cell">Alur</th><th class="table-cell">Standar Mutu</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if hak.produk.ubah else 0 }}" id="tabelProduk" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>

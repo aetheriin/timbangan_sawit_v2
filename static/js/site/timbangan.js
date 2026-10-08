@@ -24,8 +24,18 @@ window.addEventListener('platLookup', (e) => {
 const pollingBerat = new Poller(async () => {
     const r = await Api.get('/api/timbang/status', { timeout: 3000, polling: true });
     const el = document.getElementById('beratLiveDisplay');
-    el.textContent = r.ok ? `${r.data.berat} Kg` : '— Kg';
-    el.classList.toggle('opacity-40', !r.ok);         // koneksi timbangan / server terputus
+    const st = r.data && r.data.berat !== undefined ? r.data : null;     // status putus tetap berisi data + sebabnya
+    const putus = !st || !st.terhubung;
+    el.textContent = st ? `${st.berat} Kg` : '— Kg';
+    el.classList.toggle('opacity-40', putus);          // koneksi timbangan / server terputus
+    // Status: putus (dengan sebab), di bawah berat minimum, bergerak, atau stabil siap disimpan
+    const ket = document.getElementById('statusBeratLive');
+    const [teks, warna] = !st ? ['Server tidak menjawab', 'text-red-400']
+        : putus ? [`Tidak terhubung: ${st.error || 'cek kabel / agen timbangan'}`, 'text-red-400']
+        : st.berat_min_kg && st.berat < st.berat_min_kg ? [`Kosong (di bawah ${st.berat_min_kg} kg)`, 'text-slate-400']
+        : st.siap_kunci ? ['● Stabil, siap disimpan', 'text-emerald-400'] : ['○ Bergerak, tunggu stabil', 'text-amber-400'];
+    ket.textContent = teks;
+    ket.className = `text-sm mt-3 ${warna}`;
 }, 500);
 
 window.addEventListener('tabChange', e => {
@@ -47,6 +57,17 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
     document.getElementById('tbPotongan').textContent = data.potongan_kg ?? '-';
     document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
+    const info = document.getElementById('tbJembatanMasuk');
+    info.classList.toggle('hidden', !data.jembatan_masuk);
+    info.textContent = data.jembatan_masuk ? `Timbang masuk di ${data.jembatan_masuk}. Timbang keluar harus di jembatan yang sama.` : '';
+}
+
+// Jembatan timbang PC ini: disimpan di cookie (1 tahun), dibaca server saat status berat & simpan timbang
+function pilihJembatanTimbang(id) {
+    if (!id) return;
+    document.cookie = `jembatan_timbang=${encodeURIComponent(id)}; path=/; max-age=31536000; SameSite=Lax`;
+    const opsi = document.querySelector(`#pilihJembatan option[value="${CSS.escape(id)}"]`);
+    Notif.sukses(`PC ini memakai ${opsi ? opsi.textContent : 'jembatan ' + id}`);
 }
 
 // History: default 7 hari terakhir, atau satu tanggal dalam 30 hari terakhir

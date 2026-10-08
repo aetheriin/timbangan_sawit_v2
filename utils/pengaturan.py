@@ -1,6 +1,7 @@
 """Pengaturan site yang bisa diubah Admin (menu Admin > Pengaturan Site) tanpa restart.
 
-Urutan nilai: tabel `pengaturan` (bila sudah diubah admin) -> .env -> bawaan di DEFINISI.
+Urutan nilai: tabel `pengaturan_area` (khusus PER_AREA, area akun / perangkat) -> tabel `pengaturan` (global, bila
+sudah diubah admin) -> .env -> bawaan di DEFINISI. Pengaturan keamanan (sesi, login, password) selalu global.
 Dibaca dari cache memori (30 detik), jadi tidak menambah query di setiap request."""
 import os
 import threading
@@ -32,8 +33,11 @@ DEFINISI = {
                           "Akun / IP tidak bisa login selama ini (admin bisa membuka lebih cepat)"),
 }
 
+# Operasional, boleh berbeda per area (migrasi 014). Sisanya keamanan: global.
+PER_AREA = ("WAJIB_SCAN_WAJAH", "AMBANG_WAJAH")
+
 _lock = threading.Lock()
-_cache = {"waktu": 0.0, "data": {}}
+_cache = {"waktu": 0.0, "data": {}, "area": {}}
 
 
 def _ubah_tipe(tipe, teks):
@@ -46,35 +50,51 @@ def _ubah_tipe(tipe, teks):
     return teks
 
 
-def _dari_db():
+def _muat():
     sekarang = time.monotonic()
     with _lock:
         if sekarang - _cache["waktu"] < CACHE_DETIK:
-            return _cache["data"]
-    data = {}
+            return _cache
+    data, area = {}, {}
     try:
         conn = get_connection()
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT kunci, nilai FROM pengaturan")
             data = {r[0]: r[1] for r in cursor.fetchall() if isinstance(r[0], str) and isinstance(r[1], str)}
+            try:
+                cursor.execute("SELECT id_comp_area, kunci, nilai FROM pengaturan_area")
+                for r in cursor.fetchall():
+                    if isinstance(r[1], str) and isinstance(r[2], str):
+                        area.setdefault(r[0], {})[r[1]] = r[2]
+            except Exception:       # noqa: BLE001 - migrasi 014 belum dijalankan: tanpa nilai per area
+                area = {}
         finally:
             conn.close()
     except Exception:       # noqa: BLE001 - DB mati / tabel belum dibuat -> pakai .env / bawaan
         data = {}
     with _lock:
-        _cache.update(waktu=sekarang, data=data)
-    return data
+        _cache.update(waktu=sekarang, data=data, area=area)
+    return _cache
+
+
+def _dari_db():
+    return _muat()["data"]
+
+
+def _dari_area(id_comp_area):
+    return _muat()["area"].get(id_comp_area, {}) if id_comp_area else {}
 
 
 def _bawaan(kunci):
     return os.getenv(kunci, DEFINISI[kunci][3])
 
 
-def nilai(kunci):
-    """Nilai pengaturan sesuai tipenya. Nilai rusak di DB / .env -> bawaan."""
+def nilai(kunci, id_comp_area=None):
+    """Nilai pengaturan sesuai tipenya. Kunci PER_AREA memakai nilai area bila diatur. Nilai rusak -> berikutnya."""
     tipe, bawaan = DEFINISI[kunci][2], DEFINISI[kunci][3]
-    for teks in (_dari_db().get(kunci), _bawaan(kunci), bawaan):
+    teks_area = _dari_area(id_comp_area).get(kunci) if kunci in PER_AREA else None
+    for teks in (teks_area, _dari_db().get(kunci), _bawaan(kunci), bawaan):
         if teks is None:
             continue
         try:
@@ -84,14 +104,20 @@ def nilai(kunci):
     return _ubah_tipe(tipe, bawaan)
 
 
-def semua():
-    """Untuk halaman Pengaturan Site: daftar pengaturan + nilai sekarang + sumbernya."""
-    db = _dari_db()
+def semua(id_comp_area=None):
+    """Untuk halaman Pengaturan Site: daftar pengaturan + nilai sekarang + sumbernya.
+    Dengan area: hanya kunci PER_AREA; "bawaan" = nilai global yang dipakai bila area tidak mengatur sendiri."""
+    db, area = _dari_db(), _dari_area(id_comp_area)
     hasil = []
     for kunci, (label, grup, tipe, bawaan, mn, mx, ket) in DEFINISI.items():
+        if id_comp_area and kunci not in PER_AREA:
+            continue
+        sumber = "Admin" if kunci in db else (".env" if os.getenv(kunci) else "Bawaan")
+        if id_comp_area:
+            sumber = "Area" if kunci in area else f"Global ({sumber})"
         hasil.append({"kunci": kunci, "label": label, "grup": grup, "tipe": tipe, "min": mn, "max": mx,
-                      "keterangan": ket, "nilai": nilai(kunci), "bawaan": _ubah_tipe(tipe, _bawaan(kunci)),
-                      "sumber": "Admin" if kunci in db else (".env" if os.getenv(kunci) else "Bawaan")})
+                      "keterangan": ket, "nilai": nilai(kunci, id_comp_area), "per_area": kunci in PER_AREA,
+                      "bawaan": nilai(kunci) if id_comp_area else _ubah_tipe(tipe, _bawaan(kunci)), "sumber": sumber})
     return hasil
 
 
@@ -109,13 +135,24 @@ def validasi(kunci, teks):
     return ("true" if v else "false") if tipe == "bool" else str(v)
 
 
-def simpan(perubahan, user_id):
-    """perubahan = {kunci: teks}. Validasi semua dulu, baru simpan (semua atau tidak sama sekali)."""
+def simpan(perubahan, user_id, id_comp_area=None):
+    """perubahan = {kunci: teks}. Validasi semua dulu, baru simpan (semua atau tidak sama sekali).
+    Dengan area: hanya kunci PER_AREA, disimpan di pengaturan_area."""
     bersih = {k: validasi(k, v) for k, v in perubahan.items()}
+    if id_comp_area and any(k not in PER_AREA for k in bersih):
+        raise ValueError("Pengaturan keamanan hanya bisa diatur global")
     conn = get_connection()
     try:
         cursor = conn.cursor()
         for kunci, teks in bersih.items():
+            if id_comp_area:
+                cursor.execute("""
+                    MERGE pengaturan_area AS t USING (SELECT ? AS id_comp_area, ? AS kunci) AS s
+                        ON t.id_comp_area = s.id_comp_area AND t.kunci = s.kunci
+                    WHEN MATCHED THEN UPDATE SET nilai = ?, updated_by = ?, updated_at = GETDATE()
+                    WHEN NOT MATCHED THEN INSERT (id_comp_area, kunci, nilai, updated_by) VALUES (?, ?, ?, ?);""",
+                               id_comp_area, kunci, teks, user_id, id_comp_area, kunci, teks, user_id)
+                continue
             cursor.execute("""
                 MERGE pengaturan AS t USING (SELECT ? AS kunci) AS s ON t.kunci = s.kunci
                 WHEN MATCHED THEN UPDATE SET nilai = ?, updated_by = ?, updated_at = GETDATE()
@@ -128,10 +165,14 @@ def simpan(perubahan, user_id):
     return bersih
 
 
-def kembalikan_bawaan(kunci):
+def kembalikan_bawaan(kunci, id_comp_area=None):
+    """Global: kembali ke .env / bawaan. Area: hapus nilai area sehingga ikut global."""
     conn = get_connection()
     try:
-        conn.cursor().execute("DELETE FROM pengaturan WHERE kunci = ?", kunci)
+        if id_comp_area:
+            conn.cursor().execute("DELETE FROM pengaturan_area WHERE id_comp_area = ? AND kunci = ?", id_comp_area, kunci)
+        else:
+            conn.cursor().execute("DELETE FROM pengaturan WHERE kunci = ?", kunci)
         conn.commit()
     finally:
         conn.close()

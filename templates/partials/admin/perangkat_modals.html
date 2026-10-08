@@ -12,11 +12,17 @@
             </div>
             <div>
                 <label class="field-label" for="posNama">Nama</label>
-                <input type="text" id="posNama" name="nama" required maxlength="100" class="input-field" placeholder="Kiosk Pos Security Depan">
+                <input type="text" id="posNama" name="nama" required maxlength="100" class="input-field">
+            </div>
+            <div>
+                <label class="field-label" for="posArea">Area</label>
+                <select id="posArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select>
             </div>
             <div>
                 <label class="field-label" for="posLokasi">Lokasi (opsional)</label>
-                <input type="text" id="posLokasi" name="lokasi" maxlength="100" class="input-field" placeholder="Gerbang utama">
+                <input type="text" id="posLokasi" name="lokasi" maxlength="100" class="input-field">
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
@@ -41,6 +47,99 @@
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="salinTokenKiosk" class="btn-secondary"><i class="fa-solid fa-copy mr-1"></i> Salin</button>
             <button type="button" data-on-click="closeModal" data-arg="modalToken" class="btn-primary">Sudah Disalin</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Tambah / Ubah Jembatan Timbang (profil indikator per merk, migrasi 017) -->
+<div id="modalJembatan" class="modal-overlay">
+    <form id="formJembatan" class="modal-box max-w-3xl" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalJembatan" class="font-bold">Tambah Jembatan Timbang</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalJembatan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-4 gap-3 max-h-[72vh] overflow-y-auto">
+            <input type="hidden" name="id_jembatan">
+            <div><label class="field-label" for="jtKode">Kode</label>
+                <input type="text" id="jtKode" name="kode" required maxlength="10" class="input-field uppercase font-mono" placeholder="JT-2"></div>
+            <div class="col-span-2"><label class="field-label" for="jtNama">Nama</label>
+                <input type="text" id="jtNama" name="nama" required maxlength="100" class="input-field" placeholder="Jembatan Timbang 2"></div>
+            <div><label class="field-label" for="jtArea">Area</label>
+                <select id="jtArea" name="id_comp_area" required class="input-field">
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                </select></div>
+
+            <p class="col-span-4 text-xs font-semibold text-slate-500 uppercase mt-2">Sambungan</p>
+            <div class="col-span-2"><label class="field-label" for="jtMode">Kabel indikator dicolok ke</label>
+                <select id="jtMode" name="mode" class="input-field" data-on-change="aturModeJembatan">
+                    <option value="AGEN">PC jembatan (dibaca agen_timbang.py)</option>
+                    <option value="LOKAL">PC server ini / alat serial-to-LAN</option>
+                </select></div>
+            <div class="col-span-2"><label class="field-label" for="jtPort">Port</label>
+                <input type="text" id="jtPort" name="port" required maxlength="100" class="input-field font-mono" placeholder="COM3">
+                <p id="jtPortHint" class="field-hint"></p></div>
+            <div><label class="field-label" for="jtBaud">Baudrate</label>
+                <select id="jtBaud" name="baudrate" class="input-field">
+                    {% for b in [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200] %}<option value="{{ b }}"{% if b == 9600 %} selected{% endif %}>{{ b }}</option>{% endfor %}
+                </select></div>
+            <div><label class="field-label" for="jtBits">Data bits</label>
+                <select id="jtBits" name="data_bits" class="input-field"><option>7</option><option>8</option></select></div>
+            <div><label class="field-label" for="jtParity">Parity</label>
+                <select id="jtParity" name="parity" class="input-field">
+                    <option value="E">Even (E)</option><option value="N">None (N)</option><option value="O">Odd (O)</option>
+                </select></div>
+            <div><label class="field-label" for="jtStop">Stop bits</label>
+                <select id="jtStop" name="stop_bits" class="input-field"><option value="1">1</option><option value="2">2</option></select></div>
+
+            <p class="col-span-4 text-xs font-semibold text-slate-500 uppercase mt-2">Format data indikator</p>
+            <div class="col-span-3"><label class="field-label" for="jtFormat">Format</label>
+                <select id="jtFormat" name="format_data" class="input-field" data-on-change="aturModeJembatan">
+                    {% for kode, ket in format_timbangan.items() %}<option value="{{ kode }}">{{ kode }}: {{ ket }}</option>{% endfor %}
+                </select></div>
+            <div><label class="field-label" for="jtFaktor">Faktor ke kg</label>
+                <input type="number" id="jtFaktor" name="faktor" step="any" min="0.0001" class="input-field" value="1">
+                <p class="field-hint">1000 bila indikator kirim ton</p></div>
+            <div id="jtPolaBox" class="col-span-4 hidden"><label class="field-label" for="jtPola">Pola (regex)</label>
+                <input type="text" id="jtPola" name="pola" maxlength="200" class="input-field font-mono" placeholder="(?P&lt;stabil&gt;ST)?.*?(?P&lt;berat&gt;[-+]?\d+)\s*kg">
+                <p class="field-hint">Wajib grup <span class="font-mono">(?P&lt;berat&gt;...)</span>; grup <span class="font-mono">(?P&lt;stabil&gt;...)</span> terisi = indikator stabil.</p></div>
+
+            <p class="col-span-4 text-xs font-semibold text-slate-500 uppercase mt-2">Aturan simpan berat</p>
+            <div><label class="field-label" for="jtToleransi">Toleransi stabil (kg)</label>
+                <input type="number" id="jtToleransi" name="toleransi_kg" step="any" min="0" class="input-field" value="5"></div>
+            <div><label class="field-label" for="jtDurasi">Lama stabil (detik)</label>
+                <input type="number" id="jtDurasi" name="durasi_stabil" step="0.5" min="0.5" class="input-field" value="3"></div>
+            <div><label class="field-label" for="jtMin">Berat minimum (kg)</label>
+                <input type="number" id="jtMin" name="berat_min_kg" step="any" min="0" class="input-field" value="100"></div>
+            <div class="flex items-end pb-2"><label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="wajib_st" value="1" class="w-4 h-4"> Wajib tanda ST indikator</label></div>
+            <p class="field-hint col-span-4">Berat boleh disimpan bila tidak berubah lebih dari toleransi selama lama stabil, dan tidak di bawah
+                berat minimum. Perubahan langsung berlaku tanpa restart. Pakai <b>Data mentah</b> untuk mengecek format di lokasi.</p>
+        </div>
+        <div class="px-6 pb-6 pt-3 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalJembatan" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Data mentah indikator -->
+<div id="modalMentah" class="modal-overlay">
+    <div class="modal-box max-w-3xl">
+        <div class="modal-header">
+            <h3 id="judulMentah" class="font-bold">Data mentah</h3>
+            <button type="button" data-on-click="tutupMentah" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <div id="statusMentah" class="text-sm"></div>
+            <div class="max-h-[55vh] overflow-y-auto border border-slate-200 rounded-lg">
+                <table class="w-full text-left text-xs">
+                    <thead class="table-header-row"><tr><th class="table-cell">Waktu</th><th class="table-cell">Diterima dari indikator</th>
+                        <th class="table-cell text-right">Terbaca (kg)</th><th class="table-cell">ST</th></tr></thead>
+                    <tbody id="tabelMentah" class="divide-y divide-slate-100 font-mono"></tbody>
+                </table>
+            </div>
+            <p class="field-hint">Diperbarui tiap detik. Teks acak / kotak-kotak = baudrate / parity salah. Teks jelas tapi kolom "Terbaca" kosong =
+                format salah. Ubah di tombol Ubah, simpan, lalu lihat lagi di sini.</p>
         </div>
     </div>
 </div>

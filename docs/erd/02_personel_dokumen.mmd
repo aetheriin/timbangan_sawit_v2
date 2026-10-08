@@ -1,0 +1,142 @@
+erDiagram
+    kategori_personel {
+        varchar kode PK
+        nvarchar nama
+        bit wajib_sim
+        bit boleh_akun
+        bit is_active
+    }
+    personel {
+        int id_personel PK
+        varchar kode_personel UK "NULL"
+        varchar nik UK
+        varchar nama_personel
+        varchar kategori FK
+        bit is_updated
+        varchar current_hash "NULL"
+        bit is_blacklisted
+        bit is_active
+        datetime created_at
+        datetime updated_at
+    }
+    jenis_sim {
+        int id_jenis_sim PK
+        varchar kode UK
+        nvarchar nama
+        bit is_active
+    }
+    personel_sim {
+        int id_sim PK
+        int id_personel FK
+        int id_jenis_sim FK
+        varchar no_sim UK
+        date berlaku_sampai "NULL"
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    personel_wajah {
+        int id_wajah PK
+        int id_personel FK,UK
+        varbinary embedding
+        varchar foto_path "NULL"
+        varchar sumber "NULL"
+        bit is_utama
+        bit is_active
+        int created_by FK "NULL"
+        datetime created_at
+    }
+    keperluan_kunjungan {
+        int id_keperluan PK
+        nvarchar nama UK
+        bit is_active
+    }
+    kunjungan {
+        int id_kunjungan PK
+        int id_personel FK
+        int id_dituju FK
+        int id_keperluan FK
+        nvarchar keterangan "NULL"
+        nvarchar asal_perusahaan "NULL"
+        varchar no_plat "NULL"
+        int id_comp_area FK
+        varchar foto_masuk_path "NULL"
+        datetime waktu_masuk
+        datetime waktu_keluar "NULL"
+        int dicatat_oleh FK
+    }
+    absensi {
+        int id_absensi PK
+        int id_personel FK "NULL"
+        varchar jenis "NULL"
+        varchar status
+        varchar status_waktu "NULL"
+        int selisih_menit "NULL"
+        float jarak_wajah "NULL"
+        varchar tantangan_liveness "NULL"
+        varchar foto_path "NULL"
+        varchar perangkat "NULL"
+        varchar ip_address "NULL"
+        datetime waktu
+        date tanggal "NULL"
+    }
+    blacklist {
+        int id_blacklist PK
+        varchar tipe_entitas
+        int id_personel FK "NULL"
+        int id_kendaraan FK "NULL"
+        varchar alasan_blacklist
+        int id_dokumen FK
+        int created_by FK
+        datetime created_at
+        varchar no_plat_terkait "NULL"
+        int id_customer_terkait FK "NULL"
+        int id_pengangkutan_terkait FK "NULL"
+    }
+    jenis_dokumen {
+        int id_jenis PK
+        varchar kode UK
+        nvarchar nama
+        bit wajib_file
+        bit is_active
+    }
+    dokumen {
+        int id_dokumen PK
+        int id_jenis FK
+        nvarchar no_dokumen
+        date tanggal
+        nvarchar perihal "NULL"
+        int created_by FK
+        datetime created_at
+    }
+    dokumen_file {
+        int id_file PK
+        int id_dokumen FK
+        varchar file_path
+        nvarchar nama_asli "NULL"
+        varchar mime "NULL"
+        int ukuran_byte "NULL"
+        char sha256 "NULL"
+        tinyint urutan
+        datetime created_at
+    }
+    kendaraan {
+        int id_kendaraan PK
+    }
+    comp_area {
+        int id_comp_area PK
+    }
+    personel |o--o{ absensi : "id_personel"
+    dokumen ||--o{ blacklist : "id_dokumen"
+    kendaraan |o--o{ blacklist : "id_kendaraan"
+    personel |o--o{ blacklist : "id_personel"
+    jenis_dokumen ||--o{ dokumen : "id_jenis"
+    dokumen ||--o{ dokumen_file : "id_dokumen"
+    comp_area ||--o{ kunjungan : "id_comp_area"
+    personel ||--o{ kunjungan : "id_dituju"
+    keperluan_kunjungan ||--o{ kunjungan : "id_keperluan"
+    personel ||--o{ kunjungan : "id_personel"
+    kategori_personel ||--o{ personel : "kategori"
+    jenis_sim ||--o{ personel_sim : "id_jenis_sim"
+    personel ||--o{ personel_sim : "id_personel"
+    personel ||--o| personel_wajah : "id_personel"

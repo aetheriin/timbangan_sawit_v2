@@ -54,3 +54,16 @@ class TestDaftarPerubahan(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestKategoriDinamis(unittest.TestCase):
+    NIK = "1471021203850004"
+
+    def test_tamu_tanpa_sim(self):
+        self.assertIsNone(validasi_personel(self.NIK, "Tamu", "TAMU", None))
+
+    def test_kategori_dari_tabel(self):
+        kategori = {"DRIVER": {}, "OPERATOR_ALAT": {}}
+        self.assertIn("SIM", validasi_personel(self.NIK, "Andi", "OPERATOR_ALAT", None, kategori, ["OPERATOR_ALAT"]))
+        self.assertIsNone(validasi_personel(self.NIK, "Andi", "DRIVER", None, kategori, ["OPERATOR_ALAT"]))
+        self.assertIn("Kategori", validasi_personel(self.NIK, "Andi", "TAMU", None, kategori, []))

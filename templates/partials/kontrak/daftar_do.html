@@ -11,18 +11,19 @@
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
     </div>
     {% if boleh_ubah %}
-    <button type="button" class="btn-primary" data-on-click="bukaDO"><i class="fa-solid fa-plus mr-1"></i> Tambah DO</button>
+    <button type="button" class="btn-primary" data-on-click="bukaDO"><i class="fa-solid fa-plus mr-1"></i> Tambah Kontrak & DO</button>
     {% endif %}
 </div>
 
 <div class="section-box">
-    {{ section_header('daftar-do', 'Daftar DO') }}
+    {{ section_header('daftar-do', 'Daftar Kontrak & DO') }}
     <div id="body-daftar-do" class="section-body overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
                 <tr><th class="table-cell">No DO</th><th class="table-cell">No Kontrak</th><th class="table-cell">Jenis</th>
-                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Pengangkutan</th>
-                    <th class="table-cell">Tanggal</th><th class="table-cell">Berlaku s/d</th><th class="table-cell">Status</th>
+                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell text-right">Qty (kg)</th>
+                    <th class="table-cell">Pengangkutan</th>
+                    <th class="table-cell">Tanggal DO</th><th class="table-cell">Berlaku s/d</th><th class="table-cell">Status</th>
                     <th class="table-cell text-right">Aksi</th></tr>
             </thead>
             <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelDO" class="divide-y divide-slate-100"></tbody>

@@ -1,6 +1,12 @@
 {% from "partials/layout/_macros.html" import section_header %}
+<div class="flex items-center gap-2 mb-4">
+    <label class="field-label mb-0" for="jadwalArea">Area</label>
+    <select id="jadwalArea" class="input-field w-64" data-on-change="muatJadwal">
+        {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+    </select>
+</div>
 <div class="section-box">
-    {{ section_header('jadwal-kerja', 'Jadwal Kerja Mingguan') }}
+    {{ section_header('jadwal-kerja', 'Jadwal Kerja Mingguan (per area)') }}
     <div id="body-jadwal-kerja" class="section-body overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">

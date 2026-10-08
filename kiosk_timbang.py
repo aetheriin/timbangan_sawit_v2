@@ -19,15 +19,15 @@ URL_BATAL = f"{BASE_URL}/api/kamera/batal"
 HEADER_KIOSK = {"X-Kiosk-Token": os.getenv("KIOSK_TOKEN", ""), "X-Kiosk-Id": os.getenv("KIOSK_ID", "UTAMA")}
 KAMERA_INDEX = 0
 # ===== Waktu scan wajah (detik) =====
-HITUNG_MUNDUR = 3            # "Bersiap... 3 2 1" sebelum perintah kedip / menoleh muncul
-BATAS_TANTANGAN = 10         # waktu supir untuk mengikuti perintah, lewat dari ini diulang
-JEDA_REKAM = 0.12            # selama perintah berjalan, 1 foto direkam tiap 0,12 detik
-REKAM_SETELAH = 0.6          # setelah gerakan terdeteksi, tetap merekam sebentar (mata terbuka / wajah kembali)
-MAKS_KIRIM = 16              # foto yang dikirim ke server (server menerima maks. 20)
-MAKS_PERCOBAAN = 3           # liveness gagal -> diulang otomatis sampai sekian kali
-JEDA_ULANG = 2               # lama pesan "diulang" tampil
+HITUNG_MUNDUR = 3            
+BATAS_TANTANGAN = 10         
+JEDA_REKAM = 0.12            
+REKAM_SETELAH = 0.6          
+MAKS_KIRIM = 16              
+MAKS_PERCOBAAN = 3           
+JEDA_ULANG = 2               
 DURASI_TAMPIL_HASIL = 5
-EAR_KEDIP = 0.21             # mata dianggap tertutup bila EAR di bawah ini (MediaPipe)
+EAR_KEDIP = 0.21             # mata dianggap tertutup bila EAR di bawah (MediaPipe)
 TEKS_TANTANGAN = {
     "KEDIP": ("Silakan KEDIPKAN MATA", "Kedip sekali seperti biasa"),
     "MENOLEH_KANAN": ("Silakan MENOLEH ke KANAN", "Tahan sebentar lalu kembali lurus"),
@@ -213,7 +213,6 @@ def jendela_masih_terbuka():
     return False
 
 def notify_batal_to_server():
-    """Memberitahu server Flask bahwa scan dibatalkan agar status camera_trigger_state di-reset."""
     try:
         requests.post(URL_BATAL, headers=HEADER_KIOSK, timeout=2)
         print("[!] Scan dibatalkan oleh pengguna. Mengirim sinyal reset ke server...")
@@ -221,10 +220,6 @@ def notify_batal_to_server():
         pass
 
 def jalankan_verifikasi_wajah():
-    """Cari wajah -> wajah lurus -> hitung mundur -> perintah (kedip / menoleh) SAMBIL merekam -> kirim ke server.
-
-    Foto yang dikirim diambil selama supir mengikuti perintah, jadi gerakannya ikut terekam dan bisa diperiksa
-    server. Bila server menolak (liveness / wajah tidak jelas), perintah baru diberikan otomatis."""
     video = cv2.VideoCapture(KAMERA_INDEX)
     if not video.isOpened():
         print("Gagal membuka kamera. Cek KAMERA_INDEX atau koneksi webcam.")

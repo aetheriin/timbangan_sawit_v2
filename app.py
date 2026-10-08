@@ -28,6 +28,8 @@ from routes.sistem import sistem_bp
 from routes.admin import admin_bp
 from routes.kontrak import kontrak_bp
 from routes.master import master_bp
+from routes.kunjungan import kunjungan_bp
+from routes.agen import agen_bp
 from routes.dashboard import dashboard_bp
 
 load_dotenv()
@@ -52,7 +54,7 @@ def load_user(user_id):
     if (row.sesi_versi or 0) != session.get("_versi", 0):
         log_keamanan("SESI_DICABUT", f"username={row.username}")
         return None
-    return User(row.id_user, row.username, row.nama, row.role)
+    return User.dari_row(row)
 
 @login_manager.unauthorized_handler
 def belum_login():
@@ -70,11 +72,11 @@ def belum_login():
     return redirect("/login")
 
 for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
-           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp):
+           personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp, kunjungan_bp, agen_bp):
     app.register_blueprint(bp)
 
 # Endpoint yang dipanggil kiosk kamera (tanpa sesi browser) dilindungi token perangkat, bukan CSRF
-for endpoint in ("security.verifikasi_wajah", "security.kamera_batal"):
+for endpoint in ("security.verifikasi_wajah", "security.kamera_batal", "agen.agen_data"):
     csrf.exempt(app.view_functions[endpoint])
 
 

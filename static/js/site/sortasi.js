@@ -8,7 +8,7 @@ window.addEventListener('platLookup', (e) => {
     beratAcuanSortasi = null;
     document.getElementById('srBeratAcuan').textContent = '-';
     hitungPotongan();
-    if (data.status === 'ADA_TIKET' && data.kategori_produk === 'TBS') {
+    if (data.status === 'ADA_TIKET' && tiketPunyaTahap(data, 'SORTASI')) {
         noTiketSortasiAktif = data.no_tiket;
         ambilJson(`/api/timbang/data/${data.no_tiket}`).then(tb => {
             if (tb.error) { Notif.gagal(tb.error); return; }

@@ -44,7 +44,7 @@ async function muatKesehatan() {
         kartu('Disk Server', 'fa-server', `${disk.sisa_gb} GB sisa`, `dari ${disk.total_gb} GB · terpakai ${disk.terpakai_persen}%`,
               disk.terpakai_persen > 90 ? 'gagal' : disk.terpakai_persen > 80 ? 'peringatan' : 'ok'),
         kartu('Folder Upload', 'fa-folder-open', `${d.upload.ukuran_mb} MB${d.upload.lebih ? '+' : ''}`, 'Foto wajah, surat blacklist, foto absensi'),
-        kartu('Timbangan', 'fa-weight-scale', d.timbangan.terhubung ? 'Terhubung' : 'Tidak terhubung', 'Koneksi serial ke indikator timbangan',
+        kartu('Timbangan', 'fa-weight-scale', `${d.timbangan.jumlah_terhubung} / ${d.timbangan.jumlah} terhubung`, 'Koneksi serial tiap jembatan timbang',
               d.timbangan.terhubung ? 'ok' : 'peringatan'),
         kartu('Versi Aplikasi', 'fa-code-branch', d.aplikasi.versi, `Python ${d.aplikasi.python}`),
         kartu('Server Berjalan', 'fa-power-off', `${d.aplikasi.uptime_jam} jam`, `sejak ${d.aplikasi.berjalan_sejak}`),

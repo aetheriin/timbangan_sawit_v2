@@ -10,9 +10,10 @@ const LABEL_ROLE = {
     LAB: ['Lab', 'bg-violet-100 text-violet-700'],
 };
 
-function badgeRole(role) {
-    const [label, warna] = LABEL_ROLE[role] || [labelKode(role), WARNA_BADGE.abu];
-    return badge(label, warna);
+// role = kode level; level baru (dibuat di Level & Hak Akses) memakai warna abu dan namanya sendiri
+function badgeRole(role, nama = null) {
+    const [label, warna] = LABEL_ROLE[role] || [nama || labelKode(role), WARNA_BADGE.abu];
+    return badge(nama || label, warna);
 }
 
 function badgeAktif(aktif, teksAktif = 'Aktif', teksNonaktif = 'Nonaktif') {

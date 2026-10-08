@@ -2,24 +2,25 @@
 {% from "partials/layout/_macros.html" import tab_header %}
 {% block title %}Data Master · Weighbridge{% endblock %}
 
-{# Data Master: Driver (personel kategori DRIVER) & Kendaraan. Tambah / ubah: SECURITY & HO, role lain hanya melihat. #}
+{# Data Master: Driver (personel kategori DRIVER), Kendaraan, Mitra, Produk. Tombol tambah / ubah sesuai Admin › Hak Akses. #}
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan')], 'mt-4') }}
+    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan'), ('mitra', 'Mitra'), ('produk', 'Produk')], 'mt-4') }}
 {% endblock %}
 
 {% block tab_content %}
     {% include "partials/face_recognition/personel_tab.html" %}
     {% include "partials/master/kendaraan_tab.html" %}
+    {% include "partials/master/mitra_tab.html" %}
+    {% include "partials/master/produk_tab.html" %}
 {% endblock %}
 
 {% block modals %}
-    {% if boleh_ubah %}
-    {% include "partials/face_recognition/personel_modals.html" %}
-    {% include "partials/master/kendaraan_modal.html" %}
-    {% endif %}
+    {% if boleh_ubah %}{% include "partials/face_recognition/personel_modals.html" %}{% endif %}
+    {% if boleh_kendaraan %}{% include "partials/master/kendaraan_modal.html" %}{% endif %}
+    {% if hak.mitra.tambah or hak.mitra.ubah or hak.produk.tambah or hak.produk.ubah %}{% include "partials/master/mitra_produk_modals.html" %}{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -27,4 +28,5 @@
 <script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/face_recognition/personel.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/master/kendaraan.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/master/mitra_produk.js') }}"></script>
 {% endblock %}
