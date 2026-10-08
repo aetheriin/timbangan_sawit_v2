@@ -265,19 +265,19 @@ Semua rekomendasi ★ disetujui, dengan perubahan berikut:
 | Poin | Keputusan |
 |---|---|
 | 2a | Blacklist berlaku **semua area & company**. Di daftar dan banner peringatan selalu tampil **siapa yang menetapkan**, area asalnya, tanggal, dan no. surat |
-| 8 (tamu) | Menu Tamu sendiri ★ dengan catat masuk / keluar lewat **tombol**. **Tidak dikerjakan** di tahap 1: keluar dengan scan wajah, kartu / badge tamu, banner & kotak merah blacklist khusus tamu, notifikasi tamu terlalu lama. Pencocokan wajah tamu dengan blacklist yang sudah ada tetap berjalan seperti sekarang |
+| 8 (tamu) | Menu Tamu sendiri ★, catat masuk / keluar lewat **tombol**. Tetap dikerjakan: **peringatan blacklist tamu** (banner merah + kotak foto merah, tamu tetap bisa dicatat) dan **notifikasi** tamu masih di dalam melewati jam pulang / > N jam → Security & KTU (+ orang yang dituju bila punya akun). **Tidak dikerjakan** di tahap 1: keluar dengan scan wajah, kartu / badge tamu |
+| 3b | Tidak ada kategori HO khusus di kode. **Kategori personel dikelola sendiri di Admin** (tambah / ubah: kode, nama, prefix kode, wajib SIM, boleh akun, aktif), jadi HO atau kategori lain bisa ditambah kapan saja tanpa ubah program |
+| 5b | **Toleransi bawaan 0**: begitu total netto DO melewati kuota, kelebihan berapa pun dipecah ke tiket baru `-S1` untuk DO lain (dipilih KTU) + notifikasi ke KTU. Toleransi tetap bisa diatur (global di Pengaturan, bisa ditimpa per kontrak; persen atau kg) supaya bisa berubah nanti tanpa ubah program |
 | 4a | B: DO boleh menyusul |
 | 5c / 5d / 5e | Dipilih KTU / nomor tiket baru `-S1` / peringatan saja |
 
-Masih terbuka (belum ada rekomendasi ★):
-- 3b. HO sebagai kategori personel sendiri, atau tetap EMPLOYEE dengan prefix `HO-`?
-- 5b. Nilai toleransi kelebihan DO (persen atau kg).
+Tidak ada keputusan yang masih terbuka untuk tahap 1.
 
 ## Urutan pengerjaan yang diusulkan
 
 | Tahap | Isi | Bergantung keputusan |
 |---|---|---|
-| 1a | Poin 7 (peringatan blacklist) + poin 3 (form personel, show / hide SIM) | 3a–3d |
+| 1a | Poin 7 (peringatan blacklist) + poin 3 (form personel, show / hide SIM, kode per kategori, Admin kategori personel) | 3a–3e |
 | 1b | Poin 2 (menu Blacklist + KTU) + poin 8 (menu Tamu) | 2a–2c, 8a–8f |
 | 1c | Poin 1 (hapus kiosk, webcam Security, tantangan per area) | 1a–1b, HTTPS / flag Chrome |
 | 2 | Poin 4 (alur tiket & list) | 4a–4c |
