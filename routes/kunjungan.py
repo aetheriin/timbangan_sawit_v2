@@ -10,7 +10,7 @@ from flask_login import login_required, current_user
 from utils import pengaturan
 from utils import db_kunjungan as db
 from utils.audit_utils import catat_security_audit
-from utils.db_personel import get_personel, insert_personel
+from utils.db_personel import get_personel, insert_personel, saran_kode_personel
 from utils.db_utils import cek_nik_ada
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.face_utils import extract_embedding_tunggal, embedding_to_binary
@@ -100,7 +100,7 @@ def kunjungan_tamu_baru():
         hapus_file(path_disk)
         p = get_personel(id_mirip)
         return jsonify({"error": f"Wajah sudah terdaftar sebagai {format_nama_personel(p['kode_personel'], id_mirip, p['nama_personel'])}"}), 400
-    id_baru = insert_personel(nik, nama, None, "TAMU", None, embedding_to_binary(embedding), relatif, "KAMERA",
+    id_baru = insert_personel(nik, nama, None, "TAMU", saran_kode_personel("TAMU"), embedding_to_binary(embedding), relatif, "KAMERA",
                               current_user.id)
     return jsonify({"message": f"Tamu {nama} didaftarkan", **_info_personel(get_personel(id_baru))})
 

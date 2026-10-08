@@ -10,32 +10,50 @@ function badgeStatusPersonel(isBlacklisted) {
     return isBlacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau);
 }
 
-// Banner merah di atas form: info = { judul, detail, file } atau null untuk menyembunyikan
-function tampilkanBannerBlacklist(info) {
+// ===== PERINGATAN BLACKLIST (kendaraan dan / atau supir) =====
+// Blacklist berlaku di semua area: banner menyebut siapa yang diblacklist dan siapa / area mana yang menetapkan.
+const blacklistForm = { kendaraan: null, supir: null };     // { siapa, info: hasil /api/blacklist/info }
+
+function aturBlacklist(jenis, data) {
+    blacklistForm[jenis] = data;
+    const isi = ['kendaraan', 'supir'].filter(j => blacklistForm[j]);
     const banner = document.getElementById('bannerBlacklist');
-    banner.classList.toggle('hidden', !info);
-    banner.classList.toggle('flex', !!info);
-    document.getElementById('formNoPlat').classList.toggle('border-red-500', !!info);
-    if (!info) return;
-    document.getElementById('bannerBlacklistJudul').textContent = info.judul;
-    document.getElementById('bannerBlacklistDetail').textContent = info.detail || '';
-    const surat = document.getElementById('bannerBlacklistSurat');
-    surat.classList.toggle('hidden', !info.file);
-    if (info.file) surat.href = urlBerkas(info.file);
+    banner.classList.toggle('hidden', !isi.length);
+    banner.classList.toggle('flex', isi.length > 0);
+    document.getElementById('formNoPlat').classList.toggle('border-red-500', !!blacklistForm.kendaraan);
+    document.getElementById('bannerBlacklistIsi').innerHTML = isi.map(j => {
+        const { siapa, info } = blacklistForm[j];
+        const penetap = info && info.oleh ? `oleh ${escapeHtml(info.oleh)}${info.area_oleh ? ` (${escapeHtml(info.area_oleh)})` : ''}` : '';
+        return `<div class="text-sm">
+            <p class="font-semibold text-red-700">${j === 'kendaraan' ? 'Kendaraan' : 'Supir'}: ${escapeHtml(siapa)}</p>
+            <p class="text-xs text-slate-700">${info && info.no_surat_blacklist ? `No. surat ${escapeHtml(info.no_surat_blacklist)} · ` : ''}` +
+            `${info && info.tgl_blacklist ? `ditetapkan ${escapeHtml(info.tgl_blacklist)} ` : ''}${penetap} · berlaku di semua area · permanen` +
+            `${info && info.file_surat_blacklist ? ` · <a href="${escapeHtml(urlBerkas(info.file_surat_blacklist))}" target="_blank" class="underline text-red-700">Lihat surat</a>` : ''}</p>
+        </div>`;
+    }).join('');
 }
 
-function infoBlacklistKendaraan(noPlat, bl) {
-    return {
-        judul: `PERINGATAN: KENDARAAN ${noPlat} MASUK BLACKLIST`,
-        detail: `No. surat ${bl.no_surat_blacklist} · ditetapkan ${bl.tgl_blacklist} oleh ${bl.oleh} · permanen. ` +
-                'Tiket tetap bisa dibuat, dan tercatat di Audit Log untuk HO.',
-        file: bl.file_surat_blacklist,
-    };
+async function aturBlacklistSupir(dr) {
+    if (!dr || !dr.is_blacklisted) { aturBlacklist('supir', null); return; }
+    const siapa = formatNamaPersonel(dr.kode_personel, dr.id_driver, dr.nama);
+    aturBlacklist('supir', { siapa, info: null });
+    const info = await ambilJson(`/api/blacklist/info/PERSONEL/${dr.id_driver}`);
+    if (blacklistForm.supir && blacklistForm.supir.siapa === siapa && !info.error) aturBlacklist('supir', { siapa, info });
+}
+
+function kotakMerah(el, aktif) {
+    el.classList.toggle('ring-4', aktif);
+    el.classList.toggle('ring-red-600', aktif);
 }
 
 function tampilkanPengemudiTerakhir(dr, utama = null) {
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
+    const kartu = document.getElementById('pengemudiKartu');
+    kotakMerah(foto, !!(dr && dr.is_blacklisted));
+    kartu.classList.toggle('border-red-500', !!(dr && dr.is_blacklisted));
+    kartu.classList.toggle('bg-red-50', !!(dr && dr.is_blacklisted));
+    kartu.classList.toggle('bg-slate-50', !(dr && dr.is_blacklisted));
     const barisUtama = utama && (!dr || String(utama.id_driver) !== String(dr.id_driver))
         ? `<p class="text-xs text-blue-600">Supir utama: ${escapeHtml(utama.nama)}</p>` : '';
     if (!dr) {
@@ -45,7 +63,7 @@ function tampilkanPengemudiTerakhir(dr, utama = null) {
     }
     info.innerHTML = `<p class="text-xs text-slate-500">${escapeHtml(dr.kode_personel || 'Belum ada kode')} · ID ${formatIdPersonel(dr.id_driver)}</p>` +
         `<p class="font-semibold text-slate-700">${escapeHtml(dr.nama)}</p><p>NIK: ${escapeHtml(dr.nik)}</p>` +
-        (dr.is_blacklisted ? `<p>${badge('BLACKLIST', WARNA_BADGE.merah)}</p>` : '') +
+        (dr.is_blacklisted ? '<p class="mt-1"><span class="px-2 py-0.5 rounded bg-red-600 text-white text-xs font-bold">BLACKLIST</span></p>' : '') +
         (dr.is_updated ? '<p class="text-amber-600 text-xs">⚠ Data Pernah Diperbarui</p>' : '') + barisUtama;
     foto.innerHTML = dr.foto_path
         ? `<img src="${escapeHtml(urlBerkas(dr.foto_path))}" class="w-full h-full object-cover" alt="">`
@@ -108,7 +126,9 @@ function resetValidasiForm() {
     document.getElementById('fotoDriverBox').innerHTML = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
     document.getElementById('statusScanWajah').textContent = '';
     tandaiBorderDriver(null);
+    kotakMerah(document.getElementById('fotoDriverBox'), false);
     document.getElementById('driverBadgeUpdate').classList.add('hidden');
+    aturBlacklist('supir', null);
     supirTerverifikasi = false;
     aturStatusForm('draft');
 }
@@ -227,8 +247,8 @@ window.addEventListener('platLookup', (e) => {
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
     document.getElementById('formNoStnk').value = d.no_stnk || '';
     tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
-    tampilkanBannerBlacklist(d.kendaraan_blacklist && d.status !== 'ADA_TIKET'
-        ? infoBlacklistKendaraan(d.no_plat, d.kendaraan_blacklist) : null);
+    aturBlacklist('kendaraan', d.kendaraan_blacklist && d.status !== 'ADA_TIKET'
+        ? { siapa: d.no_plat, info: d.kendaraan_blacklist } : null);
 
     if (d.status === 'ADA_TIKET') {
         document.getElementById('formNoDo').value = d.no_do || '';
@@ -250,6 +270,8 @@ window.addEventListener('platLookup', (e) => {
         document.getElementById('formNoDo').value = '';
         document.getElementById('infoDO').classList.add('hidden');
     }
+    // Tiket yang sudah ada: tanpa banner (sama seperti kendaraan). Draft: supir terakhir / utama blacklist ikut diperingatkan
+    aturBlacklistSupir(d.status === 'ADA_TIKET' ? null : [d.driver_utama, d.driver].find(x => x && x.is_blacklisted) || null);
 });
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
@@ -330,12 +352,7 @@ async function mulaiScanWajah() {
 function terapkanHasilScanWajah(data) {
     const status = document.getElementById('statusScanWajah');
     const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
-    if (data.is_blacklisted) {
-        // Blacklist = peringatan: supir tetap terverifikasi, tiket tetap bisa dibuat (tercatat di Audit Log)
-        tampilkanBannerBlacklist({ judul: `PERINGATAN: SUPIR ${nama} MASUK BLACKLIST`,
-            detail: 'Tiket tetap bisa dibuat, dan tercatat di Audit Log (TRY_SCAN_BLACKLIST) untuk HO.' });
-        Notif.peringatan(`${nama} masuk daftar blacklist`);
-    }
+    if (data.is_blacklisted) Notif.peringatan(`${nama} masuk daftar blacklist`);   // banner diisi isiDriver()
     if (data.kategori && data.kategori !== 'DRIVER') {
         status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml((LABEL_KATEGORI[data.kategori] || [labelKode(data.kategori)])[0])}, bukan supir.</span>`;
         return;
@@ -398,7 +415,9 @@ function bukaTambahSupir(konteks) {
     ['tambahNama', 'tambahNik', 'tambahSim'].forEach(id => document.getElementById(id).value = '');
     streamState['tambahBlob'] = null;
     document.getElementById('tambahFotoPreview').innerHTML = '<i class="fa-solid fa-camera text-slate-300 text-2xl"></i>';
+    document.getElementById('tambahKode').value = '';
     openModal('modalTambahSupir');
+    ambilJson('/api/personel/saran-kode?kategori=DRIVER').then(s => { if (s.kode) document.getElementById('tambahKode').value = s.kode; });
 }
 
 async function simpanSupirBaru(btn) {
@@ -420,7 +439,7 @@ async function simpanSupirBaru(btn) {
             setModeUpdate('truk');
             return;
         }
-        isiDriver({ id_driver: data.id_driver, nik: document.getElementById('tambahNik').value.trim(),
+        isiDriver({ id_driver: data.id_driver, kode_personel: data.kode_personel, nik: document.getElementById('tambahNik').value.trim(),
                     nama: document.getElementById('tambahNama').value.trim(),
                     no_sim: document.getElementById('tambahSim').value.trim(),
                     is_updated: false, foto_path: data.foto_path });
@@ -560,6 +579,10 @@ async function simpanEditIdentitas(btn) {
 async function submitCreateTiket(btn) {
     const idDriver = document.getElementById('driverIdDriver').value;
     if (!idDriver) { Notif.peringatan('Scan wajah / pilih supir dulu'); return; }
+    const kenaBlacklist = ['kendaraan', 'supir'].filter(j => blacklistForm[j]).map(j => blacklistForm[j].siapa);
+    if (kenaBlacklist.length && !await Dialog.konfirmasi({
+        judul: 'Masuk daftar blacklist', teksYa: 'Tetap buat tiket', teksBatal: 'Batal', bahaya: true,
+        pesan: `${kenaBlacklist.join(' dan ')} masuk daftar blacklist. Tetap buat tiket? Tercatat di Audit Log.` })) return;
 
     const formData = new FormData();
     ['no_tiket:formNoTiket', 'no_plat:formNoPlat', 'no_stnk:formNoStnk', 'no_do:formNoDo',
@@ -601,6 +624,8 @@ function isiDriver(dr) {
         ? `<img src="${escapeHtml(urlBerkas(dr.foto_path))}" class="w-full h-full object-cover" alt="">`
         : '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
     document.getElementById('driverBadgeUpdate').classList.toggle('hidden', !dr.is_updated);
+    kotakMerah(document.getElementById('fotoDriverBox'), !!dr.is_blacklisted);
+    aturBlacklistSupir(dr);
 }
 
 // ===== CETAK QR =====

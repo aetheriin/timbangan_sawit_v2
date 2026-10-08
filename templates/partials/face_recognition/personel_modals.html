@@ -56,7 +56,8 @@
                         </div>
                         <div>
                             <label class="field-label" for="personelKode">Kode Personel</label>
-                            <input type="text" id="personelKode" class="input-field uppercase">
+                            <input type="text" id="personelKode" class="input-field uppercase{% if not boleh_kode %} bg-slate-50{% endif %}"
+                                   {% if not boleh_kode %}readonly placeholder="otomatis sesuai kategori"{% endif %}>
                         </div>
                         <div>
                             <label class="field-label" for="personelNama">Nama Lengkap</label>
@@ -68,26 +69,24 @@
                         </div>
                         <div{% if kategori_tetap %} class="hidden"{% endif %}>
                             <label class="field-label" for="personelKategori">Kategori</label>
-                            <select id="personelKategori" class="input-field" data-on-change="perbaruiHintSim">
-                                <option value="DRIVER">DRIVER</option>
-                                <option value="SECURITY">SECURITY</option>
-                                <option value="EMPLOYEE">EMPLOYEE HO</option>
-                                <option value="TAMU">TAMU</option>
+                            <select id="personelKategori" class="input-field" data-on-change="gantiKategoriPersonel">
+                                <option value="">-- Pilih kategori --</option>
+                                {% for k in kategori_list or [] %}<option value="{{ k.kode }}" data-wajib-sim="{{ 1 if k.wajib_sim else 0 }}">{{ k.nama }}</option>{% endfor %}
                             </select>
                         </div>
-                        <div>
+                        <div class="blok-sim">
                             <label class="field-label" for="personelSim">No. SIM</label>
                             <input type="text" id="personelSim" maxlength="30" class="input-field uppercase">
-                            <p id="personelHintSim" class="field-hint text-amber-700">wajib untuk DRIVER</p>
+                            <p id="personelHintSim" class="field-hint text-amber-700">wajib untuk kategori ini</p>
                         </div>
-                        <div>
+                        <div class="blok-sim">
                             <label class="field-label" for="personelJenisSim">Jenis SIM</label>
                             <select id="personelJenisSim" class="input-field">
                                 <option value="">-- Pilih --</option>
                                 {% for j in jenis_sim_list or [] %}<option value="{{ j.id_jenis_sim }}">{{ j.nama }}</option>{% endfor %}
                             </select>
                         </div>
-                        <div>
+                        <div class="blok-sim">
                             <label class="field-label" for="personelSimBerlaku">SIM Berlaku Sampai</label>
                             <input type="date" id="personelSimBerlaku" class="input-field">
                         </div>

@@ -95,3 +95,34 @@
         </div>
     </form>
 </div>
+
+<!-- MODAL: Kategori Personel (kode personel per kategori, mis. DRV-001) -->
+<div id="modalOrg-kategori" class="modal-overlay">
+    <form id="formOrg-kategori" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/kategori/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Kategori Personel</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-kategori" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="kode_lama">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="field-label" for="orgKatKode">Kode</label>
+                    <input type="text" id="orgKatKode" name="kode" required maxlength="20" pattern="[A-Za-z0-9_]{2,20}" class="input-field uppercase font-mono">
+                    <p class="field-hint">Tidak bisa diubah setelah disimpan</p></div>
+                <div><label class="field-label" for="orgKatPrefix">Prefix Kode Personel</label>
+                    <input type="text" id="orgKatPrefix" name="prefix_kode" maxlength="10" pattern="[A-Za-z0-9]{1,10}" class="input-field uppercase font-mono">
+                    <p class="field-hint">mis. DRV → DRV-001, DRV-002</p></div>
+            </div>
+            <div><label class="field-label" for="orgKatNama">Nama</label>
+                <input type="text" id="orgKatNama" name="nama" required maxlength="50" class="input-field"></div>
+            <div class="flex gap-6 text-sm">
+                <label class="flex items-center gap-2"><input type="checkbox" name="wajib_sim" value="1"> Wajib SIM</label>
+                <label class="flex items-center gap-2"><input type="checkbox" name="boleh_akun" value="1"> Boleh punya akun login</label>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-kategori" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

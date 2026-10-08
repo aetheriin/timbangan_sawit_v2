@@ -212,12 +212,12 @@ def driver_tambah():
                                      "Gunakan data supir tersebut lewat Update."}), 400
         return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama}"}), 400
 
-    driver_id = insert_driver(nik, nama, no_sim, embedding_to_binary(embedding), foto_path, current_user.id)
+    driver_id, kode = insert_driver(nik, nama, no_sim, embedding_to_binary(embedding), foto_path, current_user.id)
     verif.simpan_hasil_user(id_pos(), current_user.id, id_driver=driver_id, nama=nama, nik=nik, no_sim=no_sim,
-                            is_updated=False, foto_path=foto_path, kode_personel=None, kategori="DRIVER",
+                            is_updated=False, foto_path=foto_path, kode_personel=kode, kategori="DRIVER",
                             is_blacklisted=False)
-    return jsonify({"message": f"Supir '{nama}' berhasil ditambahkan",
-                    "id_driver": driver_id, "foto_path": foto_path}), 200
+    return jsonify({"message": f"Supir '{nama}' ({kode}) berhasil ditambahkan",
+                    "id_driver": driver_id, "kode_personel": kode, "foto_path": foto_path}), 200
 
 @security_bp.route("/api/driver/update-identitas", methods=["POST"])
 @login_required

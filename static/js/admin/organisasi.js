@@ -6,8 +6,11 @@ const ORG = {
     department: { id: 'id_department', nama: 'Department', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Mill', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
+    kategori: { id: 'kode', nama: 'Kategori Personel', kolom: k => [mono(k.kode), escapeHtml(k.nama),
+                k.prefix_kode ? mono(`${k.prefix_kode}-001`) : '<span class="text-slate-400">PRGBS-001</span>',
+                k.wajib_sim ? 'Ya' : '-', k.boleh_akun ? 'Ya' : '-'] },
 };
-let dataOrg = { company: [], area: [], department: [], mill: [] };
+let dataOrg = { company: [], area: [], department: [], mill: [], kategori: [] };
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 
@@ -39,7 +42,9 @@ function bukaOrganisasi(jenis, id) {
     const form = document.getElementById(`formOrg-${jenis}`);
     const r = id ? dataOrg[jenis].find(x => x[cfg.id] === id) : null;
     form.reset();
-    isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
+    isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '', prefix_kode: r.prefix_kode || '', kode_lama: r.kode }
+                    : { [cfg.id]: '', kode_lama: '' });
+    if (form.elements.kode_lama) form.elements.kode.readOnly = !!r;      // kode kategori tetap setelah dibuat
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]), select').focus();

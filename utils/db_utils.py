@@ -355,9 +355,11 @@ def cari_wajah_mirip_driver(embedding_baru, threshold=None, exclude_id=None):
     return (id_personel, nama) if id_personel is not None else None
 
 def insert_driver(nik, nama, no_sim, embedding_binary, foto_path=None, user_id=None, foto_sumber='KAMERA'):
-    """Supir baru dari modal Tambah di Form Create Ticket = personel kategori DRIVER."""
-    from utils.db_personel import insert_personel
-    return insert_personel(nik, nama, no_sim, 'DRIVER', None, embedding_binary, foto_path, foto_sumber, user_id)
+    """Supir baru dari modal Tambah di Form Create Ticket = personel kategori DRIVER, kode otomatis (mis. DRV-012).
+    Kembalikan (id_personel, kode_personel)."""
+    from utils.db_personel import insert_personel, saran_kode_personel
+    kode = saran_kode_personel('DRIVER')
+    return insert_personel(nik, nama, no_sim, 'DRIVER', kode, embedding_binary, foto_path, foto_sumber, user_id), kode
 
 def hitung_hash_driver(nik, nama, no_sim, timestamp, secret_key=None):
     if secret_key is None:

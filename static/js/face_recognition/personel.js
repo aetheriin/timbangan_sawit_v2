@@ -78,7 +78,7 @@ function tanggalHariIni() {
 function resetFormPersonel() {
     ['personelId', 'personelKode', 'personelNama', 'personelNik', 'personelSim', 'personelJenisSim', 'personelSimBerlaku']
         .forEach(id => document.getElementById(id).value = '');
-    document.getElementById('personelKategori').value = KATEGORI_TETAP || 'DRIVER';
+    document.getElementById('personelKategori').value = KATEGORI_TETAP || '';
     document.getElementById('personelFile').value = '';
     document.getElementById('personelCekPesan').textContent = '';
     fotoPersonel = null;
@@ -100,11 +100,21 @@ async function bukaTambahPersonel() {
     document.getElementById('personelDropTeks').textContent = 'Seret foto ke sini atau klik untuk memilih';
     openModal('modalPersonel');
 
-    const saran = await ambilJson('/api/personel/saran-kode');
-    if (saran.kode) {
-        document.getElementById('personelKode').value = saran.kode;
-        document.getElementById('personelSaranKode').textContent = `diisi / diubah HO · saran: ${saran.kode}`;
-    }
+    if (KATEGORI_TETAP) isiSaranKodePersonel();
+}
+
+// Kode otomatis per kategori (mis. DRV-012); HO masih bisa mengubahnya
+async function isiSaranKodePersonel() {
+    const kategori = document.getElementById('personelKategori').value;
+    const kode = document.getElementById('personelKode');
+    if (!kategori) { kode.value = ''; return; }
+    const saran = await ambilJson(`/api/personel/saran-kode?kategori=${encodeURIComponent(kategori)}`);
+    if (saran.kode && document.getElementById('personelKategori').value === kategori) kode.value = saran.kode;
+}
+
+function gantiKategoriPersonel() {
+    perbaruiHintSim();
+    if (modePersonel === 'tambah') isiSaranKodePersonel();     // ubah: kode lama tetap
 }
 
 async function bukaEditPersonel(id) {
@@ -130,12 +140,7 @@ async function bukaEditPersonel(id) {
     perbaruiHintSim();
     openModal('modalPersonel');
 
-    if (!p.kode_personel) {
-        const saran = await ambilJson('/api/personel/saran-kode');
-        if (saran.kode) document.getElementById('personelSaranKode').textContent = `sebelumnya kosong · saran: ${saran.kode}`;
-    } else {
-        document.getElementById('personelSaranKode').textContent = 'diisi / diubah HO';
-    }
+    if (!p.kode_personel) isiSaranKodePersonel();
 }
 
 function tutupModalPersonel() {
@@ -145,9 +150,12 @@ function tutupModalPersonel() {
     closeModal('modalPersonel');
 }
 
+// No. SIM, jenis & masa berlaku hanya untuk kategori wajib SIM (Admin › Organisasi › Kategori Personel)
 function perbaruiHintSim() {
-    const driver = document.getElementById('personelKategori').value === 'DRIVER';
-    document.getElementById('personelHintSim').classList.toggle('hidden', !driver);
+    const sel = document.getElementById('personelKategori');
+    const wajib = sel.selectedIndex >= 0 && sel.options[sel.selectedIndex].dataset.wajibSim === '1';
+    document.querySelectorAll('#modalPersonel .blok-sim').forEach(el => el.classList.toggle('hidden', !wajib));
+    if (!wajib) ['personelSim', 'personelJenisSim', 'personelSimBerlaku'].forEach(id => document.getElementById(id).value = '');
 }
 
 // ----- sumber foto: Upload / Kamera -----
@@ -243,6 +251,7 @@ async function cekFotoPersonel() {
 }
 
 async function simpanPersonel() {
+    if (!document.getElementById('personelKategori').value) { Notif.peringatan('Pilih kategori personel'); return; }
     if (modePersonel === 'tambah' && !fotoPersonel) { Notif.peringatan('Foto wajah wajib diisi (upload atau kamera)'); return; }
     const formData = new FormData();
     [['kode_personel', 'personelKode'], ['nama', 'personelNama'], ['nik', 'personelNik'],

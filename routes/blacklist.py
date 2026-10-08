@@ -2,7 +2,8 @@
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from utils.db_blacklist import TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel
+from utils.db_blacklist import (TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel,
+                                get_surat_blacklist)
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
@@ -21,6 +22,16 @@ def blacklist_riwayat():
     tipe = request.args.get("tipe", "").upper()
     return jsonify(get_riwayat_blacklist(tipe if tipe in TIPE_VALID else None,
                                          request.args.get("cari", "").strip() or None))
+
+
+@blacklist_bp.route("/api/blacklist/info/<tipe>/<int:id_target>")
+@login_required
+def blacklist_info(tipe, id_target):
+    """Surat & penetap blacklist (banner peringatan Form Security). Blacklist berlaku di semua area."""
+    tipe = tipe.upper()
+    if tipe not in ("PERSONEL", "KENDARAAN"):
+        return jsonify({"error": "Tipe tidak dikenal"}), 400
+    return jsonify(get_surat_blacklist(tipe, id_target) or {})
 
 
 @blacklist_bp.route("/api/blacklist/cari-target")

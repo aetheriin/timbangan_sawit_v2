@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from utils import db_master as db, db_admin, alur, log_aktivitas
 from utils.plat_utils import normalisasi_plat
 from utils.hak_akses import izin, boleh
-from utils.db_personel import daftar_jenis_sim
+from utils.db_personel import daftar_jenis_sim, daftar_kategori
 
 master_bp = Blueprint("master", __name__)
 
@@ -16,6 +16,7 @@ def master_halaman():
                            boleh_ubah=boleh("MASTER_DRIVER"), boleh_kendaraan=boleh("MASTER_KENDARAAN"),
                            hak={k: {a: boleh(f"MASTER_{k.upper()}", a) for a in ("tambah", "ubah")} for k in ("mitra", "produk")},
                            driver_list=db.daftar_driver_aktif(), jenis_sim_list=daftar_jenis_sim(),
+                           kategori_list=list(daftar_kategori().values()), boleh_kode=boleh("PERSONEL", "ubah"),
                            jenis_kendaraan_list=db.daftar_jenis_kendaraan(),
                            alur_list=alur.daftar_alur(), kategori_produk=db_admin.KATEGORI_PRODUK)
 

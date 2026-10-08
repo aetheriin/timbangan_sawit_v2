@@ -7,7 +7,7 @@ from utils.db_utils import cek_nik_ada, cari_wajah_mirip_driver
 from utils.db_personel import (get_daftar_personel, get_personel, cek_kode_ada, saran_kode_personel,
                                insert_personel, update_personel, hapus_personel, daftar_kategori, daftar_jenis_sim,
                                sim_dipakai)
-from utils.personel_utils import KATEGORI_VALID, validasi_personel, format_nama_personel
+from utils.personel_utils import validasi_personel, format_nama_personel
 from utils.upload_utils import simpan_upload, hapus_file
 from utils.audit_utils import catat_security_audit
 from utils.face_cache import slot_proses_wajah
@@ -104,7 +104,7 @@ def _validasi(data, exclude_id=None):
 @login_required
 def personel_daftar():
     kategori = request.args.get("kategori", "").upper()
-    return jsonify(get_daftar_personel(kategori if kategori in KATEGORI_VALID else None,
+    return jsonify(get_daftar_personel(kategori if kategori in daftar_kategori(semua=True) else None,
                                        request.args.get("cari", "").strip() or None,
                                        request.args.get("blacklist") == "1"))
 
@@ -112,7 +112,20 @@ def personel_daftar():
 @personel_bp.route("/api/personel/saran-kode")
 @login_required
 def personel_saran_kode():
-    return jsonify({"kode": saran_kode_personel()})
+    """Saran kode per kategori (prefix di Admin › Organisasi › Kategori Personel), mis. DRV-012."""
+    return jsonify({"kode": saran_kode_personel((request.args.get("kategori") or "").strip().upper() or None)})
+
+
+def _rapikan(data, lama=None):
+    """SIM hanya untuk kategori wajib SIM. Kode: hanya level dengan hak ubah Personel (HO) boleh mengisi sendiri;
+    selain itu otomatis per kategori (tambah) atau tetap kode lama (ubah)."""
+    kategori = daftar_kategori(semua=True).get(data["kategori"]) or {}
+    if not kategori.get("wajib_sim"):
+        data["no_sim"] = data["id_jenis_sim"] = data["sim_berlaku"] = None
+    if not boleh("PERSONEL", "ubah"):
+        data["kode"] = lama["kode_personel"] if lama else None
+    if not data["kode"]:
+        data["kode"] = saran_kode_personel(data["kategori"])
 
 
 @personel_bp.route("/api/personel/<int:id_personel>")
@@ -144,6 +157,7 @@ def personel_tambah():
     ditolak = _cek_role_kategori("tambah", data["kategori"])
     if ditolak:
         return ditolak
+    _rapikan(data)
     error = _validasi(data)
     if error:
         return jsonify({"error": error}), 400
@@ -174,6 +188,7 @@ def personel_update(id_personel):
     ditolak = _cek_role_kategori("ubah", lama["kategori"], data["kategori"])
     if ditolak:
         return ditolak
+    _rapikan(data, lama)
     error = _validasi(data, exclude_id=id_personel)
     if error:
         return jsonify({"error": error}), 400

@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
    Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-017). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
+   (setara schema awal + migrasi 001-020). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
@@ -83,6 +83,7 @@ CREATE TABLE dbo.kategori_personel (
     nama        NVARCHAR(50)  NOT NULL,
     wajib_sim   BIT NOT NULL CONSTRAINT DF_KatPersonel_Sim DEFAULT (0),
     boleh_akun  BIT NOT NULL CONSTRAINT DF_KatPersonel_Akun DEFAULT (0),
+    prefix_kode VARCHAR(10)   NULL,                 -- kode personel per kategori, mis. DRV-001 (migrasi 020)
     is_active   BIT NOT NULL CONSTRAINT DF_KatPersonel_Aktif DEFAULT (1)
 );
 CREATE TABLE dbo.personel (
@@ -793,11 +794,11 @@ INSERT INTO dbo.jenis_dokumen (kode, nama, wajib_file) VALUES
     ('STNK',            N'Scan STNK', 1),
     ('KONTRAK',         N'Dokumen Kontrak', 0);
 -- Kategori personel, jenis SIM, keperluan kunjungan (migrasi 009)
-INSERT INTO dbo.kategori_personel (kode, nama, wajib_sim, boleh_akun) VALUES
-    ('DRIVER',   N'Driver',   1, 0),
-    ('SECURITY', N'Security', 0, 1),
-    ('EMPLOYEE', N'Karyawan', 0, 1),
-    ('TAMU',     N'Tamu',     0, 0);
+INSERT INTO dbo.kategori_personel (kode, nama, wajib_sim, boleh_akun, prefix_kode) VALUES
+    ('DRIVER',   N'Driver',   1, 0, 'DRV'),
+    ('SECURITY', N'Security', 0, 1, 'SEC'),
+    ('EMPLOYEE', N'Karyawan', 0, 1, 'KRY'),
+    ('TAMU',     N'Tamu',     0, 0, 'TMU');
 INSERT INTO dbo.jenis_sim (kode, nama) VALUES
     ('A', N'SIM A'), ('B1', N'SIM B1'), ('B1_UMUM', N'SIM B1 Umum'), ('B2', N'SIM B2'), ('B2_UMUM', N'SIM B2 Umum');
 INSERT INTO dbo.jenis_sim (kode, nama, is_active) VALUES ('BELUM_DIISI', N'Belum dilengkapi', 0);

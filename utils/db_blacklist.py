@@ -163,8 +163,9 @@ def get_surat_blacklist(tipe, id_target):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist, dk.tanggal AS tgl_blacklist,
-                              df.file_path AS file_surat_blacklist, u.nama AS oleh
+                              df.file_path AS file_surat_blacklist, u.nama AS oleh, ar.nama AS area_oleh
                        FROM blacklist b JOIN akun u ON b.created_by = u.id_user
+                       LEFT JOIN comp_area ar ON ar.id_comp_area = u.id_comp_area
                        JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                     WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df

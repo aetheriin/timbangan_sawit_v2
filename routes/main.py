@@ -18,7 +18,7 @@ from utils import pengaturan, kiosk
 from utils.keamanan import id_pos
 from utils.hak_akses import boleh
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
-from utils.db_personel import daftar_jenis_sim
+from utils.db_personel import daftar_jenis_sim, daftar_kategori
 from utils.db_kunjungan import daftar_keperluan, area_akun
 
 main_bp = Blueprint('main', __name__)
@@ -72,7 +72,8 @@ def face_recognition():
     """Satu halaman, tab Absensi | Personel | Blacklist | Audit Log (tanpa info bar)."""
     return render_template("face_recognition/face_recognition.html", halaman="face", boleh_ubah=boleh("PERSONEL"),
                            jenis_sim_list=daftar_jenis_sim(), keperluan_list=daftar_keperluan(),
-                           boleh_kunjungan=boleh("KUNJUNGAN"))
+                           boleh_kunjungan=boleh("KUNJUNGAN"), kategori_list=list(daftar_kategori().values()),
+                           boleh_kode=boleh("PERSONEL", "ubah"))
 
 @main_bp.route("/api/plat/lookup", methods=["POST"])
 @login_required

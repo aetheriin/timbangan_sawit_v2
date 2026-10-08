@@ -155,6 +155,7 @@ INSERT INTO @kolom VALUES
 ('kategori_personel','kode','migrasi 009'),
 ('kategori_personel','nama','migrasi 009'),
 ('kategori_personel','wajib_sim','migrasi 009'),
+('kategori_personel','prefix_kode','migrasi 020'),
 ('kategori_personel','boleh_akun','migrasi 009'),
 ('kategori_personel','is_active','migrasi 009'),
 ('kendaraan','id_kendaraan','schema awal'),

@@ -3,14 +3,14 @@
     <!-- ===== FORM PENDAFTARAN TIKET (tab Security di halaman Form) ===== -->
     <div>
 
-        <!-- Banner merah: kendaraan / supir masuk blacklist (diisi security.js) -->
-        <div id="bannerBlacklist" class="note-danger hidden mb-4 items-center gap-4">
-            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-600"></i>
-            <div class="flex-1">
-                <p id="bannerBlacklistJudul" class="font-bold text-red-700"></p>
-                <p id="bannerBlacklistDetail" class="text-xs text-slate-700"></p>
+        <!-- Banner merah: kendaraan dan / atau supir masuk blacklist (diisi security.js). Peringatan saja, tiket tetap bisa dibuat -->
+        <div id="bannerBlacklist" class="note-danger hidden mb-4 items-start gap-4 border-2 border-red-500">
+            <i class="fa-solid fa-triangle-exclamation text-2xl text-red-600 mt-0.5"></i>
+            <div class="flex-1 space-y-2">
+                <p class="font-bold text-red-700">PERINGATAN BLACKLIST</p>
+                <div id="bannerBlacklistIsi" class="space-y-2"></div>
+                <p class="text-xs text-slate-600">Tiket tetap bisa dibuat. Setiap deteksi dan tiket tercatat di Audit Log.</p>
             </div>
-            <a id="bannerBlacklistSurat" href="#" target="_blank" class="btn-outline-danger hidden">Lihat surat</a>
         </div>
 
         <div class="section-box">
@@ -52,7 +52,7 @@
 
                             <div>
                                 <label class="field-label">Pengemudi Terakhir Truk</label>
-                                <div class="border border-slate-200 rounded-lg p-4 flex items-center gap-4 bg-slate-50 h-[calc(100%-1.75rem)]">
+                                <div id="pengemudiKartu" class="border border-slate-200 rounded-lg p-4 flex items-center gap-4 bg-slate-50 h-[calc(100%-1.75rem)]">
                                     <div id="pengemudiFotoBox" class="info-photo-box">
                                         <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
                                     </div>

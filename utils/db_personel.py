@@ -1,4 +1,6 @@
 from datetime import datetime
+
+import pyodbc
 from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver
 from utils.personel_utils import PREFIX_KODE, kode_berikutnya
 from utils.face_cache import invalidate as reset_cache_wajah
@@ -60,13 +62,24 @@ def cek_kode_ada(kode, exclude_id=None):
     return ada
 
 
-def saran_kode_personel():
+def prefix_kategori(kategori):
+    """'DRV-' untuk kategori dengan prefix (Admin › Organisasi › Kategori Personel), selain itu PREFIX_KODE lama."""
+    prefix = ((daftar_kategori(semua=True).get(kategori or "") or {}).get("prefix_kode") or "").strip().upper()
+    return f"{prefix}-" if prefix else PREFIX_KODE
+
+
+def saran_kode_personel(kategori=None):
+    """Kode berikutnya untuk kategori: nomor terbesar prefix itu + 1 (unik, tidak menimpa kode lama)."""
+    prefix = prefix_kategori(kategori)
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT kode_personel FROM personel WHERE kode_personel LIKE ?", f"{PREFIX_KODE}%")
-    kode = [r.kode_personel for r in cursor.fetchall()]
-    conn.close()
-    return kode_berikutnya(kode)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT kode_personel FROM personel WHERE kode_personel LIKE ?",
+                       prefix.replace("[", "[[]").replace("_", "[_]").replace("%", "[%]") + "%")
+        kode = [r.kode_personel for r in cursor.fetchall()]
+    finally:
+        conn.close()
+    return kode_berikutnya(kode, prefix)
 
 
 def _catat_audit(cursor, id_personel, aksi, lama, baru, user_id):
@@ -204,14 +217,44 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
 
 
 # ===== MASTER KATEGORI & JENIS SIM =====
-def daftar_kategori():
-    """{kode: {nama, wajib_sim, boleh_akun}} kategori aktif."""
+def daftar_kategori(semua=False):
+    """{kode: {kode, nama, wajib_sim, boleh_akun, prefix_kode, is_active}}; bawaan hanya yang aktif.
+    Sebelum migrasi 020 (tanpa prefix_kode) tetap jalan dengan prefix kosong."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT kode, nama, wajib_sim, boleh_akun FROM kategori_personel WHERE is_active = 1")
-        return {r["kode"]: {**r, "wajib_sim": bool(r["wajib_sim"]), "boleh_akun": bool(r["boleh_akun"])}
-                for r in _rows_to_dicts(cursor)}
+        try:
+            cursor.execute("SELECT kode, nama, wajib_sim, boleh_akun, prefix_kode, is_active FROM kategori_personel")
+        except pyodbc.Error:
+            cursor.execute("SELECT kode, nama, wajib_sim, boleh_akun, NULL AS prefix_kode, is_active FROM kategori_personel")
+        return {r["kode"]: {**r, "wajib_sim": bool(r["wajib_sim"]), "boleh_akun": bool(r["boleh_akun"]),
+                            "is_active": bool(r["is_active"])}
+                for r in _rows_to_dicts(cursor) if semua or r["is_active"]}
+    finally:
+        conn.close()
+
+
+def simpan_kategori(kode_lama, kode, nama, prefix_kode, wajib_sim, boleh_akun):
+    """kode_lama None = tambah. Kode kategori tidak bisa diubah setelah dibuat (dipakai personel)."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if kode_lama is None:
+            cursor.execute("""INSERT INTO kategori_personel (kode, nama, wajib_sim, boleh_akun, prefix_kode)
+                              VALUES (?, ?, ?, ?, ?)""", kode, nama, int(wajib_sim), int(boleh_akun), prefix_kode)
+        else:
+            cursor.execute("""UPDATE kategori_personel SET nama = ?, wajib_sim = ?, boleh_akun = ?, prefix_kode = ?
+                              WHERE kode = ?""", nama, int(wajib_sim), int(boleh_akun), prefix_kode, kode_lama)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_aktif_kategori(kode, aktif):
+    conn = get_connection()
+    try:
+        conn.cursor().execute("UPDATE kategori_personel SET is_active = ? WHERE kode = ?", int(aktif), kode)
+        conn.commit()
     finally:
         conn.close()
 
