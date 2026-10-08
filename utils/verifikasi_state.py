@@ -1,34 +1,14 @@
-"""State scan wajah supir per pos (kiosk).
+"""Hasil scan wajah supir di Form Security (webcam browser).
 
-Sebelumnya satu variabel global untuk seluruh server: hasil scan di satu pos bisa terpakai PC lain.
-Sekarang per pos, dan hasilnya hanya bisa dibaca / dipakai oleh user yang menekan "Mulai Scan Wajah"
-(pemilik), serta kedaluwarsa setelah BERLAKU."""
+Disimpan per PC (cookie pos) dan per user: hanya user yang men-scan yang bisa memakainya untuk membuat tiket,
+dan kedaluwarsa setelah BERLAKU."""
 import threading
 from datetime import datetime, timedelta
 
 BERLAKU = timedelta(minutes=5)          # hasil scan harus dipakai (Submit) dalam 5 menit
-KAMERA_MAKS = timedelta(minutes=2)      # kamera kiosk otomatis dianggap selesai setelah 2 menit
 
 _lock = threading.Lock()
-_pos = {}       # pos -> {"aktif", "pemilik", "mulai", "hasil"}
-
-
-def mulai_scan(pos, user_id):
-    with _lock:
-        _pos[pos] = {"aktif": True, "pemilik": user_id, "mulai": datetime.now(), "hasil": None}
-
-
-def batal(pos):
-    with _lock:
-        st = _pos.get(pos)
-        if st:
-            st["aktif"] = False
-
-
-def kamera_aktif(pos):
-    with _lock:
-        st = _pos.get(pos)
-        return bool(st and st["aktif"] and datetime.now() - st["mulai"] < KAMERA_MAKS)
+_pos = {}       # pos -> {"pemilik", "hasil"}
 
 
 def _data(id_driver, nama, nik, no_sim, is_updated, foto_path, kode_personel, kategori, is_blacklisted):
@@ -37,20 +17,10 @@ def _data(id_driver, nama, nik, no_sim, is_updated, foto_path, kode_personel, ka
             "is_blacklisted": is_blacklisted, "dilog": False, "waktu": datetime.now()}
 
 
-def simpan_hasil_kiosk(pos, **data):
-    """Hasil dari kiosk hanya diterima bila scan di pos itu sedang diminta user."""
-    with _lock:
-        st = _pos.get(pos)
-        if not st or not st["aktif"]:
-            return False
-        st["hasil"], st["aktif"] = _data(**data), False
-        return True
-
-
 def simpan_hasil_user(pos, user_id, **data):
-    """Supir baru direkam / data diubah langsung oleh user di form -> dianggap terverifikasi untuk user itu."""
+    """Scan wajah berhasil / supir baru direkam / data diubah oleh user di form -> terverifikasi untuk user itu."""
     with _lock:
-        _pos[pos] = {"aktif": False, "pemilik": user_id, "mulai": datetime.now(), "hasil": _data(**data)}
+        _pos[pos] = {"pemilik": user_id, "hasil": _data(**data)}
 
 
 def ambil(pos, user_id):

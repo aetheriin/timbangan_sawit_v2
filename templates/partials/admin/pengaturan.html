@@ -10,5 +10,8 @@
     <div id="grupPengaturan" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4"></div>
     <div class="flex items-center gap-3">
         <button type="submit" class="btn-primary"><i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Pengaturan</button>
+        <button type="button" id="btnSalinCompany" class="btn-secondary hidden" data-on-click="salinPengaturanCompany" data-arg="$el"
+                title="Nilai area ini (yang sudah disimpan) dipakai juga oleh semua area lain di company yang sama">
+            <i class="fa-solid fa-copy mr-1"></i> Terapkan ke semua area company ini</button>
     </div>
 </form>

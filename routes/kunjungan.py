@@ -13,11 +13,11 @@ from utils.audit_utils import catat_security_audit
 from utils.db_personel import get_personel, insert_personel, saran_kode_personel
 from utils.db_utils import cek_nik_ada
 from utils.face_cache import slot_proses_wajah, cari_terdekat
-from utils.face_utils import extract_embedding_tunggal, embedding_to_binary
+from utils.face_utils import extract_embedding_tunggal, embedding_to_binary, cek_liveness
 from utils.hak_akses import izin
 from utils.personel_utils import format_nama_personel, validasi_personel
 from utils.plat_utils import normalisasi_plat
-from utils.upload_utils import simpan_upload, hapus_file
+from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
 
 kunjungan_bp = Blueprint("kunjungan", __name__)
 
@@ -52,19 +52,26 @@ def kunjungan_dituju():
 @login_required
 @izin("KUNJUNGAN", "tambah")
 def kunjungan_cari_wajah():
-    """Satu foto dari kamera -> personel yang paling mirip, atau dikenali=False (tamu baru). Foto tidak disimpan."""
+    """Foto dari kamera -> personel yang paling mirip, atau dikenali=False (tamu baru). Foto tidak disimpan.
+    Bila tantangan tamu wajib di area ini (TANTANGAN_TAMU): beberapa frame + tantangan, dicek liveness."""
+    area = db.area_akun(current_user.id)
+    wajib = pengaturan.nilai("TANTANGAN_TAMU", area)
     try:
-        path_disk, _ = simpan_upload(request.files.get("foto"), "tmp")
+        paths = (simpan_frames(request.files.getlist("frames"), maks=20) if wajib
+                 else [simpan_upload(request.files.get("foto"), "tmp")[0]])
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     try:
         with slot_proses_wajah():
-            embedding, jumlah = extract_embedding_tunggal(path_disk)
+            if not cek_liveness(paths, request.form.get("tantangan", ""), wajib):
+                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
+            embedding, jumlah = extract_embedding_tunggal(paths[len(paths) // 2])
     finally:
-        hapus_file(path_disk)
+        for p in paths:
+            hapus_file(p)
     if jumlah != 1:
         return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", db.area_akun(current_user.id)))
+    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area))
     p = get_personel(id_personel) if id_personel else None
     if not p:
         return jsonify({"dikenali": False})

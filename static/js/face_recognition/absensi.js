@@ -1,13 +1,5 @@
 // ===== TAB ABSENSI: scan wajah live + liveness, absensi hari ini, rekap, jadwal =====
-const TANTANGAN_ABSEN = [
-    ['KEDIP', 'KEDIPKAN MATA'],
-    ['MENOLEH_KIRI', 'MENOLEH KE KIRI'],
-    ['MENOLEH_KANAN', 'MENOLEH KE KANAN'],
-];
-// Waktu scan: hitung mundur dulu, lalu foto direkam SELAMA tantangan (15 x 0,2 detik = 3 detik)
-const HITUNG_MUNDUR_ABSEN = 3;
-const JUMLAH_FRAME_ABSEN = 15;
-const JEDA_FRAME_MS = 200;
+// Tantangan (kedip / menoleh) wajib atau tidak: Admin › Pengaturan Site per area (TANTANGAN_ABSENSI), lihat kamera.js
 
 let absensiDimuat = false;
 let kategoriAbsen = '';
@@ -52,22 +44,22 @@ async function mulaiScanAbsen() {
         return;
     }
 
-    const [kode, teks] = TANTANGAN_ABSEN[Math.floor(Math.random() * TANTANGAN_ABSEN.length)];
     const hitung = document.getElementById('absenHitung');
     status.textContent = 'Hadapkan wajah lurus ke oval...';
     hitung.classList.replace('hidden', 'flex');
-    for (let i = HITUNG_MUNDUR_ABSEN; i > 0; i--) {
-        label.textContent = `Bersiap... setelah ini: ${teks}`;
-        hitung.textContent = i;
-        await new Promise(r => setTimeout(r, 1000));
-        if (!scanAbsenBerjalan) { hitung.classList.replace('flex', 'hidden'); return; }
-    }
+    const { absensi: wajib } = await aturanTantangan();
+    const hasil = await rekamWajah(video, {
+        wajib,
+        tampil: (teks, angka) => {
+            label.textContent = teks;
+            if (angka) hitung.textContent = angka;
+            else { hitung.classList.replace('flex', 'hidden'); status.textContent = 'Foto sedang direkam...'; }
+        },
+        batal: () => !scanAbsenBerjalan,
+    });
     hitung.classList.replace('flex', 'hidden');
-    label.textContent = `Sekarang: ${teks}`;
-    status.textContent = 'Ikuti perintah, foto sedang direkam...';
-
-    const frames = await Kamera.ambilBanyak(video, JUMLAH_FRAME_ABSEN, JEDA_FRAME_MS);
-    if (!scanAbsenBerjalan) return;
+    if (!hasil) return;
+    const { frames, tantangan: kode } = hasil;
     status.textContent = 'Memproses...';
 
     const formData = new FormData();

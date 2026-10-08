@@ -18,6 +18,7 @@ const areaPengaturan = () => document.getElementById('pengaturanArea').value;
 
 async function muatPengaturan() {
     document.getElementById('infoPengaturanArea').classList.toggle('hidden', !areaPengaturan());
+    document.getElementById('btnSalinCompany').classList.toggle('hidden', !areaPengaturan());
     const data = await ambilJson(`/api/admin/pengaturan?area=${encodeURIComponent(areaPengaturan())}`);
     const wadah = document.getElementById('grupPengaturan');
     if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
@@ -56,4 +57,11 @@ document.getElementById('formPengaturan').addEventListener('submit', async e => 
 
 async function kembalikanBawaan(kunci) {
     if (tampilkanHasil(await kirimForm('/api/admin/pengaturan/bawaan', { kunci, id_comp_area: areaPengaturan() }))) muatPengaturan();
+}
+
+async function salinPengaturanCompany(btn) {
+    const ok = await Dialog.konfirmasi({ judul: 'Terapkan ke semua area company?', teksYa: 'Terapkan',
+        pesan: 'Pengaturan area ini (yang sudah disimpan) akan dipakai juga oleh semua area lain di company yang sama.' });
+    if (!ok) return;
+    tampilkanHasil(await denganTombol(btn, () => kirimForm('/api/admin/pengaturan/salin-company', { id_comp_area: areaPengaturan() })));
 }

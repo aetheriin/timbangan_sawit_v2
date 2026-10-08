@@ -84,7 +84,23 @@ function resetFormTamu() {
 async function scanWajahTamu(btn) {
     const video = document.getElementById('tamuVideo');
     if (!Kamera.aktif()) { Notif.peringatan('Nyalakan kamera dulu'); return; }
-    fotoTamu = await Kamera.ambilFrame(video);
+    const status = document.getElementById('tamuStatus');
+    const { tamu: wajib } = await aturanTantangan();       // Admin › Pengaturan Site (per area)
+    const fd = new FormData();
+    if (wajib) {
+        btn.disabled = true;
+        const hasil = await rekamWajah(video, { wajib: true, tampil: (teks, angka) => {
+            status.textContent = angka ? `${teks} (${angka})` : teks; } });
+        btn.disabled = false;
+        if (!hasil) return;
+        hasil.frames.forEach((blob, i) => fd.append('frames', blob, `frame${i}.jpg`));
+        fd.append('tantangan', hasil.tantangan);
+        fotoTamu = hasil.frames[Math.floor(hasil.frames.length / 2)];
+        status.textContent = '';
+    } else {
+        fotoTamu = await Kamera.ambilFrame(video);
+        fd.append('foto', fotoTamu, 'tamu.jpg');
+    }
     const img = document.getElementById('tamuFoto');
     img.src = URL.createObjectURL(fotoTamu);
     img.classList.remove('hidden');
@@ -92,8 +108,6 @@ async function scanWajahTamu(btn) {
     document.getElementById('btnScanTamu').disabled = true;
     resetFormTamu();
 
-    const fd = new FormData();
-    fd.append('foto', fotoTamu, 'tamu.jpg');
     const data = await denganTombol(btn, () => kirimForm('/api/kunjungan/cari-wajah', fd, { timeout: TIMEOUT_WAJAH_MS }), 'Mencocokkan...');
     const hasil = document.getElementById('tamuHasil');
     if (data.error) {

@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import UPLOAD_FOLDER
 from utils import pengaturan
-from utils.face_utils import extract_embedding, verifikasi_liveness
+from utils.face_utils import extract_embedding, cek_liveness, TANTANGAN_VALID, TANPA_TANTANGAN
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.db_personel import get_personel
 from utils.db_kunjungan import area_akun
@@ -20,7 +20,6 @@ from utils.upload_utils import simpan_frames, hapus_file
 
 absensi_bp = Blueprint('absensi', __name__)
 
-TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
 
 
 def _personel_terdekat(embedding):
@@ -37,8 +36,9 @@ def _jam(t):
 @login_required
 def absensi_scan():
     files = request.files.getlist("frames")
-    tantangan = request.form.get("tantangan", "KEDIP")
-    if tantangan not in TANTANGAN_VALID:
+    wajib = pengaturan.nilai("TANTANGAN_ABSENSI", area_akun(current_user.id))
+    tantangan = request.form.get("tantangan", "KEDIP") if wajib else TANPA_TANTANGAN
+    if wajib and tantangan not in TANTANGAN_VALID:
         return jsonify({"error": "Tantangan liveness tidak valid"}), 400
     try:
         paths = simpan_frames(files, maks=20)
@@ -48,7 +48,7 @@ def absensi_scan():
 
         tengah = paths[len(paths) // 2]
         with slot_proses_wajah():
-            if not verifikasi_liveness(paths, tantangan):      # gagal liveness tidak dicatat (bisa diulang)
+            if not cek_liveness(paths, tantangan, wajib):      # gagal liveness tidak dicatat (bisa diulang)
                 return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
             embedding = extract_embedding(tengah)
         if embedding is None:

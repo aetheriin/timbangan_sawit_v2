@@ -78,13 +78,9 @@ class TestVerifikasiPerPos(unittest.TestCase):
                 kode_personel="PRGBS-001", kategori="DRIVER", is_blacklisted=False)
 
     def test_hasil_hanya_untuk_pemilik(self):
-        verif.mulai_scan("POS-A", user_id=1)
-        self.assertTrue(verif.simpan_hasil_kiosk("POS-A", **self.DATA))
+        verif.simpan_hasil_user("POS-A", 1, **self.DATA)
         self.assertIsNone(verif.ambil("POS-A", user_id=2))          # user lain tidak bisa memakai
         self.assertEqual(verif.ambil("POS-A", user_id=1)["id_driver"], 6)
-
-    def test_kiosk_tanpa_permintaan_ditolak(self):
-        self.assertFalse(verif.simpan_hasil_kiosk("POS-B", **self.DATA))
 
     def test_hasil_kedaluwarsa(self):
         verif.simpan_hasil_user("POS-C", 1, **self.DATA)

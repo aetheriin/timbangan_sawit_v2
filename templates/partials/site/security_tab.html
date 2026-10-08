@@ -135,20 +135,9 @@
                                 <div id="fotoDriverBox" class="photo-circle mb-3">
                                     <i class="fa-solid fa-user text-slate-300 text-3xl"></i>
                                 </div>
-                                <video id="videoScanWajah" autoplay playsinline class="hidden w-full rounded-lg mb-3" style="transform: scaleX(-1);"></video>
+                                <video id="videoScanWajah" autoplay playsinline muted class="hidden w-full rounded-lg mb-3 video-mirror"></video>
+                                <p id="instruksiScanWajah" class="hidden text-sm font-bold text-blue-700 mb-2"></p>
                                 <canvas id="canvasScanWajah" class="hidden"></canvas>
-                                {# Pos kamera (kiosk) yang dipakai PC ini, diingat di browser. Daftar pos: Admin > Perangkat / Kiosk #}
-                                {% if pos_list %}
-                                <div class="flex items-center justify-center gap-2 mb-3 text-sm">
-                                    <label for="pilihPos" class="text-slate-600">Pos kamera</label>
-                                    <select id="pilihPos" class="input-field w-auto py-1.5" data-on-change="pilihPosKamera" data-arg="$value">
-                                        {% if pos_dipilih not in pos_list | map(attribute='id_pos') | list %}<option value="">-- Pilih pos --</option>{% endif %}
-                                        {% for p in pos_list %}
-                                        <option value="{{ p.id_pos }}" {% if p.id_pos == pos_dipilih %}selected{% endif %}>{{ p.nama }} ({{ p.id_pos }})</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                {% endif %}
                                 <button id="btnScanWajah" data-on-click="mulaiScanWajah" class="btn-success">Mulai Scan Wajah</button>
                                 <p id="statusScanWajah" class="text-xs text-slate-500 mt-2"></p>
                                 <p id="driverBadgeUpdate" class="hidden text-amber-600 text-xs mt-1">⚠ Data Pernah Diperbarui</p>

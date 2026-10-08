@@ -17,6 +17,12 @@ DEFINISI = {
                          "Tiket hanya bisa dibuat setelah wajah supir terverifikasi"),
     "AMBANG_WAJAH": ("Ambang kemiripan wajah", "Face Recognition", "float", "0.55", 0.30, 0.70,
                      "Jarak maksimal wajah dianggap sama. Kecil = lebih ketat (0.50-0.60 disarankan)"),
+    "TANTANGAN_SECURITY": ("Tantangan wajah di Form Security", "Face Recognition", "bool", "true", None, None,
+                           "Aktif: supir mengikuti tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
+    "TANTANGAN_ABSENSI": ("Tantangan wajah saat absensi", "Face Recognition", "bool", "true", None, None,
+                          "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
+    "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Face Recognition", "bool", "false", None, None,
+                       "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
     "SESI_IDLE_MENIT": ("Logout otomatis bila tidak aktif (menit)", "Sesi Login", "int", "120", 5, 720,
                         "Peringatan muncul 2 menit sebelumnya"),
     "SATU_PERANGKAT": ("1 user 1 perangkat", "Sesi Login", "bool", "true", None, None,
@@ -34,7 +40,7 @@ DEFINISI = {
 }
 
 # Operasional, boleh berbeda per area (migrasi 014). Sisanya keamanan: global.
-PER_AREA = ("WAJIB_SCAN_WAJAH", "AMBANG_WAJAH")
+PER_AREA = ("WAJIB_SCAN_WAJAH", "AMBANG_WAJAH", "TANTANGAN_SECURITY", "TANTANGAN_ABSENSI", "TANTANGAN_TAMU")
 
 _lock = threading.Lock()
 _cache = {"waktu": 0.0, "data": {}, "area": {}}

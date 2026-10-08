@@ -44,6 +44,33 @@ const Kamera = {
     },
 };
 
+// ===== REKAM WAJAH + TANTANGAN (Security, Absensi, Tamu) =====
+// Tantangan wajib / tidak diatur per area di Admin › Pengaturan Site (TANTANGAN_SECURITY / _ABSENSI / _TAMU).
+const TANTANGAN_WAJAH = [['KEDIP', 'KEDIPKAN MATA'], ['MENOLEH_KIRI', 'MENOLEH KE KIRI'], ['MENOLEH_KANAN', 'MENOLEH KE KANAN']];
+let _cacheTantangan = null;
+
+async function aturanTantangan() {
+    if (!_cacheTantangan || Date.now() - _cacheTantangan.waktu > 30000) {
+        const d = await ambilJson('/api/tantangan-wajah');
+        _cacheTantangan = { waktu: Date.now(), data: d.error ? { security: true, absensi: true, tamu: false } : d };
+    }
+    return _cacheTantangan.data;
+}
+
+// tampil(teks, angkaHitung | null) dipanggil untuk memberi instruksi; batal() -> true untuk berhenti.
+// Kembalikan { frames, tantangan } atau null bila dibatalkan. Tanpa tantangan: cukup hadap kamera (5 frame).
+async function rekamWajah(video, { wajib, tampil = () => {}, batal = () => false, hitungMundur = 3 } = {}) {
+    const [kode, teks] = wajib ? TANTANGAN_WAJAH[Math.floor(Math.random() * TANTANGAN_WAJAH.length)] : ['TANPA', 'TETAP MENGHADAP KAMERA'];
+    for (let i = hitungMundur; i > 0; i--) {
+        tampil(wajib ? `Bersiap... setelah ini: ${teks}` : 'Hadapkan wajah lurus ke kamera...', i);
+        await new Promise(r => setTimeout(r, 1000));
+        if (batal()) return null;
+    }
+    tampil(wajib ? `Sekarang: ${teks}` : 'Tahan, foto sedang diambil...', null);
+    const frames = await Kamera.ambilBanyak(video, wajib ? 15 : 5, wajib ? 200 : 150);
+    return batal() ? null : { frames, tantangan: kode };
+}
+
 // Kecilkan foto upload (sisi terpanjang maks 1024 px, JPEG) sebelum dikirim ke server
 async function kecilkanFoto(file, maksSisi = 1024, kualitas = 0.85) {
     if (!file || !file.type.startsWith('image/')) return file;

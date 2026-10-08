@@ -1,13 +1,12 @@
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
-from extensions import UPLOAD_FOLDER
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
-                              verifikasi_liveness)
+                              cek_liveness, TANPA_TANTANGAN)
 from utils.plat_utils import normalisasi_plat
-from utils import pengaturan, kiosk
+from utils import pengaturan
 from utils.db_kontrak import get_do
 from utils import verifikasi_state as verif
-from utils.keamanan import perangkat_atau_login, id_pos
+from utils.keamanan import id_pos
 from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
 from utils.db_utils import (
     cari_transaksi_aktif, buat_transaksi_full, get_list_tiket_aktif, get_history_driver,
@@ -258,37 +257,17 @@ def driver_update_identitas():
         "driver": serialisasi_driver(d)
     }), 200
 
-# ===== KAMERA KIOSK & VERIFIKASI WAJAH =====
-# Browser (user login) meminta scan -> kiosk (token perangkat) membaca status, mengirim frame.
-# Hasil hanya bisa dibaca user yang meminta, per pos kiosk (utils/verifikasi_state.py).
-
-@security_bp.route("/api/kamera/start", methods=["POST"])
-@login_required
-@izin('FORM_SECURITY', 'tambah')
-def kamera_start():
-    verif.mulai_scan(id_pos(), current_user.id)
-    return jsonify({"status": "SUCCESS"}), 200
-
-@security_bp.route("/api/kamera/status")
-@perangkat_atau_login
-def kamera_status():
-    return jsonify({"is_active": verif.kamera_aktif(id_pos())}), 200
-
-@security_bp.route("/api/kamera/batal", methods=["POST"])
-@perangkat_atau_login
-def kamera_batal():
-    verif.batal(id_pos())
-    return jsonify({"status": "SUCCESS"}), 200
-
+# ===== SCAN WAJAH SUPIR (webcam browser di PC Security) =====
+# Hasil hanya berlaku untuk user yang men-scan & kedaluwarsa 5 menit (utils/verifikasi_state.py).
 MAKS_FRAME = 20
 
-@security_bp.route("/api/verifikasi-wajah", methods=["POST"])
-@perangkat_atau_login
-def verifikasi_wajah():
-    pos = id_pos()
-    if not verif.kamera_aktif(pos):
-        return jsonify({"error": "Tidak ada permintaan scan dari form Security"}), 409
-    tantangan = request.form.get("tantangan", "KEDIP")
+@security_bp.route("/api/security/scan-wajah", methods=["POST"])
+@login_required
+@izin('FORM_SECURITY', 'tambah')
+def scan_wajah_supir():
+    area = area_akun(current_user.id)
+    wajib = pengaturan.nilai("TANTANGAN_SECURITY", area)
+    tantangan = request.form.get("tantangan", "") if wajib else TANPA_TANTANGAN
     try:
         filepaths = simpan_frames(request.files.getlist("frames"), maks=MAKS_FRAME)
     except ValueError as e:
@@ -296,41 +275,27 @@ def verifikasi_wajah():
 
     try:
         with slot_proses_wajah():
-            if not verifikasi_liveness(filepaths, tantangan):
-                return jsonify({"error": "Liveness tidak terverifikasi"}), 400
+            if not cek_liveness(filepaths, tantangan, wajib):
+                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
             embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
         if embedding_baru is None:
-            return jsonify({"error": "Wajah tidak terdeteksi"}), 400
+            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan"}), 400
 
-        # Kiosk memanggil tanpa login: area diambil dari pos (Admin › Perangkat / Kiosk)
-        area = area_akun(current_user.id) if current_user.is_authenticated else kiosk.area_pos(pos)
         id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area))
         if id_cocok is None:
-            verif.batal(pos)
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
 
-        # Status blacklist & kategori ikut disimpan; form Security menampilkan peringatan & mencatat audit
         d = get_driver_by_id(id_cocok)
-        verif.simpan_hasil_kiosk(pos, **_data_verif(d))
         nama = format_nama_personel(d.kode_personel, d.id_driver, d.nama_driver)
         if d.kategori != 'DRIVER':
             return jsonify({"error": f"{nama} terdaftar sebagai {d.kategori}, bukan supir", "id_driver": d.id_driver}), 400
-        pesan = f"Terverifikasi: {nama}" + (" (PERINGATAN: BLACKLIST)" if d.is_blacklisted else "")
-        return jsonify({"message": pesan, "id_driver": d.id_driver, "blacklist": bool(d.is_blacklisted)}), 200
+        # Blacklist = peringatan: tetap terverifikasi, tercatat di Audit Log
+        data = _data_verif(d)
+        verif.simpan_hasil_user(id_pos(), current_user.id, **data)
+        if d.is_blacklisted:
+            catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
+                                 details={"keterangan": f"Scan wajah: {nama} blacklist", "id_personel": d.id_driver})
+        return jsonify({"terverifikasi": True, "message": f"Terverifikasi: {nama}", **data})
     finally:
         for path in filepaths:
             hapus_file(path)
-
-@security_bp.route("/api/status-verifikasi")
-@login_required
-def status_verifikasi():
-    v = verif.ambil(id_pos(), current_user.id)
-    if v is None:
-        return jsonify({"terverifikasi": False})
-    # Kiosk tidak login, jadi scan supir blacklist dicatat saat form Security membaca hasilnya
-    if v["is_blacklisted"] and not v["dilog"]:
-        v["dilog"] = True
-        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
-                             details={"keterangan": f"Scan wajah: {format_nama_personel(v['kode_personel'], v['id_driver'], v['nama'])} blacklist",
-                                      "id_personel": v["id_driver"]})
-    return jsonify({"terverifikasi": True, **{k: val for k, val in v.items() if k != "dilog"}})

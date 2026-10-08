@@ -106,6 +106,18 @@ def deteksi_menoleh(list_filepath, arah, ambang_perubahan=0.3):
 
     return perubahan_max > ambang_perubahan
 
+TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
+TANPA_TANTANGAN = "TANPA"
+
+
+def cek_liveness(list_filepath, tantangan, wajib):
+    """Pengaturan per area (TANTANGAN_*). Wajib: tantangan acak harus valid & lolos. Tidak wajib: cukup menghadap
+    kamera (adanya tepat satu wajah dicek pemanggil saat mengambil embedding)."""
+    if not wajib:
+        return True
+    return tantangan in TANTANGAN_VALID and verifikasi_liveness(list_filepath, tantangan)
+
+
 def verifikasi_liveness(list_filepath, tantangan):
     if tantangan == "KEDIP":
         return deteksi_kedipan(list_filepath)

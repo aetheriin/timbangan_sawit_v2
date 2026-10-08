@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', muatPerangkat);
 async function muatPerangkat() {
     const data = await ambilJson('/api/admin/perangkat');
     const tbody = document.getElementById('tabelPos');
-    if (data.error) { tbody.innerHTML = barisKosong(8, data.error); return false; }
+    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return false; }
     daftarPos = data.perangkat;
 
     const t = data.timbangan;
@@ -31,14 +31,13 @@ async function muatPerangkat() {
             <td class="table-cell">${p.terakhir_detik == null ? '<span class="text-slate-400">Belum terhubung</span>'
                 : `${durasiSingkat(p.terakhir_detik)} lalu`}</td>
             <td class="table-cell font-mono text-xs">${escapeHtml(p.ip || '-')}</td>
-            <td class="table-cell">${p.kamera_aktif ? badge('Sedang scan', WARNA_BADGE.biru) : badge('Siaga', WARNA_BADGE.abu)}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3">
                 <button type="button" class="link-aksi text-blue-600" data-on-click="bukaPos" data-arg="${escapeHtml(p.id_pos)}">Ubah</button>
                 <button type="button" class="link-aksi text-amber-700" data-on-click="gantiTokenPos" data-arg="${escapeHtml(p.id_pos)}">Ganti Token</button>
                 <button type="button" class="link-aksi ${p.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifPos"
                     data-arg="${escapeHtml(p.id_pos)}">${p.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
             </td>
-        </tr>`).join('') || barisKosong(8, 'Belum ada pos kiosk. Tambah pos agar setiap kiosk punya token sendiri.');
+        </tr>`).join('') || barisKosong(7, 'Belum ada pos kiosk. Tambah pos agar setiap kiosk punya token sendiri.');
 }
 
 function bukaPos(idPos) {

@@ -75,9 +75,8 @@ for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kend
            personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp, kunjungan_bp, agen_bp):
     app.register_blueprint(bp)
 
-# Endpoint yang dipanggil kiosk kamera (tanpa sesi browser) dilindungi token perangkat, bukan CSRF
-for endpoint in ("security.verifikasi_wajah", "security.kamera_batal", "agen.agen_data"):
-    csrf.exempt(app.view_functions[endpoint])
+# Agen timbangan (tanpa sesi browser) dilindungi token perangkat, bukan CSRF
+csrf.exempt(app.view_functions["agen.agen_data"])
 
 
 def jalankan_layanan_latar():

@@ -14,8 +14,7 @@ from utils.serializers import serialisasi_tiket, serialisasi_driver
 from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
-from utils import pengaturan, kiosk
-from utils.keamanan import id_pos
+from utils import pengaturan
 from utils.hak_akses import boleh
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
@@ -55,7 +54,6 @@ def weighbridge():
                            supplier_list=[s for s in get_semua_supplier() if s.is_customer],
                            angkutan_list=[s for s in get_semua_supplier() if s.is_angkutan], produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)),
-                           pos_list=kiosk.daftar_aktif(), pos_dipilih=id_pos(),
                            jembatan_list=_jembatan_aktif(), jembatan_dipilih=_jembatan_pc())
 
 @main_bp.route("/api/list/history-produk")
@@ -64,6 +62,14 @@ def history_produk():
     id_produk = request.args.get("id_produk", "")
     rows = get_history_produk(int(id_produk) if id_produk.isdigit() else None)
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M")} for r in rows])
+
+
+@main_bp.route("/api/tantangan-wajah")
+@login_required
+def tantangan_wajah():
+    """Tantangan liveness wajib / tidak untuk area akun ini (Admin › Pengaturan Site, per area)."""
+    area = area_akun(current_user.id)
+    return jsonify({k: pengaturan.nilai(f"TANTANGAN_{k.upper()}", area) for k in ("security", "absensi", "tamu")})
 
 
 @main_bp.route("/blacklist")

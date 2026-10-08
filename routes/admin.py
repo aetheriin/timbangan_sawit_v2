@@ -17,7 +17,6 @@ from extensions import BASE_DIR, UPLOAD_FOLDER
 from utils.hak_akses import admin_required
 from utils.dokumen import simpan_file, hapus_file_info
 from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
-from utils import verifikasi_state as verif
 from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
@@ -37,7 +36,7 @@ HALAMAN = {
     "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
-    "perangkat": ("Perangkat / Kiosk", "fa-camera", "Pos kamera kiosk, token per pos, status timbangan"),
+    "perangkat": ("Perangkat", "fa-plug", "Pos (token PC agen timbangan) dan jembatan timbang"),
     "log": ("Log Keamanan", "fa-shield-halved", "Login, login gagal, akses ditolak, kiosk ditolak"),
     "audit": ("Audit Admin", "fa-clipboard-list", "Jejak semua perubahan yang dilakukan admin"),
     "kesehatan": ("Kesehatan Sistem", "fa-heart-pulse", "Database, backup, disk, versi aplikasi"),
@@ -644,6 +643,27 @@ def pengaturan_simpan():
     return _jalankan(aksi)
 
 
+@admin_bp.route("/api/admin/pengaturan/salin-company", methods=["POST"])
+@_admin
+def pengaturan_salin_company():
+    """Pengaturan per area dari area ini diterapkan ke semua area aktif lain di company yang sama."""
+    def aksi():
+        id_area = _area_pengaturan(request.form.get("id_comp_area"))
+        if not id_area:
+            raise ValueError("Pilih area dulu")
+        areas = org.daftar_area()
+        id_company = next(a["id_company"] for a in areas if a["id_comp_area"] == id_area)
+        tujuan = [a for a in areas if a["id_company"] == id_company and a["is_active"] and a["id_comp_area"] != id_area]
+        if not tujuan:
+            raise ValueError("Company ini tidak punya area lain")
+        nilai = {p["kunci"]: pengaturan.validasi(p["kunci"], p["nilai"]) for p in pengaturan.semua(id_area)}
+        for a in tujuan:
+            pengaturan.simpan(nilai, current_user.id, a["id_comp_area"])
+        _audit("PENGATURAN_SALIN_COMPANY", f"area {id_area}", ", ".join(a["nama"] for a in tujuan))
+        return jsonify({"message": f"Pengaturan diterapkan ke {len(tujuan)} area lain: {', '.join(a['nama'] for a in tujuan)}"})
+    return _jalankan(aksi)
+
+
 @admin_bp.route("/api/admin/pengaturan/bawaan", methods=["POST"])
 @_admin
 def pengaturan_bawaan():
@@ -668,8 +688,7 @@ def perangkat_daftar():
     for p in kiosk.daftar():
         t = terlihat.get(p["id_pos"])
         hasil.append({**p, "created_at": p["created_at"].strftime("%Y-%m-%d") if p["created_at"] else None,
-                      "terakhir_detik": int(sekarang - t["waktu"]) if t else None, "ip": t["ip"] if t else None,
-                      "kamera_aktif": verif.kamera_aktif(p["id_pos"])})
+                      "terakhir_detik": int(sekarang - t["waktu"]) if t else None, "ip": t["ip"] if t else None})
     status = semua_status()
     jembatan = [{**j, "created_at": j["created_at"].strftime("%Y-%m-%d") if j["created_at"] else None,
                  "status": status.get(j["id_jembatan"])} for j in _daftar_jembatan_aman()]

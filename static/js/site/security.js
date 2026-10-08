@@ -293,60 +293,63 @@ function mulaiValidasiAwal() {
     perbaruiTombolSubmit();
 }
 
-// ===== SCAN WAJAH (reuse pola kiosk trigger dari project sebelumnya) =====
-// ===== SCAN WAJAH (kamera kiosk) =====
-// Polling berurutan tiap 1 detik, maksimal 90 detik, berhenti saat form ditinggal.
-const BATAS_SCAN_WAJAH_MS = 90000;
-let pollingScanWajah = null;
+// ===== SCAN WAJAH SUPIR (webcam browser di PC Security) =====
+// Tantangan wajib / tidak diatur per area (Admin › Pengaturan Site › TANTANGAN_SECURITY).
+let scanWajahBerjalan = false;
 
-function hentikanScanWajah(pesan) {
-    if (pollingScanWajah) pollingScanWajah.stop();
-    pollingScanWajah = null;
+function selesaiScanWajah(pesan) {
+    scanWajahBerjalan = false;
+    Kamera.stop();
+    document.getElementById('videoScanWajah').classList.add('hidden');
+    document.getElementById('fotoDriverBox').classList.remove('hidden');
+    document.getElementById('instruksiScanWajah').classList.add('hidden');
     document.getElementById('btnScanWajah').disabled = statusForm !== 'validasi';
     if (pesan) document.getElementById('statusScanWajah').textContent = pesan;
 }
 
-// Pos kamera per PC: disimpan di cookie supaya server tahu kiosk mana yang dibuka (berlaku 1 tahun di browser ini)
-function pilihPosKamera(pos) {
-    if (!pos) return;
-    document.cookie = `pos_kiosk=${encodeURIComponent(pos)}; path=/; max-age=31536000; SameSite=Lax`;
-    Notif.sukses(`PC ini memakai kamera pos ${pos}`);
-}
-
 async function mulaiScanWajah() {
-    const pilihPos = document.getElementById('pilihPos');
-    if (pilihPos && !pilihPos.value) { Notif.peringatan('Pilih Pos kamera untuk PC ini dulu'); pilihPos.focus(); return; }
+    if (scanWajahBerjalan) return;
     const status = document.getElementById('statusScanWajah');
-    const btn = document.getElementById('btnScanWajah');
-    const mulai = await kirimForm('/api/kamera/start', {});
-    if (mulai.error) { Notif.gagal(mulai.error); return; }
-    btn.disabled = true;
-    status.textContent = 'Menunggu kamera kiosk... minta supir menghadap kamera.';
+    const video = document.getElementById('videoScanWajah');
+    const instruksi = document.getElementById('instruksiScanWajah');
+    scanWajahBerjalan = true;
+    document.getElementById('btnScanWajah').disabled = true;
+    status.textContent = 'Menyalakan kamera...';
+    try {
+        await Kamera.mulai(video);
+    } catch (err) {
+        selesaiScanWajah(window.isSecureContext
+            ? 'Kamera tidak bisa dibuka. Izinkan akses kamera di browser.'
+            : 'Kamera diblokir browser karena alamat bukan HTTPS / localhost (lihat Dokumentasi: kamera browser).');
+        return;
+    }
+    document.getElementById('fotoDriverBox').classList.add('hidden');
+    video.classList.remove('hidden');
+    instruksi.classList.remove('hidden');
+    status.textContent = 'Minta supir menghadap kamera.';
 
-    if (pollingScanWajah) pollingScanWajah.stop();
-    pollingScanWajah = new Poller(async () => {
-        let data = await ambilJson('/api/status-verifikasi', { timeout: 5000, polling: true });
-        if (data.error) return;                      // coba lagi di putaran berikutnya
-        if (!data.terverifikasi) {
-            const kamera = await ambilJson('/api/kamera/status', { timeout: 5000, polling: true });
-            if (kamera.error || kamera.is_active) return;     // kiosk masih bekerja
-            data = await ambilJson('/api/status-verifikasi', { timeout: 5000, polling: true });   // cek ulang supaya tidak kalah cepat
-            if (!data.terverifikasi) {
-                hentikanScanWajah('Tidak dikenali atau dibatalkan. Klik "Tambah" untuk daftar supir baru.');
-                return;
-            }
-        }
-        hentikanScanWajah();
-        terapkanHasilScanWajah(data);
-    }, 1000, {
-        aktif: () => statusForm === 'validasi',
-        maksDurasiMs: BATAS_SCAN_WAJAH_MS,
-        onHabis: () => {
-            hentikanScanWajah('Waktu scan habis. Klik "Mulai Scan Wajah" untuk mencoba lagi.');
-            kirimForm('/api/kamera/batal', {});
-        },
+    const { security: wajib } = await aturanTantangan();
+    const hasil = await rekamWajah(video, {
+        wajib,
+        tampil: (teks, angka) => { instruksi.textContent = angka ? `${teks} (${angka})` : teks; },
+        batal: () => !scanWajahBerjalan || statusForm !== 'validasi',
     });
-    pollingScanWajah.start();
+    if (!hasil) { selesaiScanWajah('Scan dibatalkan.'); return; }
+    instruksi.textContent = 'Memproses...';
+    const formData = new FormData();
+    hasil.frames.forEach((blob, i) => formData.append('frames', blob, `frame${i}.jpg`));
+    formData.append('tantangan', hasil.tantangan);
+    hasil.frames.length = 0;
+    selesaiScanWajah('Memproses wajah...');
+    document.getElementById('btnScanWajah').disabled = true;
+
+    const data = await kirimForm('/api/security/scan-wajah', formData, { timeout: TIMEOUT_WAJAH_MS });
+    document.getElementById('btnScanWajah').disabled = statusForm !== 'validasi';
+    if (data.error && !data.terverifikasi) {
+        status.innerHTML = `<span class="text-red-600">${escapeHtml(data.error)}</span>`;
+        return;
+    }
+    terapkanHasilScanWajah(data);
 }
 
 function terapkanHasilScanWajah(data) {
