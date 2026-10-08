@@ -1,4 +1,4 @@
-# Rancangan Perbaikan Tahap 1 (uji coba lapangan: Form Security + Blacklist)
+# Rancangan Perbaikan Tahap 1 (uji coba lapangan: Form Security, Blacklist, Tamu)
 
 Draf untuk ditinjau sebelum dikerjakan. Setiap poin berisi: **kondisi kode sekarang** (sudah dicek ke kode di branch ini),
 **rancangan**, dan **keputusan yang perlu Anda pilih**. Bagian yang ditandai ★ adalah rekomendasi saya.
@@ -216,15 +216,57 @@ itu), bukan nama level, jadi KTU cukup dicentang di Admin. Lonceng memperbarui h
 
 ---
 
+## 8. Tamu (kunjungan) di pos Security
+
+**Kondisi sekarang (sudah ada, migrasi 009)**
+- Tab **Face Recognition › Kunjungan Tamu**, hak akses `KUNJUNGAN` (awal: SECURITY tambah & ubah).
+- Alur: scan wajah → bila dikenal (pernah datang) data langsung muncul, bila tidak → daftar tamu baru (NIK, nama, foto
+  wajah) → isi **Bertemu dengan** (personel), **Keperluan**, asal perusahaan, No. plat (opsional), keterangan → catat
+  masuk. Daftar "masih di dalam" → tombol **Catat keluar**.
+- Tamu = personel kategori TAMU (tidak bisa punya akun). Wajah tamu juga dicocokkan dengan **blacklist**.
+- Tabel `kunjungan`: tamu, dituju, keperluan, area, foto saat datang, waktu masuk / keluar, dicatat oleh.
+
+**Pilihan letak**
+
+| | Letak | Kelebihan | Kekurangan |
+|---|---|---|---|
+| T1 ★ | **Menu sendiri "Tamu"** di sidebar (`/tamu`), seperti Blacklist | Security langsung buka 1 klik, layar penuh untuk kamera & daftar "di dalam"; hak akses terpisah | Satu menu bertambah |
+| T2 | Tetap tab di Face Recognition | Tanpa perubahan | Tersembunyi, bercampur dengan Absensi / Personel |
+| T3 | Tab di Form Security (sebelah Create Ticket) | Satu layar kerja Security | Form Security makin padat; truk & tamu antre bersamaan |
+
+**Rancangan (T1)**
+- Halaman **Tamu** berisi 3 bagian: (1) Scan / daftar tamu masuk, (2) **Tamu di dalam** (jumlah besar di atas, lama
+  berkunjung, tombol Keluar), (3) Riwayat + filter tanggal / dituju + ekspor.
+- **Keluar dengan scan wajah** (opsional): tamu menghadap kamera saat pulang → otomatis tercatat keluar.
+- **Kartu / badge tamu** dicetak saat masuk (nama, foto, dituju, jam masuk, QR) dan diminta kembali saat keluar
+  (opsional, ★ untuk area pabrik).
+- **Peringatan blacklist** sama seperti poin 7 (banner merah + kotak foto merah), tamu tetap bisa dicatat kecuali
+  diputuskan lain.
+- Tantangan wajah mengikuti pengaturan area (poin 1; usul kunci sendiri `TANTANGAN_TAMU`, karena tamu sering kesulitan
+  mengikuti instruksi).
+- Notifikasi (poin 5): tamu masih di dalam melewati jam pulang / > N jam → Security & KTU; opsional notifikasi ke orang
+  yang dituju bila punya akun.
+
+**Keputusan**
+- 8a. Letak: T1 ★ / T2 / T3?
+- 8b. "Bertemu dengan" dipilih dari **personel** (sekarang, ★) atau dari **akun** login (hanya yang punya akun)? Boleh
+  ketik bebas bila orangnya tidak terdaftar?
+- 8c. Keluar: tombol saja, scan wajah, atau keduanya ★?
+- 8d. Cetak kartu tamu: ya / tidak?
+- 8e. Foto KTP perlu disimpan, atau cukup NIK + foto wajah ★?
+- 8f. Tamu blacklist: peringatan saja ★ (sama dengan truk) atau ditolak masuk?
+
+---
+
 ## Urutan pengerjaan yang diusulkan
 
 | Tahap | Isi | Bergantung keputusan |
 |---|---|---|
 | 1a | Poin 7 (peringatan blacklist) + poin 3 (form personel, show / hide SIM) | 3a–3d |
-| 1b | Poin 2 (menu Blacklist + KTU) | 2a–2c |
+| 1b | Poin 2 (menu Blacklist + KTU) + poin 8 (menu Tamu) | 2a–2c, 8a–8f |
 | 1c | Poin 1 (hapus kiosk, webcam Security, tantangan per area) | 1a–1b, HTTPS / flag Chrome |
 | 2 | Poin 4 (alur tiket & list) | 4a–4c |
 | 3 | Poin 5 (kuota DO, split, notifikasi) | 5a–5e |
 | 4 | Poin 6 (kasus lain) bertahap | per kasus |
 
-Tahap 1 (1a–1c) cukup untuk uji coba Form Security + Blacklist di site.
+Tahap 1 (1a–1c) cukup untuk uji coba Form Security, Blacklist, dan Tamu di site.
