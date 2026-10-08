@@ -258,6 +258,21 @@ itu), bukan nama level, jadi KTU cukup dicentang di Admin. Lonceng memperbarui h
 
 ---
 
+## Keputusan (8 Oktober 2026)
+
+Semua rekomendasi ★ disetujui, dengan perubahan berikut:
+
+| Poin | Keputusan |
+|---|---|
+| 2a | Blacklist berlaku **semua area & company**. Di daftar dan banner peringatan selalu tampil **siapa yang menetapkan**, area asalnya, tanggal, dan no. surat |
+| 8 (tamu) | Menu Tamu sendiri ★ dengan catat masuk / keluar lewat **tombol**. **Tidak dikerjakan** di tahap 1: keluar dengan scan wajah, kartu / badge tamu, banner & kotak merah blacklist khusus tamu, notifikasi tamu terlalu lama. Pencocokan wajah tamu dengan blacklist yang sudah ada tetap berjalan seperti sekarang |
+| 4a | B: DO boleh menyusul |
+| 5c / 5d / 5e | Dipilih KTU / nomor tiket baru `-S1` / peringatan saja |
+
+Masih terbuka (belum ada rekomendasi ★):
+- 3b. HO sebagai kategori personel sendiri, atau tetap EMPLOYEE dengan prefix `HO-`?
+- 5b. Nilai toleransi kelebihan DO (persen atau kg).
+
 ## Urutan pengerjaan yang diusulkan
 
 | Tahap | Isi | Bergantung keputusan |
