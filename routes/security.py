@@ -4,7 +4,7 @@ from extensions import UPLOAD_FOLDER
 from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               verifikasi_liveness)
 from utils.plat_utils import normalisasi_plat
-from utils import pengaturan
+from utils import pengaturan, kiosk
 from utils.db_kontrak import get_do
 from utils import verifikasi_state as verif
 from utils.keamanan import perangkat_atau_login, id_pos
@@ -302,7 +302,9 @@ def verifikasi_wajah():
         if embedding_baru is None:
             return jsonify({"error": "Wajah tidak terdeteksi"}), 400
 
-        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
+        # Kiosk memanggil tanpa login: area diambil dari pos (Admin › Perangkat / Kiosk)
+        area = area_akun(current_user.id) if current_user.is_authenticated else kiosk.area_pos(pos)
+        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area))
         if id_cocok is None:
             verif.batal(pos)
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404

@@ -74,6 +74,14 @@ def daftar():
         conn.close()
 
 
+def area_pos(id_pos):
+    """Area pos (untuk pengaturan per area saat dipanggil kiosk tanpa login). None bila tidak ada."""
+    try:
+        return next((p["id_comp_area"] for p in daftar() if p["id_pos"] == id_pos), None)
+    except Exception:       # noqa: BLE001
+        return None
+
+
 def daftar_aktif():
     """Pos aktif untuk pilihan "Pos kamera" di Form Security. Gagal / tabel belum ada -> kosong."""
     try:

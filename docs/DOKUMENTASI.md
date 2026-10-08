@@ -2,6 +2,7 @@
 
 Satu dokumen untuk perancangan, database, hak akses, admin, timbangan, keamanan, optimasi, dan pemasangan.
 Desain Figma ada di [HANDOFF_FIGMA.md](HANDOFF_FIGMA.md); riwayat rencana ERD v3 di [ERD_V3.md](ERD_V3.md).
+Rancangan perbaikan berikutnya: [RANCANGAN_TAHAP_1.md](RANCANGAN_TAHAP_1.md).
 
 Daftar isi
 
