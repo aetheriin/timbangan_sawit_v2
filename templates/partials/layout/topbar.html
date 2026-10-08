@@ -7,6 +7,22 @@
     </div>
     {% if current_user.is_authenticated %}
     <div class="flex items-center gap-3 text-sm">
+        {% if not current_user.is_admin %}
+        {# Notifikasi (mis. DO melebihi kuota) untuk level yang punya hak menu terkait; diisi notifikasi.js #}
+        <div class="relative" data-henti-klik>
+            <button type="button" id="btnNotif" data-on-click="bukaNotifikasi" class="relative text-slate-200 hover:text-white" title="Notifikasi">
+                <i class="fa-solid fa-bell"></i>
+                <span id="notifJumlah" class="hidden absolute -top-2 -right-2 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[1.1rem] text-center"></span>
+            </button>
+            <div id="notifPanel" class="hidden absolute right-0 mt-2 w-80 max-h-96 overflow-auto bg-white text-slate-700 rounded-lg shadow-xl border border-slate-200 z-50">
+                <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+                    <span class="font-semibold text-sm">Notifikasi</span>
+                    <button type="button" data-on-click="bacaSemuaNotifikasi" class="text-xs text-blue-600 hover:underline">Tandai semua dibaca</button>
+                </div>
+                <div id="notifDaftar" class="divide-y divide-slate-100 text-sm"></div>
+            </div>
+        </div>
+        {% endif %}
         <span>{{ current_user.nama_lengkap }} <span class="text-slate-400">({{ current_user.role }})</span></span>
         {# Logout wajib POST + token CSRF (tidak bisa dipicu lewat link dari halaman lain) #}
         <form method="post" action="{{ url_for('auth.logout') }}" class="inline">

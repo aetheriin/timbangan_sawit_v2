@@ -47,6 +47,15 @@ async function simpanHasilTimbangan(btn) {
     if (!noTiketAktif) { Notif.peringatan('Pilih plat/tiket dulu di kolom atas'); return; }
     const data = await denganTombol(btn, () => kirimForm('/api/timbang/simpan', { no_tiket: noTiketAktif }));
     if (tampilkanHasil(data)) muatDataTimbanganTersimpan(noTiketAktif);
+    const lebih = data.kelebihan_do;
+    if (lebih) {          // DO melewati kuota: kelebihan jadi tiket baru (truk sama), KTU / HO sudah dinotifikasi
+        const angka = v => Number(v).toLocaleString('id-ID');
+        Dialog.konfirmasi({ judul: `DO ${lebih.no_do} melebihi kuota`, teksYa: 'Buka Kelebihan DO', teksBatal: 'Tutup',
+            pesan: `Kuota ${angka(lebih.kuota_kg)} kg, realisasi ${angka(lebih.realisasi_kg)} kg.\n` +
+                   `Kelebihan ${angka(lebih.kelebihan_kg)} kg menjadi tiket ${lebih.tiket_split} (truk yang sama).\n` +
+                   'Isi No. DO baru dari Ascend di menu Kelebihan DO.' })
+            .then(ok => { if (ok) window.location.href = '/kelebihan-do'; });
+    }
 }
 
 async function muatDataTimbanganTersimpan(noTiket) {

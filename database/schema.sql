@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
    Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-021). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
+   (setara schema awal + migrasi 001-022). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
@@ -460,6 +460,8 @@ CREATE TABLE dbo.transaksi (
     id_mill            INT NULL CONSTRAINT FK_Trx_Mill REFERENCES dbo.mill (id_mill),                       -- alur tahap tiket
     id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
     cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
+    no_tiket_induk     VARCHAR(50) NULL CONSTRAINT FK_Trx_Induk REFERENCES dbo.transaksi (no_tiket),   -- tiket split kelebihan DO (migrasi 022)
+    berat_split_kg     DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
@@ -536,6 +538,49 @@ FROM dbo.transaksi t
 LEFT JOIN dbo.penimbangan p1 ON p1.no_tiket = t.no_tiket AND p1.ke = 1
 LEFT JOIN dbo.penimbangan p2 ON p2.no_tiket = t.no_tiket AND p2.ke = 2
 LEFT JOIN dbo.jembatan_timbang j ON j.id_jembatan = t.id_jembatan;
+GO
+
+-- Kelebihan DO (migrasi 022): kelebihan netto di atas kuota kontrak -> tiket split + No. DO baru (Ascend)
+CREATE TABLE dbo.kelebihan_do (
+    id_kelebihan     INT IDENTITY(1,1) PRIMARY KEY,
+    no_tiket         VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Tiket REFERENCES dbo.transaksi (no_tiket),
+    no_tiket_split   VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Split REFERENCES dbo.transaksi (no_tiket),
+    id_do            INT            NOT NULL CONSTRAINT FK_Lebih_DO REFERENCES dbo.delivery_order (id_do),
+    kuota_kg         DECIMAL(14, 2) NOT NULL,
+    realisasi_kg     DECIMAL(14, 2) NOT NULL,
+    netto_tiket_kg   DECIMAL(14, 2) NOT NULL,
+    kelebihan_kg     DECIMAL(14, 2) NOT NULL,
+    no_do_baru       VARCHAR(50)    NULL,
+    status           VARCHAR(15)    NOT NULL CONSTRAINT DF_Lebih_Status DEFAULT ('MENUNGGU'),
+    catatan          NVARCHAR(255)  NULL,
+    diajukan_oleh    INT NULL CONSTRAINT FK_Lebih_Aju REFERENCES dbo.akun (id_user),
+    diajukan_at      DATETIME NULL,
+    ditetapkan_oleh  INT NULL CONSTRAINT FK_Lebih_Tetap REFERENCES dbo.akun (id_user),
+    ditetapkan_at    DATETIME NULL,
+    alasan_kembali   NVARCHAR(255)  NULL,
+    id_comp_area     INT NULL CONSTRAINT FK_Lebih_Area REFERENCES dbo.comp_area (id_comp_area),
+    created_at       DATETIME NOT NULL CONSTRAINT DF_Lebih_Created DEFAULT (GETDATE()),
+    CONSTRAINT UX_Lebih_Tiket UNIQUE (no_tiket),
+    CONSTRAINT CK_Lebih_Status CHECK (status IN ('MENUNGGU', 'DIAJUKAN', 'SELESAI', 'DIKEMBALIKAN')),
+    CONSTRAINT CK_Lebih_Kg CHECK (kelebihan_kg > 0)
+);
+-- Notifikasi lonceng (migrasi 022): sasaran = level yang punya hak menu kode_menu
+CREATE TABLE dbo.notifikasi (
+    id_notifikasi  INT IDENTITY(1,1) PRIMARY KEY,
+    kode_menu      VARCHAR(40)    NOT NULL,
+    id_comp_area   INT NULL CONSTRAINT FK_Notif_Area REFERENCES dbo.comp_area (id_comp_area),
+    judul          NVARCHAR(150)  NOT NULL,
+    isi            NVARCHAR(500)  NULL,
+    tautan         VARCHAR(200)   NULL,
+    waktu          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE())
+);
+CREATE INDEX IX_Notif_Waktu ON dbo.notifikasi (waktu DESC);
+CREATE TABLE dbo.notifikasi_baca (
+    id_notifikasi  INT NOT NULL CONSTRAINT FK_NotifBaca_Notif REFERENCES dbo.notifikasi (id_notifikasi),
+    id_user        INT NOT NULL CONSTRAINT FK_NotifBaca_User REFERENCES dbo.akun (id_user),
+    dibaca_at      DATETIME NOT NULL CONSTRAINT DF_NotifBaca_Waktu DEFAULT (GETDATE()),
+    CONSTRAINT PK_NotifBaca PRIMARY KEY (id_notifikasi, id_user)
+);
 GO
 
 CREATE TABLE dbo.sortasi (
@@ -825,6 +870,7 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('KONTRAK_DO',       N'Kontrak & DO',     '/kontrak',              'fa-file-contract', 50),
     ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
     ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
+    ('KELEBIHAN_DO',     N'Kelebihan DO',     '/kelebihan-do',         'fa-scale-unbalanced', 55),
     ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
@@ -848,6 +894,8 @@ FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
              ('HO',               'KONTRAK_DO',       1, 1, 1),
              ('HO',               'MASTER_DRIVER',    1, 1, 1),
              ('HO',               'MASTER_KENDARAAN', 1, 1, 0),
+             ('HO',               'KELEBIHAN_DO',     0, 1, 0),
+             ('OPERATOR_TIMBANG', 'KELEBIHAN_DO',     1, 0, 0),
              ('HO',               'MASTER_MITRA',     1, 1, 0),
              ('HO',               'MASTER_PRODUK',    1, 1, 0),
              ('SECURITY',         'FORM_SECURITY',    1, 1, 0),

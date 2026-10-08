@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import tab_header, section_header %}
+{% block title %}Kelebihan DO · Weighbridge{% endblock %}
+
+{# DO melebihi kuota: kelebihan jadi tiket baru (truk sama). Krani isi No. DO baru dari Ascend, KTU / HO menetapkan. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ tab_header([('kelebihan', 'Kelebihan DO')], 'mt-4') }}
+{% endblock %}
+
+{% block tab_content %}
+<div data-tab-content="kelebihan" class="hidden">
+    <div class="flex flex-wrap items-center gap-1.5 mb-4">
+        {% for kode, label in [('', 'Semua'), ('MENUNGGU', 'Menunggu'), ('DIKEMBALIKAN', 'Dikembalikan'), ('DIAJUKAN', 'Diajukan'), ('SELESAI', 'Selesai')] %}
+        <button type="button" class="chip{% if not kode %} chip-active{% endif %}" data-status="{{ kode }}" data-on-click="filterKelebihan" data-arg="$el">{{ label }}</button>
+        {% endfor %}
+    </div>
+    <div class="section-box">
+        {{ section_header('daftar-kelebihan', 'Daftar Kelebihan DO') }}
+        <div id="body-daftar-kelebihan" class="section-body overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Waktu</th><th class="table-cell">Tiket / Tiket Baru</th><th class="table-cell">Truk · Supir</th>
+                        <th class="table-cell">DO Lama</th><th class="table-cell text-right">Kuota / Realisasi</th>
+                        <th class="table-cell text-right">Kelebihan</th><th class="table-cell">DO Baru (Ascend)</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody id="tabelKelebihan" data-per-halaman="20" data-boleh-ajukan="{{ 1 if boleh_ajukan else 0 }}"
+                       data-boleh-tetapkan="{{ 1 if boleh_tetapkan else 0 }}" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<div id="modalAjukanDO" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">No. DO Baru dari Ascend</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalAjukanDO" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p id="ajukanInfo" class="text-sm text-slate-600"></p>
+            <div><label class="field-label" for="ajukanNoDo">No. DO Baru</label>
+                <input type="text" id="ajukanNoDo" maxlength="50" class="input-field uppercase"></div>
+            <div><label class="field-label" for="ajukanCatatan">Catatan (opsional)</label>
+                <input type="text" id="ajukanCatatan" maxlength="255" class="input-field"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalAjukanDO" class="btn-secondary">Batal</button>
+            <button type="button" data-on-click="simpanAjukanDO" data-arg="$el" class="btn-primary">Ajukan</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/kelebihan_do/kelebihan_do.js') }}"></script>
+{% endblock %}

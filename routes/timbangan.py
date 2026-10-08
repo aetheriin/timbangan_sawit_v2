@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
@@ -9,7 +10,7 @@ from utils.db_utils import (
 from utils.serializers import serialisasi_tiket
 from utils.hak_akses import izin
 from utils.db_jembatan import jembatan_dipilih
-from utils import alur
+from utils import alur, db_kelebihan_do
 
 timbangan_bp = Blueprint('timbangan', __name__)
 
@@ -106,7 +107,8 @@ def timbang_simpan():
         reset_deteksi_stabil(jembatan["id_jembatan"])
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
-            return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg"}), 200
+            return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg",
+                            "kelebihan_do": _cek_kelebihan(no_tiket)}), 200
         label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
         return jsonify({"message": f"{label} tersimpan di {jembatan['kode']}: {berat} kg. "
                                    f"Timbang keluar juga harus di {jembatan['kode']}."}), 200
@@ -130,4 +132,13 @@ def timbang_simpan():
     pesan = f"Selesai! Netto: {netto} kg"
     if hasil.total_potongan_kg is not None:
         pesan += f", potongan sortasi: {hasil.total_potongan_kg} kg, netto akhir: {_netto_akhir(hasil)} kg"
-    return jsonify({"message": pesan}), 200
+    return jsonify({"message": pesan, "kelebihan_do": _cek_kelebihan(no_tiket)}), 200
+
+
+def _cek_kelebihan(no_tiket):
+    """DO tiket ini lewat kuota -> tiket split + notifikasi KTU / HO. Gagal di sini tidak membatalkan timbangan."""
+    try:
+        return db_kelebihan_do.proses_tiket_selesai(no_tiket, current_user.id)
+    except Exception:       # noqa: BLE001
+        logging.getLogger("weighbridge").exception("Gagal memproses kelebihan DO %s", no_tiket)
+        return None
