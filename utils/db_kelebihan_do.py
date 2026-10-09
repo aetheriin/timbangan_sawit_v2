@@ -68,7 +68,13 @@ def proses_tiket_selesai(no_tiket, user_id):
         conn.close()
 
 
-def daftar(status=None, batas=300):
+def daftar(status=None, batas=300, id_area=None):
+    """id_area None = semua area (kantor pusat)."""
+    syarat, args = [], []
+    if status:
+        syarat.append("x.status = ?"); args.append(status)
+    if id_area:
+        syarat.append("x.id_comp_area = ?"); args.append(id_area)
     sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.no_do, x.kuota_kg, x.realisasi_kg,
                      x.netto_tiket_kg, x.kelebihan_kg, x.no_do_baru, x.status, x.catatan, x.alasan_kembali, x.created_at,
                      x.diajukan_at, x.ditetapkan_at, ua.nama AS diajukan_oleh, ut.nama AS ditetapkan_oleh,
@@ -82,13 +88,13 @@ def daftar(status=None, batas=300):
               LEFT JOIN akun ua ON ua.id_user = x.diajukan_oleh
               LEFT JOIN akun ut ON ut.id_user = x.ditetapkan_oleh
               LEFT JOIN comp_area ar ON ar.id_comp_area = x.id_comp_area
-              {"WHERE x.status = ?" if status else ""}
+              {("WHERE " + " AND ".join(syarat)) if syarat else ""}
               ORDER BY CASE x.status WHEN 'MENUNGGU' THEN 0 WHEN 'DIKEMBALIKAN' THEN 1 WHEN 'DIAJUKAN' THEN 2 ELSE 3 END,
                        x.created_at DESC"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(sql, *([status] if status else []))
+        cursor.execute(sql, *args)
         rows = _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -100,14 +106,14 @@ def daftar(status=None, batas=300):
     return rows
 
 
-def _ubah(id_kelebihan, status_boleh, set_sql, args, aksi, user_id, notif=None):
+def _ubah(id_kelebihan, status_boleh, set_sql, args, aksi, user_id, notif=None, id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT status, no_tiket, no_tiket_split, id_comp_area FROM kelebihan_do WITH (UPDLOCK) "
                        "WHERE id_kelebihan = ?", id_kelebihan)
         r = cursor.fetchone()
-        if r is None:
+        if r is None or (id_area and r.id_comp_area != id_area):      # site lain tidak bisa mengubah
             raise ValueError("Data kelebihan DO tidak ditemukan")
         if r.status not in status_boleh:
             raise ValueError(f"Status sekarang {r.status}, aksi ini tidak bisa dilakukan")
@@ -126,11 +132,11 @@ def _ubah(id_kelebihan, status_boleh, set_sql, args, aksi, user_id, notif=None):
         conn.close()
 
 
-def ajukan(id_kelebihan, no_do_baru, catatan, user_id):
+def ajukan(id_kelebihan, no_do_baru, catatan, user_id, id_area=None):
     """Krani: No. DO baru dari Ascend. Tiket split ikut memakai DO itu (id_do bila DO itu ada di sistem ini)."""
     r = _ubah(id_kelebihan, ("MENUNGGU", "DIKEMBALIKAN"),
               "no_do_baru = ?, catatan = ?, status = 'DIAJUKAN', diajukan_oleh = ?, diajukan_at = GETDATE(), alasan_kembali = NULL",
-              (no_do_baru, catatan, user_id), "KELEBIHAN_DO_AJUKAN", user_id)
+              (no_do_baru, catatan, user_id), "KELEBIHAN_DO_AJUKAN", user_id, id_area=id_area)
     conn = get_connection()
     try:
         conn.cursor().execute("""UPDATE transaksi SET no_do = ?, id_do = (SELECT id_do FROM delivery_order WHERE no_do = ?)
@@ -140,12 +146,12 @@ def ajukan(id_kelebihan, no_do_baru, catatan, user_id):
         conn.close()
 
 
-def tetapkan(id_kelebihan, user_id):
+def tetapkan(id_kelebihan, user_id, id_area=None):
     _ubah(id_kelebihan, ("DIAJUKAN",), "status = 'SELESAI', ditetapkan_oleh = ?, ditetapkan_at = GETDATE()",
-          (user_id,), "KELEBIHAN_DO_TETAPKAN", user_id)
+          (user_id,), "KELEBIHAN_DO_TETAPKAN", user_id, id_area=id_area)
 
 
-def kembalikan(id_kelebihan, alasan, user_id):
+def kembalikan(id_kelebihan, alasan, user_id, id_area=None):
     _ubah(id_kelebihan, ("DIAJUKAN",), "status = 'DIKEMBALIKAN', alasan_kembali = ?, ditetapkan_oleh = ?, ditetapkan_at = GETDATE()",
           (alasan, user_id), "KELEBIHAN_DO_KEMBALIKAN", user_id,
-          notif=("Kelebihan DO tiket {tiket} dikembalikan", f"Alasan: {alasan}. Perbaiki No. DO baru."))
+          notif=("Kelebihan DO tiket {tiket} dikembalikan", f"Alasan: {alasan}. Perbaiki No. DO baru."), id_area=id_area)

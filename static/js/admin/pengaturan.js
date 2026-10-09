@@ -8,6 +8,11 @@ function inputPengaturan(p) {
         return `<label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="${p.kunci}" class="w-4 h-4"
             ${p.nilai ? 'checked' : ''}> Aktif</label>`;
     }
+    if (p.tipe === 'area') {          // pilihan area dari dropdown "Berlaku untuk" di atas
+        const opsi = Array.from(document.getElementById('pengaturanArea').options).filter(o => o.value)
+            .map(o => `<option value="${escapeHtml(o.value)}"${String(p.nilai) === o.value ? ' selected' : ''}>${escapeHtml(o.text.replace(/^Area /, ''))}</option>`);
+        return `<select name="${p.kunci}" class="input-field" data-tanpa-cari><option value="0">(tidak ada)</option>${opsi.join('')}</select>`;
+    }
     const step = p.tipe === 'float' ? '0.01' : '1';
     return `<input type="number" name="${p.kunci}" class="input-field w-32" step="${step}" min="${p.min}" max="${p.max}"
         value="${escapeHtml(p.nilai)}" required>

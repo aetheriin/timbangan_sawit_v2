@@ -23,6 +23,9 @@ DEFINISI = {
                           "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
     "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Face Recognition", "bool", "false", None, None,
                        "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
+    "AREA_PUSAT": ("Area kantor pusat (melihat semua area)", "Area", "area", "0", None, None,
+                   "Akun di area ini melihat data semua site (List, history, Kelebihan DO, notifikasi). "
+                   "Akun di area lain hanya melihat site-nya sendiri"),
     "SESI_IDLE_MENIT": ("Logout otomatis bila tidak aktif (menit)", "Sesi Login", "int", "120", 5, 720,
                         "Peringatan muncul 2 menit sebelumnya"),
     "SATU_PERANGKAT": ("1 user 1 perangkat", "Sesi Login", "bool", "true", None, None,
@@ -49,7 +52,7 @@ _cache = {"waktu": 0.0, "data": {}, "area": {}}
 def _ubah_tipe(tipe, teks):
     if tipe == "bool":
         return str(teks).strip().lower() in ("1", "true", "ya", "on")
-    if tipe == "int":
+    if tipe in ("int", "area"):
         return int(float(teks))
     if tipe == "float":
         return float(teks)

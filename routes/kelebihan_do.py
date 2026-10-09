@@ -5,6 +5,7 @@ from flask_login import login_required, current_user
 
 from utils import db_kelebihan_do as db, notifikasi
 from utils.hak_akses import izin, boleh
+from utils.area import area_data
 
 kelebihan_do_bp = Blueprint("kelebihan_do", __name__)
 
@@ -20,7 +21,7 @@ def halaman():
 @login_required
 def daftar():
     status = (request.args.get("status") or "").upper()
-    return jsonify(db.daftar(status if status in db.STATUS else None))
+    return jsonify(db.daftar(status if status in db.STATUS else None, id_area=area_data(current_user.id)))
 
 
 def _jalankan(fn):
@@ -39,7 +40,7 @@ def ajukan(id_kelebihan):
     catatan = (request.form.get("catatan") or "").strip()[:255] or None
     if not no_do or len(no_do) > 50:
         return jsonify({"error": "No. DO baru wajib diisi (maks 50 karakter)"}), 400
-    return _jalankan(lambda: db.ajukan(id_kelebihan, no_do, catatan, current_user.id)) or \
+    return _jalankan(lambda: db.ajukan(id_kelebihan, no_do, catatan, current_user.id, area_data(current_user.id))) or \
         jsonify({"message": f"No. DO {no_do} diajukan, menunggu KTU / HO"})
 
 
@@ -47,7 +48,7 @@ def ajukan(id_kelebihan):
 @login_required
 @izin(db.MENU, "ubah")
 def tetapkan(id_kelebihan):
-    return _jalankan(lambda: db.tetapkan(id_kelebihan, current_user.id)) or jsonify({"message": "Kelebihan DO ditetapkan"})
+    return _jalankan(lambda: db.tetapkan(id_kelebihan, current_user.id, area_data(current_user.id))) or jsonify({"message": "Kelebihan DO ditetapkan"})
 
 
 @kelebihan_do_bp.route("/api/kelebihan-do/<int:id_kelebihan>/kembalikan", methods=["POST"])
@@ -57,7 +58,7 @@ def kembalikan(id_kelebihan):
     alasan = (request.form.get("alasan") or "").strip()[:255]
     if not alasan:
         return jsonify({"error": "Alasan wajib diisi"}), 400
-    return _jalankan(lambda: db.kembalikan(id_kelebihan, alasan, current_user.id)) or \
+    return _jalankan(lambda: db.kembalikan(id_kelebihan, alasan, current_user.id, area_data(current_user.id))) or \
         jsonify({"message": "Dikembalikan ke krani"})
 
 
@@ -65,7 +66,7 @@ def kembalikan(id_kelebihan):
 @kelebihan_do_bp.route("/api/notifikasi")
 @login_required
 def notifikasi_daftar():
-    rows, belum = notifikasi.daftar(current_user)
+    rows, belum = notifikasi.daftar(current_user, id_area=area_data(current_user.id))
     return jsonify({"notifikasi": rows, "belum_dibaca": belum})
 
 
@@ -73,5 +74,5 @@ def notifikasi_daftar():
 @login_required
 def notifikasi_baca():
     teks = (request.form.get("id_notifikasi") or "").strip()
-    notifikasi.tandai_baca(current_user, int(teks) if teks.isdigit() else None)
+    notifikasi.tandai_baca(current_user, int(teks) if teks.isdigit() else None, id_area=area_data(current_user.id))
     return jsonify({"message": "OK"})

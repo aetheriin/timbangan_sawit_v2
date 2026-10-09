@@ -1,7 +1,7 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <div id="chipTahap" class="flex gap-1.5" data-awal="{{ tahap_awal }}">
-        {% for kode, label in [('', 'Semua'), ('security', 'Security'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
+        {% for kode, label in [('', 'Semua'), ('security', 'Security · Truk di Dalam'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
         <button type="button" class="chip{% if kode == tahap_awal %} chip-active{% endif %}" data-tahap="{{ kode }}"
                 data-on-click="filterTahap" data-arg="$el">{{ label }}</button>
         {% endfor %}

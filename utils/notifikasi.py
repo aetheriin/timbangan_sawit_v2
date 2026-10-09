@@ -27,8 +27,14 @@ def _menu_user(user):
     return [k for k, v in hak.items() if any(v.values())]
 
 
-def daftar(user, batas=30):
+def _filter_area(id_area):
+    """Notifikasi tanpa area = untuk semua; selain itu hanya area user (id_area None = kantor pusat, semua)."""
+    return (" AND (n.id_comp_area IS NULL OR n.id_comp_area = ?)", [id_area]) if id_area else ("", [])
+
+
+def daftar(user, batas=30, id_area=None):
     """(daftar notifikasi terbaru, jumlah belum dibaca) untuk user ini."""
+    f_area, a_area = _filter_area(id_area)
     menu = _menu_user(user)
     if not menu:
         return [], 0
@@ -41,34 +47,36 @@ def daftar(user, batas=30):
                            FROM notifikasi n
                            LEFT JOIN notifikasi_baca b ON b.id_notifikasi = n.id_notifikasi AND b.id_user = ?
                            LEFT JOIN comp_area ar ON ar.id_comp_area = n.id_comp_area
-                           WHERE n.kode_menu IN ({tanda}) AND n.waktu >= DATEADD(DAY, -{HARI_SIMPAN}, GETDATE())
-                           ORDER BY n.waktu DESC""", user.id, *menu)
+                           WHERE n.kode_menu IN ({tanda}) AND n.waktu >= DATEADD(DAY, -{HARI_SIMPAN}, GETDATE()){f_area}
+                           ORDER BY n.waktu DESC""", user.id, *menu, *a_area)
         rows = _rows_to_dicts(cursor)
         cursor.execute(f"""SELECT COUNT(*) FROM notifikasi n
-                           WHERE n.kode_menu IN ({tanda}) AND n.waktu >= DATEADD(DAY, -{HARI_SIMPAN}, GETDATE())
+                           WHERE n.kode_menu IN ({tanda}) AND n.waktu >= DATEADD(DAY, -{HARI_SIMPAN}, GETDATE()){f_area}
                              AND NOT EXISTS (SELECT 1 FROM notifikasi_baca b
-                                             WHERE b.id_notifikasi = n.id_notifikasi AND b.id_user = ?)""", *menu, user.id)
+                                             WHERE b.id_notifikasi = n.id_notifikasi AND b.id_user = ?)""",
+                       *menu, *a_area, user.id)
         belum = cursor.fetchone()[0]
     finally:
         conn.close()
     return [{**r, "waktu": r["waktu"].strftime("%Y-%m-%d %H:%M"), "dibaca": bool(r["dibaca"])} for r in rows], belum
 
 
-def tandai_baca(user, id_notifikasi=None):
+def tandai_baca(user, id_notifikasi=None, id_area=None):
     """Satu notifikasi, atau semua yang terlihat user ini bila id_notifikasi None."""
     menu = _menu_user(user)
     if not menu:
         return
     tanda = ", ".join("?" * len(menu))
     filter_id = "AND n.id_notifikasi = ?" if id_notifikasi else ""
+    f_area, a_area = _filter_area(id_area)
     conn = get_connection()
     try:
         conn.cursor().execute(f"""INSERT INTO notifikasi_baca (id_notifikasi, id_user)
                                   SELECT n.id_notifikasi, ? FROM notifikasi n
-                                  WHERE n.kode_menu IN ({tanda}) {filter_id}
+                                  WHERE n.kode_menu IN ({tanda}) {filter_id}{f_area}
                                     AND NOT EXISTS (SELECT 1 FROM notifikasi_baca b
                                                     WHERE b.id_notifikasi = n.id_notifikasi AND b.id_user = ?)""",
-                              user.id, *menu, *([id_notifikasi] if id_notifikasi else []), user.id)
+                              user.id, *menu, *([id_notifikasi] if id_notifikasi else []), *a_area, user.id)
         conn.commit()
     finally:
         conn.close()

@@ -1,7 +1,7 @@
 import logging
 from datetime import date, datetime
 from flask import Blueprint, request, jsonify
-from utils.db_kunjungan import area_akun
+from utils.area import area_data
 from flask_login import login_required, current_user
 from utils.serial_reader import baca_status, reset_deteksi_stabil
 from utils.db_utils import (
@@ -72,7 +72,7 @@ def history_supplier():
             return jsonify({"error": "Format tanggal salah"}), 400
         if not 0 <= (date.today() - tanggal).days < HARI_HISTORY_MAKS:
             return jsonify({"error": f"Tanggal hanya bisa dipilih {HARI_HISTORY_MAKS} hari terakhir"}), 400
-    rows = (get_history_timbangan_by_supplier(id_supplier, tanggal=tanggal, id_area=area_akun(current_user.id))
+    rows = (get_history_timbangan_by_supplier(id_supplier, tanggal=tanggal, id_area=area_data(current_user.id))
             if id_supplier else [])
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M") if r["created_at"] else None} for r in rows])
 
