@@ -13,7 +13,7 @@ async function muatLevel() {
         <tr class="hover:bg-slate-50 cursor-pointer${lv.is_active ? '' : ' text-slate-400'}${lv.id_level === levelDipilih ? ' bg-blue-50' : ''}"
             data-on-click="pilihLevel" data-arg="${lv.id_level}">
             <td class="table-cell">${badgeRole(lv.kode, lv.nama)}<div class="text-xs text-slate-400 font-mono">${escapeHtml(lv.kode)}</div></td>
-            <td class="table-cell text-xs font-mono">${escapeHtml(lv.halaman_awal)}</td>
+            <td class="table-cell text-xs">${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</td>
             <td class="table-cell">${Number(lv.jumlah_user)}</td>
             <td class="table-cell">${badgeAktif(lv.is_active)}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3" data-henti-klik>
@@ -56,8 +56,9 @@ function bukaLevel(id) {
     const form = document.getElementById('formLevel');
     const lv = daftarLevel.find(x => x.id_level === id);
     form.reset();
+    pastikanPilihanAwal(lv ? lv.halaman_awal : '');
     isiForm(form, lv ? { id_level: lv.id_level, kode: lv.kode, nama: lv.nama, halaman_awal: lv.halaman_awal, keterangan: lv.keterangan || '' }
-                     : { id_level: '', halaman_awal: '/weighbridge' });
+                     : { id_level: '', halaman_awal: '/weighbridge?view=list' });
     form.elements.kode.readOnly = !!lv;
     form.elements.kode.required = !lv;
     form.elements.kode.classList.toggle('bg-slate-50', !!lv);
@@ -77,4 +78,15 @@ function ubahAktifLevel(id) {
         url: `/api/admin/level/${id}/aktif`, aktif: !lv.is_active, nama: `Level ${lv.nama}`, jenis: 'level',
         pesanNonaktif: 'User dengan level ini tidak bisa login dan sesinya langsung berakhir.', setelahnya: muatLevel,
     });
+}
+
+// Halaman awal: tampilkan nama menu, bukan alamat. Nilai lama yang diketik manual tetap muncul sebagai pilihan.
+function labelHalamanAwal(url) {
+    const opsi = Array.from(document.getElementById('levelAwal')?.options || []).find(o => o.value === url);
+    return opsi ? opsi.text : url;
+}
+
+function pastikanPilihanAwal(url) {
+    const sel = document.getElementById('levelAwal');
+    if (url && !Array.from(sel.options).some(o => o.value === url)) sel.add(new Option(`${url} (lama)`, url));
 }

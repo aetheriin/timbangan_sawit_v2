@@ -20,7 +20,10 @@
             </div>
             <div>
                 <label class="field-label" for="levelAwal">Halaman Awal Setelah Login</label>
-                <input type="text" id="levelAwal" name="halaman_awal" required maxlength="100" class="input-field" placeholder="/weighbridge?tab=security">
+                <select id="levelAwal" name="halaman_awal" required class="input-field">
+                    {% for url, label in halaman_awal_list or [] %}<option value="{{ url }}">{{ label }}</option>{% endfor %}
+                </select>
+                <p class="field-hint">Halaman yang langsung terbuka setelah user dengan level ini login</p>
             </div>
             <div>
                 <label class="field-label" for="levelKet">Keterangan</label>

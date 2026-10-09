@@ -570,7 +570,7 @@ def simpan_timbang_kedua(no_tiket, berat, operator_id, id_jembatan):
     conn.close()
     return netto
 
-def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None):
+def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None, id_area=None):
     """Default 7 hari terakhir; tanggal (date) = hanya hari itu."""
     if tanggal:
         filter_waktu, param = "t.created_at >= ? AND t.created_at < DATEADD(day, 1, ?)", (tanggal, tanggal)
@@ -584,18 +584,18 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None):
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
-        WHERE t.id_supplier = ? AND {filter_waktu}
+        WHERE t.id_supplier = ? AND {filter_waktu}{_filter_area(id_area)[0]}
         ORDER BY t.created_at DESC
-    """, id_supplier, *param)
+    """, id_supplier, *param, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     return data
 
-def get_list_tiket_aktif():
+def get_list_tiket_aktif(id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
                p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, ml.id_alur
         FROM transaksi t
@@ -603,21 +603,22 @@ def get_list_tiket_aktif():
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
-        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
+        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
         ORDER BY t.created_at DESC
-    """)
+    """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()
     return data
 
-def get_history_produk(id_produk=None, hari=7, batas=500):
+def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
     """Halaman List: transaksi 7 hari terakhir, bisa disaring per produk."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         filter_produk = "AND t.id_produk = ?" if id_produk else ""
-        params = [-int(hari)] + ([int(id_produk)] if id_produk else [])
+        filter_area, param_area = _filter_area(id_area)
+        params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
             SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
                    t.jenis_transaksi, tb.berat_netto, t.status_alur
@@ -626,7 +627,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500):
             JOIN mitra s ON t.id_supplier = s.id_supplier
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-            WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}
+            WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
             ORDER BY t.created_at DESC""", *params)
         return _rows_to_dicts(cursor)
     finally:
@@ -774,7 +775,17 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
     conn.commit()
     conn.close()
 
-def get_history_umum(tabel, limit=10):
+# Area tiket: area mill tiket, atau area akun Security pembuatnya (tiket lama tanpa mill). Dipakai menyaring
+# List / history per area akun yang membuka (user di HO tidak melihat tiket site lain).
+AREA_TIKET = ("COALESCE((SELECT m.id_comp_area FROM mill m WHERE m.id_mill = t.id_mill), "
+              "(SELECT a.id_comp_area FROM akun a WHERE a.id_user = t.security_id))")
+
+
+def _filter_area(id_area):
+    return (f" AND {AREA_TIKET} = ?", [id_area]) if id_area else ("", [])
+
+
+def get_history_umum(tabel, limit=10, id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
     if tabel not in ("lab_hasil", "sortasi"):          # nama tabel disisipkan ke SQL -> hanya daftar tetap
@@ -787,8 +798,9 @@ def get_history_umum(tabel, limit=10):
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN mitra s ON t.id_supplier = s.id_supplier
+        WHERE 1 = 1{_filter_area(id_area)[0]}
         ORDER BY t.created_at DESC
-    """)
+    """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
     conn.close()

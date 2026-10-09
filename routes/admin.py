@@ -43,6 +43,13 @@ HALAMAN = {
 }
 
 POLA_USERNAME = re.compile(r"^[a-z0-9._]{3,50}$")
+# Pilihan "Halaman awal setelah login" (admin memilih nama menu, bukan mengetik alamat)
+HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "List Tiket"),
+                ("/weighbridge?tab=security", "Form › Security"), ("/weighbridge?tab=timbangan", "Form › Timbangan"),
+                ("/weighbridge?tab=sortasi", "Form › Sortasi"), ("/weighbridge?tab=lab", "Form › Laboratorium"),
+                ("/face-recognition", "Face Recognition"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
+                ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
+                ("/admin", "Admin (khusus level admin)")]
 POLA_KODE_KATEGORI = re.compile(r"^[A-Z0-9_]{2,20}$")
 POLA_PREFIX = re.compile(r"^[A-Z0-9]{1,10}$")
 POLA_JAM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -99,7 +106,7 @@ def admin_halaman(halaman):
                            format_timbangan=FORMAT_TIMBANGAN,
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            alur_list=alur.daftar_alur(),
-                           password_min=PASSWORD_MIN)
+                           password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
 
 # ===== KELOLA USER =====
@@ -241,8 +248,10 @@ def level_simpan():
         id_level = int(teks_id) if teks_id.isdigit() else None
         nama = _teks("nama")
         halaman_awal = _teks("halaman_awal", maks=100)
-        if not halaman_awal.startswith("/") or halaman_awal.startswith("//"):
-            raise ValueError("Halaman awal harus alamat di aplikasi ini, mis. /dashboard atau /weighbridge?tab=security")
+        if halaman_awal not in dict(HALAMAN_AWAL):
+            lama = hak_akses.get_level(id_level) if id_level else None
+            if not lama or lama["halaman_awal"] != halaman_awal:        # nilai lama yang diketik manual tetap boleh
+                raise ValueError("Pilih halaman awal dari daftar")
         keterangan = _teks("keterangan", wajib=False, maks=255) or None
         if id_level is None:
             kode = _teks("kode", maks=30).upper()

@@ -30,7 +30,7 @@ security_bp = Blueprint('security', __name__)
 def list_tiket_aktif():
     return jsonify([{**t, "created_at": t["created_at"].strftime("%Y-%m-%d %H:%M"),
                      "alur_tahap": alur.tahap_alur(t.get("id_alur")) if t.get("id_alur") else []}
-                    for t in get_list_tiket_aktif()])
+                    for t in get_list_tiket_aktif(area_akun(current_user.id))])
 
 @security_bp.route("/api/security/history-driver")
 @login_required

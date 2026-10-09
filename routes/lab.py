@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from utils.db_kunjungan import area_akun
 from flask_login import login_required, current_user
 from utils.db_utils import (get_standar_mutu, update_standar_mutu, simpan_lab, get_history_umum, cari_transaksi_aktif,
                             get_history_standar)
@@ -67,4 +68,4 @@ def lab_simpan():
 @lab_bp.route("/api/history/lab")
 @login_required
 def history_lab():
-    return jsonify(get_history_umum('lab_hasil'))
+    return jsonify(get_history_umum('lab_hasil', id_area=area_akun(current_user.id)))

@@ -60,7 +60,7 @@ def weighbridge():
 @login_required
 def history_produk():
     id_produk = request.args.get("id_produk", "")
-    rows = get_history_produk(int(id_produk) if id_produk.isdigit() else None)
+    rows = get_history_produk(int(id_produk) if id_produk.isdigit() else None, id_area=area_akun(current_user.id))
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M")} for r in rows])
 
 
