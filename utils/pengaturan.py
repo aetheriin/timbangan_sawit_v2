@@ -23,6 +23,9 @@ DEFINISI = {
                           "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
     "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Face Recognition", "bool", "false", None, None,
                        "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
+    "TOLERANSI_KELEBIHAN_DO": ("Toleransi kelebihan DO (kg)", "Kelebihan DO", "int", "0", 0, 1000000,
+                               "Kelebihan sampai angka ini masih diterima di DO yang sama (tanpa tiket baru & notifikasi). "
+                               "Di atasnya seluruh kelebihan menjadi tiket baru -S1"),
     "AREA_PUSAT": ("Area kantor pusat (melihat semua area)", "Area", "area", "0", None, None,
                    "Akun di area ini melihat data semua site (List, history, Kelebihan DO, notifikasi). "
                    "Akun di area lain hanya melihat site-nya sendiri"),

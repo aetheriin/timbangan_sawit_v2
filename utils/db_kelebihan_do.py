@@ -4,7 +4,7 @@ Saat tiket selesai ditimbang, kelebihannya menjadi tiket baru '<no tiket>-S1' (t
 netto di transaksi.berat_split_kg) dan dicatat di kelebihan_do + notifikasi ke level yang punya hak menu KELEBIHAN_DO.
 Krani mengisi No. DO baru (dari Ascend) -> KTU / HO menetapkan atau mengembalikan."""
 from utils.db_utils import get_connection, _rows_to_dicts
-from utils import log_aktivitas, notifikasi
+from utils import log_aktivitas, notifikasi, pengaturan
 
 MENU = "KELEBIHAN_DO"
 STATUS = ("MENUNGGU", "DIAJUKAN", "SELESAI", "DIKEMBALIKAN")
@@ -34,7 +34,8 @@ def proses_tiket_selesai(no_tiket, user_id):
         cursor.execute("SELECT COALESCE(SUM(kelebihan_kg), 0) FROM kelebihan_do WHERE id_do = ?", r.id_do)
         realisasi = total - float(cursor.fetchone()[0])
         kuota, netto = float(r.qty_kg), float(r.berat_netto)
-        if realisasi <= kuota:
+        # Toleransi (Admin › Pengaturan Site): kelebihan kecil masih diterima di DO yang sama
+        if realisasi - kuota <= pengaturan.nilai("TOLERANSI_KELEBIHAN_DO"):
             conn.commit()
             return None
         lebih = round(min(netto, realisasi - kuota), 2)
