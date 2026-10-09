@@ -28,10 +28,12 @@ const pollingBerat = new Poller(async () => {
     const putus = !st || !st.terhubung;
     el.textContent = st ? `${st.berat} Kg` : '— Kg';
     el.classList.toggle('opacity-40', putus);          // koneksi timbangan / server terputus
-    // Status: putus (dengan sebab), di bawah berat minimum, bergerak, atau stabil siap disimpan
+    // Status: putus (dengan sebab), belum kembali ke 0 setelah simpan, di bawah berat minimum, bergerak, atau stabil siap disimpan
     const ket = document.getElementById('statusBeratLive');
     const [teks, warna] = !st ? ['Server tidak menjawab', 'text-red-400']
         : putus ? [`Tidak terhubung: ${st.error || 'cek kabel / agen timbangan'}`, 'text-red-400']
+        : st.perlu_nol
+            ? ['Belum kembali ke 0: tunggu truk sebelumnya turun / tekan ZERO di indikator', 'text-amber-400']
         : st.berat_min_kg && st.berat < st.berat_min_kg ? [`Kosong (di bawah ${st.berat_min_kg} kg)`, 'text-slate-400']
         : st.siap_kunci ? ['● Stabil, siap disimpan', 'text-emerald-400'] : ['○ Bergerak, tunggu stabil', 'text-amber-400'];
     ket.textContent = teks;

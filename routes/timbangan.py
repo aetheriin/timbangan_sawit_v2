@@ -3,7 +3,7 @@ from datetime import date, datetime
 from flask import Blueprint, request, jsonify
 from utils.area import area_data
 from flask_login import login_required, current_user
-from utils.serial_reader import baca_status, reset_deteksi_stabil
+from utils.serial_reader import baca_status, reset_deteksi_stabil, wajib_kembali_nol
 from utils.db_utils import (
     get_data_timbangan, simpan_timbang_pertama, simpan_timbang_kedua, catat_timeline,
     cari_transaksi_aktif, get_history_timbangan_by_supplier
@@ -90,6 +90,9 @@ def timbang_simpan():
     status = baca_status(jembatan["id_jembatan"])
     if not status.get("terhubung"):
         return jsonify({"error": f"Timbangan {jembatan['kode']} tidak terhubung: {status.get('error') or '-'}"}), 400
+    if status.get("perlu_nol"):
+        return jsonify({"error": "Timbangan belum kembali ke 0 sejak penimbangan sebelumnya. Pastikan truk sebelumnya "
+                                 "sudah turun; bila angka tetap tersisa / minus, tekan ZERO di indikator."}), 400
     if not status.get("siap_kunci"):
         return jsonify({"error": "Berat belum stabil"}), 400
     if status["berat"] < jembatan.get("berat_min_kg", 0):
@@ -106,7 +109,7 @@ def timbang_simpan():
     berat = status["berat"]
     if data_lama.berat_bruto is None and data_lama.berat_tara is None:
         jenis = simpan_timbang_pertama(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
-        reset_deteksi_stabil(jembatan["id_jembatan"])
+        wajib_kembali_nol(jembatan["id_jembatan"])
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
             return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg",
@@ -128,7 +131,7 @@ def timbang_simpan():
         netto = simpan_timbang_kedua(no_tiket, berat, current_user.id, jembatan["id_jembatan"])
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    reset_deteksi_stabil(jembatan["id_jembatan"])
+    wajib_kembali_nol(jembatan["id_jembatan"])
     catat_timeline(no_tiket, 'TIMBANG_KELUAR', current_user.id)
     hasil = get_data_timbangan(no_tiket)
     pesan = f"Selesai! Netto: {netto} kg"

@@ -91,7 +91,8 @@ def parse(teks, cfg):
 
 # ===== Data per jembatan =====
 def _state_baru():
-    return {"berat": 0, "stabil": False, "terhubung": False, "siap_kunci": False, "stabil_hw": False, "error": None}
+    return {"berat": 0, "stabil": False, "terhubung": False, "siap_kunci": False, "stabil_hw": False, "error": None,
+            "perlu_nol": False}
 
 
 def _data_baru(cfg):
@@ -118,6 +119,8 @@ def _proses_teks(data, teks):
         if berat is None:
             continue
         siap = _update_stabilitas(data, berat)
+        if data["state"]["perlu_nol"] and abs(berat) < batas_nol(data["cfg"]):
+            data["state"]["perlu_nol"] = False          # jembatan sudah kosong lagi -> boleh menyimpan truk berikutnya
         if data["cfg"]["wajib_st"]:
             siap = siap and stabil_hw
         data["state"].update(berat=berat, stabil_hw=stabil_hw, stabil=siap or stabil_hw, siap_kunci=siap)
@@ -243,6 +246,21 @@ def reset_deteksi_stabil(id_jembatan):
         if data:
             data["riwayat"].update(berat_terakhir=None, waktu_mulai_stabil=None)
             data["state"].update(siap_kunci=False)
+
+
+def batas_nol(cfg):
+    """Jembatan dianggap kosong bila |berat| di bawah ini (berat minimum / toleransi stabil, mana yang lebih besar)."""
+    return max(float(cfg["berat_min_kg"]), float(cfg["toleransi_kg"]))
+
+
+def wajib_kembali_nol(id_jembatan):
+    """Setelah berat disimpan: penimbangan berikutnya baru boleh disimpan setelah jembatan kembali ke ~0
+    (truk turun). Sisa / minus yang tidak hilang harus di-ZERO di indikator, bukan dari web."""
+    with _lock:
+        data = _pembaca.get(id_jembatan)
+        if data:
+            data["riwayat"].update(berat_terakhir=None, waktu_mulai_stabil=None)
+            data["state"].update(siap_kunci=False, perlu_nol=True)
 
 
 def semua_status():

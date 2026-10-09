@@ -64,20 +64,9 @@ def buat_tiket():
         return jsonify({"error": "Pilih jenis transaksi"}), 400
     if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier() if s.is_customer}:
         return jsonify({"error": "Pilih customer dari daftar"}), 400
-    # Pengangkutan: dengan DO harus salah satu pengangkut DO itu; tanpa DO kendaraan pengirim / penerima / pihak ketiga
-    angkut = f.get("angkut", "").strip().upper()
-    cara, _, id_angkut = angkut.partition(":")
-    pilihan_do = {(a["cara_angkut"], a["id_pengangkutan"]) for a in do["angkutan"]} if do else None
-    if cara == "PIHAK_KETIGA":
-        if not id_angkut.isdigit() or int(id_angkut) not in {s.id_supplier for s in get_semua_supplier() if s.is_angkutan}:
-            return jsonify({"error": "Pilih pengangkutan pihak ketiga dari daftar"}), 400
-        id_angkut = int(id_angkut)
-    elif cara in ("PENGIRIM", "PENERIMA"):
-        id_angkut = None
-    else:
-        return jsonify({"error": "Pilih pengangkutan"}), 400
-    if pilihan_do is not None and (cara, id_angkut) not in pilihan_do:
-        return jsonify({"error": f"Pengangkutan ini tidak terdaftar di DO {no_do}"}), 400
+    # Pengangkutan tidak diisi Security: ikut pengangkut pertama di DO (data HO / Ascend), tanpa DO = kendaraan pengirim
+    angkut_do = do["angkutan"][0] if do and do.get("angkutan") else None
+    cara, id_angkut = (angkut_do["cara_angkut"], angkut_do["id_pengangkutan"]) if angkut_do else ("PENGIRIM", None)
     if not id_produk.isdigit() or int(id_produk) not in {p.id_produk for p in get_semua_produk()}:
         return jsonify({"error": "Pilih produk dari daftar"}), 400
 

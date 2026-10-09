@@ -53,7 +53,7 @@ def weighbridge():
     return render_template("site/weighbridge.html", halaman="site", view="form",
                            tab_awal=_tab_awal() or "security",
                            supplier_list=[s for s in get_semua_supplier() if s.is_customer],
-                           angkutan_list=[s for s in get_semua_supplier() if s.is_angkutan], produk_list=get_semua_produk(),
+                           produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)),
                            jembatan_list=_jembatan_aktif(), jembatan_dipilih=_jembatan_pc())
 
