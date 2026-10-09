@@ -13,12 +13,12 @@
         </a>
         {% endfor %}
     {% else %}
-        {# Menu dari tabel menu (Admin › Hak Akses: urutan, nama, ikon). Semua level non-admin melihat semua menu. #}
+        {# Menu dari tabel menu (urutan, nama, ikon), hanya yang boleh dibuka department user (Admin › Organisasi). #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
                                   'kelebihan_do': 'KELEBIHAN_DO'}.get(halaman) %}{% endif %}
-        {% for m in menu_sidebar() %}
+        {% for m in menu_sidebar() if boleh_lihat(m.kode) %}
         <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
            class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">
             <i class="fa-solid {{ m.ikon or 'fa-circle' }} w-4"></i> {{ m.nama }}

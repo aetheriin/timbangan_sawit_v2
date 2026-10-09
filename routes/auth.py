@@ -5,7 +5,7 @@ from utils.auth import User
 from utils.db_utils import (get_user_by_username, catat_login_terakhir, get_password_hash, ganti_password_sendiri,
                             naikkan_sesi_versi)
 from utils.keamanan import log_keamanan, mulai_sesi, password_wajib_diganti
-from utils import sesi_aktif, pengaturan
+from utils import sesi_aktif, pengaturan, hak_akses
 from utils.login_guard import sisa_kunci, catat_gagal, catat_berhasil
 
 auth_bp = Blueprint('auth', __name__)
@@ -23,8 +23,11 @@ PESAN_KELUAR = {
 
 
 def _halaman_awal(user):
-    """Halaman pertama setelah login, diatur per level (Admin › Hak Akses)."""
-    return user.halaman_awal or ("/admin" if user.is_admin else "/weighbridge")
+    """Halaman pertama setelah login, diatur per level (Admin › Hak Akses); bila department tidak boleh membukanya,
+    menu pertama yang boleh."""
+    if user.is_admin:
+        return user.halaman_awal or "/admin"
+    return hak_akses.url_awal(user) or user.halaman_awal or "/weighbridge"
 
 
 @auth_bp.route("/")
