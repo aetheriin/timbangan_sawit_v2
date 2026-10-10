@@ -1,7 +1,7 @@
 /* =====================================================================
    SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
    Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-023). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
+   (setara schema awal + migrasi 001-022). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
    Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
@@ -71,13 +71,6 @@ CREATE TABLE dbo.level_akses (
     bisa_ubah    BIT NOT NULL CONSTRAINT DF_LevelAkses_Ubah DEFAULT (0),
     bisa_hapus   BIT NOT NULL CONSTRAINT DF_LevelAkses_Hapus DEFAULT (0),
     CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
-);
--- Menu yang boleh dibuka per department (migrasi 023). Tanpa baris = department tidak dibatasi.
--- Akses akhir = menu department DAN hak level (level_akses).
-CREATE TABLE dbo.department_menu (
-    id_department INT NOT NULL CONSTRAINT FK_DeptMenu_Department REFERENCES dbo.department (id_department),
-    id_menu       INT NOT NULL CONSTRAINT FK_DeptMenu_Menu REFERENCES dbo.menu (id_menu),
-    CONSTRAINT PK_DepartmentMenu PRIMARY KEY (id_department, id_menu)
 );
 GO
 /* Isi awal company, area, department, level, menu, level_akses ada di bagian DATA AWAL (paling bawah). */

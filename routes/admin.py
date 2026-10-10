@@ -331,10 +331,7 @@ def _id_opsional(nama):
 @admin_bp.route("/api/admin/organisasi")
 @_admin
 def organisasi_daftar():
-    menu_dept = hak_akses.menu_department()
-    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(),
-                    "department": [{**d, "menu": menu_dept.get(d["id_department"], [])} for d in org.daftar_department()],
-                    "menu": hak_akses.daftar_menu_akses(),
+    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department(),
                     "mill": alur.daftar_mill(), "kategori": list(db_personel.daftar_kategori(semua=True).values())})
 
 
@@ -410,14 +407,8 @@ def department_simpan():
         id_d, nama = _id_opsional("id_department"), _teks("nama")
         if org.kode_dipakai("department", "id_department", "nama", nama, kecuali=id_d):
             raise ValueError(f"Department {nama} sudah ada")
-        # Menu yang boleh dibuka department ini (kosong = semua menu); aksi tetap dari hak level
-        semua_menu = {m["id_menu"] for m in hak_akses.daftar_menu_akses()}
-        menu = [int(v) for v in request.form.getlist("menu") if v.isdigit() and int(v) in semua_menu]
         org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None)
-        if id_d is None:
-            id_d = next(d["id_department"] for d in org.daftar_department() if d["nama"] == nama)
-        hak_akses.simpan_menu_department(id_d, menu)
-        _audit("DEPARTMENT_SIMPAN", f"{nama} ({len(menu) or 'semua'} menu)")
+        _audit("DEPARTMENT_SIMPAN", nama)
         return jsonify({"message": f"Department {nama} disimpan"})
     return _jalankan(aksi)
 

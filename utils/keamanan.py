@@ -107,8 +107,7 @@ def pasang_cookie(app):
     def info_sesi():
         from utils import hak_akses
         return {"sesi_idle_detik": pengaturan.nilai("SESI_IDLE_MENIT") * 60,
-                "boleh": hak_akses.boleh, "boleh_lihat": hak_akses.boleh_lihat,
-                "menu_sidebar": hak_akses.menu_sidebar, "tab_boleh": hak_akses.tab_boleh}
+                "boleh": hak_akses.boleh, "menu_sidebar": hak_akses.menu_sidebar}
 
 
 def mulai_sesi(user, sesi_versi=0):
@@ -285,5 +284,3 @@ def pasang_keamanan(app):
     pasang_batas_admin(app)
     pasang_header_keamanan(app)
     pasang_blok_upload_publik(app)
-    from utils.hak_akses import pasang_penjaga_menu
-    pasang_penjaga_menu(app)

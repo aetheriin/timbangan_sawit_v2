@@ -7,9 +7,7 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {% set menu_tab = {'personel': 'MASTER_DRIVER', 'kendaraan': 'MASTER_KENDARAAN', 'mitra': 'MASTER_MITRA', 'produk': 'MASTER_PRODUK'} %}
-    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan'), ('mitra', 'Mitra'), ('produk', 'Produk')]
-                  | selectattr(0, 'in', tab_boleh(menu_tab)) | list, 'mt-4') }}
+    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan'), ('mitra', 'Mitra'), ('produk', 'Produk')], 'mt-4') }}
 {% endblock %}
 
 {% block tab_content %}

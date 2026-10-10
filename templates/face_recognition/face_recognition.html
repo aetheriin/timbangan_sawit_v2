@@ -7,9 +7,7 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'), ('audit', 'Audit Log')]
-                  | selectattr(0, 'in', tab_boleh({'absensi': 'ABSENSI', 'personel': 'PERSONEL', 'audit': 'AUDIT_LOG'}))
-                  | list, 'mt-4') }}
+    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'), ('audit', 'Audit Log')], 'mt-4') }}
 {% endblock %}
 
 {% block tab_content %}

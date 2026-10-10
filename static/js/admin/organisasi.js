@@ -4,14 +4,13 @@ const ORG = {
     area: { id: 'id_comp_area', nama: 'Area', kolom: a => [mono(a.kode), escapeHtml(a.nama), escapeHtml(a.company),
                                                           escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
     department: { id: 'id_department', nama: 'Department', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
-                  d.menu.length ? `${d.menu.length} menu` : '<span class="text-slate-400">Semua</span>', Number(d.jumlah_user)] },
+                                                                        Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Mill', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
     kategori: { id: 'kode', nama: 'Kategori Personel', kolom: k => [mono(k.kode), escapeHtml(k.nama),
                 k.prefix_kode ? mono(`${k.prefix_kode}-001`) : '<span class="text-slate-400">PRGBS-001</span>',
                 k.wajib_sim ? 'Ya' : '-', k.boleh_akun ? 'Ya' : '-'] },
 };
 let dataOrg = { company: [], area: [], department: [], mill: [], kategori: [] };
-let daftarMenuOrg = [];
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 
@@ -19,7 +18,6 @@ document.addEventListener('DOMContentLoaded', muatOrganisasi);
 
 async function muatOrganisasi() {
     const data = await ambilJson('/api/admin/organisasi');
-    daftarMenuOrg = data.menu || [];
     Object.keys(ORG).forEach(jenis => {
         const tbody = document.getElementById(`tabelOrg-${jenis}`);
         const n = Number(tbody.dataset.kolom);
@@ -47,7 +45,6 @@ function bukaOrganisasi(jenis, id) {
     isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '', prefix_kode: r.prefix_kode || '', kode_lama: r.kode }
                     : { [cfg.id]: '', kode_lama: '' });
     if (form.elements.kode_lama) form.elements.kode.readOnly = !!r;      // kode kategori tetap setelah dibuat
-    if (jenis === 'department') isiMenuDepartment(r ? r.menu : []);
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]), select').focus();
@@ -67,13 +64,4 @@ function ubahAktifOrganisasi(jenis, id) {
         url: `/api/admin/organisasi/${jenis}/${id}/aktif`, aktif: !r.is_active, nama: r.nama, jenis: cfg.nama.toLowerCase(),
         pesanNonaktif: jenis === 'mill' ? 'Tiket baru tidak lagi memakai mill ini.' : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.', setelahnya: muatOrganisasi,
     });
-}
-
-// Department: centang menu yang boleh dibuka (kosong = semua menu)
-function isiMenuDepartment(terpilih) {
-    document.getElementById('orgDeptMenu').innerHTML = daftarMenuOrg.map(m => `
-        <label class="flex items-center gap-2 py-0.5">
-            <input type="checkbox" name="menu" value="${m.id_menu}"${terpilih.includes(m.id_menu) ? ' checked' : ''}>
-            ${escapeHtml(m.nama)}
-        </label>`).join('') || '<span class="text-slate-400">Belum ada menu</span>';
 }

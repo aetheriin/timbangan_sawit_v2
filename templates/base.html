@@ -30,10 +30,8 @@
         {% endblock %}
 
         {% block tab_header %}
-            {# Tab Form hanya yang boleh dibuka department user #}
             {{ tab_header([('security', 'Security'), ('timbangan', 'Timbangan'),
-                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')]
-                          | selectattr(0, 'in', tab_boleh()) | list) }}
+                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')]) }}
         {% endblock %}
 
         <div id="tabBody" class="tab-body p-5">

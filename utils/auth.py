@@ -1,8 +1,7 @@
 from flask_login import UserMixin
 
 class User(UserMixin):
-    def __init__(self, id, username, nama_lengkap, role, id_level=None, is_admin=False, halaman_awal="/weighbridge",
-                 id_department=None):
+    def __init__(self, id, username, nama_lengkap, role, id_level=None, is_admin=False, halaman_awal="/weighbridge"):
         self.id = id
         self.username = username
         self.nama_lengkap = nama_lengkap
@@ -10,9 +9,7 @@ class User(UserMixin):
         self.id_level = id_level
         self.is_admin = bool(is_admin)
         self.halaman_awal = halaman_awal
-        self.id_department = id_department      # department membatasi menu (utils/hak_akses.boleh_lihat)
 
     @staticmethod
     def dari_row(row):
-        return User(row.id_user, row.username, row.nama, row.role, row.id_level, row.is_admin, row.halaman_awal,
-                    getattr(row, "id_department", None))
+        return User(row.id_user, row.username, row.nama, row.role, row.id_level, row.is_admin, row.halaman_awal)
