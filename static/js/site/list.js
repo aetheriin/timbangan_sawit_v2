@@ -1,6 +1,6 @@
 // ===== HALAMAN LIST: tiket aktif per tahap + history per produk 7 hari =====
 // Tahap tiket = siapa yang harus memproses berikutnya: Timbangan, Sortasi / Lab (sesuai alur mill), Timbangan lagi.
-// Tab Security = "truk di dalam": semua tiket aktif + posisinya + lama di dalam (bukan antrean yang sama dengan Timbangan).
+// Tab Security = semua tiket aktif (truk yang masih di dalam) + posisinya. Lama di dalam ada di History.
 let daftarTiket = [];
 let tahapAktif = '';
 
@@ -36,7 +36,7 @@ function tampilkanTiket() {
         const tab = tahapAktif && tahapAktif !== 'security' ? tahapAktif : tahapTiket(t).slice(-1)[0];
         const menunggu = { SECURITY_REGISTER: 'Timbang 1', TIMBANG_2: 'Timbang 2' }[t.status_alur] || LABEL_TAHAP[tahapTiket(t)[0]];
         return `<tr class="hover:bg-slate-50">
-            <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(t.created_at)}${lamaDiDalam(t.created_at)}</td>
+            <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(t.created_at)}</td>
             <td class="table-cell font-mono text-xs">${escapeHtml(t.no_tiket)}</td>
             <td class="table-cell">${escapeHtml(t.no_plat)}</td>
             <td class="table-cell">${escapeHtml(t.supplier)}</td>
@@ -64,7 +64,7 @@ async function muatHistoryProduk() {
     const idProduk = document.getElementById('filterProdukHistory').value;
     const data = await ambilJson(`/api/list/history-produk?id_produk=${encodeURIComponent(idProduk)}`);
     const tbody = document.getElementById('tabelHistoryProduk');
-    if (data.error) { tbody.innerHTML = barisKosong(8, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(9, data.error); return; }
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(r.created_at)}</td>
@@ -74,9 +74,10 @@ async function muatHistoryProduk() {
             <td class="table-cell">${escapeHtml(r.produk)}</td>
             <td class="table-cell">${escapeHtml(labelKode(r.jenis_transaksi))}</td>
             <td class="table-cell text-right">${r.berat_netto != null ? Number(r.berat_netto).toLocaleString('id-ID') : '-'}</td>
+            <td class="table-cell whitespace-nowrap text-xs">${labelLama(r.lama_menit)}</td>
             <td class="table-cell">${badgeStatusTiket(r.status_alur)}</td>
-        </tr>`).join('') || barisKosong(8, 'Belum ada transaksi 7 hari terakhir');
-    catatanBatas(tbody, data.length, 500, 8);
+        </tr>`).join('') || barisKosong(9, 'Belum ada transaksi 7 hari terakhir');
+    catatanBatas(tbody, data.length, 500, 9);
     saringTabel(document.getElementById('searchTiket').value);
 }
 
@@ -92,12 +93,10 @@ function saringTabel(kata) {
     });
 }
 
-// "1 jam 20 mnt di dalam" sejak tiket dibuat; merah bila lebih dari 4 jam (truk tertahan / tidak kembali)
-function lamaDiDalam(teks) {
-    const mulai = new Date((teks || '').replace(' ', 'T'));
-    if (isNaN(mulai)) return '';
-    const menit = Math.max(0, Math.floor((Date.now() - mulai) / 60000));
+// Lama truk di dalam (tiket dibuat s/d timbang terakhir); merah bila lebih dari 4 jam
+function labelLama(menit) {
+    if (menit == null) return '-';
     const jam = Math.floor(menit / 60);
-    const label = jam ? `${jam} jam ${menit % 60} mnt` : `${menit} mnt`;
-    return `<div class="${jam >= 4 ? 'text-red-600 font-semibold' : 'text-slate-400'}">${label} di dalam</div>`;
+    const teks = jam ? `${jam} jam ${menit % 60} mnt` : `${menit} mnt`;
+    return jam >= 4 ? `<span class="text-red-600 font-semibold">${teks}</span>` : teks;
 }

@@ -39,10 +39,8 @@ async function muatPengaturan() {
                         ${badge(p.sumber, p.sumber === 'Admin' || p.sumber === 'Area' ? WARNA_BADGE.biru : WARNA_BADGE.abu)}
                     </div>
                     <div class="flex items-center">${inputPengaturan(p)}</div>
-                    <p class="field-hint">${escapeHtml(p.keterangan)}. ${areaPengaturan() ? 'Global' : 'Bawaan'}: ${escapeHtml(String(p.tipe === 'bool' ? (p.bawaan ? 'Aktif' : 'Tidak') : p.bawaan))}
-                        ${p.sumber === 'Admin' || p.sumber === 'Area' ? `· <button type="button" class="text-blue-600 hover:underline"
-                            data-on-click="kembalikanBawaan" data-arg="${p.kunci}">${areaPengaturan() ? 'Ikuti global' : 'Kembalikan bawaan'}</button>` : ''}
-                        ${!areaPengaturan() && p.per_area ? ' · bisa diatur per area' : ''}</p>
+                    ${p.sumber === 'Admin' || p.sumber === 'Area' ? `<p class="field-hint"><button type="button" class="text-blue-600 hover:underline"
+                        data-on-click="kembalikanBawaan" data-arg="${p.kunci}">${areaPengaturan() ? 'Ikuti global' : 'Kembalikan bawaan'}</button></p>` : ''}
                 </div>`).join('')}
             </div>
         </div>`).join('');

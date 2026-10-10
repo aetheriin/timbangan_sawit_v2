@@ -1,7 +1,7 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div class="flex flex-wrap items-center gap-2 mb-4">
     <div id="chipTahap" class="flex gap-1.5" data-awal="{{ tahap_awal }}">
-        {% for kode, label in [('', 'Semua'), ('security', 'Security · Truk di Dalam'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
+        {% for kode, label in [('', 'Semua'), ('security', 'Security'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
         <button type="button" class="chip{% if kode == tahap_awal %} chip-active{% endif %}" data-tahap="{{ kode }}"
                 data-on-click="filterTahap" data-arg="$el">{{ label }}</button>
         {% endfor %}
@@ -43,7 +43,7 @@
             <thead class="table-header-row">
                 <tr><th class="table-cell">Waktu</th><th class="table-cell">No. Tiket</th><th class="table-cell">No. Plat</th>
                     <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Jenis Transaksi</th>
-                    <th class="table-cell text-right">Netto (Kg)</th><th class="table-cell">Status</th></tr>
+                    <th class="table-cell text-right">Netto (Kg)</th><th class="table-cell">Lama di Dalam</th><th class="table-cell">Status</th></tr>
             </thead>
             <tbody data-per-halaman="20" id="tabelHistoryProduk" class="divide-y divide-slate-100"></tbody>
         </table>

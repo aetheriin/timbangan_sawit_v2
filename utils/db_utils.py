@@ -621,7 +621,11 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
             SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
-                   t.jenis_transaksi, tb.berat_netto, t.status_alur
+                   t.jenis_transaksi, tb.berat_netto, t.status_alur,
+                   -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
+                   CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
+                        DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
+                   END AS lama_menit
             FROM transaksi t
             JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
             JOIN mitra s ON t.id_supplier = s.id_supplier
