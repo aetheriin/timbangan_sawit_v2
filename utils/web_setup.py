@@ -1,7 +1,10 @@
 """Pengaturan web app: cache statis, header no-store, kompresi, penanganan error, log request lambat."""
 import logging
 import os
+import secrets
 import time
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from flask import request, jsonify, render_template, g
 from werkzeug.exceptions import HTTPException
 
@@ -87,10 +90,42 @@ def pasang_error_handler(app):
 
     @app.errorhandler(Exception)
     def server_error(e):
-        log.exception("Error tak tertangani di %s %s", request.method, request.path)
+        # Kode rujukan unik: operator melapor kode ini, IT mencarinya di logs/error_app.log (traceback lengkap)
+        kode = kode_error()
+        log.exception("%s Error tak tertangani di %s %s (user=%s, ip=%s)", kode, request.method, request.path,
+                      _username(), request.remote_addr)
+        pesan = f"Terjadi kesalahan sistem. Kode error: {kode}. Catat kode ini & No. Tiket, lalu hubungi IT site."
         if _minta_json():
-            return jsonify({"error": PESAN_ERROR[500]}), 500
-        return render_template("error.html", kode=500, pesan=PESAN_ERROR[500]), 500
+            return jsonify({"error": pesan, "kode_error": kode}), 500
+        return render_template("error.html", kode=500, pesan=pesan), 500
+
+
+def kode_error():
+    """Mis. ERR-1010-1415-A7F3 (bulan-tanggal, jam-menit, acak) supaya mudah dicari di log."""
+    return f"ERR-{datetime.now():%m%d-%H%M}-{secrets.token_hex(2).upper()}"
+
+
+def _username():
+    try:
+        from flask_login import current_user
+        return current_user.username if current_user.is_authenticated else "-"
+    except Exception:       # noqa: BLE001 - jangan sampai pencatatan error membuat error baru
+        return "-"
+
+
+def pasang_log_error(app):
+    """Semua log WARNING ke atas (termasuk traceback error) ke logs/error_app.log, diputar 5 MB x 10 file."""
+    from extensions import BASE_DIR
+    akar = logging.getLogger()
+    if any(getattr(h, "_error_app", False) for h in akar.handlers):
+        return
+    os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+    h = RotatingFileHandler(os.path.join(BASE_DIR, "logs", "error_app.log"),
+                            maxBytes=5 * 1024 * 1024, backupCount=10, encoding="utf-8")
+    h._error_app = True
+    h.setLevel(logging.WARNING)
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+    akar.addHandler(h)
 
 
 def pasang_log_lambat(app):
@@ -115,6 +150,7 @@ def pasang_log_lambat(app):
 
 
 def pasang_semua(app):
+    pasang_log_error(app)
     pasang_cache_static(app)
     pasang_header_cache(app)
     pasang_kompresi(app)
