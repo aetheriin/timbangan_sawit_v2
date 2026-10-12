@@ -124,6 +124,7 @@ def pasang_log_error(app):
                             maxBytes=5 * 1024 * 1024, backupCount=10, encoding="utf-8")
     h._error_app = True
     h.setLevel(logging.WARNING)
+    h.addFilter(lambda r: r.name != "keamanan")          # kejadian keamanan sudah di logs/keamanan.log
     h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
     akar.addHandler(h)
 
