@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from flask import Flask, jsonify, request, redirect, session
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -86,6 +87,8 @@ def jalankan_layanan_latar():
     pindahkan_upload_lama()
     mulai_pembacaan_serial()
     mulai_pembersihan_berkala()
+    from utils import face_cache       # embedding wajah dimuat duluan supaya scan pertama tidak lebih lambat
+    threading.Thread(target=face_cache.panaskan, daemon=True).start()
 
 
 if __name__ == "__main__":

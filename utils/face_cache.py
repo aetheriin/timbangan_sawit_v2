@@ -5,6 +5,7 @@ Sekarang dimuat sekali, lalu dimuat ulang hanya bila personel ditambah / diubah 
 Juga membatasi proses face recognition yang berjalan bersamaan supaya CPU tidak penuh dan web tetap responsif."""
 import os
 import threading
+import time
 from contextlib import contextmanager
 import numpy as np
 
@@ -21,12 +22,35 @@ class ServerSibuk(Exception):
 
 @contextmanager
 def slot_proses_wajah(timeout=30):
+    """Satu proses wajah sekaligus per slot. Waktu menunggu giliran & waktu proses dicatat di flask.g
+    (ditampilkan di log LAMBAT) supaya kelihatan lambatnya karena antre atau karena CPU."""
+    mulai = time.perf_counter()
     if not SLOT_PROSES_WAJAH.acquire(timeout=timeout):
         raise ServerSibuk()
+    dapat = time.perf_counter()
     try:
         yield
     finally:
         SLOT_PROSES_WAJAH.release()
+        _catat_waktu(dapat - mulai, time.perf_counter() - dapat)
+
+
+def _catat_waktu(antre, proses):
+    try:
+        from flask import g, has_request_context
+        if has_request_context():
+            g.wajah_antre_ms = getattr(g, "wajah_antre_ms", 0) + antre * 1000
+            g.wajah_proses_ms = getattr(g, "wajah_proses_ms", 0) + proses * 1000
+    except ImportError:
+        pass
+
+
+def panaskan():
+    """Dipanggil di thread latar saat server start: embedding personel dimuat sebelum scan pertama."""
+    try:
+        semua_embedding()
+    except Exception:       # noqa: BLE001 - database belum siap: dimuat saat scan pertama
+        pass
 
 
 def _muat():

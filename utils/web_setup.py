@@ -144,9 +144,12 @@ def pasang_log_lambat(app):
             if ms >= BATAS_LAMBAT_MS:
                 # db: jumlah koneksi dibuka & total waktu membuka koneksi. Buka koneksi lama = jaringan / login SQL lambat;
                 # buka cepat tapi total lama = query lambat / tertahan lock di SQL Server (cek: EXEC sp_who2 di SSMS).
-                log.warning("LAMBAT %.0f ms  %s %s -> %s  (db: %d koneksi, buka %.0f ms)", ms, request.method,
+                # wajah: lama proses face recognition (CPU) & menunggu giliran slot (scan lain sedang berjalan)
+                wajah = (f"  (wajah: proses {g.wajah_proses_ms:.0f} ms, antre {g.wajah_antre_ms:.0f} ms)"
+                         if hasattr(g, "wajah_proses_ms") else "")
+                log.warning("LAMBAT %.0f ms  %s %s -> %s  (db: %d koneksi, buka %.0f ms)%s", ms, request.method,
                             request.full_path.rstrip("?"), resp.status_code,
-                            getattr(g, "db_koneksi", 0), getattr(g, "db_buka_ms", 0))
+                            getattr(g, "db_koneksi", 0), getattr(g, "db_buka_ms", 0), wajah)
         return resp
 
 
