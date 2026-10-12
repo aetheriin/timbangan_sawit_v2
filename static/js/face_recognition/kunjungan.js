@@ -95,7 +95,7 @@ async function scanWajahTamu(btn) {
         if (!hasil) return;
         hasil.frames.forEach((blob, i) => fd.append('frames', blob, `frame${i}.jpg`));
         fd.append('tantangan', hasil.tantangan);
-        fotoTamu = hasil.frames[Math.floor(hasil.frames.length / 2)];
+        fotoTamu = hasil.frames[0];        // frame awal = masih lurus menghadap kamera (dipakai jika tamu baru didaftarkan)
         status.textContent = '';
     } else {
         fotoTamu = await Kamera.ambilFrame(video);
