@@ -123,7 +123,7 @@ function resetValidasiForm() {
     ['driverIdDriver', 'driverIdTampil', 'driverKode', 'driverNama', 'driverNik', 'driverSim']
         .forEach(id => document.getElementById(id).value = '');
     document.getElementById('driverStatusBadge').innerHTML = '';
-    document.getElementById('fotoDriverBox').innerHTML = '<i class="fa-solid fa-user text-slate-300 text-3xl"></i>';
+    document.getElementById('fotoDriverBox').innerHTML = '<i class="fa-solid fa-user text-slate-300 text-5xl"></i>';
     document.getElementById('statusScanWajah').textContent = '';
     tandaiBorderDriver(null);
     kotakMerah(document.getElementById('fotoDriverBox'), false);
