@@ -1,5 +1,10 @@
+import logging
+import math
+
 import face_recognition
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 def extract_embedding(image_path):
     # Baca gambar dan deteksi wajah
@@ -55,15 +60,15 @@ def deteksi_kedipan(list_filepath, threshold_ear=0.25):
         ear_rata = (ear_kiri + ear_kanan) / 2.0
         riwayat_ear.append(ear_rata)
 
-    print(f"[DEBUG] Riwayat EAR: {riwayat_ear}")  
+    log.debug("Riwayat EAR: %s", riwayat_ear)
 
     if len(riwayat_ear) < 3:
-        print("[DEBUG] Frame tidak cukup untuk analisis EAR")  
+        log.debug("Frame tidak cukup untuk analisis EAR")
         return False
 
     ear_minimum = min(riwayat_ear)
     ear_maksimum = max(riwayat_ear)
-    print(f"[DEBUG] EAR min: {ear_minimum}, max: {ear_maksimum}") 
+    log.debug("EAR min: %s, max: %s", ear_minimum, ear_maksimum)
 
     return ear_minimum < threshold_ear and ear_maksimum > threshold_ear
 
@@ -94,7 +99,7 @@ def deteksi_menoleh(list_filepath, arah, ambang_perubahan=0.3):
 
         riwayat_rasio.append(hitung_rasio_yaw(landmarks))
 
-    print(f"[DEBUG] Arah: {arah}, Riwayat rasio: {riwayat_rasio}")
+    log.debug("Arah: %s, riwayat rasio: %s", arah, riwayat_rasio)
 
     if len(riwayat_rasio) < 3:
         return False
@@ -102,9 +107,39 @@ def deteksi_menoleh(list_filepath, arah, ambang_perubahan=0.3):
     baseline = riwayat_rasio[0] 
     perubahan_max = max(abs(r - baseline) / baseline for r in riwayat_rasio)
 
-    print(f"[DEBUG] Baseline: {baseline}, Perubahan maksimum: {perubahan_max}")
+    log.debug("Baseline: %s, perubahan maksimum: %s", baseline, perubahan_max)
 
     return perubahan_max > ambang_perubahan
+
+EAR_MEREM = 0.2
+
+
+def embedding_frontal(list_filepath, jumlah=2):
+    """Embedding dari frame scan yang paling MENGHADAP KAMERA dengan mata terbuka.
+
+    Frame tengah rekaman tantangan biasanya wajah menoleh / mata terpejam; embedding dari frame seperti itu
+    tidak khas dan bisa tertukar dengan wajah orang lain. Yang dinilai: frame awal & akhir rekaman
+    (sebelum / sesudah tantangan). Kembalikan (embeddings dari `jumlah` frame terbaik, jumlah wajah terbanyak
+    dalam satu frame, path frame terbaik untuk foto bukti). embeddings kosong = wajah tidak terdeteksi."""
+    urutan = list(dict.fromkeys(list_filepath[:3] + list_filepath[-2:]))
+    kandidat, wajah_maks = [], 0
+    for path in urutan:
+        image = face_recognition.load_image_file(path)
+        lokasi = face_recognition.face_locations(image)
+        wajah_maks = max(wajah_maks, len(lokasi))
+        if len(lokasi) != 1:
+            continue
+        lm = face_recognition.face_landmarks(image, lokasi)
+        if not lm or not all(k in lm[0] for k in ("nose_tip", "left_eye", "right_eye")):
+            continue
+        skor = abs(math.log(max(hitung_rasio_yaw(lm[0]), 1e-3)))          # 0 = lurus menghadap kamera
+        if (hitung_ear(lm[0]["left_eye"]) + hitung_ear(lm[0]["right_eye"])) / 2 < EAR_MEREM:
+            skor += 1                                                     # mata terpejam: pilihan terakhir
+        kandidat.append((skor, path, image, lokasi))
+    kandidat.sort(key=lambda k: k[0])
+    embeddings = [face_recognition.face_encodings(image, lokasi)[0] for _, _, image, lokasi in kandidat[:jumlah]]
+    return embeddings, wajah_maks, (kandidat[0][1] if kandidat else None)
+
 
 TANTANGAN_VALID = ("KEDIP", "MENOLEH_KIRI", "MENOLEH_KANAN")
 TANPA_TANTANGAN = "TANPA"

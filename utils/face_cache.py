@@ -63,3 +63,16 @@ def cari_terdekat(embedding, ambang, exclude_id=None):
     if jarak[i] > ambang:
         return None, None, float(jarak[i])
     return data[i][0], data[i][1], float(jarak[i])
+
+
+def cari_terdekat_konsisten(embeddings, ambang, exclude_id=None):
+    """Seperti cari_terdekat, tetapi untuk beberapa frame scan: SEMUA frame harus cocok dengan orang yang sama
+    di bawah ambang. Jarak = yang terjauh. Satu frame meleset / beda orang = tidak dikenali."""
+    hasil = [cari_terdekat(e, ambang, exclude_id) for e in embeddings]
+    if not hasil:
+        return None, None, None
+    jarak = max((h[2] for h in hasil if h[2] is not None), default=None)
+    ids = {h[0] for h in hasil}
+    if None in ids or len(ids) != 1:
+        return None, None, jarak
+    return hasil[0][0], hasil[0][1], jarak

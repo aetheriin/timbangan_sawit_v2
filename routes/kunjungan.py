@@ -12,8 +12,8 @@ from utils import db_kunjungan as db
 from utils.audit_utils import catat_security_audit
 from utils.db_personel import get_personel, insert_personel, saran_kode_personel
 from utils.db_utils import cek_nik_ada
-from utils.face_cache import slot_proses_wajah, cari_terdekat
-from utils.face_utils import extract_embedding_tunggal, embedding_to_binary, cek_liveness
+from utils.face_cache import slot_proses_wajah, cari_terdekat, cari_terdekat_konsisten
+from utils.face_utils import extract_embedding_tunggal, embedding_to_binary, cek_liveness, embedding_frontal
 from utils.hak_akses import izin
 from utils.personel_utils import format_nama_personel, validasi_personel
 from utils.plat_utils import normalisasi_plat
@@ -65,13 +65,15 @@ def kunjungan_cari_wajah():
         with slot_proses_wajah():
             if not cek_liveness(paths, request.form.get("tantangan", ""), wajib):
                 return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
-            embedding, jumlah = extract_embedding_tunggal(paths[len(paths) // 2])
+            embeddings, jumlah, _ = embedding_frontal(paths)       # frame paling menghadap kamera
     finally:
         for p in paths:
             hapus_file(p)
-    if jumlah != 1:
-        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area))
+    if jumlah > 1:
+        return jsonify({"error": f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
+    if not embeddings:
+        return jsonify({"error": "Wajah tidak terdeteksi, ulangi sambil menghadap kamera"}), 400
+    id_personel, _, jarak = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
     p = get_personel(id_personel) if id_personel else None
     if not p:
         return jsonify({"dikenali": False})

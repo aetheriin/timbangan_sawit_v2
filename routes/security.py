@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from utils.area import area_data
 from flask_login import login_required, current_user
-from utils.face_utils import (extract_embedding, extract_embedding_tunggal, embedding_to_binary,
+from utils.face_utils import (embedding_frontal, extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               cek_liveness, TANPA_TANTANGAN)
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
@@ -17,7 +17,7 @@ from utils.db_utils import (
 from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
 from utils.personel_utils import format_nama_personel
-from utils.face_cache import slot_proses_wajah, cari_terdekat
+from utils.face_cache import slot_proses_wajah, cari_terdekat_konsisten
 from utils.hak_akses import izin
 from utils.db_personel import sim_dipakai
 from utils import alur
@@ -267,11 +267,11 @@ def scan_wajah_supir():
         with slot_proses_wajah():
             if not cek_liveness(filepaths, tantangan, wajib):
                 return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
-            embedding_baru = extract_embedding(filepaths[len(filepaths) // 2])
-        if embedding_baru is None:
-            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan"}), 400
+            embeddings, _, _ = embedding_frontal(filepaths)       # frame paling menghadap kamera
+        if not embeddings:
+            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan sambil menghadap kamera"}), 400
 
-        id_cocok, _, _ = cari_terdekat(embedding_baru, pengaturan.nilai("AMBANG_WAJAH", area))
+        id_cocok, _, _ = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
         if id_cocok is None:
             return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
 

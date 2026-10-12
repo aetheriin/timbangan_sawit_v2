@@ -7,8 +7,8 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import UPLOAD_FOLDER
 from utils import pengaturan
-from utils.face_utils import extract_embedding, cek_liveness, TANTANGAN_VALID, TANPA_TANTANGAN
-from utils.face_cache import slot_proses_wajah, cari_terdekat
+from utils.face_utils import embedding_frontal, cek_liveness, TANTANGAN_VALID, TANPA_TANTANGAN
+from utils.face_cache import slot_proses_wajah, cari_terdekat_konsisten
 from utils.db_personel import get_personel
 from utils.db_kunjungan import area_akun
 from utils.db_absensi import (get_jadwal_kerja, get_jadwal_hari, get_scan_terakhir, insert_absensi,
@@ -22,9 +22,9 @@ absensi_bp = Blueprint('absensi', __name__)
 
 
 
-def _personel_terdekat(embedding):
-    """(id_personel, jarak) terdekat yang masih di bawah ambang, atau (None, jarak_terdekat)."""
-    id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
+def _personel_terdekat(embeddings):
+    """(id_personel, jarak): semua frame frontal harus cocok dengan orang yang sama di bawah ambang, else (None, jarak)."""
+    id_personel, _, jarak = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
     return id_personel, jarak
 
 
@@ -45,14 +45,12 @@ def absensi_scan():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     try:
-
-        tengah = paths[len(paths) // 2]
         with slot_proses_wajah():
             if not cek_liveness(paths, tantangan, wajib):      # gagal liveness tidak dicatat (bisa diulang)
                 return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
-            embedding = extract_embedding(tengah)
-        if embedding is None:
-            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan"}), 400
+            embeddings, _, tengah = embedding_frontal(paths)   # frame paling menghadap kamera, bukan frame tengah
+        if not embeddings:
+            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan sambil menghadap kamera"}), 400
 
         sekarang = datetime.now()
         folder_foto = os.path.join(UPLOAD_FOLDER, "absensi")
@@ -62,7 +60,7 @@ def absensi_scan():
         foto_path = f"uploads/absensi/{nama_foto}"
 
         perangkat, ip = request.form.get("perangkat", "Web")[:50], request.remote_addr
-        id_personel, jarak = _personel_terdekat(embedding)
+        id_personel, jarak = _personel_terdekat(embeddings)
         if id_personel is None:
             insert_absensi(None, None, "TIDAK_DIKENALI", None, None, jarak, tantangan, foto_path, perangkat, ip, sekarang)
             return jsonify({"status": "TIDAK_DIKENALI", "error": "Wajah tidak dikenali. Hubungi HO untuk pendaftaran."}), 404
@@ -95,7 +93,7 @@ def absensi_scan():
             "selisih_menit": selisih, "waktu": sekarang.strftime("%Y-%m-%d %H:%M:%S"),
             "jadwal": None if not jadwal or jadwal["is_libur"] else
             {"nama_hari": jadwal["nama_hari"], "jam_masuk": _jam(jadwal["jam_masuk"]), "jam_pulang": _jam(jadwal["jam_pulang"])},
-            "jarak_wajah": round(jarak, 3), "ambang": pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)), "tantangan": tantangan,
+            "jarak_wajah": round(jarak, 3) if jarak is not None else None, "ambang": pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)), "tantangan": tantangan,
         })
     finally:
         for path in paths:
