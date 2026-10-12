@@ -39,10 +39,14 @@ async function pilihLevel(id) {
         const judul = m.induk && m.induk !== induk
             ? `<tr class="bg-slate-50"><td colspan="4" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
         induk = m.induk;
-        const kotak = aksi => `<td class="table-cell text-center"><input type="checkbox" name="${m.id_menu}_${aksi}" value="1"
-            class="w-4 h-4"${m[aksi] ? ' checked' : ''}${admin ? ' disabled' : ''}></td>`;
+        // Aksi yang tidak ada di menu ini (mis. hapus di Dashboard) tidak ditampilkan; menu tanpa aksi = hanya lihat
+        const kotak = aksi => m.aksi.includes(aksi)
+            ? `<td class="table-cell text-center"><input type="checkbox" name="${m.id_menu}_${aksi}" value="1"
+                class="w-4 h-4"${m[aksi] ? ' checked' : ''}${admin ? ' disabled' : ''}></td>`
+            : '<td class="table-cell text-center text-slate-300">–</td>';
         return `${judul}<tr class="hover:bg-slate-50"><td class="table-cell">${escapeHtml(m.nama.split(' › ').pop())}
-                <span class="text-xs text-slate-400 font-mono">${escapeHtml(m.kode)}</span></td>
+                <span class="text-xs text-slate-400 font-mono">${escapeHtml(m.kode)}</span>
+                ${m.aksi.length ? '' : '<span class="text-xs text-slate-400">· hanya lihat</span>'}</td>
                 ${kotak('tambah')}${kotak('ubah')}${kotak('hapus')}</tr>`;
     }).join('');
 }

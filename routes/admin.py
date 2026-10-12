@@ -301,7 +301,9 @@ def level_akses_simpan(id_level):
         lv = _level_atau_404(id_level)
         if lv["is_admin"]:
             raise ValueError("Level admin hanya untuk area Admin, tidak punya aksi operasional")
-        akses = {m["id_menu"]: tuple(request.form.get(f"{m['id_menu']}_{k}") == "1" for k in hak_akses.AKSI)
+        # Aksi yang tidak ada di menu itu (mis. hapus di Dashboard) tidak disimpan walau dikirim
+        akses = {m["id_menu"]: tuple(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1"
+                                     for k in hak_akses.AKSI)
                  for m in hak_akses.daftar_menu_akses()}
         hak_akses.simpan_akses_level(id_level, akses)
         jumlah = sum(any(v) for v in akses.values())

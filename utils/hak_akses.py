@@ -11,6 +11,17 @@ from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 
 AKSI = ("tambah", "ubah", "hapus")
+# Aksi yang benar-benar ada di tiap menu (dipakai @izin / boleh di kode). Matriks Hak Akses hanya menampilkan
+# centang untuk aksi ini; yang lain tidak berarti apa-apa. Menu baru yang belum terdaftar di sini = semua aksi.
+AKSI_MENU = {
+    "DASHBOARD": ("ubah",), "LIST": (), "ABSENSI": (), "AUDIT_LOG": (),
+    "FORM_SECURITY": ("tambah", "ubah"), "FORM_TIMBANGAN": ("tambah",), "FORM_SORTASI": ("tambah",),
+    "FORM_LAB": ("tambah", "ubah"),
+    "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
+    "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"),
+    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah",), "KUNJUNGAN": ("tambah", "ubah"),
+    "KELEBIHAN_DO": ("tambah", "ubah"),
+}
 
 
 def _query(sql, *params):
@@ -95,12 +106,12 @@ def daftar_level():
 
 
 def daftar_menu_akses():
-    """Menu yang punya aksi (bagian halaman), dikelompokkan per induk untuk matriks."""
-    return _query("""SELECT m.id_menu, m.kode, m.nama, p.nama AS induk
+    """Menu yang punya aksi (bagian halaman), dikelompokkan per induk untuk matriks; "aksi" = aksi yang berlaku."""
+    return [{**m, "aksi": list(AKSI_MENU.get(m["kode"], AKSI))} for m in _query("""SELECT m.id_menu, m.kode, m.nama, p.nama AS induk
                      FROM menu m LEFT JOIN menu p ON p.id_menu = m.id_parent
                      WHERE m.is_active = 1 AND (m.id_parent IS NOT NULL
                            OR NOT EXISTS (SELECT 1 FROM menu c WHERE c.id_parent = m.id_menu))
-                     ORDER BY COALESCE(p.urutan, m.urutan), m.urutan""")
+                     ORDER BY COALESCE(p.urutan, m.urutan), m.urutan""")]
 
 
 def akses_level(id_level):

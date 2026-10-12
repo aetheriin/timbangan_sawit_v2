@@ -53,3 +53,15 @@ class TestBoleh(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAksiMenu(unittest.TestCase):
+    def test_semua_menu_bawaan_punya_daftar_aksi(self):
+        import os, re
+        schema = open(os.path.join(os.path.dirname(__file__), "..", "database", "schema.sql"), encoding="utf-8").read()
+        blok = "".join(re.findall(r"INSERT INTO dbo\.menu .*?;", schema, re.S))
+        kode = set(re.findall(r"\('([A-Z_]+)',\s+N'", blok))
+        self.assertIn("DASHBOARD", kode)
+        induk = {"FORM", "FACE_RECOGNITION", "MASTER"}            # punya anak, tidak tampil di matriks
+        self.assertEqual(kode - induk - set(hak_akses.AKSI_MENU), set())
+        self.assertNotIn("hapus", hak_akses.AKSI_MENU["DASHBOARD"])
