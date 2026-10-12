@@ -42,6 +42,21 @@ class TestKonsisten(unittest.TestCase):
 
 
 class TestFrontal(unittest.TestCase):
+    def setUp(self):
+        face_utils._analisa.cache_clear()
+
+    def test_analisa_sekali_per_frame(self):
+        fr = face_utils.face_recognition
+        fr.load_image_file.reset_mock()
+        fr.load_image_file.side_effect = lambda p: p
+        fr.face_locations.side_effect = lambda img, **k: [(0, 1, 1, 0)]
+        fr.face_landmarks.side_effect = lambda img, lok: [landmark(1.0)]
+        fr.face_encodings.side_effect = lambda img, lok: [img]
+        frames = [f"g{i}" for i in range(15)]
+        face_utils.deteksi_kedipan(frames)
+        face_utils.embedding_frontal(frames)
+        self.assertEqual(fr.load_image_file.call_count, 15)      # frame frontal tidak dibaca ulang
+
     def test_pilih_frame_lurus_mata_terbuka(self):
         frames = [f"f{i}" for i in range(15)]
         # f0 lurus, f1 menoleh, f2 lurus tapi merem, f13 menoleh, f14 agak lurus; frame tengah tidak dinilai
@@ -49,7 +64,7 @@ class TestFrontal(unittest.TestCase):
               "f13": landmark(0.3), "f14": landmark(1.2)}
         fr = face_utils.face_recognition
         fr.load_image_file.side_effect = lambda p: p
-        fr.face_locations.side_effect = lambda img: [(0, 1, 1, 0)]
+        fr.face_locations.side_effect = lambda img, **k: [(0, 1, 1, 0)]
         fr.face_landmarks.side_effect = lambda img, lok: [lm[img]]
         fr.face_encodings.side_effect = lambda img, lok: [img]
         embeddings, wajah, terbaik = face_utils.embedding_frontal(frames)
@@ -59,7 +74,7 @@ class TestFrontal(unittest.TestCase):
     def test_dua_wajah_dilewati(self):
         fr = face_utils.face_recognition
         fr.load_image_file.side_effect = lambda p: p
-        fr.face_locations.side_effect = lambda img: [(0, 1, 1, 0), (2, 3, 3, 2)]
+        fr.face_locations.side_effect = lambda img, **k: [(0, 1, 1, 0), (2, 3, 3, 2)]
         embeddings, wajah, terbaik = face_utils.embedding_frontal(["a", "b", "c"])
         self.assertEqual((embeddings, wajah, terbaik), ([], 2, None))
 

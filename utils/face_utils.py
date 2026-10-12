@@ -1,10 +1,24 @@
 import logging
 import math
+from functools import lru_cache
 
 import face_recognition
 import numpy as np
 
 log = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=40)
+def _analisa(path):
+    """(image, lokasi_wajah, landmarks) satu frame scan, dihitung SEKALI lalu dipakai ulang oleh cek kedip / menoleh
+    dan pemilihan frame frontal (dulu tiap tahap membaca & mendeteksi ulang semua frame = lambat).
+    Frame kamera sudah kecil (lebar 480) dan wajah besar di bingkai: deteksi tanpa upsample (~4x lebih cepat),
+    upsample 1x hanya bila tidak ketemu. Path frame unik (uuid) dan dihapus setelah request."""
+    image = face_recognition.load_image_file(path)
+    lokasi = face_recognition.face_locations(image, number_of_times_to_upsample=0) \
+        or face_recognition.face_locations(image, number_of_times_to_upsample=1)
+    landmarks = face_recognition.face_landmarks(image, lokasi) if lokasi else []
+    return image, lokasi, landmarks
 
 def extract_embedding(image_path):
     # Baca gambar dan deteksi wajah
@@ -45,8 +59,7 @@ def deteksi_kedipan(list_filepath, threshold_ear=0.25):
     riwayat_ear = []
 
     for filepath in list_filepath:
-        image = face_recognition.load_image_file(filepath)
-        landmarks_list = face_recognition.face_landmarks(image)
+        landmarks_list = _analisa(filepath)[2]
 
         if len(landmarks_list) == 0:
             continue
@@ -87,8 +100,7 @@ def deteksi_menoleh(list_filepath, arah, ambang_perubahan=0.3):
     riwayat_rasio = []
 
     for filepath in list_filepath:
-        image = face_recognition.load_image_file(filepath)
-        landmarks_list = face_recognition.face_landmarks(image)
+        landmarks_list = _analisa(filepath)[2]
 
         if len(landmarks_list) == 0:
             continue
@@ -124,12 +136,10 @@ def embedding_frontal(list_filepath, jumlah=2):
     urutan = list(dict.fromkeys(list_filepath[:3] + list_filepath[-2:]))
     kandidat, wajah_maks = [], 0
     for path in urutan:
-        image = face_recognition.load_image_file(path)
-        lokasi = face_recognition.face_locations(image)
+        image, lokasi, lm = _analisa(path)
         wajah_maks = max(wajah_maks, len(lokasi))
         if len(lokasi) != 1:
             continue
-        lm = face_recognition.face_landmarks(image, lokasi)
         if not lm or not all(k in lm[0] for k in ("nose_tip", "left_eye", "right_eye")):
             continue
         skor = abs(math.log(max(hitung_rasio_yaw(lm[0]), 1e-3)))          # 0 = lurus menghadap kamera

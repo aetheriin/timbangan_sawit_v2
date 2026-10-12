@@ -33,6 +33,12 @@ def health():
     }), kode
 
 
+@sistem_bp.route("/favicon.ico")
+def favicon():
+    """Browser selalu meminta /favicon.ico; jawab kosong supaya tidak tercatat 404 / akses ditolak."""
+    return "", 204
+
+
 @sistem_bp.route("/berkas/<path:relatif>")
 @login_required
 def berkas(relatif):
