@@ -69,6 +69,19 @@
   .mini-stat { @apply p-3 rounded-lg border border-slate-100 bg-slate-50/70; }
   .mini-stat-label { @apply text-xs text-slate-500; }
   .mini-stat-nilai { @apply text-xl font-bold font-mono text-slate-900 mt-1; }
+  /* Stasiun timbang: panel indikator gelap */
+  .indikator-panel { @apply bg-slate-900 text-white rounded-xl border border-slate-800 p-5 shadow-lg; }
+  .indikator-pilih { @apply bg-transparent text-xs font-mono font-semibold tracking-wider text-slate-300 border-0 p-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer max-w-[16rem] truncate; }
+  .indikator-pilih option { @apply text-slate-900; }
+  .indikator-badge { @apply text-[10px] font-mono font-bold px-2 py-0.5 rounded border flex-shrink-0; }
+  .indikator-badge-stabil { @apply bg-emerald-500/20 text-emerald-400 border-emerald-500/30; }
+  .indikator-badge-gerak { @apply bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse; }
+  .indikator-badge-mati { @apply bg-red-500/20 text-red-400 border-red-500/30; }
+  .indikator-btn { @apply px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-mono font-semibold rounded-lg border border-slate-700 transition flex items-center justify-center gap-2 disabled:opacity-50; }
+  .indikator-btn-utama { @apply bg-blue-600 hover:bg-blue-500 border-blue-500 text-white shadow-sm; }
+  .berat-kotak { @apply bg-white rounded-lg border border-slate-200 p-3; }
+  .berat-kotak-label { @apply text-[11px] font-semibold text-slate-500 uppercase; }
+  .berat-kotak-nilai { @apply font-mono font-bold text-xl text-slate-900 mt-1 tabular-nums; }
   .stat-card { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-5; }
   .stat-label { @apply text-sm font-medium text-slate-500; }
   .stat-value { @apply text-2xl font-bold text-slate-900 mt-1 font-mono tracking-tight; }

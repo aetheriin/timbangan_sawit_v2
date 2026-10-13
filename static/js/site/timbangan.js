@@ -26,8 +26,8 @@ const pollingBerat = new Poller(async () => {
     const el = document.getElementById('beratLiveDisplay');
     const st = r.data && r.data.berat !== undefined ? r.data : null;     // status putus tetap berisi data + sebabnya
     const putus = !st || !st.terhubung;
-    el.textContent = st ? `${st.berat} Kg` : '— Kg';
-    el.classList.toggle('opacity-40', putus);          // koneksi timbangan / server terputus
+    el.textContent = st ? Number(st.berat).toLocaleString('id-ID') : '—';
+    el.parentElement.classList.toggle('opacity-40', putus);          // koneksi timbangan / server terputus
     // Status: putus (dengan sebab), belum kembali ke 0 setelah simpan, di bawah berat minimum, bergerak, atau stabil siap disimpan
     const ket = document.getElementById('statusBeratLive');
     const [teks, warna] = !st ? ['Server tidak menjawab', 'text-red-400']
@@ -37,7 +37,14 @@ const pollingBerat = new Poller(async () => {
         : st.berat_min_kg && st.berat < st.berat_min_kg ? [`Kosong (di bawah ${st.berat_min_kg} kg)`, 'text-slate-400']
         : st.siap_kunci ? ['● Stabil, siap disimpan', 'text-emerald-400'] : ['○ Bergerak, tunggu stabil', 'text-amber-400'];
     ket.textContent = teks;
-    ket.className = `text-sm mt-3 ${warna}`;
+    const [badge, kelas, lampu] = putus ? ['TERPUTUS', 'indikator-badge-mati', 'bg-red-500']
+        : st.siap_kunci ? ['STABIL / READY', 'indikator-badge-stabil', 'bg-emerald-400']
+        : ['GERAK / SENSING', 'indikator-badge-gerak', 'bg-amber-400'];
+    const b = document.getElementById('badgeStabil');
+    b.textContent = badge;
+    b.className = `indikator-badge ${kelas}`;
+    document.getElementById('lampuIndikator').className = `w-2 h-2 rounded-full flex-shrink-0 ${lampu}`;
+    ket.className = `text-sm mt-4 ${warna}`;
 }, 500);
 
 window.addEventListener('tabChange', e => {
@@ -63,14 +70,15 @@ async function simpanHasilTimbangan(btn) {
 async function muatDataTimbanganTersimpan(noTiket) {
     const data = await ambilJson(`/api/timbang/data/${encodeURIComponent(noTiket)}`);
     if (data.error) { Notif.gagal(data.error); return; }
-    document.getElementById('tbBruto').textContent = data.berat_bruto ?? '-';
-    document.getElementById('tbTara').textContent = data.berat_tara ?? '-';
-    document.getElementById('tbNetto').textContent = data.berat_netto ?? '-';
-    document.getElementById('tbPotongan').textContent = data.potongan_kg ?? '-';
-    document.getElementById('tbNettoAkhir').textContent = data.netto_akhir ?? '-';
+    const kgTeks = v => v == null ? '-' : Number(v).toLocaleString('id-ID');
+    document.getElementById('tbBruto').textContent = kgTeks(data.berat_bruto);
+    document.getElementById('tbTara').textContent = kgTeks(data.berat_tara);
+    document.getElementById('tbNetto').textContent = kgTeks(data.berat_netto);
+    document.getElementById('tbPotongan').textContent = data.potongan_kg == null ? '-' : `-${kgTeks(data.potongan_kg)}`;
+    document.getElementById('tbNettoAkhir').textContent = kgTeks(data.netto_akhir);
     const info = document.getElementById('tbJembatanMasuk');
     info.classList.toggle('hidden', !data.jembatan_masuk);
-    info.textContent = data.jembatan_masuk ? `Timbang masuk di ${data.jembatan_masuk}. Timbang keluar harus di jembatan yang sama.` : '';
+    info.textContent = data.jembatan_masuk ? `Masuk di ${data.jembatan_masuk} · keluar wajib di jembatan sama` : '';
 }
 
 // Jembatan timbang PC ini: disimpan di cookie (1 tahun), dibaca server saat status berat & simpan timbang

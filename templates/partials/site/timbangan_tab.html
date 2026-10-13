@@ -1,59 +1,67 @@
 <div data-tab-content="timbangan" class="hidden">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
 
-        <div class="section-box p-5">
-            <div class="flex items-center justify-between gap-2 mb-4 pb-2 border-b">
-                <h3 class="text-sm font-semibold text-slate-700">Live Weight Display</h3>
-                {# Jembatan timbang yang dipakai PC ini (diingat di browser). Masuk & keluar wajib di jembatan yang sama. #}
-                <select id="pilihJembatan" class="input-field w-auto py-1 text-sm" data-on-change="pilihJembatanTimbang" data-arg="$value">
-                    {% if not jembatan_dipilih %}<option value="">-- Pilih jembatan --</option>{% endif %}
-                    {% for j in jembatan_list %}
-                    <option value="{{ j.id_jembatan }}"{% if jembatan_dipilih and j.id_jembatan == jembatan_dipilih.id_jembatan %} selected{% endif %}>{{ j.kode }} · {{ j.nama }}</option>
-                    {% endfor %}
-                </select>
+        {# Panel indikator (gelap): berat live dari jembatan yang dipilih PC ini, status stabil, tombol simpan #}
+        <div class="xl:col-span-2 indikator-panel">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span id="lampuIndikator" class="w-2 h-2 rounded-full bg-slate-500 flex-shrink-0"></span>
+                    {# Jembatan timbang yang dipakai PC ini (diingat di browser). Masuk & keluar wajib di jembatan yang sama. #}
+                    <select id="pilihJembatan" class="indikator-pilih" data-on-change="pilihJembatanTimbang" data-arg="$value" title="Jembatan timbang PC ini">
+                        {% if not jembatan_dipilih %}<option value="">-- Pilih jembatan --</option>{% endif %}
+                        {% for j in jembatan_list %}
+                        <option value="{{ j.id_jembatan }}"{% if jembatan_dipilih and j.id_jembatan == jembatan_dipilih.id_jembatan %} selected{% endif %}>INDIKATOR {{ j.kode }} · {{ j.nama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <span id="badgeStabil" class="indikator-badge indikator-badge-mati">TERPUTUS</span>
             </div>
-            {# Ukuran display berat: tinggi = py-14 (atas-bawah), lebar isi = px-6, besar angka = text-7xl #}
-            <div class="bg-black rounded-lg py-14 px-6 text-center mb-4">
-                <span id="beratLiveDisplay" class="text-cyan-400 font-mono font-bold text-7xl tracking-tight">0 Kg</span>
-                <p id="statusBeratLive" class="text-sm mt-3 text-slate-400">&nbsp;</p>
+            <div class="py-10 text-center">
+                <p class="text-xs font-mono uppercase tracking-widest text-slate-400 mb-1">Berat live (kendaraan + muatan)</p>
+                <p class="font-mono font-bold tracking-tight text-white tabular-nums leading-none">
+                    <span id="beratLiveDisplay" class="text-7xl">0</span><span class="text-3xl font-normal text-slate-400 ml-2">kg</span>
+                </p>
+                <p id="statusBeratLive" class="text-sm mt-4 text-slate-400">&nbsp;</p>
             </div>
-            <div class="grid grid-cols-3 gap-3 mb-4">
-                <div class="bg-slate-100 rounded-lg p-2 text-center">
-                    <p class="text-xs text-slate-500">Bruto</p>
-                    <p id="tbBruto" class="font-semibold text-sm">-</p>
-                </div>
-                <div class="bg-slate-100 rounded-lg p-2 text-center">
-                    <p class="text-xs text-slate-500">Tara</p>
-                    <p id="tbTara" class="font-semibold text-sm">-</p>
-                </div>
-                <div class="bg-slate-100 rounded-lg p-2 text-center">
-                    <p class="text-xs text-slate-500">Netto</p>
-                    <p id="tbNetto" class="font-semibold text-sm">-</p>
-                </div>
+            <div class="pt-4 border-t border-slate-800 grid grid-cols-3 gap-2">
+                <button type="button" data-on-click="bukaScanQRTimbangan" class="indikator-btn">
+                    <i class="fa-solid fa-qrcode"></i> Scan QR
+                </button>
+                <button type="button" data-on-click="simpanHasilTimbangan" data-arg="$el" class="indikator-btn indikator-btn-utama col-span-2">
+                    <i class="fa-solid fa-circle-check"></i> Kunci &amp; Simpan Berat
+                </button>
             </div>
-            <div class="grid grid-cols-2 gap-3 mb-4">
-                <div class="bg-slate-100 rounded-lg p-2 text-center">
-                    <p class="text-xs text-slate-500">Potongan Sortasi</p>
-                    <p id="tbPotongan" class="font-semibold text-sm text-red-600">-</p>
-                </div>
-                <div class="bg-slate-100 rounded-lg p-2 text-center">
-                    <p class="text-xs text-slate-500">Netto Akhir</p>
-                    <p id="tbNettoAkhir" class="font-bold text-sm text-emerald-600">-</p>
-                </div>
-            </div>
-            <p id="tbJembatanMasuk" class="text-xs text-slate-500 mb-2 hidden"></p>
-            <button data-on-click="simpanHasilTimbangan" data-arg="$el" class="btn-primary w-full">Simpan Hasil Timbangan</button>
-            <button data-on-click="bukaScanQRTimbangan" class="text-xs text-blue-600 hover:underline mt-2 block text-center">
-                atau Scan QR Code
-            </button>
         </div>
 
-        <div class="section-box p-5">
-            <h3 class="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b">Detail DO & Produk</h3>
-            <div class="space-y-3">
-                <div><label class="field-label">Jenis Transaksi</label><input type="text" id="tbJenisTransaksi" readonly class="input-field bg-slate-50"></div>
-                <div><label class="field-label">Supplier</label><input type="text" id="tbSupplier" readonly class="input-field bg-slate-50"></div>
-                <div><label class="field-label">Produk</label><input type="text" id="tbProduk" readonly class="input-field bg-slate-50"></div>
+        {# Data tiket + rincian berat tersimpan #}
+        <div class="xl:col-span-3 card">
+            <div class="flex items-start justify-between gap-3 pb-3 mb-4 border-b border-slate-100">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Data Tiket Penimbangan</h3>
+                    <p class="text-xs text-slate-500">Ketik plat di info bar atas (Enter) atau Scan QR tiket</p>
+                </div>
+                <span id="tbJembatanMasuk" class="kpi-tanggal hidden"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div><label class="field-label" for="tbJenisTransaksi">Jenis Transaksi</label><input type="text" id="tbJenisTransaksi" readonly class="input-field bg-slate-50"></div>
+                <div><label class="field-label" for="tbSupplier">Customer</label><input type="text" id="tbSupplier" readonly class="input-field bg-slate-50"></div>
+                <div><label class="field-label" for="tbProduk">Produk</label><input type="text" id="tbProduk" readonly class="input-field bg-slate-50"></div>
+            </div>
+            <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <p class="text-xs font-bold text-slate-800 mb-3">Rincian Kalkulasi Berat (kg)</p>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="berat-kotak"><p class="berat-kotak-label">1. Bruto</p><p id="tbBruto" class="berat-kotak-nilai">-</p></div>
+                    <div class="berat-kotak"><p class="berat-kotak-label">2. Tara</p><p id="tbTara" class="berat-kotak-nilai">-</p></div>
+                    <div class="berat-kotak"><p class="berat-kotak-label">3. Netto</p><p id="tbNetto" class="berat-kotak-nilai text-blue-700">-</p></div>
+                    <div class="berat-kotak"><p class="berat-kotak-label">4. Potongan sortasi</p><p id="tbPotongan" class="berat-kotak-nilai text-red-600">-</p></div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-200 flex items-end justify-between gap-3">
+                    <div>
+                        <p class="text-xs font-bold text-slate-800 uppercase tracking-wide">Netto akhir</p>
+                        <p class="text-xs text-slate-500">Netto setelah potongan sortasi</p>
+                    </div>
+                    <p class="font-mono font-bold text-3xl text-slate-900 tabular-nums"><span id="tbNettoAkhir">-</span> <span class="text-base font-normal text-slate-500">kg</span></p>
+                </div>
             </div>
         </div>
     </div>
