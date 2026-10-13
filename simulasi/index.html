@@ -34,7 +34,7 @@ body {
   margin: 0; background: var(--bg); color: var(--fg);
   font: 14px/1.45 var(--f-body);
 }
-button, select { font: inherit; color: inherit; }
+button, select, input { font: inherit; color: inherit; }
 .app {
   display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px;
   padding-block: 16px; padding-inline: 16px; min-height: 100%;
@@ -46,6 +46,8 @@ button, select { font: inherit; color: inherit; }
 .brand { display: flex; flex-direction: column; min-width: 0; }
 .brand .eyebrow { font: 600 11px/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
 .brand h1 { margin: 4px 0 0; font: 700 28px/1 var(--f-display); letter-spacing: .01em; text-wrap: balance; }
+.site { display: flex; flex-direction: column; gap: 3px; }
+.site label { font: 600 11px/1 var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .clock { margin-left: auto; text-align: right; }
 .clock .t { font: 600 26px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
 .clock .d { color: var(--muted); font-size: 12px; }
@@ -56,37 +58,51 @@ button, select { font: inherit; color: inherit; }
   padding: 7px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; white-space: nowrap;
 }
 .btn:hover { border-color: var(--muted); }
-.btn:focus-visible, select:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, .seg button:focus-visible, .tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn.primary { background: var(--accent); color: #1a1405; border-color: var(--accent); font-weight: 600; }
+.btn.edit[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.sm { padding: 5px 9px; font-size: 12px; }
 .btn .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg button { border: 0; background: var(--panel-2); padding: 7px 11px; cursor: pointer; font-family: var(--f-mono); }
 .seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.seg button:disabled { opacity: .4; cursor: not-allowed; }
 .sep { width: 1px; height: 26px; background: var(--line); margin-inline: 4px; }
 .toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; user-select: none; }
 .toggle input { accent-color: var(--accent); }
+select, input[type="text"], input[type="number"] {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%;
+}
+.site select { width: auto; }
+input[type="range"] { accent-color: var(--accent); width: 100%; }
 
 /* ---------- denah ---------- */
 .map-wrap { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.map-scroll { overflow-x: auto; border-radius: 8px; }
 .map {
   position: relative; width: 100%; aspect-ratio: 1280 / 760; max-width: 100%;
   border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #18221c;
 }
-.map-scroll { overflow-x: auto; border-radius: 8px; }
 @media (max-width: 800px) { .map { min-width: 760px; } }
 .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+.map.editing { border-color: var(--accent); }
+.map.editing canvas { touch-action: none; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 12px; }
 .legend span { display: inline-flex; gap: 6px; align-items: center; }
 .legend i { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+.siap { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
 
 /* ---------- panel ---------- */
 .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
 .card h2 {
   margin: 0 0 10px; font: 600 15px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
-  display: flex; justify-content: space-between; align-items: baseline;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
 }
 .card h2 small { font: 500 11px var(--f-body); letter-spacing: 0; text-transform: none; }
+.card h3 { margin: 14px 0 8px; font: 600 13px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 
 .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .kpi .v { font: 600 20px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; }
@@ -98,7 +114,7 @@ button, select { font: inherit; color: inherit; }
 .jt .w { font: 600 22px/1.2 var(--f-mono); color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
 .jt .w.idle { color: #4e5d55; }
 .jt .who { color: var(--muted); font-size: 11px; min-height: 1.45em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pill { font: 600 10px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 6px; border-radius: 99px; border: 1px solid currentColor; }
+.pill { font: 600 10px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 6px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
 .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.idle { color: var(--muted); } .pill.bad { color: var(--bad); }
 
 .tbl-wrap { overflow-x: auto; max-height: 250px; overflow-y: auto; }
@@ -110,7 +126,6 @@ tbody tr { cursor: pointer; }
 tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
 .plat { font-family: var(--f-mono); font-weight: 600; }
 .tag { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
-.stage { font: 600 10px var(--f-body); letter-spacing: .05em; text-transform: uppercase; }
 .empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
 
 .log { max-height: 210px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
@@ -135,6 +150,26 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
 .steps .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
 .note { color: var(--muted); font-size: 12px; margin: 0; }
 
+/* editor denah */
+.tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tool {
+  border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 8px; cursor: pointer;
+  text-align: left; font-size: 12px; display: flex; gap: 8px; align-items: center; min-width: 0;
+}
+.tool:hover { border-color: var(--muted); }
+.tool[aria-pressed="true"] { border-color: var(--accent); background: rgba(242, 194, 48, .12); }
+.tool b { font-weight: 500; }
+.tool .ic { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.tools .grp { grid-column: 1 / -1; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: 12px; }
+.fields label { color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cek { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.cek li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 6px; }
+.cek .ok { color: var(--ok); } .cek .bad { color: var(--bad); } .cek .warn { color: var(--warn); }
+.hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 </head>
@@ -145,16 +180,20 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
       <span class="eyebrow">Smart Weighbridge · Mode Demo</span>
       <h1>Alur Truk dari Gerbang sampai Keluar</h1>
     </div>
+    <div class="site">
+      <label for="pilihSite">Site</label>
+      <select id="pilihSite"></select>
+    </div>
     <div class="clock"><div class="t" id="jam">07:00:00</div><div class="d" id="tgl"></div></div>
   </header>
 
   <div class="controls" role="toolbar" aria-label="Kontrol simulasi">
-    <button class="btn primary" id="btnPlay" type="button">Jeda</button>
+    <button class="btn primary sim-ctl" id="btnPlay" type="button">Jeda</button>
     <div class="seg" role="group" aria-label="Kecepatan">
-      <button type="button" data-speed="1" aria-pressed="false">1×</button>
-      <button type="button" data-speed="2" aria-pressed="true">2×</button>
-      <button type="button" data-speed="4" aria-pressed="false">4×</button>
-      <button type="button" data-speed="8" aria-pressed="false">8×</button>
+      <button type="button" class="sim-ctl" data-speed="1" aria-pressed="false">1×</button>
+      <button type="button" class="sim-ctl" data-speed="2" aria-pressed="true">2×</button>
+      <button type="button" class="sim-ctl" data-speed="4" aria-pressed="false">4×</button>
+      <button type="button" class="sim-ctl" data-speed="8" aria-pressed="false">8×</button>
     </div>
     <span class="sep" aria-hidden="true"></span>
     <button class="btn" type="button" data-add="TBS"><span class="dot" style="background:var(--tbs)"></span>+ Truk TBS</button>
@@ -165,11 +204,14 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
     <label class="toggle"><input type="checkbox" id="optAuto" checked> Truk datang otomatis</label>
     <label class="toggle"><input type="checkbox" id="optBl"> Ada truk blacklist</label>
     <label class="toggle"><input type="checkbox" id="optRej"> Ada lab reject</label>
-    <button class="btn" type="button" id="btnReset">Ulang</button>
+    <button class="btn sim-ctl" type="button" id="btnReset">Ulang</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn edit" type="button" id="btnEdit" aria-pressed="false">Edit Denah</button>
   </div>
 
   <section class="map-wrap" aria-label="Denah pabrik">
-    <div class="map-scroll"><div class="map"><canvas id="peta" aria-label="Denah pabrik kelapa sawit dengan truk yang bergerak"></canvas></div></div>
+    <div class="map-scroll"><div class="map" id="mapBox"><canvas id="peta" aria-label="Denah pabrik kelapa sawit dengan truk yang bergerak"></canvas></div></div>
+    <div class="siap" id="siap"></div>
     <div class="legend">
       <span><i style="background:var(--tbs)"></i>TBS (pembelian): Security → Timbang masuk → Sortasi → Timbang keluar</span>
       <span><i style="background:var(--cpo)"></i>Produk PKS (penjualan): Security → Timbang masuk → Muat → Lab → Timbang keluar</span>
@@ -179,7 +221,51 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
   </section>
 
   <aside class="side">
-    <div class="card">
+    <!-- ===== panel editor denah ===== -->
+    <div class="card" id="editCard" hidden>
+      <h2>Edit denah <small>tersimpan otomatis di browser ini</small></h2>
+      <div class="fields">
+        <label for="namaSite">Nama site</label><input type="text" id="namaSite" maxlength="60">
+      </div>
+
+      <h3>Alat</h3>
+      <div class="tools" id="alat"></div>
+      <div class="row" style="margin-top:8px">
+        <label class="toggle"><input type="checkbox" id="optGrid" checked> Magnet grid 10 px</label>
+      </div>
+      <p class="hint" id="hintAlat"></p>
+
+      <h3>Objek terpilih</h3>
+      <div id="props"><p class="note">Klik objek, jalan, atau titik jalan di denah.</p></div>
+
+      <h3>Kesiapan alur</h3>
+      <ul class="cek" id="cekList"></ul>
+
+      <h3>Foto latar (opsional)</h3>
+      <div class="row">
+        <label class="btn sm" for="fileFoto">Pasang foto…</label>
+        <input type="file" id="fileFoto" accept="image/*" hidden>
+        <button class="btn sm" type="button" id="btnHapusFoto">Hapus foto</button>
+      </div>
+      <div class="fields" style="margin-top:8px">
+        <label for="opFoto">Kejelasan foto</label><input type="range" id="opFoto" min="0.1" max="1" step="0.05" value="0.6">
+      </div>
+
+      <h3>Simpan &amp; pindah komputer</h3>
+      <div class="row">
+        <button class="btn sm" type="button" id="btnUnduh">Unduh denah (.json)</button>
+        <label class="btn sm" for="fileJson">Buka denah (.json)…</label>
+        <input type="file" id="fileJson" accept="application/json,.json" hidden>
+        <button class="btn sm danger" type="button" id="btnBawaan">Kembalikan bawaan</button>
+      </div>
+      <p class="hint" id="pesanSimpan"></p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" type="button" id="btnSelesai">Selesai edit, jalankan simulasi</button>
+      </div>
+    </div>
+
+    <!-- ===== panel simulasi ===== -->
+    <div class="card sim-card">
       <h2>Hari ini <small>sejak simulasi dimulai</small></h2>
       <div class="kpis">
         <div class="kpi"><div class="v" id="kAktif">0</div><div class="l">Tiket aktif</div></div>
@@ -189,17 +275,17 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
       </div>
     </div>
 
-    <div class="card">
+    <div class="card sim-card">
       <h2>Indikator timbangan <small>status seperti tab Timbangan</small></h2>
       <div class="jts" id="jtPanel"></div>
     </div>
 
-    <div class="card" id="tiketCard">
+    <div class="card sim-card" id="tiketCard">
       <h2>Tiket terpilih</h2>
       <div id="tiket"><p class="note">Klik truk di denah atau baris di tabel untuk melihat perjalanan tiketnya.</p></div>
     </div>
 
-    <div class="card">
+    <div class="card sim-card">
       <h2>Tiket aktif <small id="nAktif"></small></h2>
       <div class="tbl-wrap">
         <table>
@@ -209,7 +295,7 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
       </div>
     </div>
 
-    <div class="card">
+    <div class="card sim-card">
       <h2>Log kejadian</h2>
       <div class="log" id="log" aria-live="polite"></div>
     </div>
@@ -220,6 +306,11 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
 'use strict';
 /* =====================================================================================
    Simulasi alur timbangan PKS (demo, tidak terhubung ke database / server).
+
+   Denah adalah DATA per site: objek (gedung, pos, jembatan, barrier, ...) + jaringan jalan (titik & ruas).
+   Truk mencari rute sendiri lewat jalan (Dijkstra). Objek alur "menempel" ke ruas jalan terdekat
+   (maks. MAKS_NEMPEL px); titik tempelnya menjadi tempat truk berhenti.
+
    Aturan mengikuti sistem Smart Weighbridge:
    - Alur TBS: SECURITY → TIMBANG_1 → SORTASI → TIMBANG_2; PKS: SECURITY → TIMBANG_1 → LAB → TIMBANG_2;
      Penimbangan saja: SECURITY → TIMBANG_1.
@@ -236,35 +327,17 @@ const W = 1280, H = 760;
 const canvas = document.getElementById('peta');
 const ctx = canvas.getContext('2d');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const el = id => document.getElementById(id);
 
 const C = {
-  ground: '#1a251e', ground2: '#1e2b23', road: '#2c3330', roadEdge: '#3b4440', mark: '#c9cfc9',
-  roof: '#3a4943', roofHi: '#4a5c55', wall: '#26332e', concrete: '#3d4642',
+  ground: '#1a251e', road: '#2c3330', roadEdge: '#3b4440', mark: '#c9cfc9',
+  roof: '#3a4943', roofHi: '#4a5c55', concrete: '#3d4642',
   steel: '#59645f', accent: '#f2c230', tbs: '#e8673d', cpo: '#3fb6a8', saja: '#9aa4ff',
   ok: '#5ccb8b', bad: '#ef5a52', warn: '#f2a03a', text: '#e4ebe5', muted: '#8fa198',
   water: '#1d3b3d', waterHi: '#24494a', palm: '#2f6b3e', palmDark: '#244f30', kernel: '#8a6a45', cpoOil: '#d9822b',
 };
 
-/* ---------------- tata letak denah (koordinat logis 1280 × 760) ---------------- */
-const Y_MAIN = 738, Y_LOW = 600, Y_RET = 652, Y_UP = 330, Y_TOP = 110;
-const X_GATE = 150, X_MERGE = 250, X_RIGHT = 1220;
-const JT = [
-  { kode: 'JT-1', x: 330 }, { kode: 'JT-2', x: 410 }, { kode: 'JT-3', x: 490 }, { kode: 'JT-4', x: 570 },
-];
-const JT_STOP_Y = 462;                         // titik tengah plat timbangan
-const BAY_TBS = [{ x: 700, nama: 'Bay 1' }, { x: 770, nama: 'Bay 2' }, { x: 840, nama: 'Bay 3' }];
-const BAY_STOP_Y = 236;
-const X_CPO = 1040, X_KERNEL = 1120, MUAT_STOP_Y = 236;
-const X_LAB_STOP = 1160;
-const SEC_STOP = { x: X_GATE, y: 692 };   // truk berhenti di depan palang, samping pos
-
-const PROFIL_JT = { toleransi: 5, durasiStabil: 3, beratMin: 100 };   // default jembatan_timbang
-
-/* ---------------- data acak ---------------- */
-const MITRA_TBS = ['KUD Sawit Makmur', 'CV Tani Jaya', 'Kebun Plasma Blok C', 'UD Berkah Sawit', 'Koperasi Sido Rukun', 'PT Agro Lestari'];
-const MITRA_PKS = ['PT Minyak Nusantara', 'PT Sinar Refinery', 'PT Kernel Prima'];
-const SUPIR = ['Budi S.', 'Andi P.', 'Rahmat', 'Joko W.', 'Hendra', 'Sutrisno', 'Wahyu', 'Agus R.', 'Darmawan', 'Slamet', 'Yusuf', 'Ilham'];
-const KODE_PLAT = ['BK', 'BM', 'BH', 'KB', 'KT', 'DA', 'BG', 'BA'];
+/* ---------------- util ---------------- */
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -272,31 +345,285 @@ const bulat10 = v => Math.round(v / 10) * 10;
 const fmtKg = v => v == null ? '–' : Math.round(v).toLocaleString('id-ID');
 const fmtT = v => (v / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 const pad = n => String(n).padStart(2, '0');
-function buatPlat() {
-  const huruf = 'ABCDEFGHJKLMNPRSTUVWXYZ';
-  return `${pick(KODE_PLAT)} ${rint(1000, 9899)} ${huruf[rint(0, 22)]}${huruf[rint(0, 22)]}`;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function proyeksi(px, py, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2));
+  const x = a.x + dx * t, y = a.y + dy * t;
+  return { x, y, t, d: Math.hypot(px - x, py - y) };
 }
 
-/* ---------------- jam simulasi ---------------- */
-const mulai = new Date(); mulai.setHours(7, 0, 0, 0);
-const S = {
-  t: 0,                 // detik simulasi
-  speed: 2, paused: false, auto: true,
-  trucks: [], selesai: [], log: [], nextId: 1, nextSpawn: 2, sel: null,
-  totalTbs: 0, totalPks: 0, nSelesai: 0,
-  smoke: [], blHint: false, rejHint: false,
+/* =====================================================================================
+   KATALOG OBJEK
+   nempel: 'snap'    = diletakkan DI ATAS jalan, arahnya ikut jalan (jembatan, barrier, lampu, titik masuk/keluar, muat CPO)
+           'samping' = di samping jalan; truk berhenti di titik jalan terdekat (pos, bay sortasi, bunker, lab)
+   ===================================================================================== */
+const MAKS_NEMPEL = 90;
+const KATALOG = {
+  masuk:       { nama: 'Titik masuk truk', grup: 'alur', nempel: 'snap', w: 30, h: 30, label: 'MASUK', warna: C.ok, ket: 'Tempat truk muncul. Letakkan di jalan, biasanya di tepi denah.' },
+  keluar:      { nama: 'Titik keluar truk', grup: 'alur', nempel: 'snap', w: 30, h: 30, label: 'KELUAR', warna: C.ok, ket: 'Truk yang selesai menghilang di sini.' },
+  security:    { nama: 'Pos Security', grup: 'alur', nempel: 'samping', w: 62, h: 44, label: 'POS', sub: 'Security', warna: C.accent, ket: 'Cek plat, blacklist, scan wajah, cetak tiket QR.' },
+  barrier:     { nama: 'Barrier gate', grup: 'alur', nempel: 'snap', w: 16, h: 16, label: 'Barrier', syarat: 'tiket', warna: C.bad, ket: 'Palang yang terbuka hanya bila syarat truk terpenuhi.' },
+  jembatan:    { nama: 'Jembatan timbang', grup: 'alur', nempel: 'snap', w: 124, h: 34, label: '', kode: 'JT-1', warna: C.accent, ket: 'Plat timbangan.' },
+  lampu:       { nama: 'Lampu lalu lintas', grup: 'alur', nempel: 'snap', w: 16, h: 16, label: 'Lampu', jt: '', warna: C.ok, ket: 'Merah bila jembatan tujuannya terisi. Pasang di jalan sebelum jembatan.' },
+  sortasi:     { nama: 'Bay sortasi TBS', grup: 'alur', nempel: 'samping', w: 24, h: 96, label: 'Bay', warna: C.tbs, ket: 'Tempat bongkar & grading TBS (loading ramp).' },
+  muat_cpo:    { nama: 'Titik muat CPO', grup: 'alur', nempel: 'snap', w: 44, h: 44, label: 'MUAT CPO', warna: C.cpo, ket: 'Gantry pengisian CPO dari tangki timbun.' },
+  muat_kernel: { nama: 'Bunker kernel', grup: 'alur', nempel: 'samping', w: 44, h: 70, label: 'BUNKER', sub: 'Kernel', warna: C.cpo, ket: 'Pengisian kernel ke truk.' },
+  lab:         { nama: 'Laboratorium', grup: 'alur', nempel: 'samping', w: 100, h: 48, label: 'LABORATORIUM', sub: 'Uji FFA · air · kotoran', warna: C.cpo, ket: 'Sampel produk PKS diambil di titik jalan terdekat.' },
+  gedung:      { nama: 'Gedung', grup: 'hias', w: 120, h: 70, label: 'GEDUNG', sub: '', warna: C.roofHi },
+  pabrik:      { nama: 'Gedung pabrik', grup: 'hias', w: 200, h: 150, label: 'PABRIK KELAPA SAWIT', sub: 'Rebusan · Press · Klarifikasi', warna: C.roofHi },
+  boiler:      { nama: 'Boiler + cerobong', grup: 'hias', w: 56, h: 62, label: 'Boiler', warna: C.roofHi },
+  tangki:      { nama: 'Tangki timbun', grup: 'hias', w: 64, h: 64, label: 'TANGKI CPO', sub: '1.000 t', warna: '#7f8d87' },
+  kolam:       { nama: 'Kolam', grup: 'hias', w: 120, h: 90, label: '', warna: C.waterHi },
+  lantai:      { nama: 'Lantai beton', grup: 'hias', w: 200, h: 140, label: '', warna: C.concrete },
+  pohon:       { nama: 'Pohon sawit', grup: 'hias', w: 24, h: 24, label: '', warna: C.palm },
+  teks:        { nama: 'Teks / label', grup: 'hias', w: 160, h: 18, label: 'Teks', warna: C.muted },
 };
-/* 1 detik nyata = SIM_RATE detik di jam pabrik (supaya satu truk selesai dalam beberapa menit nyata) */
-const SIM_RATE = 12;
-function jamSim() { return new Date(mulai.getTime() + S.t * 1000 * SIM_RATE); }
-function jamStr(d = jamSim()) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
-function stamp(d = jamSim()) {
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+const SYARAT_BARRIER = {
+  tiket: 'Sudah punya tiket (lewat security)',
+  timbang: 'Sudah timbang masuk',
+  selesai: 'Tiket selesai / ditolak (keluar)',
+  bebas: 'Semua truk (buka otomatis)',
+};
+const isAlur = o => KATALOG[o.tipe]?.grup === 'alur';
+const isSnap = o => KATALOG[o.tipe]?.nempel === 'snap';
+const BAWAH = new Set(['lantai', 'kolam']);   // digambar di bawah jalan
+
+/* =====================================================================================
+   SITE & DENAH BAWAAN (nama site masih contoh, bisa diganti di Edit Denah)
+   ===================================================================================== */
+const SITES = [
+  { id: 'A', nama: 'Site A · PKS Sungai Lestari', jt: 4, bay: 3, kernel: true, cermin: false },
+  { id: 'B', nama: 'Site B · PKS Bukit Harapan', jt: 2, bay: 2, kernel: true, cermin: true },
+  { id: 'C', nama: 'Site C · PKS Tanjung Makmur', jt: 3, bay: 3, kernel: false, cermin: false },
+  { id: 'D', nama: 'Site D · PKS Rantau Jaya', jt: 2, bay: 2, kernel: false, cermin: true },
+];
+
+function denahBawaan(site) {
+  const titik = [], ruas = [], objek = [];
+  let nN = 0, nO = 0;
+  const n = (x, y) => { const id = 'n' + (++nN); titik.push({ id, x, y }); return id; };
+  const r = (a, b, dua = false) => ruas.push({ id: 'r' + (ruas.length + 1), a, b, dua });
+  const o = (tipe, x, y, extra = {}) => {
+    const k = KATALOG[tipe];
+    const obj = { id: 'o' + (++nO), tipe, x, y, w: k.w, h: k.h, rot: 0, label: k.label || '' };
+    if (k.sub !== undefined) obj.sub = k.sub;
+    if (k.syarat) obj.syarat = k.syarat;
+    if (k.kode) obj.kode = k.kode;
+    if (k.jt !== undefined) obj.jt = k.jt;
+    Object.assign(obj, extra);
+    objek.push(obj);
+    return obj.id;
+  };
+  const xsJT = Array.from({ length: site.jt }, (_, i) => 330 + 80 * i);
+  const xsBay = Array.from({ length: site.bay }, (_, i) => 700 + 70 * i);
+  const xsNaik = [...xsBay, 1040, ...(site.kernel ? [1120] : [])];
+  const ujungRamp = xsBay[xsBay.length - 1] + 40;
+
+  // --- hiasan bawah (lantai, kolam)
+  o('lantai', (660 + ujungRamp) / 2, 225, { w: ujungRamp - 660, h: 150 });
+  o('kolam', 990, 445, { w: 120, h: 90 });
+  o('kolam', 1117, 445, { w: 105, h: 90 });
+  o('kolam', 1050, 555, { w: 240, h: 100, label: 'Kolam Limbah (IPAL)' });
+
+  // --- jalan (satu arah, lihat panah)
+  const M0 = n(10, 738), G_ = n(150, 738), R1 = n(1220, 738), M1 = n(1270, 738);
+  r(M0, G_); r(G_, R1); r(R1, M1);
+  const S_ = n(150, 600); r(G_, S_);
+  const J = n(250, 600); r(S_, J);
+  let prev = J;
+  const Ls = xsJT.map(x => { const id = n(x, 600); r(prev, id); prev = id; return id; });
+  const Us = xsJT.map(x => n(x, 330));
+  Ls.forEach((l, i) => r(l, Us[i]));
+  prev = Us[0];
+  for (let i = 1; i < Us.length; i++) { r(prev, Us[i]); prev = Us[i]; }
+  const naik = xsNaik.map(x => n(x, 330));
+  naik.forEach(id => { r(prev, id); prev = id; });
+  const RU = n(1220, 330); r(prev, RU);
+  const atas = xsNaik.map(x => n(x, 110));
+  naik.forEach((id, i) => r(id, atas[i]));
+  prev = atas[0];
+  for (let i = 1; i < atas.length; i++) { r(prev, atas[i]); prev = atas[i]; }
+  const RT_ = n(1220, 110); r(prev, RT_); r(RT_, RU);
+  const RR = n(1220, 652); r(RU, RR); r(RR, R1);
+  const B = n(250, 652); r(RR, B); r(B, J);
+
+  // --- objek alur
+  o('masuk', 14, 738);
+  o('keluar', 1262, 738);
+  o('security', 100, 680);
+  o('barrier', 150, 645, { syarat: 'tiket', label: 'Barrier Security' });
+  o('barrier', 1220, 700, { syarat: 'selesai', label: 'Barrier Keluar' });
+  xsJT.forEach((x, i) => {
+    const jt = o('jembatan', x, 462, { kode: `JT-${i + 1}` });
+    o('lampu', x, 540, { jt, label: `Lampu JT-${i + 1}` });
+  });
+  xsBay.forEach((x, i) => o('sortasi', x + 22, 236, { label: `Bay ${i + 1}` }));
+  o('muat_cpo', 1040, 236);
+  if (site.kernel) o('muat_kernel', 1162, 225);
+  o('lab', 1150, 62);
+
+  // --- hiasan
+  o('teks', (660 + ujungRamp) / 2, 160, { label: 'LOADING RAMP & SORTASI TBS', w: 200 });
+  o('pabrik', 520, 215);
+  o('boiler', 588, 93);
+  o('tangki', 930, 245, { w: 68, h: 68, label: 'TANGKI CPO 1', sub: '1.500 t' });
+  o('tangki', 980, 175, { w: 60, h: 60, label: 'TANGKI CPO 2', sub: '1.000 t' });
+  o('gedung', 965, 63, { w: 130, h: 46, label: 'BENGKEL', sub: 'Workshop' });
+  o('gedung', 124, 420, { w: 120, h: 80, label: 'KANTOR', sub: 'Administrasi · HO' });
+  o('gedung', 124, 510, { w: 120, h: 60, label: 'MUSHOLA', sub: '' });
+  o('gedung', xsJT[xsJT.length - 1] + 81, 468, { w: 78, h: 96, label: 'KANTOR', sub: 'Timbangan' });
+  o('teks', 640, 756, { label: 'JALAN RAYA LINTAS KEBUN', w: 240, h: 14 });
+  o('teks', 222, 700, { label: 'GERBANG MASUK', w: 110, h: 14 });
+  o('teks', 1110, 684, { label: 'GERBANG KELUAR', w: 110, h: 14 });
+  const pohon = [];
+  for (let x = 70; x < 1250; x += 46) pohon.push([x, 14]);
+  for (let y = 120; y < 380; y += 44) pohon.push([70, y], [120, y + 20], [175, y + 6]);
+  for (let y = 70; y < 680; y += 48) pohon.push([1262, y]);
+  pohon.push([230, 140], [280, 190], [235, 245], [300, 260], [330, 160], [380, 210], [250, 300]);
+  pohon.push([700, 380], [760, 400], [820, 380], [720, 470], [790, 520], [860, 470], [850, 560]);
+  pohon.forEach(([x, y]) => o('pohon', x, y));
+
+  const L = { versi: 1, site: site.id, nama: site.nama, latar: null, latarOpacity: 0.6, objek, jalan: { titik, ruas } };
+  if (site.cermin) {
+    titik.forEach(p => { p.x = W - p.x; });
+    objek.forEach(ob => { ob.x = W - ob.x; ob.rot = -(ob.rot || 0); });
+  }
+  return L;
 }
 
-/* ---------------- jalur ---------------- */
+/* ---------------- simpan per site (localStorage) ---------------- */
+const KUNCI = id => `simulasi-denah-v1:${id}`;
+function denahValid(D) {
+  return !!(D && Array.isArray(D.objek) && D.jalan && Array.isArray(D.jalan.titik) && Array.isArray(D.jalan.ruas)
+    && D.objek.every(o => o && KATALOG[o.tipe] && Number.isFinite(o.x) && Number.isFinite(o.y)));
+}
+function bacaDenah(id) {
+  try { const s = localStorage.getItem(KUNCI(id)); if (s) { const D = JSON.parse(s); if (denahValid(D)) return D; } } catch (e) { /* abaikan */ }
+  return null;
+}
+let tSimpan = null;
+function simpanDenah() {
+  clearTimeout(tSimpan);
+  tSimpan = setTimeout(() => {
+    try {
+      localStorage.setItem(KUNCI(L.site), JSON.stringify(L));
+      el('pesanSimpan').textContent = `Tersimpan ${new Date().toLocaleTimeString('id-ID')}.`;
+    } catch (e) {
+      el('pesanSimpan').textContent = 'Tidak bisa simpan otomatis (foto latar terlalu besar atau penyimpanan browser diblokir). Pakai Unduh denah.';
+    }
+  }, 300);
+}
+
+/* =====================================================================================
+   GRAF JALAN
+   ===================================================================================== */
+let L = null;          // denah aktif
+let G = null;          // graf rute
+let V = null;          // hasil validasi
+const objById = id => L.objek.find(o => o.id === id);
+
+function bangunGraf() {
+  const nodes = new Map();
+  for (const p of L.jalan.titik) nodes.set(p.id, { id: p.id, x: p.x, y: p.y, adj: [], obj: null });
+  const anchor = new Map(), perRuas = new Map();
+  for (const o of L.objek) {
+    if (!isAlur(o)) continue;
+    let best = null;
+    for (const r of L.jalan.ruas) {
+      const a = nodes.get(r.a), b = nodes.get(r.b);
+      if (!a || !b) continue;
+      const pr = proyeksi(o.x, o.y, a, b);
+      if (!best || pr.d < best.d) best = { ...pr, r, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+    }
+    if (best && best.d <= MAKS_NEMPEL) {
+      const an = { objId: o.id, x: best.x, y: best.y, t: best.t, d: best.d, ang: best.ang, ruas: best.r.id, dua: !!best.r.dua };
+      anchor.set(o.id, an);
+      if (!perRuas.has(best.r.id)) perRuas.set(best.r.id, []);
+      perRuas.get(best.r.id).push(an);
+    }
+  }
+  const hubung = (u, v, dua) => {
+    const len = Math.hypot(v.x - u.x, v.y - u.y);
+    u.adj.push({ to: v.id, len, dua });
+    if (dua) v.adj.push({ to: u.id, len, dua });
+  };
+  for (const r of L.jalan.ruas) {
+    const a = nodes.get(r.a), b = nodes.get(r.b);
+    if (!a || !b) continue;
+    const list = (perRuas.get(r.id) || []).sort((p, q) => p.t - q.t);
+    let prev = a;
+    for (const an of list) {
+      const nd = { id: '@' + an.objId, x: an.x, y: an.y, adj: [], obj: objById(an.objId) };
+      nodes.set(nd.id, nd);
+      an.node = nd.id;
+      hubung(prev, nd, !!r.dua);
+      prev = nd;
+    }
+    hubung(prev, b, !!r.dua);
+  }
+  G = { nodes, anchor, cache: new Map() };
+}
+const nodeObj = o => G.anchor.get(o.id)?.node;
+
+function rute(dari, ke) {
+  if (!dari || !ke) return null;
+  if (dari === ke) return [dari];
+  const kunci = dari + '|' + ke;
+  if (G.cache.has(kunci)) return G.cache.get(kunci);
+  const dist = new Map([[dari, 0]]), asal = new Map(), selesai = new Set();
+  let hasil = null;
+  while (true) {
+    let u = null, du = Infinity;
+    for (const [id, d] of dist) if (!selesai.has(id) && d < du) { du = d; u = id; }
+    if (u === null) break;
+    if (u === ke) {
+      hasil = [ke];
+      while (asal.has(hasil[0])) hasil.unshift(asal.get(hasil[0]));
+      break;
+    }
+    selesai.add(u);
+    for (const e of G.nodes.get(u).adj) {
+      const nd = du + e.len;
+      if (nd < (dist.get(e.to) ?? Infinity)) { dist.set(e.to, nd); asal.set(e.to, u); }
+    }
+  }
+  G.cache.set(kunci, hasil);
+  return hasil;
+}
+function panjangRute(ids) {
+  let s = 0;
+  for (let i = 1; i < ids.length; i++) { const a = G.nodes.get(ids[i - 1]), b = G.nodes.get(ids[i]); s += Math.hypot(b.x - a.x, b.y - a.y); }
+  return s;
+}
+
+/* Titik-titik rute; pada jalan dua arah truk memakai lajur kiri (seperti di Indonesia). */
+const GESER_LAJUR = 9;
+function garisRute(ids, mulai) {
+  const off = [];
+  for (let i = 0; i < ids.length - 1; i++) {
+    const a = G.nodes.get(ids[i]), b = G.nodes.get(ids[i + 1]);
+    const e = a.adj.find(x => x.to === b.id);
+    const l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const dx = (b.x - a.x) / l, dy = (b.y - a.y) / l;
+    off.push(e && e.dua ? { x: dy * GESER_LAJUR, y: -dx * GESER_LAJUR } : { x: 0, y: 0 });
+  }
+  const nol = { x: 0, y: 0 };
+  const pts = [], idx = [];
+  if (mulai) pts.push({ x: mulai.x, y: mulai.y });
+  ids.forEach((id, i) => {
+    const nd = G.nodes.get(id);
+    const o1 = off[i - 1] || off[i] || nol, o2 = off[i] || off[i - 1] || nol;
+    const p = { x: nd.x + (o1.x + o2.x) / 2, y: nd.y + (o1.y + o2.y) / 2 };
+    if (i === 0 && mulai && Math.hypot(p.x - mulai.x, p.y - mulai.y) < 1) { idx.push(0); return; }
+    idx.push(pts.length);
+    pts.push(p);
+  });
+  return { pts, idx };
+}
+
+/* ---------------- jalur halus ---------------- */
 function smooth(pts, r = 20) {
-  // Bulatkan sudut polyline (kurva kuadrat) supaya truk berbelok halus.
   const out = [pts[0]];
   for (let i = 1; i < pts.length - 1; i++) {
     const a = pts[i - 1], p = pts[i], b = pts[i + 1];
@@ -312,35 +639,128 @@ function smooth(pts, r = 20) {
       out.push({ x: u * u * s.x + 2 * u * t * p.x + t * t * e.x, y: u * u * s.y + 2 * u * t * p.y + t * t * e.y });
     }
   }
-  out.push(pts[pts.length - 1]);
+  if (pts.length > 1) out.push(pts[pts.length - 1]);
   const path = { pts: out, cum: [0] };
   for (let i = 1; i < out.length; i++) path.cum.push(path.cum[i - 1] + Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y));
   path.len = path.cum[path.cum.length - 1];
   return path;
 }
 function titikDi(path, s) {
+  if (path.pts.length < 2) return { x: path.pts[0].x, y: path.pts[0].y, ang: null };
   s = Math.max(0, Math.min(path.len, s));
   let lo = 0, hi = path.cum.length - 1;
   while (hi - lo > 1) { const m = (lo + hi) >> 1; if (path.cum[m] <= s) lo = m; else hi = m; }
-  const a = path.pts[lo], b = path.pts[hi], seg = path.cum[hi] - path.cum[lo] || 1, t = (s - path.cum[lo]) / seg;
-  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+  const a = path.pts[lo], b = path.pts[hi], seg = path.cum[hi] - path.cum[lo], t = seg > 0 ? (s - path.cum[lo]) / seg : 0;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ang: seg > 0.01 ? Math.atan2(b.y - a.y, b.x - a.x) : null };
+}
+function sPadaJalur(path, p, mulaiIdx) {
+  // Posisi (panjang lintasan) titik p pada jalur halus, dicari maju dari indeks mulaiIdx.
+  let best = -1, bd = Infinity;
+  for (let i = mulaiIdx; i < path.pts.length; i++) {
+    const d = Math.hypot(path.pts[i].x - p.x, path.pts[i].y - p.y);
+    if (d < bd) { bd = d; best = i; } else if (bd < 6 && d > bd + 30) break;
+  }
+  return best < 0 ? { s: path.len, i: mulaiIdx } : { s: path.cum[best], i: best };
 }
 
-// Ruas jalan dari posisi sekarang ke tahap berikutnya (jalan satu arah, lihat gambar).
-const keJT = (jt) => [{ x: X_MERGE, y: Y_RET }, { x: X_MERGE, y: Y_LOW }, { x: jt.x, y: Y_LOW }, { x: jt.x, y: JT_STOP_Y }];
-const RUTE = {
-  datang: () => [{ x: -80, y: Y_MAIN }, { x: X_GATE, y: Y_MAIN }, { x: X_GATE, y: SEC_STOP.y }],
-  timbang1: (t) => [{ x: X_GATE, y: SEC_STOP.y }, { x: X_GATE, y: Y_LOW }, { x: t.jt.x, y: Y_LOW }, { x: t.jt.x, y: JT_STOP_Y }],
-  sortasi: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: t.bay.x, y: Y_UP }, { x: t.bay.x, y: BAY_STOP_Y }],
-  muat: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: t.xMuat, y: Y_UP }, { x: t.xMuat, y: MUAT_STOP_Y }],
-  lab: (t) => [{ x: t.xMuat, y: MUAT_STOP_Y }, { x: t.xMuat, y: Y_TOP }, { x: X_LAB_STOP, y: Y_TOP }],
-  timbang2DariBay: (t) => [{ x: t.bay.x, y: BAY_STOP_Y }, { x: t.bay.x, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_RET }, ...keJT(t.jt)],
-  timbang2DariLab: (t) => [{ x: X_LAB_STOP, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_RET }, ...keJT(t.jt)],
-  keluarDariJT: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: X_RIGHT, y: Y_UP }, { x: X_RIGHT, y: Y_MAIN }, { x: W + 90, y: Y_MAIN }],
-  keluarDariLab: () => [{ x: X_LAB_STOP, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_MAIN }, { x: W + 90, y: Y_MAIN }],
-};
+/* =====================================================================================
+   VALIDASI DENAH
+   ===================================================================================== */
+const NAMA_ALUR = { TBS: 'TBS', CPO: 'CPO', KERNEL: 'Kernel', SAJA: 'Timbang saja' };
+function namaObj(o) {
+  const k = KATALOG[o.tipe];
+  if (o.tipe === 'jembatan') return `Jembatan ${o.kode || ''}`.trim();
+  return o.label && o.label !== k.label ? `${k.nama} "${o.label}"` : k.nama;
+}
+function lampuJT(lp) {
+  if (lp.jt) { const j = objById(lp.jt); if (j && j.tipe === 'jembatan') return j; }
+  let best = null, bd = 220;
+  for (const j of L.objek) if (j.tipe === 'jembatan') { const d = Math.hypot(j.x - lp.x, j.y - lp.y); if (d < bd) { bd = d; best = j; } }
+  return best;
+}
+function validasi() {
+  const pesan = [];
+  const nempel = t => L.objek.filter(o => o.tipe === t && G.anchor.has(o.id));
+  for (const o of L.objek) {
+    if (isAlur(o) && !G.anchor.has(o.id)) pesan.push({ k: 'warn', t: `${namaObj(o)} belum menempel ke jalan (dekatkan, maks ${MAKS_NEMPEL} px).` });
+  }
+  const bisa = (a, b) => !!rute(nodeObj(a), nodeObj(b));
+  const masuk = nempel('masuk'), sec = nempel('security'), jts = nempel('jembatan'), kel = nempel('keluar');
+  const bays = nempel('sortasi'), cpo = nempel('muat_cpo'), ker = nempel('muat_kernel'), labs = nempel('lab');
+  const alur = { TBS: false, CPO: false, KERNEL: false, SAJA: false }, alasan = {};
 
-/* ---------------- jenis muatan ---------------- */
+  let dasar = '';
+  if (!masuk.length) dasar = 'belum ada Titik masuk truk yang menempel ke jalan';
+  else if (!sec.length) dasar = 'belum ada Pos Security yang menempel ke jalan';
+  else if (!jts.length) dasar = 'belum ada Jembatan timbang yang menempel ke jalan';
+  else if (!kel.length) dasar = 'belum ada Titik keluar truk yang menempel ke jalan';
+  let secOk = [], jtOk = [];
+  if (!dasar) {
+    secOk = sec.filter(s => masuk.some(m => bisa(m, s)));
+    if (!secOk.length) dasar = 'tidak ada jalan dari Titik masuk ke Pos Security';
+  }
+  if (!dasar) {
+    jtOk = jts.filter(j => secOk.some(s => bisa(s, j)) && kel.some(k => bisa(j, k)));
+    if (!jtOk.length) dasar = 'tidak ada jalan Security → Jembatan → Titik keluar';
+  }
+  if (dasar) {
+    for (const k in alur) alasan[k] = dasar;
+  } else {
+    alur.SAJA = true;
+    if (!bays.length) alasan.TBS = 'belum ada Bay sortasi yang menempel ke jalan';
+    else if (jtOk.some(j => bays.some(b => bisa(j, b) && bisa(b, j)))) alur.TBS = true;
+    else alasan.TBS = 'tidak ada jalan Jembatan → Bay sortasi → kembali ke jembatan yang sama';
+    const pks = (titikMuat, nama) => {
+      if (!titikMuat.length) return [false, `belum ada ${nama} yang menempel ke jalan`];
+      if (!labs.length) return [false, 'belum ada Laboratorium yang menempel ke jalan'];
+      const ok = jtOk.some(j => titikMuat.some(m => bisa(j, m) && labs.some(l => bisa(m, l) && bisa(l, j) && kel.some(k => bisa(l, k)))));
+      return ok ? [true, ''] : [false, `tidak ada jalan Jembatan → ${nama} → Lab → jembatan yang sama`];
+    };
+    [alur.CPO, alasan.CPO] = pks(cpo, 'Titik muat CPO');
+    [alur.KERNEL, alasan.KERNEL] = pks(ker, 'Bunker kernel');
+  }
+  const ringkas = Object.keys(alur).map(k => alur[k]
+    ? { k: 'ok', t: `Alur ${NAMA_ALUR[k]} siap.` }
+    : { k: 'bad', t: `Alur ${NAMA_ALUR[k]} belum bisa: ${alasan[k]}.` });
+  for (const lp of L.objek.filter(o => o.tipe === 'lampu')) {
+    if (G.anchor.has(lp.id) && !lampuJT(lp)) pesan.push({ k: 'warn', t: `${namaObj(lp)} belum terhubung ke jembatan.` });
+  }
+  V = { alur, alasan, pesan: [...ringkas, ...pesan] };
+}
+
+/* =====================================================================================
+   SIMULASI
+   ===================================================================================== */
+const PROFIL_JT = { toleransi: 5, durasiStabil: 3, beratMin: 100 };   // default jembatan_timbang
+const MITRA_TBS = ['KUD Sawit Makmur', 'CV Tani Jaya', 'Kebun Plasma Blok C', 'UD Berkah Sawit', 'Koperasi Sido Rukun', 'PT Agro Lestari'];
+const MITRA_PKS = ['PT Minyak Nusantara', 'PT Sinar Refinery', 'PT Kernel Prima'];
+const SUPIR = ['Budi S.', 'Andi P.', 'Rahmat', 'Joko W.', 'Hendra', 'Sutrisno', 'Wahyu', 'Agus R.', 'Darmawan', 'Slamet', 'Yusuf', 'Ilham'];
+const KODE_PLAT = ['BK', 'BM', 'BH', 'KB', 'KT', 'DA', 'BG', 'BA'];
+function buatPlat() {
+  const huruf = 'ABCDEFGHJKLMNPRSTUVWXYZ';
+  return `${pick(KODE_PLAT)} ${rint(1000, 9899)} ${huruf[rint(0, 22)]}${huruf[rint(0, 22)]}`;
+}
+
+const mulai = new Date(); mulai.setHours(7, 0, 0, 0);
+const S = {
+  t: 0, speed: 2, paused: false, auto: true,
+  trucks: [], antre: [], log: [], nextId: 1, nextSpawn: 2, sel: null,
+  totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [],
+};
+const RT = new Map();        // keadaan berjalan per objek (jembatan, barrier)
+function rt(o) {
+  if (!RT.has(o.id)) RT.set(o.id, { truk: null, reservasi: null, baca: 0, buka: 0, tahan: 0, minta: false, stabil: false });
+  return RT.get(o.id);
+}
+
+/* 1 detik simulasi = SIM_RATE detik di jam pabrik (supaya satu truk selesai dalam beberapa menit nyata) */
+const SIM_RATE = 12;
+function jamSim() { return new Date(mulai.getTime() + S.t * 1000 * SIM_RATE); }
+function jamStr(d = jamSim()) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function stamp(d = jamSim()) {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
 const JENIS = {
   TBS: { label: 'TBS', produk: 'TBS', warna: C.tbs, alur: 'TBS', transaksi: 'PEMBELIAN', tahap: ['SECURITY', 'TIMBANG_1', 'SORTASI', 'TIMBANG_2'] },
   CPO: { label: 'CPO', produk: 'CPO', warna: C.cpo, alur: 'PKS', transaksi: 'PENJUALAN', tahap: ['SECURITY', 'TIMBANG_1', 'MUAT', 'LAB', 'TIMBANG_2'] },
@@ -352,61 +772,133 @@ const NAMA_TAHAP = {
   LAB: 'Laboratorium', TIMBANG_2: 'Timbang keluar',
 };
 
-/* ---------------- truk ---------------- */
-function pilihJT() {
-  // Jembatan dengan antrean timbang masuk paling sedikit.
-  const beban = JT.map(j => S.trucks.filter(t => t.jt === j && !t.w1).length + (j.truk ? 1 : 0));
-  const min = Math.min(...beban);
-  return pick(JT.filter((j, i) => beban[i] === min));
+/* ---------------- pilih tujuan ---------------- */
+function stasiun(tipe) { return L.objek.filter(o => o.tipe === tipe && G.anchor.has(o.id)); }
+function pilihTerbaik(t, kandidat, beban, syarat = () => true) {
+  let best = null, skor = Infinity;
+  for (const o of kandidat) {
+    const ids = rute(t.node, nodeObj(o));
+    if (!ids || !syarat(o)) continue;
+    const sk = beban(o) * 100000 + panjangRute(ids);
+    if (sk < skor) { skor = sk; best = o; }
+  }
+  return best;
 }
-function pilihBay() {
-  const beban = BAY_TBS.map(b => S.trucks.filter(t => t.bay === b && !t.sortasi).length);
-  const min = Math.min(...beban);
-  return pick(BAY_TBS.filter((b, i) => beban[i] === min));
+const menuju = o => S.trucks.filter(x => x.tujuan === o).length;
+function pilihTujuan(t, tahap) {
+  const kel = stasiun('keluar');
+  if (tahap === 'SECURITY') return pilihTerbaik(t, stasiun('security'), menuju);
+  if (tahap === 'TIMBANG_1') return pilihTerbaik(t, stasiun('jembatan'),
+    o => S.trucks.filter(x => x.jt === o && x.w1 == null).length + (rt(o).truk ? 1 : 0),
+    o => kel.some(k => rute(nodeObj(o), nodeObj(k))));
+  if (tahap === 'SORTASI') return pilihTerbaik(t, stasiun('sortasi'), menuju, o => rute(nodeObj(o), nodeObj(t.jt)));
+  if (tahap === 'MUAT') return pilihTerbaik(t, stasiun(t.kind === 'CPO' ? 'muat_cpo' : 'muat_kernel'), menuju);
+  if (tahap === 'LAB') return pilihTerbaik(t, stasiun('lab'), menuju);
+  if (tahap === 'TIMBANG_2') return t.jt;
+  if (tahap === 'KELUAR') return pilihTerbaik(t, kel, () => 0);
+  return null;
 }
 
+/* ---------------- truk ---------------- */
 function tambahTruk(kind, opsi = {}) {
+  if (!V.alur[kind]) { catat(`Truk ${JENIS[kind].label} tidak bisa masuk: ${V.alasan[kind]}.`, 'warn'); return false; }
+  S.antre.push({ kind, opsi });
+  return true;
+}
+function munculkanAntre() {
+  if (!S.antre.length) return;
+  for (const m of stasiun('masuk')) {
+    if (!S.antre.length) return;
+    const an = G.anchor.get(m.id);
+    if (S.trucks.some(t => Math.hypot(t.x - an.x, t.y - an.y) < 62)) continue;
+    const { kind, opsi } = S.antre.shift();
+    buatTruk(kind, opsi, m);
+  }
+}
+function buatTruk(kind, opsi, masuk) {
   const j = JENIS[kind];
-  const plat = buatPlat();
+  const an = G.anchor.get(masuk.id);
   const t = {
-    id: S.nextId++, kind, j, plat, supir: pick(SUPIR),
+    id: S.nextId++, kind, j, plat: buatPlat(), supir: pick(SUPIR),
     mitra: kind === 'TBS' ? pick(MITRA_TBS) : kind === 'SAJA' ? 'PT Sendiri (internal)' : pick(MITRA_PKS),
     no_do: kind === 'TBS' || kind === 'SAJA' ? null : `DO-${jamSim().getFullYear()}-${rint(100, 999)}`,
     blacklist: !!opsi.blacklist, rejectLab: !!opsi.reject,
     tara: 0, muatan: 0, muatanNow: 0,
-    path: smooth(RUTE.datang()), s: 0, v: 0, x: -80, y: Y_MAIN, ang: 0,
-    tahapIdx: 0, aksi: null, aksiSisa: 0, sub: '', status: 'DATANG', jt: null, bay: null,
+    node: an.node, x: an.x, y: an.y, ang: an.ang, s: 0, v: 0, gates: [], path: smooth([{ x: an.x, y: an.y }]),
+    tahapIdx: 0, aksi: null, aksiSisa: 0, sub: '', status: 'DATANG', jt: null, tujuan: null,
     w1: null, w2: null, netto: null, sortasi: null, lab: null, riwayat: {}, selesai: false, blokir: 0, hantu: 0,
   };
   if (kind === 'TBS') { t.tara = bulat10(rnd(7200, 9400)); t.muatan = bulat10(rnd(6500, 12500)); t.muatanNow = t.muatan; }
   if (kind === 'CPO') { t.tara = bulat10(rnd(10800, 12400)); t.muatan = bulat10(rnd(22000, 27500)); }
-  if (kind === 'KERNEL') { t.tara = bulat10(rnd(8200, 9600)); t.muatan = bulat10(rnd(12000, 17500)); t.xMuat = X_KERNEL; }
-  if (kind === 'CPO') t.xMuat = X_CPO;
+  if (kind === 'KERNEL') { t.tara = bulat10(rnd(8200, 9600)); t.muatan = bulat10(rnd(12000, 17500)); }
   if (kind === 'SAJA') { t.tara = bulat10(rnd(6800, 8200)); t.muatan = bulat10(rnd(5000, 9000)); t.muatanNow = t.muatan; }
   t.panjang = kind === 'CPO' ? 50 : 42;
   t.lebar = 17;
   S.trucks.push(t);
-  catat(`${t.plat} (${t.j.label}) tiba di gerbang, antre ke Pos Security.`);
+  catat(`${t.plat} (${t.j.label}) tiba di ${masuk.label && masuk.label !== 'MASUK' ? masuk.label : 'gerbang'}, menuju Pos Security.`);
+  menujuTahap(t);
   return t;
 }
 
-function mulaiJalan(t, pts) { t.path = smooth(pts); t.s = 0; t.aksi = null; }
+function jalanKe(t, obj) {
+  const ids = rute(t.node, nodeObj(obj));
+  if (!ids) return false;
+  const { pts, idx } = garisRute(ids, { x: t.x, y: t.y });
+  t.path = smooth(pts);
+  t.s = 0; t.tujuan = obj; t.tujuanNode = ids[ids.length - 1]; t.aksi = null;
+  // Gerbang di sepanjang jalur: barrier, lampu (bila jembatannya ikut dilewati), jembatan yang hanya dilintasi.
+  t.gates = [];
+  let cari = 0;
+  for (let i = 1; i < ids.length - 1; i++) {
+    const o = G.nodes.get(ids[i]).obj;
+    if (!o || !['barrier', 'lampu', 'jembatan'].includes(o.tipe)) continue;
+    let jt = null;
+    if (o.tipe === 'lampu') {
+      jt = lampuJT(o);
+      if (!jt || ids.indexOf(nodeObj(jt), i + 1) < 0) continue;
+    }
+    const pos = sPadaJalur(t.path, pts[idx[i]], cari);
+    cari = pos.i;
+    t.gates.push({ obj: o, s: pos.s, jt, lewat: false, dicatat: false });
+  }
+  return true;
+}
+
+function menujuTahap(t) {
+  const tahap = t.keluar ? 'KELUAR' : t.j.tahap[t.tahapIdx];
+  const tujuan = pilihTujuan(t, tahap);
+  if (tahap === 'TIMBANG_1' && tujuan) t.jt = tujuan;
+  if (!tujuan || !jalanKe(t, tujuan)) {
+    catat(`${t.plat} tidak menemukan jalan ke ${tahap === 'KELUAR' ? 'titik keluar' : NAMA_TAHAP[tahap]}. Truk dikeluarkan dari simulasi; periksa denah.`, 'bad');
+    t.macet = true; t.hapusDalam = 3; t.sub = 'Tidak ada jalan';
+    return;
+  }
+  if (tahap === 'SECURITY') t.sub = 'Menuju Pos Security';
+  else if (tahap === 'TIMBANG_1') t.sub = `Menuju ${t.jt.kode}`;
+  else if (tahap === 'SORTASI') t.sub = `Menuju ${tujuan.label || 'bay sortasi'}`;
+  else if (tahap === 'MUAT') t.sub = t.kind === 'CPO' ? 'Menuju titik muat CPO' : 'Menuju bunker kernel';
+  else if (tahap === 'LAB') t.sub = 'Menuju titik sampling lab';
+  else if (tahap === 'TIMBANG_2') t.sub = `Kembali ke ${t.jt.kode} (wajib jembatan yang sama)`;
+  else t.sub = t.status === 'REJECTED' ? 'Ditolak lab, menuju titik keluar' : 'Menuju titik keluar';
+}
+
 function mulaiAksi(t, nama, durasi, sub) { t.aksi = nama; t.aksiSisa = durasi; t.aksiTotal = durasi; t.sub = sub || ''; }
 function tahapNow(t) { return t.j.tahap[t.tahapIdx]; }
 
-/* ---- saat truk tiba di titik berhenti ---- */
+/* ---- saat truk tiba di tujuan ---- */
 function tiba(t) {
-  const tahap = tahapNow(t);
+  t.node = t.tujuanNode;
   if (t.keluar) { t.selesai = true; return; }
+  const tahap = tahapNow(t);
   if (tahap === 'SECURITY') {
-    t.status = 'SECURITY_REGISTER';
-    t.secLangkah = 0;
+    t.status = 'SECURITY_REGISTER'; t.secLangkah = 0;
     mulaiAksi(t, 'security', 2.2, 'Cek plat & blacklist');
   } else if (tahap === 'TIMBANG_1' || tahap === 'TIMBANG_2') {
-    if (t.jt.truk && t.jt.truk !== t) { t.aksi = 'tungguJT'; t.sub = `Menunggu ${t.jt.kode} kosong`; return; }
+    const r = rt(t.jt);
+    if (r.truk && r.truk !== t) { t.aksi = 'tungguJT'; t.sub = `Menunggu ${t.jt.kode} kosong`; return; }
     mulaiTimbang(t);
   } else if (tahap === 'SORTASI') {
-    mulaiAksi(t, 'bongkar', 9, 'Bongkar TBS di loading ramp');
+    mulaiAksi(t, 'bongkar', 9, `Bongkar TBS di ${t.tujuan.label || 'loading ramp'}`);
   } else if (tahap === 'MUAT') {
     mulaiAksi(t, 'muat', 10, t.kind === 'CPO' ? 'Pengisian CPO dari tangki timbun' : 'Pengisian kernel dari bunker');
   } else if (tahap === 'LAB') {
@@ -416,44 +908,37 @@ function tiba(t) {
 
 /* ---- penimbangan dengan indikator ---- */
 function mulaiTimbang(t) {
-  const jt = t.jt;
+  const r = rt(t.jt);
   const ke = tahapNow(t) === 'TIMBANG_1' ? 1 : 2;
-  // Berat sebenarnya di atas plat: truk kosong + muatan saat ini.
-  const target = t.tara + (t.muatanNow || 0);
-  jt.truk = t;
-  jt.target = target + rnd(-4, 4);
-  jt.baca = 0; jt.stabilSejak = null; jt.ke = ke; jt.riwayatBaca = [];
+  r.truk = t; r.target = t.tara + (t.muatanNow || 0) + rnd(-4, 4);
+  r.baca = 0; r.stabilSejak = null; r.ke = ke; r.riwayatBaca = []; r.stabil = false;
   mulaiAksi(t, 'timbang', 99, ke === 1 ? 'Truk naik plat, menunggu berat stabil' : 'Timbang keluar, menunggu berat stabil');
 }
-function updateJT(jt, dt) {
-  if (!jt.truk) {
-    jt.baca += (0 - jt.baca) * Math.min(1, dt * 4);
-    if (Math.abs(jt.baca) < 1) jt.baca = 0;
-    return;
-  }
-  const t = jt.truk;
+function updateJT(o) {
+  const r = rt(o);
+  if (!r.truk) { r.baca = Math.abs(r.baca) < 15 ? 0 : r.baca * 0.85; return; }
+  const t = r.truk;
   if (t.aksi !== 'timbang') return;
-  // Berat naik seperti truk naik plat, lalu berayun mengecil sampai stabil.
   const umur = t.aksiTotal - t.aksiSisa;
   const ayun = Math.max(0, 240 * Math.exp(-umur * 0.9)) * Math.sin(umur * 7);
   const naik = Math.min(1, umur / 1.2);
-  const mentah = jt.target * naik + ayun + rnd(-1.5, 1.5);
-  jt.baca = Math.round(mentah / 10) * 10;
-  jt.riwayatBaca.push({ u: umur, b: jt.baca });
-  jt.riwayatBaca = jt.riwayatBaca.filter(r => umur - r.u <= PROFIL_JT.durasiStabil);
-  const vals = jt.riwayatBaca.map(r => r.b);
+  r.baca = Math.round((r.target * naik + ayun + rnd(-1.5, 1.5)) / 10) * 10;
+  r.riwayatBaca.push({ u: umur, b: r.baca });
+  r.riwayatBaca = r.riwayatBaca.filter(x => umur - x.u <= PROFIL_JT.durasiStabil);
+  const vals = r.riwayatBaca.map(x => x.b);
   const rentang = Math.max(...vals) - Math.min(...vals);
-  const cukupLama = jt.riwayatBaca.length && umur - jt.riwayatBaca[0].u >= PROFIL_JT.durasiStabil - 0.05;
-  jt.stabil = naik >= 1 && rentang <= PROFIL_JT.toleransi * 2 && cukupLama;
-  t.sub = jt.stabil ? 'Stabil, operator klik Simpan' : 'Bergerak';
-  if (jt.stabil && !jt.stabilSejak) jt.stabilSejak = umur;
-  if (jt.stabil && umur - jt.stabilSejak > 0.9) simpanTimbang(t, jt);
+  const cukupLama = r.riwayatBaca.length && umur - r.riwayatBaca[0].u >= PROFIL_JT.durasiStabil - 0.05;
+  r.stabil = naik >= 1 && rentang <= PROFIL_JT.toleransi * 2 && cukupLama;
+  t.sub = r.stabil ? 'Stabil, operator klik Simpan' : 'Bergerak';
+  if (r.stabil && r.stabilSejak == null) r.stabilSejak = umur;
+  if (r.stabil && umur - r.stabilSejak > 0.9) simpanTimbang(t, o);
 }
 function simpanTimbang(t, jt) {
-  const berat = jt.baca;
-  const w = jamStr();
+  const r = rt(jt);
+  const berat = r.baca;
   if (berat < PROFIL_JT.beratMin) return;
-  if (jt.ke === 1) {
+  const w = jamStr();
+  if (r.ke === 1) {
     t.w1 = berat; t.riwayat.TIMBANG_1 = w;
     const sebut = t.j.transaksi === 'PENJUALAN' ? 'tara' : 'bruto';
     if (t.kind === 'SAJA') {
@@ -472,34 +957,17 @@ function simpanTimbang(t, jt) {
       t.sortasi.potonganKg = Math.round(t.netto * t.sortasi.persenPotongan / 100);
       pot = `, potongan sortasi ${fmtKg(t.sortasi.potonganKg)} kg`;
       S.totalTbs += t.netto - t.sortasi.potonganKg;
-    } else {
-      S.totalPks += t.netto;
-    }
+    } else S.totalPks += t.netto;
     catat(`${t.plat} timbang keluar ${jt.kode}: ${fmtKg(berat)} kg. Netto ${fmtKg(t.netto)} kg${pot}. Tiket SELESAI.`, 'ok');
   }
-  jt.truk = null; jt.stabil = false;
+  r.truk = null; r.stabil = false;
+  if (r.reservasi === t) r.reservasi = null;
   lanjut(t);
 }
-
-/* ---- selesai satu tahap, pindah ke tahap berikutnya ---- */
 function lanjut(t) {
-  const dari = tahapNow(t);
   t.tahapIdx++;
-  const ke = tahapNow(t);
-  if (!ke) {
-    S.nSelesai++;
-    t.keluar = true; t.sub = 'Menuju gerbang keluar';
-    mulaiJalan(t, dari === 'LAB' ? RUTE.keluarDariLab() : RUTE.keluarDariJT(t));
-    return;
-  }
-  if (ke === 'TIMBANG_1') { t.jt = pilihJT(); t.sub = `Menuju ${t.jt.kode}`; mulaiJalan(t, RUTE.timbang1(t)); }
-  else if (ke === 'SORTASI') { t.bay = pilihBay(); t.sub = `Menuju loading ramp ${t.bay.nama}`; mulaiJalan(t, RUTE.sortasi(t)); }
-  else if (ke === 'MUAT') { t.sub = t.kind === 'CPO' ? 'Menuju stasiun muat CPO' : 'Menuju bunker kernel'; mulaiJalan(t, RUTE.muat(t)); }
-  else if (ke === 'LAB') { t.sub = 'Menuju titik sampling lab'; mulaiJalan(t, RUTE.lab(t)); }
-  else if (ke === 'TIMBANG_2') {
-    t.sub = `Kembali ke ${t.jt.kode} (wajib jembatan yang sama)`;
-    mulaiJalan(t, dari === 'SORTASI' ? RUTE.timbang2DariBay(t) : RUTE.timbang2DariLab(t));
-  }
+  if (!tahapNow(t)) { S.nSelesai++; t.keluar = true; }
+  menujuTahap(t);
 }
 
 /* ---- aksi di tempat (security, bongkar, muat, lab) ---- */
@@ -514,15 +982,10 @@ function selesaiAksi(t, a) {
       mulaiAksi(t, 'security', 2.5, 'Scan wajah supir');
       return;
     }
-    if (t.secLangkah === 2) {
-      mulaiAksi(t, 'security', 1.8, 'Simpan tiket & cetak QR');
-      return;
-    }
+    if (t.secLangkah === 2) { mulaiAksi(t, 'security', 1.8, 'Simpan tiket & cetak QR'); return; }
     t.no_tiket = `TKT-${t.plat.replace(/\s/g, '')}-${stamp()}`;
     t.riwayat.SECURITY = jamStr();
-    t.status = 'SECURITY_REGISTER';
     catat(`${t.plat}: tiket ${t.no_tiket} dibuat, supir ${t.supir}${t.peringatan ? ' (dengan peringatan blacklist)' : ''}.`, t.peringatan ? 'warn' : '');
-    S.palang = 1.6;
     lanjut(t);
     return;
   }
@@ -534,15 +997,11 @@ function selesaiAksi(t, a) {
     s.matang = +(100 - s.mentah - s.busuk - s.tangkai - s.sampah - s.brondolan).toFixed(1);
     s.persenPotongan = +(s.mentah + s.tangkai + s.sampah).toFixed(2);
     t.sortasi = s; t.riwayat.SORTASI = jamStr(); t.status = 'TIMBANG_2';
-    catat(`${t.plat} selesai sortasi di ${t.bay.nama}: mentah ${s.mentah}%, tangkai ${s.tangkai}%, sampah ${s.sampah}% → potongan ${s.persenPotongan}%.`);
+    catat(`${t.plat} selesai sortasi di ${t.tujuan.label || 'bay'}: mentah ${s.mentah}%, tangkai ${s.tangkai}%, sampah ${s.sampah}% → potongan ${s.persenPotongan}%.`);
     lanjut(t);
     return;
   }
-  if (a === 'muat') {
-    catat(`${t.plat} selesai muat ${t.j.label}, ±${fmtKg(t.muatan)} kg. Menuju lab.`);
-    lanjut(t);
-    return;
-  }
+  if (a === 'muat') { catat(`${t.plat} selesai muat ${t.j.label}, ±${fmtKg(t.muatan)} kg. Menuju lab.`); lanjut(t); return; }
   if (a === 'lab') {
     const cpo = t.kind === 'CPO';
     const l = cpo
@@ -559,23 +1018,44 @@ function selesaiAksi(t, a) {
     } else {
       t.status = 'REJECTED';
       catat(`Lab ${t.plat}: FFA ${l.ffa}%, air ${l.air}% di luar spesifikasi → REJECT. Tiket ditutup, tidak timbang keluar.`, 'bad');
-      t.tahapIdx = t.j.tahap.length - 1;   // lewati timbang keluar
-      t.keluar = true; t.sub = 'Ditolak lab, menuju gerbang keluar';
-      mulaiJalan(t, RUTE.keluarDariLab());
+      t.tahapIdx = t.j.tahap.length - 1;
+      t.keluar = true;
+      menujuTahap(t);
     }
   }
 }
 
+/* ---------------- barrier & lampu ---------------- */
+function syaratOk(o, t) {
+  const s = o.syarat || 'tiket';
+  if (s === 'bebas') return true;
+  if (s === 'tiket') return !!t.no_tiket;
+  if (s === 'timbang') return t.w1 != null;
+  if (s === 'selesai') return t.status === 'SELESAI' || t.status === 'REJECTED';
+  return true;
+}
+function lampuHijauUntuk(lp, t) {
+  const jt = lampuJT(lp);
+  if (!jt) return true;
+  const r = rt(jt);
+  return (!r.truk || r.truk === t) && (!r.reservasi || r.reservasi === t);
+}
+function lampuMerah(lp) {
+  const jt = lampuJT(lp);
+  if (!jt) return false;
+  const r = rt(jt);
+  return !!(r.truk || r.reservasi);
+}
+
 /* ---------------- gerak & antrean ---------------- */
-const CEK_DEPAN = [10, 20, 30, 40, 50, 58], RADIUS_TABRAK = 16;
+const CEK_DEPAN = [10, 20, 30, 40, 50, 58], RADIUS_TABRAK = 15;
 function terhalang(t) {
   // Lihat beberapa titik di depan pada rute truk ini; ada truk lain (badan depan / belakang) di situ → berhenti.
-  // Dengan cara ini antrean terbentuk sendiri di gerbang, jembatan timbang, bay, dan titik muat.
   for (const d of CEK_DEPAN) {
     if (t.s + d > t.path.len + 4) break;
     const p = titikDi(t.path, t.s + d);
     for (const o of S.trucks) {
-      if (o === t || o.selesai) continue;
+      if (o === t || o.selesai || o.macet) continue;
       const bx = Math.cos(o.ang) * o.panjang * 0.35, by = Math.sin(o.ang) * o.panjang * 0.35;
       if (Math.hypot(o.x - p.x, o.y - p.y) < RADIUS_TABRAK || Math.hypot(o.x - bx - p.x, o.y - by - p.y) < RADIUS_TABRAK
           || Math.hypot(o.x + bx - p.x, o.y + by - p.y) < RADIUS_TABRAK) return o;
@@ -583,20 +1063,59 @@ function terhalang(t) {
   }
   return null;
 }
+function batasGerbang(t) {
+  // Batas maju sebelum gerbang di depan yang belum boleh dilewati (barrier tertutup / lampu merah).
+  let batas = t.path.len;
+  for (const g of t.gates) {
+    if (g.lewat) continue;
+    if (t.s > g.s + 2) {
+      g.lewat = true;
+      if (g.obj.tipe === 'barrier') rt(g.obj).tahan = 1.4;
+      if (g.obj.tipe === 'jembatan') { const r = rt(g.obj); if (r.reservasi === t) r.reservasi = null; }
+      continue;
+    }
+    const jarak = g.s - t.s;
+    const henti = g.s - t.panjang / 2 - 5;
+    if (g.obj.tipe === 'barrier') {
+      const ok = syaratOk(g.obj, t);
+      const r = rt(g.obj);
+      if (ok && jarak < 95) r.minta = true;
+      if (!(ok && r.buka > 0.92)) {
+        batas = Math.min(batas, henti);
+        if (!ok && !g.dicatat && jarak < 80) {
+          g.dicatat = true;
+          catat(`${t.plat} tertahan di ${namaObj(g.obj)}: syarat "${SYARAT_BARRIER[g.obj.syarat || 'tiket']}" belum terpenuhi.`, 'warn');
+        }
+        break;
+      }
+    } else if (g.obj.tipe === 'lampu') {
+      if (!lampuHijauUntuk(g.obj, t)) { batas = Math.min(batas, henti); break; }
+      if (jarak < 45) rt(g.jt).reservasi = t;
+    }
+  }
+  return batas;
+}
 function updateTruk(t, dt) {
+  if (t.macet) { t.hapusDalam -= dt; if (t.hapusDalam <= 0) t.selesai = true; return; }
   if (t.aksi) {
     if (t.aksi === 'timbang') { t.aksiSisa -= dt; return; }
-    if (t.aksi === 'tungguJT') { if (!t.jt.truk) { t.aksi = null; mulaiTimbang(t); } return; }
+    if (t.aksi === 'tungguJT') { if (!rt(t.jt).truk) { t.aksi = null; mulaiTimbang(t); } return; }
     t.aksiSisa -= dt;
     if (t.aksi === 'bongkar') t.muatanNow = t.muatan * Math.max(0, t.aksiSisa / t.aksiTotal);
     if (t.aksi === 'muat') t.muatanNow = t.muatan * (1 - Math.max(0, t.aksiSisa / t.aksiTotal));
-    if (t.aksiSisa <= 0) { const a = t.aksi; t.aksi = null; if (a === 'muat') t.muatanNow = t.muatan; if (a === 'bongkar') t.muatanNow = 0; selesaiAksi(t, a); }
+    if (t.aksiSisa <= 0) {
+      const a = t.aksi; t.aksi = null;
+      if (a === 'muat') t.muatanNow = t.muatan;
+      if (a === 'bongkar') t.muatanNow = 0;
+      selesaiAksi(t, a);
+    }
     return;
   }
-  const sisa = t.path.len - t.s;
+  const batas = batasGerbang(t);
+  const sisa = batas - t.s;
   const halang = t.hantu > 0 ? null : terhalang(t);
   let target = t.keluar && t.s > 10 ? 70 : 58;
-  if (sisa < 40) target = Math.max(10, sisa * 1.4);
+  if (sisa < 40) target = sisa > 1 ? Math.max(10, sisa * 1.4) : 0;
   if (halang) {
     target = 0;
     t.blokir += dt;
@@ -605,10 +1124,10 @@ function updateTruk(t, dt) {
   } else t.blokir = 0;
   if (t.hantu > 0) t.hantu -= dt;
   t.v += (target - t.v) * Math.min(1, dt * (target < t.v ? 7 : 2.2));
-  t.s = Math.min(t.path.len, t.s + t.v * dt);
+  t.s = Math.min(Math.max(t.s, batas), t.path.len, t.s + Math.max(0, t.v) * dt);
   const p = titikDi(t.path, t.s);
   t.x = p.x; t.y = p.y;
-  if (t.path.len > 0.5) {
+  if (p.ang != null) {
     let d = p.ang - t.ang; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
     t.ang += d * Math.min(1, dt * 10);
   }
@@ -620,27 +1139,35 @@ function step(dt) {
   S.t += dt;
   if (S.auto) {
     S.nextSpawn -= dt;
-    const antreLuar = S.trucks.filter(t => t.tahapIdx === 0).length;
+    const antreLuar = S.antre.length + S.trucks.filter(t => t.tahapIdx === 0).length;
     if (S.nextSpawn <= 0 && antreLuar < 4 && S.trucks.length < 22) {
-      const r = Math.random();
-      const kind = r < 0.58 ? 'TBS' : r < 0.78 ? 'CPO' : r < 0.9 ? 'KERNEL' : 'SAJA';
-      const bl = document.getElementById('optBl').checked && Math.random() < 0.25;
-      const rej = document.getElementById('optRej').checked && (kind === 'CPO' || kind === 'KERNEL') && Math.random() < 0.5;
-      tambahTruk(kind, { blacklist: bl, reject: rej });
+      const bobot = [['TBS', 0.58], ['CPO', 0.2], ['KERNEL', 0.12], ['SAJA', 0.1]].filter(([k]) => V.alur[k]);
+      const total = bobot.reduce((s, [, b]) => s + b, 0);
+      if (total > 0) {
+        let r = Math.random() * total, kind = bobot[0][0];
+        for (const [k, b] of bobot) { if (r < b) { kind = k; break; } r -= b; }
+        const bl = el('optBl').checked && Math.random() < 0.25;
+        const rej = el('optRej').checked && (kind === 'CPO' || kind === 'KERNEL') && Math.random() < 0.5;
+        tambahTruk(kind, { blacklist: bl, reject: rej });
+      }
       S.nextSpawn = rnd(9, 16);
     }
   }
+  munculkanAntre();
+  const barriers = L.objek.filter(o => o.tipe === 'barrier');
+  for (const b of barriers) rt(b).minta = false;
   for (const t of S.trucks) updateTruk(t, dt);
-  for (const jt of JT) updateJT(jt, dt);
-  const keluar = S.trucks.filter(t => t.selesai);
-  if (keluar.length) {
-    for (const t of keluar) S.selesai.unshift(t);
-    S.selesai.length = Math.min(S.selesai.length, 30);
-    S.trucks = S.trucks.filter(t => !t.selesai);
+  for (const o of L.objek) if (o.tipe === 'jembatan') updateJT(o);
+  for (const b of barriers) {
+    const r = rt(b);
+    if (r.minta) r.tahan = Math.max(r.tahan, 0.3);
+    r.buka = Math.max(0, Math.min(1, r.buka + (r.tahan > 0 ? 1 : -1) * dt * 1.6));
+    r.tahan -= dt;
   }
-  if (S.palang > 0) S.palang -= dt;
-  // asap cerobong boiler
-  if (!reduceMotion && Math.random() < dt * 3) S.smoke.push({ x: 588, y: 82, r: 4, a: 0.22 });
+  S.trucks = S.trucks.filter(t => !t.selesai);
+  for (const o of L.objek) if (o.tipe === 'boiler' && !reduceMotion && Math.random() < dt * 3) {
+    S.smoke.push({ x: o.x, y: o.y - o.h / 2 + 20, r: 4, a: 0.22 });
+  }
   for (const p of S.smoke) { p.x += dt * 10; p.y -= dt * 7; p.r += dt * 2.2; p.a -= dt * 0.035; }
   S.smoke = S.smoke.filter(p => p.a > 0);
 }
@@ -648,251 +1175,277 @@ function step(dt) {
 /* =====================================================================================
    GAMBAR
    ===================================================================================== */
-const latar = document.createElement('canvas');
-latar.width = W; latar.height = H;
+const statis = document.createElement('canvas');
+statis.width = W; statis.height = H;
+let statisKotor = true;
+let fotoLatar = null, fotoSrc = null;
+const FONT_BODY = '"IBM Plex Sans", sans-serif';
 
-function rrect(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function rrect(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
 function label(g, txt, x, y, opt = {}) {
+  if (!txt) return;
   g.save();
   g.font = `${opt.w || 600} ${opt.size || 12}px ${opt.font || '"Barlow Condensed", "Arial Narrow", sans-serif'}`;
   g.textAlign = opt.align || 'center'; g.textBaseline = 'middle';
+  if (opt.ls && 'letterSpacing' in g) g.letterSpacing = opt.ls;
   if (opt.bg) {
     const m = g.measureText(txt).width;
     g.fillStyle = opt.bg; rrect(g, x - (opt.align === 'left' ? 4 : m / 2 + 4), y - 8, m + 8, 16, 3); g.fill();
   }
   g.fillStyle = opt.color || C.text;
-  if (opt.ls) g.letterSpacing = opt.ls;
   g.fillText(txt, x, y);
   g.restore();
 }
-function sawit(g, x, y, s = 1) {
-  g.save(); g.translate(x, y);
+function atap(g, w, h) {
+  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, -w / 2 + 4, -h / 2 + 5, w, h, 3); g.fill();
+  g.fillStyle = C.roof; rrect(g, -w / 2, -h / 2, w, h, 3); g.fill();
+  g.fillStyle = C.roofHi; g.fillRect(-w / 2, -h / 2, w, h / 2);
+  g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
+  for (let i = -w / 2 + 8; i < w / 2; i += 8) { g.beginPath(); g.moveTo(i, -h / 2 + 2); g.lineTo(i, h / 2 - 2); g.stroke(); }
+}
+function sawit(g, s) {
   g.fillStyle = C.palmDark; g.beginPath(); g.arc(1.5 * s, 1.5 * s, 13 * s, 0, Math.PI * 2); g.fill();
   g.strokeStyle = C.palm; g.lineCap = 'round';
   for (let i = 0; i < 9; i++) {
-    const a = i / 9 * Math.PI * 2 + (x * 0.13 % 1);
+    const a = i / 9 * Math.PI * 2;
     g.lineWidth = 4 * s; g.beginPath(); g.moveTo(0, 0);
     g.quadraticCurveTo(Math.cos(a + 0.3) * 8 * s, Math.sin(a + 0.3) * 8 * s, Math.cos(a) * 15 * s, Math.sin(a) * 15 * s); g.stroke();
   }
   g.fillStyle = '#5a4630'; g.beginPath(); g.arc(0, 0, 2.5 * s, 0, Math.PI * 2); g.fill();
-  g.restore();
 }
-function jalan(g, pts, lebar = 30) {
+function posisiObj(o) {
+  const an = G.anchor.get(o.id);
+  if (isSnap(o) && an) return { x: an.x, y: an.y, a: an.ang, an };
+  return { x: o.x, y: o.y, a: (o.rot || 0) * Math.PI / 180, an };
+}
+
+function gambarObjek(g, o) {
+  const { x, y, a } = posisiObj(o);
+  const w = o.w, h = o.h;
+  g.save(); g.translate(x, y); g.rotate(a);
+  switch (o.tipe) {
+    case 'lantai': g.fillStyle = C.concrete; g.fillRect(-w / 2, -h / 2, w, h); break;
+    case 'kolam':
+      g.fillStyle = C.water; rrect(g, -w / 2, -h / 2, w, h, 10); g.fill();
+      g.strokeStyle = C.waterHi; g.lineWidth = 2; g.stroke(); break;
+    case 'gedung': case 'security': case 'lab': atap(g, w, h); break;
+    case 'pabrik':
+      atap(g, w, h);
+      g.strokeStyle = '#6b6f6c'; g.lineWidth = 2;
+      for (const yy of [h / 2 - 28, h / 2 - 20]) { g.beginPath(); g.moveTo(-w / 2 + 10, yy); g.lineTo(w / 2 - 10, yy); g.stroke(); }
+      for (let k = -w / 2 + 20; k < w / 2 - 20; k += 26) { g.fillStyle = '#5c625e'; g.fillRect(k, h / 2 - 32, 18, 16); }
+      break;
+    case 'boiler':
+      atap(g, w, h);
+      g.fillStyle = '#5a605c'; g.beginPath(); g.arc(0, -h / 2 + 20, 10, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#222'; g.beginPath(); g.arc(0, -h / 2 + 20, 6, 0, Math.PI * 2); g.fill(); break;
+    case 'tangki': {
+      const r = Math.min(w, h) / 2;
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(4, 5, r, 0, Math.PI * 2); g.fill();
+      const gr = g.createRadialGradient(-r / 3, -r / 3, r / 5, 0, 0, r);
+      gr.addColorStop(0, '#7f8d87'); gr.addColorStop(1, '#4b5752');
+      g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#2b3430'; g.lineWidth = 2; g.stroke();
+      g.beginPath(); g.arc(0, 0, r * 0.55, 0, Math.PI * 2); g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.stroke();
+      break;
+    }
+    case 'pohon': sawit(g, w / 30); break;
+    case 'masuk': case 'keluar':
+      g.fillStyle = 'rgba(92,203,139,.25)'; g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.ok; g.lineWidth = 2.5; g.lineCap = 'round';
+      for (const dx of [-5, 3]) { g.beginPath(); g.moveTo(dx - 3, -6); g.lineTo(dx + 3, 0); g.lineTo(dx - 3, 6); g.stroke(); }
+      break;
+    case 'jembatan':
+      g.fillStyle = '#121714'; g.fillRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
+      g.fillStyle = C.steel; g.fillRect(-w / 2, -h / 2, w, h);
+      g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
+      for (let k = -w / 2 + 6; k < w / 2 - 4; k += 7) { g.beginPath(); g.moveTo(k, -h / 2 + 2); g.lineTo(k + 4, h / 2 - 2); g.stroke(); }
+      for (const xx of [-w / 2 - 3, w / 2 - 3]) for (let k = 0; k < h + 6; k += 8) {
+        g.fillStyle = (k / 8) % 2 ? '#1b1b1b' : C.accent; g.fillRect(xx, -h / 2 - 3 + k, 6, Math.min(8, h + 6 - k));
+      }
+      break;
+    case 'sortasi':
+      g.fillStyle = '#4c3b2a'; g.fillRect(-w / 2, -h / 2, w, h);
+      for (let k = 0; k < Math.floor(h / 4); k++) {
+        g.fillStyle = k % 3 ? '#b8452a' : '#7a2e1f';
+        g.beginPath(); g.arc(-w / 2 + 5 + (k * 7) % Math.max(1, w - 8), -h / 2 + 6 + (k * 13) % Math.max(1, h - 10), 3.2, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    case 'muat_cpo':
+      g.fillStyle = '#6b7470';
+      g.fillRect(-4, -h / 2 - 4, 8, 6); g.fillRect(-4, h / 2 - 2, 8, 6); g.fillRect(-2, -h / 2, 4, h);
+      g.strokeStyle = C.cpoOil; g.lineWidth = 3; g.beginPath(); g.moveTo(0, -h / 2 - 1); g.lineTo(0, -h / 2 - 14); g.stroke();
+      break;
+    case 'muat_kernel':
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-w / 2 + 4, -h / 2 + 6, w, h);
+      g.fillStyle = '#6d5b45'; g.fillRect(-w / 2, -h / 2, w, h);
+      g.fillStyle = '#857057'; g.fillRect(-w / 2, -h / 2, w, h * 0.34);
+      break;
+    default: break;
+  }
+  g.restore();
+  // label tegak (tidak ikut diputar supaya tetap terbaca)
+  const k = KATALOG[o.tipe];
+  switch (o.tipe) {
+    case 'gedung': case 'security': case 'lab': case 'pabrik': case 'muat_kernel':
+      label(g, o.label, x, y - (o.sub ? 7 : 0), { size: o.tipe === 'muat_kernel' ? 10 : 13, w: 700 });
+      if (o.sub) label(g, o.sub, x, y + 9, { size: 10, w: 500, color: o.tipe === 'muat_kernel' ? '#e6d9c6' : C.muted, font: FONT_BODY });
+      break;
+    case 'boiler': label(g, o.label, x, y + h / 2 - 12, { size: 11, w: 600 }); break;
+    case 'tangki':
+      label(g, o.label, x, y - 6, { size: 12, w: 700 });
+      label(g, o.sub, x, y + 9, { size: 10, w: 500, color: '#dfe7e2', font: FONT_BODY }); break;
+    case 'kolam': label(g, o.label, x, y, { size: 12, w: 600, color: '#9cc6c3' }); break;
+    case 'teks': label(g, o.label, x, y, { size: Math.max(9, Math.round(o.h * 0.75)), w: 600, color: C.text, ls: '1px' }); break;
+    case 'masuk': case 'keluar': label(g, o.label || k.label, x, y - 22, { size: 11, w: 700, color: C.ok, bg: 'rgba(14,20,17,.75)' }); break;
+    case 'jembatan': {
+      const d = h / 2 + 16;
+      label(g, o.kode, x - Math.sin(a) * d, y + Math.cos(a) * d, { size: 13, w: 700, color: C.accent, bg: 'rgba(14,20,17,.6)' });
+      break;
+    }
+    case 'sortasi': label(g, o.label, x, y + h / 2 + 9, { size: 10, w: 600, color: C.muted }); break;
+    case 'muat_cpo': label(g, o.label, x + 34, y, { size: 11, w: 700, color: C.cpo, bg: 'rgba(14,20,17,.6)' }); break;
+    default: break;
+  }
+}
+
+function gambarJalan(g) {
+  const nodes = new Map(L.jalan.titik.map(p => [p.id, p]));
+  const ruas = L.jalan.ruas.filter(r => nodes.has(r.a) && nodes.has(r.b));
   g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
-  g.strokeStyle = C.roadEdge; g.lineWidth = lebar + 4; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
-  g.strokeStyle = C.road; g.lineWidth = lebar; g.stroke();
+  for (const pass of [0, 1]) {
+    for (const r of ruas) {
+      const a = nodes.get(r.a), b = nodes.get(r.b);
+      g.strokeStyle = pass ? C.road : C.roadEdge;
+      g.lineWidth = (r.dua ? 36 : 28) + (pass ? 0 : 4);
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+    }
+  }
+  for (const r of ruas) {
+    const a = nodes.get(r.a), b = nodes.get(r.b);
+    const l = Math.hypot(b.x - a.x, b.y - a.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
+    if (r.dua) {
+      g.strokeStyle = 'rgba(201,207,201,.45)'; g.lineWidth = 1.5; g.setLineDash([10, 10]);
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); g.setLineDash([]);
+    } else {
+      for (let s = Math.min(40, l / 2); s < l - 10; s += 140) {
+        const px = a.x + Math.cos(ang) * s, py = a.y + Math.sin(ang) * s;
+        g.save(); g.translate(px, py); g.rotate(ang); g.fillStyle = 'rgba(201,207,201,.35)';
+        g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -5); g.lineTo(-2, 0); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
+      }
+    }
+  }
   g.restore();
 }
-function panah(g, x, y, ang) {
-  g.save(); g.translate(x, y); g.rotate(ang); g.fillStyle = 'rgba(201,207,201,.35)';
-  g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -5); g.lineTo(-2, 0); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
-}
-function gedung(g, x, y, w, h, nama, sub) {
-  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, x + 4, y + 5, w, h, 3); g.fill();
-  g.fillStyle = C.roof; rrect(g, x, y, w, h, 3); g.fill();
-  g.fillStyle = C.roofHi; g.fillRect(x, y, w, h / 2);
-  g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
-  for (let i = x + 8; i < x + w; i += 8) { g.beginPath(); g.moveTo(i, y + 2); g.lineTo(i, y + h - 2); g.stroke(); }
-  if (nama) label(g, nama, x + w / 2, y + h / 2 - (sub ? 7 : 0), { size: 13, w: 700 });
-  if (sub) label(g, sub, x + w / 2, y + h / 2 + 9, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
-}
-function tangki(g, x, y, r, nama, isi) {
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(x + 4, y + 5, r, 0, Math.PI * 2); g.fill();
-  const gr = g.createRadialGradient(x - r / 3, y - r / 3, r / 5, x, y, r);
-  gr.addColorStop(0, '#7f8d87'); gr.addColorStop(1, '#4b5752');
-  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = '#2b3430'; g.lineWidth = 2; g.stroke();
-  g.beginPath(); g.arc(x, y, r * 0.55, 0, Math.PI * 2); g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.stroke();
-  label(g, nama, x, y - 6, { size: 12, w: 700 });
-  label(g, isi, x, y + 9, { size: 10, w: 500, color: '#dfe7e2', font: '"IBM Plex Sans", sans-serif' });
-}
 
-function gambarLatar() {
-  const g = latar.getContext('2d');
+function gambarStatis() {
+  const g = statis.getContext('2d');
   g.fillStyle = C.ground; g.fillRect(0, 0, W, H);
-  // petak tanah dalam pagar
-  g.fillStyle = C.ground2; g.fillRect(40, 30, 1220, 640);
-  g.strokeStyle = '#3b4a40'; g.setLineDash([6, 5]); g.lineWidth = 2; g.strokeRect(40, 30, 1220, 640); g.setLineDash([]);
-
-  // kolam limbah
-  for (const [x, y, w, h] of [[930, 400, 120, 90], [1065, 400, 105, 90], [930, 505, 240, 100]]) {
-    g.fillStyle = C.water; rrect(g, x, y, w, h, 10); g.fill();
-    g.strokeStyle = C.waterHi; g.lineWidth = 2; g.stroke();
-  }
-  label(g, 'Kolam Limbah (IPAL)', 1050, 555, { size: 12, w: 600, color: '#9cc6c3' });
-
-  // jalan
-  jalan(g, [{ x: -20, y: Y_MAIN }, { x: W + 20, y: Y_MAIN }], 40);
-  jalan(g, [{ x: X_GATE, y: Y_MAIN }, { x: X_GATE, y: Y_LOW }, { x: 610, y: Y_LOW }]);
-  jalan(g, [{ x: X_RIGHT, y: Y_RET }, { x: X_MERGE, y: Y_RET }, { x: X_MERGE, y: Y_LOW }]);
-  for (const j of JT) jalan(g, [{ x: j.x, y: Y_LOW }, { x: j.x, y: Y_UP }], 28);
-  jalan(g, [{ x: JT[0].x, y: Y_UP }, { x: X_RIGHT, y: Y_UP }]);
-  for (const b of BAY_TBS) jalan(g, [{ x: b.x, y: Y_UP }, { x: b.x, y: Y_TOP }], 28);
-  jalan(g, [{ x: X_CPO, y: Y_UP }, { x: X_CPO, y: Y_TOP }], 28);
-  jalan(g, [{ x: X_KERNEL, y: Y_UP }, { x: X_KERNEL, y: Y_TOP }], 28);
-  jalan(g, [{ x: BAY_TBS[0].x, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_MAIN }]);
-  // marka jalan raya
-  g.strokeStyle = 'rgba(201,207,201,.5)'; g.setLineDash([16, 14]); g.lineWidth = 2;
-  g.beginPath(); g.moveTo(0, Y_MAIN - 18); g.lineTo(W, Y_MAIN - 18); g.stroke(); g.setLineDash([]);
-  label(g, 'JALAN RAYA LINTAS KEBUN', 640, Y_MAIN + 12, { size: 11, color: C.muted, ls: '3px' });
-  // panah satu arah
-  for (const x of [300, 600, 900, 1150]) panah(g, x, Y_MAIN, 0);
-  for (const x of [200, 560]) panah(g, x, Y_LOW, 0);
-  for (const x of [700, 1000, 1150]) panah(g, x, Y_UP, 0);
-  for (const x of [1000, 600, 340]) panah(g, x, Y_RET, Math.PI);
-  for (const y of [200, 500, 690]) panah(g, X_RIGHT, y, Math.PI / 2);
-  for (const x of [880, 1190]) panah(g, x, Y_TOP, 0);
-
-  // gerbang & pos security
-  g.fillStyle = '#5b4a2a'; g.fillRect(X_GATE - 30, 660, 8, 8); g.fillRect(X_GATE + 22, 660, 8, 8);
-  gedung(g, 62, 664, 62, 44, 'POS', 'Security');
-  label(g, 'GERBANG MASUK', X_GATE + 24, 682, { size: 11, w: 700, color: C.accent, bg: 'rgba(14,20,17,.75)', align: 'left' });
-  gedung(g, X_RIGHT + 18, 640, 34, 40, '', '');
-  label(g, 'GERBANG KELUAR', X_RIGHT - 52, 700, { size: 11, w: 700, color: C.accent, bg: 'rgba(14,20,17,.75)' });
-
-  // jembatan timbang
-  for (const j of JT) {
-    const x = j.x - 17, y = JT_STOP_Y - 62;
-    g.fillStyle = '#121714'; g.fillRect(x - 3, y - 3, 40, 130);
-    g.fillStyle = C.steel; g.fillRect(x, y, 34, 124);
-    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
-    for (let k = y + 6; k < y + 124; k += 7) { g.beginPath(); g.moveTo(x + 2, k); g.lineTo(x + 32, k + 4); g.stroke(); }
-    // strip kuning-hitam di ujung
-    for (const yy of [y - 3, y + 121]) for (let k = 0; k < 40; k += 8) {
-      g.fillStyle = (k / 8) % 2 ? '#1b1b1b' : C.accent; g.fillRect(x - 3 + k, yy, 8, 6);
+  if (L.latar) {
+    if (fotoSrc !== L.latar) {
+      fotoSrc = L.latar; fotoLatar = new Image();
+      fotoLatar.onload = () => { statisKotor = true; };
+      fotoLatar.src = L.latar;
     }
-    label(g, j.kode, j.x, y - 14, { size: 13, w: 700, color: C.accent });
-  }
-  gedung(g, 612, 420, 78, 96, 'KANTOR', 'Timbangan');
-
-  // loading ramp TBS
-  g.fillStyle = C.concrete; g.fillRect(660, 150, 220, 150);
-  for (const b of BAY_TBS) {
-    g.fillStyle = '#2f3633'; g.fillRect(b.x - 16, 150, 32, 150);
-  }
-  for (let i = 0; i < BAY_TBS.length - 1; i++) {
-    // hopper di antara lajur dengan tumpukan buah
-    const x = (BAY_TBS[i].x + BAY_TBS[i + 1].x) / 2;
-    g.fillStyle = '#4c3b2a'; g.fillRect(x - 15, 170, 30, 110);
-    for (let k = 0; k < 26; k++) {
-      g.fillStyle = k % 3 ? '#b8452a' : '#7a2e1f';
-      g.beginPath(); g.arc(x - 10 + (k * 7) % 20, 180 + (k * 13) % 92, 3.2, 0, Math.PI * 2); g.fill();
+    if (fotoLatar && fotoLatar.complete && fotoLatar.naturalWidth) {
+      g.globalAlpha = L.latarOpacity ?? 0.6; g.drawImage(fotoLatar, 0, 0, W, H); g.globalAlpha = 1;
     }
   }
-  g.fillStyle = 'rgba(58,73,67,.55)'; g.fillRect(660, 140, 220, 22);
-  label(g, 'LOADING RAMP & SORTASI TBS', 770, 151, { size: 12, w: 700 });
-  for (const b of BAY_TBS) label(g, b.nama, b.x, 290, { size: 10, w: 600, color: C.muted });
+  if (E.aktif) {
+    g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += 20) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 20) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+  }
+  for (const o of L.objek) if (BAWAH.has(o.tipe)) gambarObjek(g, o);
+  gambarJalan(g);
+  for (const o of L.objek) if (!BAWAH.has(o.tipe) && o.tipe !== 'barrier' && o.tipe !== 'lampu') gambarObjek(g, o);
+  statisKotor = false;
+}
 
-  // pabrik (stasiun proses)
-  gedung(g, 420, 140, 200, 150, 'PABRIK KELAPA SAWIT', 'Rebusan · Press · Klarifikasi');
-  // rel lori rebusan
-  g.strokeStyle = '#6b6f6c'; g.lineWidth = 2;
-  for (const yy of [262, 270]) { g.beginPath(); g.moveTo(430, yy); g.lineTo(610, yy); g.stroke(); }
-  for (let k = 440; k < 610; k += 26) { g.fillStyle = '#5c625e'; g.fillRect(k, 258, 18, 16); }
-  // konveyor ramp → pabrik
-  g.fillStyle = '#4a514d'; g.fillRect(620, 196, 40, 10);
-  // boiler & cerobong
-  gedung(g, 560, 62, 56, 62, '', '');
-  label(g, 'Boiler', 588, 112, { size: 11, w: 600 });
-  g.fillStyle = '#5a605c'; g.beginPath(); g.arc(588, 82, 10, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#222'; g.beginPath(); g.arc(588, 82, 6, 0, Math.PI * 2); g.fill();
-
-  // tangki timbun & kernel
-  tangki(g, 930, 245, 34, 'TANGKI CPO 1', '1.500 t');
-  tangki(g, 980, 175, 30, 'TANGKI CPO 2', '1.000 t');
-  g.strokeStyle = C.cpoOil; g.lineWidth = 3;
-  g.beginPath(); g.moveTo(964, 245); g.lineTo(X_CPO - 18, 245); g.stroke();
-  g.beginPath(); g.moveTo(1008, 185); g.lineTo(1015, 185); g.lineTo(1015, 236); g.lineTo(X_CPO - 18, 236); g.stroke();
-  g.fillStyle = '#6b7470'; g.fillRect(X_CPO - 20, 214, 6, 44); g.fillRect(X_CPO + 14, 214, 6, 44);
-  g.fillRect(X_CPO - 20, 214, 40, 5);
-  label(g, 'MUAT CPO', X_CPO, 300, { size: 11, w: 700, color: C.cpo });
-  // bunker kernel
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(X_KERNEL + 22, 196, 44, 70);
-  g.fillStyle = '#6d5b45'; g.fillRect(X_KERNEL + 18, 190, 44, 70);
-  g.fillStyle = '#857057'; g.fillRect(X_KERNEL + 18, 190, 44, 24);
-  label(g, 'BUNKER', X_KERNEL + 40, 220, { size: 10, w: 700 });
-  label(g, 'Kernel', X_KERNEL + 40, 234, { size: 10, w: 500, color: '#e6d9c6' });
-  g.fillStyle = '#857057'; g.fillRect(X_KERNEL, 228, 18, 6);
-  label(g, 'MUAT KERNEL', X_KERNEL, 300, { size: 11, w: 700, color: C.cpo });
-
-  // laboratorium
-  gedung(g, 1100, 40, 100, 48, 'LABORATORIUM', 'Uji FFA · air · kotoran');
-  g.fillStyle = C.accent; g.beginPath(); g.arc(X_LAB_STOP, Y_TOP + 22, 4, 0, Math.PI * 2); g.fill();
-  label(g, 'titik sampling', X_LAB_STOP, Y_TOP + 34, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
-
-  // kantor & area lain
-  gedung(g, 64, 380, 120, 80, 'KANTOR', 'Administrasi · HO');
-  gedung(g, 64, 480, 120, 60, 'MUSHOLA', '');
-  gedung(g, 900, 40, 130, 46, 'BENGKEL', 'Workshop');
-  label(g, 'Jalur kembali ke jembatan yang sama untuk timbang keluar', 700, Y_RET + 26, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
-
-  // pohon sawit di tepi
-  for (let x = 70; x < 1250; x += 46) { sawit(g, x, 12, 0.8); }
-  for (let y = 120; y < 380; y += 44) sawit(g, 70, y, 0.9), sawit(g, 120, y + 20, 0.85), sawit(g, 175, y + 6, 0.85);
-  for (let y = 70; y < 680; y += 48) sawit(g, 1262, y, 0.8);
-  for (const [x, y] of [[230, 140], [280, 190], [235, 245], [300, 260], [330, 160], [380, 210], [250, 300], [1260, 620]]) sawit(g, x, y, 0.9);
-  for (const [x, y] of [[700, 380], [760, 400], [820, 380], [720, 470], [790, 520], [860, 470], [850, 560]]) sawit(g, x, y, 0.75);
-
-  // kompas
-  g.save(); g.translate(1240, 52);
-  g.fillStyle = 'rgba(14,20,17,.7)'; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.fill();
-  g.fillStyle = C.accent; g.beginPath(); g.moveTo(0, -12); g.lineTo(5, 3); g.lineTo(-5, 3); g.closePath(); g.fill();
-  label(g, 'U', 0, 9, { size: 9, w: 700 }); g.restore();
+function gambarBarrier(g, o) {
+  const { x, y, a, an } = posisiObj(o);
+  const lebar = an && an.dua ? 36 : 28;
+  const buka = rt(o).buka || 0;
+  const nx = -Math.sin(a), ny = Math.cos(a);           // ke sisi kanan arah jalan
+  const px = x + nx * (lebar / 2 + 6), py = y + ny * (lebar / 2 + 6);
+  const panjang = (lebar + 8) * (1 - buka * 0.82);     // dari atas, palang yang terangkat tampak memendek
+  g.save(); g.translate(px, py); g.rotate(a - Math.PI / 2);
+  g.fillStyle = '#2b2b2b'; g.fillRect(-5, -5, 10, 10);
+  g.fillStyle = buka > 0.9 ? C.ok : C.bad; g.fillRect(-2, -2, 4, 4);
+  g.fillStyle = C.bad; g.fillRect(0, -2, -panjang, 4);
+  g.fillStyle = '#fff'; for (let k = 6; k < panjang - 2; k += 10) g.fillRect(-k - 4, -2, 4, 4);
+  g.restore();
+  if (E.aktif) label(g, o.label, px + nx * 14, py + ny * 14, { size: 9, w: 600, color: C.muted, font: FONT_BODY });
+}
+function gambarLampu(g, o) {
+  const { x, y, a, an } = posisiObj(o);
+  const lebar = an && an.dua ? 36 : 28;
+  const nx = -Math.sin(a), ny = Math.cos(a);
+  const merah = lampuMerah(o);
+  g.save(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2;   // garis berhenti
+  g.beginPath(); g.moveTo(x - nx * lebar / 2, y - ny * lebar / 2); g.lineTo(x + nx * lebar / 2, y + ny * lebar / 2); g.stroke(); g.restore();
+  const px = x + nx * (lebar / 2 + 9), py = y + ny * (lebar / 2 + 9);
+  g.fillStyle = '#111'; rrect(g, px - 6, py - 11, 12, 22, 3); g.fill();
+  g.fillStyle = merah ? C.bad : '#3a1715'; g.beginPath(); g.arc(px, py - 5, 3.6, 0, Math.PI * 2); g.fill();
+  g.fillStyle = merah ? '#173a25' : C.ok; g.beginPath(); g.arc(px, py + 5, 3.6, 0, Math.PI * 2); g.fill();
+}
+function gambarIndikator(g, o) {
+  const { x, y, a } = posisiObj(o);
+  const r = rt(o);
+  const d = o.w / 2 + 16;
+  const ix = x + Math.cos(a) * d, iy = y + Math.sin(a) * d;
+  g.fillStyle = '#0a0e0c'; rrect(g, ix - 30, iy - 9, 60, 18, 3); g.fill();
+  g.font = '600 11px "IBM Plex Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = r.truk ? (r.stabil ? C.ok : C.warn) : '#3c4842';
+  g.fillText(fmtKg(r.baca || 0), ix, iy + 0.5);
 }
 
 function gambarTruk(g, t) {
   g.save(); g.translate(t.x, t.y); g.rotate(t.ang);
-  const L = t.panjang, Wd = t.lebar, warna = t.j.warna;
-  // bayangan
-  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, -L / 2 + 3, -Wd / 2 + 4, L, Wd, 3); g.fill();
-  // bak / tangki
-  const bakL = L - 13;
+  const P = t.panjang, Wd = t.lebar;
+  if (t.macet) g.globalAlpha = Math.max(0.2, t.hapusDalam / 3);
+  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, -P / 2 + 3, -Wd / 2 + 4, P, Wd, 3); g.fill();
+  const bakL = P - 13;
   if (t.kind === 'CPO') {
-    g.fillStyle = '#c9d2ce'; rrect(g, -L / 2, -Wd / 2 + 1, bakL, Wd - 2, 7); g.fill();
-    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-L / 2 + 4, -1, bakL - 8, 2);
-    for (const k of [0.25, 0.5, 0.75]) { g.fillStyle = '#8c9893'; g.beginPath(); g.arc(-L / 2 + bakL * k, 0, 2.6, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#c9d2ce'; rrect(g, -P / 2, -Wd / 2 + 1, bakL, Wd - 2, 7); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-P / 2 + 4, -1, bakL - 8, 2);
+    for (const k of [0.25, 0.5, 0.75]) { g.fillStyle = '#8c9893'; g.beginPath(); g.arc(-P / 2 + bakL * k, 0, 2.6, 0, Math.PI * 2); g.fill(); }
   } else {
-    g.fillStyle = '#4b524f'; rrect(g, -L / 2, -Wd / 2, bakL, Wd, 2); g.fill();
-    g.fillStyle = '#2a2f2c'; g.fillRect(-L / 2 + 2, -Wd / 2 + 2, bakL - 4, Wd - 4);
+    g.fillStyle = '#4b524f'; rrect(g, -P / 2, -Wd / 2, bakL, Wd, 2); g.fill();
+    g.fillStyle = '#2a2f2c'; g.fillRect(-P / 2 + 2, -Wd / 2 + 2, bakL - 4, Wd - 4);
     const isi = t.muatan ? Math.max(0, Math.min(1, t.muatanNow / t.muatan)) : 0;
     if (isi > 0.02) {
       if (t.kind === 'TBS') {
         const n = Math.round(isi * 14);
         for (let k = 0; k < n; k++) {
           g.fillStyle = k % 3 ? '#c4492b' : '#7d2f1f';
-          g.beginPath(); g.arc(-L / 2 + 6 + (k % 5) * 5.4, -Wd / 2 + 5 + Math.floor(k / 5) * 3.6, 2.7, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.arc(-P / 2 + 6 + (k % 5) * 5.4, -Wd / 2 + 5 + Math.floor(k / 5) * 3.6, 2.7, 0, Math.PI * 2); g.fill();
         }
       } else {
         g.fillStyle = t.kind === 'KERNEL' ? C.kernel : '#7d7466';
-        g.fillRect(-L / 2 + 2, -Wd / 2 + 2, (bakL - 4) * isi, Wd - 4);
+        g.fillRect(-P / 2 + 2, -Wd / 2 + 2, (bakL - 4) * isi, Wd - 4);
       }
     }
   }
-  // kabin warna produk
-  g.fillStyle = warna; rrect(g, L / 2 - 12, -Wd / 2, 12, Wd, 3); g.fill();
-  g.fillStyle = 'rgba(20,30,30,.75)'; g.fillRect(L / 2 - 4, -Wd / 2 + 2, 3, Wd - 4);
-  // lampu
-  g.fillStyle = '#fff6c8'; g.fillRect(L / 2 - 1, -Wd / 2 + 1, 1.5, 3); g.fillRect(L / 2 - 1, Wd / 2 - 4, 1.5, 3);
+  g.fillStyle = t.j.warna; rrect(g, P / 2 - 12, -Wd / 2, 12, Wd, 3); g.fill();
+  g.fillStyle = 'rgba(20,30,30,.75)'; g.fillRect(P / 2 - 4, -Wd / 2 + 2, 3, Wd - 4);
+  g.fillStyle = '#fff6c8'; g.fillRect(P / 2 - 1, -Wd / 2 + 1, 1.5, 3); g.fillRect(P / 2 - 1, Wd / 2 - 4, 1.5, 3);
   g.restore();
 
-  // tanda di atas truk
   if (S.sel === t) {
     g.save(); g.strokeStyle = C.accent; g.lineWidth = 2; g.setLineDash([4, 3]);
     g.beginPath(); g.arc(t.x, t.y, 32, 0, Math.PI * 2); g.stroke(); g.restore();
   }
   if (t.peringatan && !t.keluar) {
-    g.save(); g.fillStyle = C.bad; g.beginPath(); g.arc(t.x + 14, t.y - 14, 7, 0, Math.PI * 2); g.fill();
-    label(g, '!', t.x + 14, t.y - 14, { size: 11, w: 700, color: '#fff' }); g.restore();
+    g.fillStyle = C.bad; g.beginPath(); g.arc(t.x + 14, t.y - 14, 7, 0, Math.PI * 2); g.fill();
+    label(g, '!', t.x + 14, t.y - 14, { size: 11, w: 700, color: '#fff' });
   }
-  if (t.status === 'REJECTED') {
-    label(g, 'REJECT', t.x, t.y - 20, { size: 10, w: 700, color: '#fff', bg: C.bad });
-  }
-  // label plat (hanya saat truk sedang beraksi / terpilih, supaya denah tidak penuh)
+  if (t.status === 'REJECTED') label(g, 'REJECT', t.x, t.y - 20, { size: 10, w: 700, color: '#fff', bg: C.bad });
+  if (t.macet) label(g, 'TIDAK ADA JALAN', t.x, t.y - 20, { size: 10, w: 700, color: '#fff', bg: C.bad });
   if (t.aksi || S.sel === t) {
     label(g, t.plat, t.x, t.y + 22, { size: 11, w: 600, color: C.text, bg: 'rgba(14,20,17,.82)', font: '"IBM Plex Mono", monospace' });
   }
-  // cincin progres aksi
-  if (t.aksi && t.aksi !== 'timbang') {
+  if (t.aksi && t.aksi !== 'timbang' && t.aksi !== 'tungguJT') {
     const p = 1 - Math.max(0, t.aksiSisa / t.aksiTotal);
     g.save(); g.lineWidth = 3;
     g.strokeStyle = 'rgba(255,255,255,.15)'; g.beginPath(); g.arc(t.x, t.y, 26, 0, Math.PI * 2); g.stroke();
@@ -900,64 +1453,50 @@ function gambarTruk(g, t) {
     g.beginPath(); g.arc(t.x, t.y, 26, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); g.stroke(); g.restore();
   }
 }
+function terdekat(tipe, x, y) {
+  let best = null, bd = Infinity;
+  for (const o of L.objek) if (o.tipe === tipe) { const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = o; } }
+  return best;
+}
 
 function gambar() {
+  if (statisKotor) gambarStatis();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const sk = canvas.width / W;
   ctx.setTransform(sk, 0, 0, sk, 0, 0);
-  ctx.drawImage(latar, 0, 0);
+  ctx.drawImage(statis, 0, 0);
 
-  // palang gerbang (naik saat tiket selesai dibuat)
-  ctx.save(); ctx.translate(X_GATE - 22, 664);
-  ctx.rotate(S.palang > 0 ? -1.3 : 0);
-  ctx.fillStyle = C.bad; ctx.fillRect(0, -2, 44, 4);
-  ctx.fillStyle = '#fff'; for (let k = 6; k < 44; k += 12) ctx.fillRect(k, -2, 5, 4);
-  ctx.restore();
-
-  // layar indikator kecil di tiap jembatan
-  for (const j of JT) {
-    const teks = fmtKg(j.baca || 0);
-    ctx.save(); ctx.translate(j.x, JT_STOP_Y + 74);
-    ctx.fillStyle = '#0a0e0c'; rrect(ctx, -30, -9, 60, 18, 3); ctx.fill();
-    ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = j.truk ? (j.stabil ? C.ok : C.warn) : '#3c4842';
-    ctx.fillText(teks, 0, 0.5); ctx.restore();
+  for (const o of L.objek) {
+    if (o.tipe === 'jembatan' && G.anchor.has(o.id)) gambarIndikator(ctx, o);
+    if (o.tipe === 'barrier') gambarBarrier(ctx, o);
+    if (o.tipe === 'lampu') gambarLampu(ctx, o);
   }
 
-  // aliran minyak / buah saat aksi
+  if (E.aktif) { gambarEditor(ctx); return; }
   const fase = (S.t * 40) % 12;
   for (const t of S.trucks) {
     if (t.aksi === 'muat') {
-      ctx.save(); ctx.strokeStyle = t.kind === 'CPO' ? C.cpoOil : C.kernel; ctx.lineWidth = 3; ctx.setLineDash([5, 7]); ctx.lineDashOffset = -fase;
-      ctx.beginPath();
-      if (t.kind === 'CPO') { ctx.moveTo(X_CPO, 216); ctx.lineTo(t.x, t.y); } else { ctx.moveTo(X_KERNEL + 18, 231); ctx.lineTo(t.x + 4, t.y); }
-      ctx.stroke(); ctx.restore();
+      const sumber = t.kind === 'CPO' ? terdekat('tangki', t.x, t.y) : t.tujuan;
+      if (sumber) {
+        ctx.save(); ctx.strokeStyle = t.kind === 'CPO' ? C.cpoOil : C.kernel; ctx.lineWidth = 3; ctx.setLineDash([5, 7]); ctx.lineDashOffset = -fase;
+        ctx.beginPath(); ctx.moveTo(sumber.x, sumber.y); ctx.lineTo(t.x, t.y); ctx.stroke(); ctx.restore();
+      }
     }
-    if (t.aksi === 'bongkar') {
+    if (t.aksi === 'bongkar' && t.tujuan) {
       ctx.save(); ctx.strokeStyle = C.tbs; ctx.lineWidth = 3; ctx.setLineDash([3, 6]); ctx.lineDashOffset = -fase;
-      ctx.beginPath(); ctx.moveTo(t.x, t.y + 20); ctx.lineTo(t.x + (t.bay === BAY_TBS[2] ? -26 : 26), t.y + 10); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(t.tujuan.x, t.tujuan.y); ctx.stroke(); ctx.restore();
     }
   }
-  // konveyor buah ke pabrik
-  ctx.save(); ctx.strokeStyle = 'rgba(232,103,61,.7)'; ctx.lineWidth = 2; ctx.setLineDash([4, 8]); ctx.lineDashOffset = fase;
-  ctx.beginPath(); ctx.moveTo(660, 201); ctx.lineTo(620, 201); ctx.stroke(); ctx.restore();
-
-  // truk (urut y supaya tumpang tindih wajar)
   const urut = [...S.trucks].sort((a, b) => a.y - b.y);
   for (const t of urut) gambarTruk(ctx, t);
-
-  // asap
   for (const p of S.smoke) {
     ctx.fillStyle = `rgba(190,200,195,${Math.max(0, p.a)})`;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
   }
-
-  // banner peringatan blacklist di pos
   const blTruk = S.trucks.find(t => t.peringatan && t.tahapIdx === 0);
-  if (blTruk) {
-    label(ctx, 'BLACKLIST: peringatan ke HO', 93, 648, { size: 11, w: 700, color: '#fff', bg: C.bad });
-  }
+  if (blTruk) label(ctx, 'BLACKLIST: peringatan ke HO', blTruk.x, blTruk.y - 34, { size: 11, w: 700, color: '#fff', bg: C.bad });
+  if (!V.alur.SAJA) label(ctx, `Denah belum bisa dijalankan: ${V.alasan.SAJA}. Klik Edit Denah.`, W / 2, 30, { size: 14, w: 700, color: '#fff', bg: C.bad });
 }
 
 /* ---------------- ukuran kanvas ---------------- */
@@ -970,51 +1509,471 @@ function ukur() {
 window.addEventListener('resize', ukur);
 
 /* =====================================================================================
-   PANEL
+   EDITOR DENAH
+   ===================================================================================== */
+const E = { aktif: false, mode: 'pilih', tipe: null, sel: null, drag: null, rantai: null, mouse: null, grid: true };
+const ALAT = [
+  { mode: 'pilih', nama: 'Pilih & geser', ic: C.text, hint: 'Klik untuk memilih. Seret objek atau titik jalan untuk memindah. <kbd>Del</kbd> hapus, <kbd>R</kbd> putar 15°.' },
+  { mode: 'jalan1', nama: 'Jalan satu arah', ic: C.mark, hint: 'Klik titik demi titik searah lalu lintas. Klik titik / jalan yang sudah ada untuk menyambung. <kbd>Esc</kbd>, klik kanan, atau klik dua kali untuk berhenti.' },
+  { mode: 'jalan2', nama: 'Jalan dua arah', ic: C.mark, hint: 'Sama seperti jalan satu arah, tetapi truk boleh lewat dua arah (lajur kiri).' },
+  ...Object.entries(KATALOG).map(([tipe, k]) => ({ mode: 'tambah', tipe, grup: k.grup, nama: k.nama, ic: k.warna, hint: `Klik di denah untuk menaruh ${k.nama}. ${k.ket || ''}` })),
+];
+function renderAlat() {
+  let html = '', grup = '';
+  ALAT.forEach((a, i) => {
+    const g = a.mode === 'tambah' ? a.grup : 'dasar';
+    if (g !== grup) {
+      grup = g;
+      html += `<div class="grp">${g === 'dasar' ? 'Jalan' : g === 'alur' ? 'Objek alur (dipakai truk)' : 'Hiasan'}</div>`;
+    }
+    const aktif = E.mode === a.mode && (a.mode !== 'tambah' || E.tipe === a.tipe);
+    html += `<button type="button" class="tool" data-alat="${i}" aria-pressed="${aktif}"><span class="ic" style="background:${a.ic}"></span><b>${esc(a.nama)}</b></button>`;
+  });
+  el('alat').innerHTML = html;
+  const a = ALAT.find(x => x.mode === E.mode && (x.mode !== 'tambah' || x.tipe === E.tipe));
+  el('hintAlat').innerHTML = a ? a.hint : '';
+}
+el('alat').addEventListener('click', e => {
+  const b = e.target.closest('[data-alat]');
+  if (!b) return;
+  const a = ALAT[+b.dataset.alat];
+  E.mode = a.mode; E.tipe = a.tipe || null; E.rantai = null;
+  renderAlat();
+});
+
+const snapV = v => E.grid ? Math.round(v / 10) * 10 : Math.round(v);
+function titikPeta(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+}
+function titikJalanDi(p, r = 10) {
+  return L.jalan.titik.find(n => Math.hypot(n.x - p.x, n.y - p.y) <= r) || null;
+}
+function ruasDi(p, r = 14) {
+  const nodes = new Map(L.jalan.titik.map(n => [n.id, n]));
+  let best = null, bd = r;
+  for (const rs of L.jalan.ruas) {
+    const a = nodes.get(rs.a), b = nodes.get(rs.b);
+    if (!a || !b) continue;
+    const pr = proyeksi(p.x, p.y, a, b);
+    if (pr.d < bd) { bd = pr.d; best = { ruas: rs, ...pr }; }
+  }
+  return best;
+}
+function objekDi(p) {
+  for (let i = L.objek.length - 1; i >= 0; i--) {
+    const o = L.objek[i];
+    const { x, y, a } = posisiObj(o);
+    const c = Math.cos(-a), s = Math.sin(-a);
+    const lx = (p.x - x) * c - (p.y - y) * s, ly = (p.x - x) * s + (p.y - y) * c;
+    const pw = Math.max(o.w, 18) / 2 + 3, ph = Math.max(o.h, 18) / 2 + 3;
+    if (Math.abs(lx) <= pw && Math.abs(ly) <= ph) return o;
+  }
+  return null;
+}
+let nomor = Date.now() % 100000;
+const idBaru = p => p + (++nomor).toString(36);
+function titikBaru(x, y) { const n = { id: idBaru('n'), x, y }; L.jalan.titik.push(n); return n; }
+function pecahRuas(hit) {
+  const rs = hit.ruas;
+  const n = titikBaru(Math.round(hit.x), Math.round(hit.y));
+  L.jalan.ruas = L.jalan.ruas.filter(r => r !== rs);
+  L.jalan.ruas.push({ id: idBaru('r'), a: rs.a, b: n.id, dua: rs.dua }, { id: idBaru('r'), a: n.id, b: rs.b, dua: rs.dua });
+  return n;
+}
+function tempelSnap(o) {
+  // Objek "di atas jalan" dipindah tepat ke titik jalan terdekat.
+  if (!isSnap(o)) return;
+  bangunGraf();
+  const an = G.anchor.get(o.id);
+  if (an) { o.x = Math.round(an.x); o.y = Math.round(an.y); }
+}
+function ubahDenah(simpan = true) {
+  bangunGraf();
+  validasi();
+  statisKotor = true;
+  if (E.aktif) renderCek();
+  renderSiap();
+  if (simpan) simpanDenah();
+}
+
+canvas.addEventListener('pointerdown', e => {
+  const p = titikPeta(e);
+  if (!E.aktif) { pilihTruk(p); return; }
+  if (e.button === 2) return;
+  canvas.setPointerCapture(e.pointerId);
+  if (E.mode === 'pilih') {
+    const n = titikJalanDi(p, 9);
+    if (n) { E.sel = { jenis: 'titik', id: n.id }; E.drag = { jenis: 'titik', obj: n }; renderProps(); return; }
+    const o = objekDi(p);
+    if (o) { E.sel = { jenis: 'obj', id: o.id }; E.drag = { jenis: 'obj', obj: o, dx: p.x - o.x, dy: p.y - o.y }; renderProps(); return; }
+    const r = ruasDi(p);
+    E.sel = r ? { jenis: 'ruas', id: r.ruas.id } : null;
+    renderProps();
+    return;
+  }
+  if (E.mode === 'jalan1' || E.mode === 'jalan2') {
+    let n = titikJalanDi(p, 12);
+    if (!n) { const hit = ruasDi(p, 12); n = hit ? pecahRuas(hit) : titikBaru(snapV(p.x), snapV(p.y)); }
+    if (E.rantai === n.id) { E.rantai = null; ubahDenah(); return; }
+    if (E.rantai) {
+      const ada = L.jalan.ruas.some(r => (r.a === E.rantai && r.b === n.id) || (r.a === n.id && r.b === E.rantai));
+      if (!ada) L.jalan.ruas.push({ id: idBaru('r'), a: E.rantai, b: n.id, dua: E.mode === 'jalan2' });
+    }
+    E.rantai = n.id;
+    ubahDenah();
+    return;
+  }
+  if (E.mode === 'tambah' && E.tipe) {
+    const k = KATALOG[E.tipe];
+    const o = { id: idBaru('o'), tipe: E.tipe, x: snapV(p.x), y: snapV(p.y), w: k.w, h: k.h, rot: 0, label: k.label || '' };
+    if (k.sub !== undefined) o.sub = k.sub;
+    if (k.syarat) o.syarat = k.syarat;
+    if (E.tipe === 'jembatan') o.kode = `JT-${L.objek.filter(x => x.tipe === 'jembatan').length + 1}`;
+    if (E.tipe === 'sortasi') o.label = `Bay ${L.objek.filter(x => x.tipe === 'sortasi').length + 1}`;
+    if (E.tipe === 'lampu') o.jt = '';
+    L.objek.push(o);
+    tempelSnap(o);
+    E.sel = { jenis: 'obj', id: o.id };
+    E.mode = 'pilih'; E.tipe = null;
+    renderAlat();
+    ubahDenah();
+    renderProps();
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (!E.aktif) return;
+  const p = titikPeta(e);
+  E.mouse = p;
+  if (!E.drag) return;
+  if (E.drag.jenis === 'obj') { E.drag.obj.x = snapV(p.x - E.drag.dx); E.drag.obj.y = snapV(p.y - E.drag.dy); }
+  else { E.drag.obj.x = snapV(p.x); E.drag.obj.y = snapV(p.y); }
+  E.drag.pindah = true;
+  bangunGraf(); statisKotor = true;
+});
+function akhiriDrag() {
+  if (!E.drag) return;
+  const d = E.drag; E.drag = null;
+  if (d.pindah) {
+    if (d.jenis === 'obj') tempelSnap(d.obj);
+    ubahDenah();
+    renderProps();
+  }
+}
+canvas.addEventListener('pointerup', akhiriDrag);
+canvas.addEventListener('pointercancel', akhiriDrag);
+canvas.addEventListener('dblclick', () => { if (E.aktif && E.rantai) { E.rantai = null; rapikanTitik(); ubahDenah(); } });
+canvas.addEventListener('contextmenu', e => { if (E.aktif) { e.preventDefault(); E.rantai = null; rapikanTitik(); ubahDenah(); } });
+document.addEventListener('keydown', e => {
+  if (!E.aktif) return;
+  if (e.target.matches('input, select, textarea')) return;
+  if (e.key === 'Escape') { E.rantai = null; rapikanTitik(); E.sel = null; E.mode = 'pilih'; E.tipe = null; renderAlat(); renderProps(); ubahDenah(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && E.sel) { e.preventDefault(); hapusTerpilih(); }
+  if ((e.key === 'r' || e.key === 'R') && E.sel?.jenis === 'obj') {
+    const o = objById(E.sel.id);
+    if (o && !isSnap(o)) { o.rot = ((o.rot || 0) + (e.shiftKey ? -15 : 15) + 360) % 360; ubahDenah(); renderProps(); }
+  }
+});
+function hapusTerpilih() {
+  const s = E.sel;
+  if (!s) return;
+  if (s.jenis === 'obj') {
+    L.objek = L.objek.filter(o => o.id !== s.id);
+    for (const o of L.objek) if (o.tipe === 'lampu' && o.jt === s.id) o.jt = '';
+  } else if (s.jenis === 'ruas') {
+    L.jalan.ruas = L.jalan.ruas.filter(r => r.id !== s.id);
+  } else if (s.jenis === 'titik') {
+    L.jalan.ruas = L.jalan.ruas.filter(r => r.a !== s.id && r.b !== s.id);
+    L.jalan.titik = L.jalan.titik.filter(n => n.id !== s.id);
+  }
+  rapikanTitik();
+  E.sel = null;
+  ubahDenah();
+  renderProps();
+}
+function rapikanTitik() {
+  // Titik jalan yang tidak tersambung ke ruas mana pun dibuang.
+  const dipakai = new Set(L.jalan.ruas.flatMap(r => [r.a, r.b]));
+  L.jalan.titik = L.jalan.titik.filter(n => dipakai.has(n.id) || n.id === E.rantai);
+}
+
+function gambarEditor(g) {
+  const nodes = new Map(L.jalan.titik.map(n => [n.id, n]));
+  if (E.sel?.jenis === 'ruas') {
+    const r = L.jalan.ruas.find(x => x.id === E.sel.id);
+    if (r && nodes.has(r.a) && nodes.has(r.b)) {
+      const a = nodes.get(r.a), b = nodes.get(r.b);
+      g.save(); g.strokeStyle = C.accent; g.lineWidth = 4; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      g.translate((a.x + b.x) / 2, (a.y + b.y) / 2); g.rotate(ang); g.fillStyle = C.accent;
+      g.beginPath(); g.moveTo(12, 0); g.lineTo(-4, -8); g.lineTo(-4, 8); g.closePath(); g.fill();
+      if (r.dua) { g.beginPath(); g.moveTo(-24, 0); g.lineTo(-8, -8); g.lineTo(-8, 8); g.closePath(); g.fill(); }
+      g.restore();
+    }
+  }
+  for (const n of L.jalan.titik) {
+    const pilih = E.sel?.jenis === 'titik' && E.sel.id === n.id;
+    g.fillStyle = pilih ? C.accent : n.id === E.rantai ? C.ok : 'rgba(228,235,229,.85)';
+    g.strokeStyle = '#0e1411'; g.lineWidth = 2;
+    g.beginPath(); g.arc(n.x, n.y, pilih ? 7 : 5, 0, Math.PI * 2); g.fill(); g.stroke();
+  }
+  for (const o of L.objek) {
+    if (!isAlur(o)) continue;
+    const an = G.anchor.get(o.id);
+    if (!an) {
+      g.save(); g.strokeStyle = C.bad; g.lineWidth = 2; g.setLineDash([4, 3]);
+      g.beginPath(); g.arc(o.x, o.y, Math.max(o.w, o.h) / 2 + 8, 0, Math.PI * 2); g.stroke(); g.restore();
+      label(g, 'belum menempel ke jalan', o.x, o.y + Math.max(o.w, o.h) / 2 + 18, { size: 10, w: 600, color: '#fff', bg: C.bad, font: FONT_BODY });
+    } else if (!isSnap(o)) {
+      g.save(); g.strokeStyle = 'rgba(242,194,48,.7)'; g.lineWidth = 1.5; g.setLineDash([3, 3]);
+      g.beginPath(); g.moveTo(o.x, o.y); g.lineTo(an.x, an.y); g.stroke(); g.restore();
+      g.fillStyle = C.accent; g.beginPath(); g.arc(an.x, an.y, 4, 0, Math.PI * 2); g.fill();
+    }
+    if (o.tipe === 'lampu' && an) {
+      const jt = lampuJT(o);
+      if (jt) {
+        const pj = posisiObj(jt);
+        g.save(); g.strokeStyle = 'rgba(92,203,139,.6)'; g.lineWidth = 1.5; g.setLineDash([2, 4]);
+        g.beginPath(); g.moveTo(an.x, an.y); g.lineTo(pj.x, pj.y); g.stroke(); g.restore();
+      }
+    }
+  }
+  if (E.sel?.jenis === 'obj') {
+    const o = objById(E.sel.id);
+    if (o) {
+      const { x, y, a } = posisiObj(o);
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.strokeStyle = C.accent; g.lineWidth = 2; g.setLineDash([5, 4]);
+      const pw = Math.max(o.w, 18) + 8, ph = Math.max(o.h, 18) + 8;
+      g.strokeRect(-pw / 2, -ph / 2, pw, ph);
+      g.restore();
+    }
+  }
+  if (E.rantai && E.mouse && (E.mode === 'jalan1' || E.mode === 'jalan2')) {
+    const a = nodes.get(E.rantai);
+    if (a) {
+      g.save(); g.strokeStyle = C.accent; g.lineWidth = E.mode === 'jalan2' ? 36 : 28; g.globalAlpha = 0.35; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(snapV(E.mouse.x), snapV(E.mouse.y)); g.stroke(); g.restore();
+    }
+  }
+  label(g, 'MODE EDIT DENAH · simulasi dihentikan', 14, 14, { size: 12, w: 700, color: '#1a1405', bg: C.accent, align: 'left' });
+}
+
+/* ---- panel properti objek terpilih ---- */
+function renderProps() {
+  const box = el('props');
+  const s = E.sel;
+  if (!s) { box.innerHTML = '<p class="note">Klik objek, jalan, atau titik jalan di denah.</p>'; return; }
+  if (s.jenis === 'ruas') {
+    const r = L.jalan.ruas.find(x => x.id === s.id);
+    if (!r) { box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="fields">
+        <label for="pArah">Jalan</label>
+        <select id="pArah"><option value="1"${r.dua ? '' : ' selected'}>Satu arah (ikuti panah)</option><option value="2"${r.dua ? ' selected' : ''}>Dua arah</option></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm" type="button" id="pBalik"${r.dua ? ' disabled' : ''}>Balik arah</button>
+        <button class="btn sm danger" type="button" id="pHapus">Hapus jalan</button>
+      </div>`;
+    el('pArah').onchange = e => { r.dua = e.target.value === '2'; ubahDenah(); renderProps(); };
+    el('pBalik').onclick = () => { [r.a, r.b] = [r.b, r.a]; ubahDenah(); };
+    el('pHapus').onclick = hapusTerpilih;
+    return;
+  }
+  if (s.jenis === 'titik') {
+    box.innerHTML = `<p class="note">Titik jalan. Seret untuk memindah; jalan yang tersambung ikut bergeser.</p>
+      <div class="row" style="margin-top:8px"><button class="btn sm danger" type="button" id="pHapus">Hapus titik &amp; jalannya</button></div>`;
+    el('pHapus').onclick = hapusTerpilih;
+    return;
+  }
+  const o = objById(s.id);
+  if (!o) { box.innerHTML = ''; return; }
+  const k = KATALOG[o.tipe];
+  const f = [];
+  if (o.tipe === 'jembatan') f.push(`<label for="pKode">Kode</label><input type="text" id="pKode" maxlength="10" value="${esc(o.kode)}">`);
+  else if (o.tipe !== 'pohon') f.push(`<label for="pLabel">Nama</label><input type="text" id="pLabel" maxlength="40" value="${esc(o.label)}">`);
+  if (o.sub !== undefined) f.push(`<label for="pSub">Keterangan</label><input type="text" id="pSub" maxlength="40" value="${esc(o.sub)}">`);
+  if (o.tipe === 'barrier') {
+    f.push(`<label for="pSyarat">Terbuka bila</label><select id="pSyarat">${Object.entries(SYARAT_BARRIER).map(([v, t]) => `<option value="${v}"${(o.syarat || 'tiket') === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`);
+  }
+  if (o.tipe === 'lampu') {
+    const jts = L.objek.filter(x => x.tipe === 'jembatan');
+    f.push(`<label for="pJt">Untuk jembatan</label><select id="pJt"><option value="">Otomatis (terdekat)</option>${jts.map(j => `<option value="${j.id}"${o.jt === j.id ? ' selected' : ''}>${esc(j.kode)}</option>`).join('')}</select>`);
+  }
+  if (!['barrier', 'lampu', 'masuk', 'keluar'].includes(o.tipe)) {
+    f.push(`<label for="pW">${o.tipe === 'jembatan' ? 'Panjang' : 'Lebar'}</label><input type="number" id="pW" min="8" max="600" step="2" value="${o.w}">`);
+    f.push(`<label for="pH">${o.tipe === 'jembatan' ? 'Lebar' : 'Tinggi'}</label><input type="number" id="pH" min="8" max="600" step="2" value="${o.h}">`);
+  }
+  if (!isSnap(o)) f.push(`<label for="pRot">Putar (°)</label><input type="number" id="pRot" min="-360" max="360" step="15" value="${o.rot || 0}">`);
+  const an = G.anchor.get(o.id);
+  const status = isAlur(o)
+    ? (an ? '<span class="pill ok">menempel ke jalan</span>' : '<span class="pill bad">belum menempel</span>')
+    : '<span class="pill idle">hiasan</span>';
+  box.innerHTML = `<p class="note" style="margin-bottom:8px"><b style="color:var(--fg)">${esc(k.nama)}</b> ${status}<br>${esc(k.ket || '')}${isSnap(o) ? ' Arahnya otomatis mengikuti jalan.' : ''}</p>
+    <div class="fields">${f.join('')}</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn sm" type="button" id="pDup">Duplikat</button>
+      <button class="btn sm danger" type="button" id="pHapus">Hapus</button>
+    </div>`;
+  const ikat = (id, fn) => { const x = el(id); if (x) x.addEventListener('input', () => { fn(x.value); ubahDenah(); }); };
+  ikat('pLabel', v => { o.label = v; });
+  ikat('pKode', v => { o.kode = v; });
+  ikat('pSub', v => { o.sub = v; });
+  ikat('pW', v => { if (+v >= 8) o.w = +v; });
+  ikat('pH', v => { if (+v >= 8) o.h = +v; });
+  ikat('pRot', v => { o.rot = +v || 0; });
+  const sy = el('pSyarat'); if (sy) sy.addEventListener('change', () => { o.syarat = sy.value; ubahDenah(); });
+  const pj = el('pJt'); if (pj) pj.addEventListener('change', () => { o.jt = pj.value; ubahDenah(); });
+  el('pDup').onclick = () => {
+    const c = JSON.parse(JSON.stringify(o)); c.id = idBaru('o'); c.x += 30; c.y += 30;
+    if (c.tipe === 'jembatan') c.kode = `JT-${L.objek.filter(x => x.tipe === 'jembatan').length + 1}`;
+    L.objek.push(c); tempelSnap(c); E.sel = { jenis: 'obj', id: c.id }; ubahDenah(); renderProps();
+  };
+  el('pHapus').onclick = hapusTerpilih;
+}
+
+function renderCek() {
+  const ikon = { ok: '✓', bad: '✕', warn: '!' };
+  el('cekList').innerHTML = V.pesan.map(p => `<li><span class="${p.k}">${ikon[p.k]}</span><span>${esc(p.t)}</span></li>`).join('');
+}
+function renderSiap() {
+  el('siap').innerHTML = '<span>Alur siap di denah ini:</span> ' + Object.keys(NAMA_ALUR).map(k =>
+    `<span class="pill ${V.alur[k] ? 'ok' : 'bad'}" title="${esc(V.alur[k] ? 'siap' : V.alasan[k])}">${NAMA_ALUR[k]} ${V.alur[k] ? '✓' : '✕'}</span>`).join(' ');
+  document.querySelectorAll('[data-add]').forEach(b => { b.disabled = E.aktif || !V.alur[b.dataset.add]; b.title = V.alur[b.dataset.add] ? '' : V.alasan[b.dataset.add] || ''; });
+}
+
+/* ---- masuk / keluar mode edit ---- */
+function setEdit(on) {
+  E.aktif = on;
+  el('btnEdit').setAttribute('aria-pressed', on ? 'true' : 'false');
+  el('btnEdit').textContent = on ? 'Sedang mengedit' : 'Edit Denah';
+  el('editCard').hidden = !on;
+  document.querySelectorAll('.sim-card').forEach(c => { c.hidden = on; });
+  document.querySelectorAll('.sim-ctl').forEach(c => { c.disabled = on; });
+  el('mapBox').classList.toggle('editing', on);
+  E.sel = null; E.rantai = null; E.mode = 'pilih'; E.tipe = null; E.drag = null;
+  statisKotor = true;
+  if (on) {
+    el('namaSite').value = L.nama;
+    el('opFoto').value = L.latarOpacity ?? 0.6;
+    el('pesanSimpan').textContent = '';
+    renderAlat(); renderProps(); renderCek();
+  } else {
+    rapikanTitik();
+    ubahDenah();
+    reset();
+  }
+  renderSiap();
+}
+el('btnEdit').addEventListener('click', () => setEdit(!E.aktif));
+el('btnSelesai').addEventListener('click', () => setEdit(false));
+el('optGrid').addEventListener('change', e => { E.grid = e.target.checked; });
+el('namaSite').addEventListener('input', e => { L.nama = e.target.value || SITES.find(s => s.id === L.site).nama; isiPilihSite(); simpanDenah(); });
+el('opFoto').addEventListener('input', e => { L.latarOpacity = +e.target.value; statisKotor = true; simpanDenah(); });
+el('btnHapusFoto').addEventListener('click', () => { L.latar = null; fotoSrc = null; fotoLatar = null; statisKotor = true; simpanDenah(); });
+el('fileFoto').addEventListener('change', e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const img = new Image();
+  const url = URL.createObjectURL(f);
+  img.onload = () => {
+    // Perkecil ke ukuran denah supaya file denah tetap ringan.
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    const sk = Math.max(W / img.width, H / img.height);
+    g.drawImage(img, (W - img.width * sk) / 2, (H - img.height * sk) / 2, img.width * sk, img.height * sk);
+    L.latar = c.toDataURL('image/jpeg', 0.72);
+    URL.revokeObjectURL(url);
+    statisKotor = true; simpanDenah();
+  };
+  img.onerror = () => { el('pesanSimpan').textContent = 'File itu bukan gambar yang bisa dibuka.'; URL.revokeObjectURL(url); };
+  img.src = url;
+});
+el('btnUnduh').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(L, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `denah-site-${String(L.site).toLowerCase()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  el('pesanSimpan').textContent = `File ${a.download} diunduh. Simpan untuk dibuka di komputer lain.`;
+});
+el('fileJson').addEventListener('change', e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  f.text().then(txt => {
+    const baru = JSON.parse(txt);
+    if (!denahValid(baru)) throw new Error('format');
+    baru.site = L.site;
+    L = baru; fotoSrc = null;
+    el('namaSite').value = L.nama || '';
+    el('opFoto').value = L.latarOpacity ?? 0.6;
+    E.sel = null; ubahDenah(); renderProps(); isiPilihSite();
+    el('pesanSimpan').textContent = `Denah dari ${f.name} dipakai untuk ${L.nama}.`;
+  }).catch(() => { el('pesanSimpan').textContent = 'File itu bukan file denah simulasi (.json) yang valid.'; });
+});
+let konfirmBawaan = 0;
+el('btnBawaan').addEventListener('click', () => {
+  if (Date.now() - konfirmBawaan > 4000) {
+    konfirmBawaan = Date.now();
+    el('btnBawaan').textContent = 'Yakin? Klik sekali lagi';
+    setTimeout(() => { el('btnBawaan').textContent = 'Kembalikan bawaan'; }, 4000);
+    return;
+  }
+  konfirmBawaan = 0;
+  el('btnBawaan').textContent = 'Kembalikan bawaan';
+  L = denahBawaan(SITES.find(s => s.id === L.site));
+  fotoSrc = null;
+  el('namaSite').value = L.nama;
+  el('opFoto').value = L.latarOpacity;
+  E.sel = null; ubahDenah(); renderProps(); isiPilihSite();
+  el('pesanSimpan').textContent = 'Denah bawaan dipulihkan.';
+});
+
+/* =====================================================================================
+   PANEL SIMULASI
    ===================================================================================== */
 function catat(teks, jenis = '') {
   S.log.unshift({ w: jamStr(), teks, jenis });
   S.log.length = Math.min(S.log.length, 80);
   S.logBaru = true;
 }
-const el = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
 const STATUS_TAMPIL = {
-  DATANG: ['Antre security', 'idle'], SECURITY_REGISTER: ['SECURITY_REGISTER', 'warn'], TIMBANG_1: ['TIMBANG_1', 'warn'],
+  DATANG: ['Menuju security', 'idle'], SECURITY_REGISTER: ['SECURITY_REGISTER', 'warn'], TIMBANG_1: ['TIMBANG_1', 'warn'],
   TIMBANG_2: ['TIMBANG_2', 'warn'], SELESAI: ['SELESAI', 'ok'], REJECTED: ['REJECTED', 'bad'],
 };
 function statusHtml(t) {
   const [teks, k] = STATUS_TAMPIL[t.status] || [t.status, 'idle'];
   return `<span class="pill ${k}">${esc(teks)}</span>`;
 }
-
 function renderJT() {
-  el('jtPanel').innerHTML = JT.map(j => {
+  const jts = stasiun('jembatan');
+  el('jtPanel').innerHTML = jts.length ? jts.map(j => {
+    const r = rt(j);
     let pill = '<span class="pill idle">Kosong</span>', who = 'Tidak ada truk';
-    if (j.truk) {
-      pill = j.stabil ? '<span class="pill ok">Stabil</span>' : '<span class="pill warn">Bergerak</span>';
-      who = `${j.truk.plat} · timbang ${j.ke === 1 ? 'masuk' : 'keluar'}`;
-    }
-    return `<div class="jt"><div class="top"><span>${j.kode}</span>${pill}</div>
-      <div class="w ${j.truk ? '' : 'idle'}">${fmtKg(j.baca || 0)}<small style="font-size:11px;color:var(--muted)"> kg</small></div>
+    if (r.truk) {
+      pill = r.stabil ? '<span class="pill ok">Stabil</span>' : '<span class="pill warn">Bergerak</span>';
+      who = `${r.truk.plat} · timbang ${r.ke === 1 ? 'masuk' : 'keluar'}`;
+    } else if (r.reservasi) who = `${r.reservasi.plat} sedang naik ke plat`;
+    return `<div class="jt"><div class="top"><span>${esc(j.kode)}</span>${pill}</div>
+      <div class="w ${r.truk ? '' : 'idle'}">${fmtKg(r.baca || 0)}<small style="font-size:11px;color:var(--muted)"> kg</small></div>
       <div class="who">${esc(who)}</div></div>`;
-  }).join('');
+  }).join('') : '<p class="note">Belum ada jembatan timbang di denah ini.</p>';
 }
-
 function renderTabel() {
-  const aktif = S.trucks.filter(t => !t.keluar || t.status === 'REJECTED');
+  const aktif = S.trucks.filter(t => !t.macet && (!t.keluar || t.status === 'REJECTED'));
   el('nAktif').textContent = `${aktif.length} truk di area`;
   el('tblAktif').innerHTML = aktif.length ? aktif.map(t => `<tr data-id="${t.id}" class="${S.sel === t ? 'sel' : ''}">
       <td><span class="tag" style="background:${t.j.warna}"></span><span class="plat">${esc(t.plat)}</span></td>
-      <td>${esc(t.j.label)}</td><td>${statusHtml(t)}</td><td>${t.jt ? t.jt.kode : '–'}</td>
+      <td>${esc(t.j.label)}</td><td>${statusHtml(t)}</td><td>${t.jt ? esc(t.jt.kode) : '–'}</td>
       <td class="num">${fmtKg(t.w1)}</td></tr>`).join('')
     : '<tr><td colspan="5" class="empty">Belum ada truk. Tekan + Truk TBS.</td></tr>';
 }
-
 function renderTiket() {
   const t = S.sel;
-  if (!t) return;
+  if (!t) { el('tiket').innerHTML = '<p class="note">Klik truk di denah atau baris di tabel untuk melihat perjalanan tiketnya.</p>'; return; }
   const tahap = t.j.tahap;
   const idx = t.status === 'SELESAI' || t.status === 'REJECTED' ? tahap.length : t.tahapIdx;
   const nilai = k => {
@@ -1032,7 +1991,7 @@ function renderTiket() {
     if (k === 'TIMBANG_2') return t.jt ? `Wajib ${t.jt.kode} · ${t.j.transaksi === 'PENJUALAN' ? 'bruto (truk + muatan)' : 'tara (truk kosong)'}` : '';
     if (k === 'SORTASI') return t.sortasi
       ? `Mentah ${t.sortasi.mentah}% · busuk ${t.sortasi.busuk}% · tangkai ${t.sortasi.tangkai}% · sampah ${t.sortasi.sampah}% · brondolan ${t.sortasi.brondolan}%`
-      : `Loading ramp${t.bay ? ' ' + t.bay.nama : ''}, grading buah`;
+      : 'Loading ramp, grading buah';
     if (k === 'MUAT') return t.kind === 'CPO' ? 'Pengisian dari tangki timbun (proses fisik, di luar aplikasi)' : 'Pengisian dari bunker kernel (proses fisik)';
     if (k === 'LAB') return t.lab ? `FFA ${t.lab.ffa}% · air ${t.lab.air}% · kotoran ${t.lab.kotoran}%` : 'Sampel diambil setelah muat';
     return '';
@@ -1048,6 +2007,7 @@ function renderTiket() {
     netto = `<dt>Netto</dt><dd><b>${fmtKg(t.netto)} kg</b></dd>`;
     if (t.sortasi && t.sortasi.potonganKg != null) netto += `<dt>Potongan</dt><dd>${fmtKg(t.sortasi.potonganKg)} kg → diterima ${fmtKg(t.netto - t.sortasi.potonganKg)} kg</dd>`;
   }
+  const posisi = t.selesai ? 'Sudah keluar pabrik' : t.sub || 'Menuju security';
   el('tiket').innerHTML = `
     <div class="ticket">
       <div class="no">${esc(t.no_tiket || 'Tiket belum dibuat (masih di security)')}</div>
@@ -1057,21 +2017,19 @@ function renderTiket() {
         <dt>Produk</dt><dd>${esc(t.j.produk)}</dd>
         <dt>Mitra</dt><dd>${esc(t.mitra)}${t.no_do ? ' · ' + t.no_do : ''}</dd>
         <dt>Supir</dt><dd>${esc(t.supir)}</dd>
-        <dt>Posisi</dt><dd>${esc(t.keluar && !t.selesai ? (t.sub || 'Menuju gerbang keluar') : t.selesai ? 'Sudah keluar pabrik' : t.sub || 'Antre di gerbang')}</dd>
+        <dt>Posisi</dt><dd>${esc(posisi)}</dd>
         ${netto}
       </dl>
       <ol class="steps">${langkah}</ol>
     </div>`;
 }
-
 function renderLog() {
   if (!S.logBaru) return;
   S.logBaru = false;
   el('log').innerHTML = S.log.map(l => `<div><time>${l.w}</time><span class="${l.jenis}">${esc(l.teks)}</span></div>`).join('');
 }
-
 function renderKpi() {
-  el('kAktif').textContent = S.trucks.length;
+  el('kAktif').textContent = S.trucks.filter(t => !t.macet).length;
   el('kSelesai').textContent = S.nSelesai;
   el('kTbs').textContent = fmtT(S.totalTbs);
   el('kPks').textContent = fmtT(S.totalPks);
@@ -1079,23 +2037,21 @@ function renderKpi() {
   el('jam').textContent = jamStr(d);
   el('tgl').textContent = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
-
 let tPanel = 0;
 function renderPanel(paksa) {
+  if (E.aktif) return;
   const now = performance.now();
   if (!paksa && now - tPanel < 200) return;
   tPanel = now;
   renderKpi(); renderJT(); renderTabel(); renderTiket(); renderLog();
 }
 
-/* ---------------- interaksi ---------------- */
-canvas.addEventListener('click', e => {
-  const r = canvas.getBoundingClientRect();
-  const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
+/* ---------------- interaksi simulasi ---------------- */
+function pilihTruk(p) {
   let best = null, jarak = 34;
-  for (const t of S.trucks) { const d = Math.hypot(t.x - x, t.y - y); if (d < jarak) { jarak = d; best = t; } }
+  for (const t of S.trucks) { const d = Math.hypot(t.x - p.x, t.y - p.y); if (d < jarak) { jarak = d; best = t; } }
   if (best) { S.sel = best; renderPanel(true); }
-});
+}
 el('tblAktif').addEventListener('pointerdown', e => {
   const tr = e.target.closest('tr[data-id]');
   if (!tr) return;
@@ -1104,11 +2060,11 @@ el('tblAktif').addEventListener('pointerdown', e => {
 });
 document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
   const kind = b.dataset.add;
-  const t = tambahTruk(kind, {
+  tambahTruk(kind, {
     blacklist: el('optBl').checked && Math.random() < 0.35,
     reject: el('optRej').checked && (kind === 'CPO' || kind === 'KERNEL'),
   });
-  S.sel = t; renderPanel(true);
+  renderPanel(true);
 }));
 document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => {
   S.speed = +b.dataset.speed;
@@ -1121,22 +2077,42 @@ el('btnPlay').addEventListener('click', () => {
 el('optAuto').addEventListener('change', e => { S.auto = e.target.checked; });
 el('btnReset').addEventListener('click', () => reset());
 
+/* ---------------- site ---------------- */
+function isiPilihSite() {
+  el('pilihSite').innerHTML = SITES.map(s => {
+    const D = L && s.id === L.site ? L : bacaDenah(s.id);
+    return `<option value="${s.id}"${L && s.id === L.site ? ' selected' : ''}>${esc(D?.nama || s.nama)}</option>`;
+  }).join('');
+}
+function muatSite(id) {
+  const site = SITES.find(s => s.id === id) || SITES[0];
+  L = bacaDenah(site.id) || denahBawaan(site);
+  L.site = site.id;
+  fotoSrc = null; fotoLatar = null;
+  try { localStorage.setItem('simulasi-site-aktif', site.id); } catch (e) { /* abaikan */ }
+  bangunGraf(); validasi();
+  isiPilihSite();
+  statisKotor = true;
+  if (E.aktif) {
+    el('namaSite').value = L.nama; el('opFoto').value = L.latarOpacity ?? 0.6;
+    E.sel = null; E.rantai = null; renderProps(); renderCek(); renderAlat();
+  } else reset();
+  renderSiap();
+}
+el('pilihSite').addEventListener('change', e => muatSite(e.target.value));
+
 function reset() {
-  Object.assign(S, { t: 0, trucks: [], selesai: [], log: [], nextId: 1, nextSpawn: 1, sel: null, totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [], palang: 0 });
-  for (const j of JT) Object.assign(j, { truk: null, baca: 0, stabil: false });
-  catat('Simulasi dimulai. Pabrik buka pukul 07.00, truk mulai berdatangan.');
-  // kondisi awal: beberapa truk sudah di dalam supaya denah langsung hidup
-  pemanasan();
+  Object.assign(S, { t: 0, trucks: [], antre: [], log: [], nextId: 1, nextSpawn: 1, sel: null, totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [] });
+  RT.clear();
+  bangunGraf(); validasi();
+  catat(`Simulasi ${L.nama} dimulai. Pabrik buka pukul 07.00.`);
+  if (V.alur.SAJA) pemanasan();
+  else catat(`Denah belum bisa dijalankan: ${V.alasan.SAJA}. Buka Edit Denah untuk melengkapi.`, 'bad');
   renderPanel(true);
 }
 function pemanasan() {
-  const awal = ['TBS', 'CPO', 'TBS', 'KERNEL', 'TBS'];
-  awal.forEach((k, i) => {
-    const t = tambahTruk(k);
-    // geser tiap truk ke titik antre berbeda di jalan raya
-    t.path = smooth([{ x: -80 - i * 70, y: Y_MAIN }, ...RUTE.datang().slice(1)]);
-  });
-  // jalankan simulasi beberapa saat tanpa digambar
+  // Isi denah dengan beberapa truk dulu supaya langsung terlihat hidup.
+  ['TBS', 'CPO', 'TBS', 'KERNEL', 'TBS'].forEach(k => { if (V.alur[k]) tambahTruk(k); });
   for (let i = 0; i < 60 * 70; i++) step(1 / 60);
   S.sel = S.trucks.find(t => t.w1 && !t.keluar) || S.trucks[0] || null;
 }
@@ -1146,7 +2122,7 @@ let last = performance.now();
 function loop(now) {
   const dtNyata = Math.min(0.1, (now - last) / 1000);
   last = now;
-  if (!S.paused) {
+  if (!S.paused && !E.aktif) {
     const total = dtNyata * S.speed;
     const n = Math.ceil(total / (1 / 60));
     for (let i = 0; i < n; i++) step(total / n);
@@ -1155,11 +2131,11 @@ function loop(now) {
   renderPanel(false);
   requestAnimationFrame(loop);
 }
-
 function boot() {
   ukur();
-  gambarLatar();
-  reset();
+  let awal = 'A';
+  try { awal = localStorage.getItem('simulasi-site-aktif') || 'A'; } catch (e) { /* abaikan */ }
+  muatSite(awal);
   requestAnimationFrame(t => { last = t; loop(t); });
 }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot, boot); else boot();
