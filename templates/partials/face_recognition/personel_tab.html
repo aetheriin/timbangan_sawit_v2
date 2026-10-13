@@ -2,9 +2,9 @@
 {# kategori_tetap (Data Master > Driver): hanya kategori itu, tanpa chip filter #}
 <div data-tab-content="personel" class="hidden" data-kategori-tetap="{{ kategori_tetap or '' }}">
 
-    <div class="flex flex-wrap items-center gap-2 mb-4">
+    <div class="filter-bar">
         {% if not kategori_tetap %}
-        <div id="chipKategoriPersonel" class="flex gap-1.5">
+        <div id="chipKategoriPersonel" class="seg flex-wrap">
             <button type="button" class="chip chip-active" data-filter="" data-on-click="filterPersonel" data-arg="$el">Semua</button>
             <button type="button" class="chip" data-filter="DRIVER" data-on-click="filterPersonel" data-arg="$el">Driver</button>
             <button type="button" class="chip" data-filter="SECURITY" data-on-click="filterPersonel" data-arg="$el">Security</button>

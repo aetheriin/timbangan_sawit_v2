@@ -1,6 +1,6 @@
 {% from "partials/layout/_macros.html" import section_header %}
-<div class="flex flex-wrap items-center gap-2 mb-4">
-    <div class="flex gap-1.5 flex-wrap">
+<div class="filter-bar">
+    <div class="seg flex-wrap">
         <button type="button" class="chip chip-active" data-filter="" data-on-click="filterRoleUser" data-arg="$el">Semua</button>
         {% for lv in level_list %}
         <button type="button" class="chip" data-filter="{{ lv.kode }}" data-on-click="filterRoleUser" data-arg="$el">{{ lv.nama }}</button>

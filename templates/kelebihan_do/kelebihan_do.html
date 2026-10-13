@@ -7,16 +7,29 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ judul_halaman('Kelebihan DO', 'Netto yang melewati kuota DO menjadi tiket -S1; isi No. DO baru lalu tetapkan') }}
+    {{ judul_halaman('Kelebihan DO', 'Netto yang melewati kuota DO menjadi tiket -S1; isi No. DO baru lalu tetapkan', 'fa-scale-unbalanced', 'kuning') }}
     {{ tab_header([('kelebihan', 'Kelebihan DO')], 'hidden') }}
 {% endblock %}
 
 {% block tab_content %}
 <div data-tab-content="kelebihan" class="hidden">
-    <div class="flex flex-wrap items-center gap-1.5 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+        <div class="stat-card"><p class="stat-label">Menunggu No. DO baru</p>
+            <p class="mt-1"><span id="kpiMenungguDO" class="text-3xl font-bold font-mono text-amber-600">-</span> <span class="text-sm font-semibold text-slate-600">tiket</span></p>
+            <p class="text-xs text-slate-400 mt-1">Krani mengisi No. DO dari Ascend (termasuk yang dikembalikan)</p></div>
+        <div class="stat-card"><p class="stat-label">Menunggu penetapan</p>
+            <p class="mt-1"><span id="kpiDiajukan" class="text-3xl font-bold font-mono text-red-600">-</span> <span class="text-sm font-semibold text-slate-600">tiket</span></p>
+            <p class="text-xs text-slate-400 mt-1">KTU / HO menetapkan atau mengembalikan</p></div>
+        <div class="stat-card"><p class="stat-label">Toleransi kelebihan DO</p>
+            <p class="mt-1"><span class="text-3xl font-bold font-mono text-slate-900">{{ '{:,.0f}'.format(toleransi_kg).replace(',', '.') }}</span> <span class="text-sm font-semibold text-slate-600">kg</span></p>
+            <p class="text-xs text-slate-400 mt-1">Di atas angka ini kelebihan menjadi tiket -S1 (Admin › Pengaturan Site)</p></div>
+    </div>
+    <div class="filter-bar">
+      <div class="seg flex-wrap">
         {% for kode, label in [('', 'Semua'), ('MENUNGGU', 'Menunggu'), ('DIKEMBALIKAN', 'Dikembalikan'), ('DIAJUKAN', 'Diajukan'), ('SELESAI', 'Selesai')] %}
         <button type="button" class="chip{% if not kode %} chip-active{% endif %}" data-status="{{ kode }}" data-on-click="filterKelebihan" data-arg="$el">{{ label }}</button>
         {% endfor %}
+      </div>
     </div>
     <div class="section-box">
         {{ section_header('daftar-kelebihan', 'Daftar Kelebihan DO') }}

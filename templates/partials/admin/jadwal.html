@@ -1,5 +1,5 @@
 {% from "partials/layout/_macros.html" import section_header %}
-<div class="flex items-center gap-2 mb-4">
+<div class="filter-bar">
     <label class="field-label mb-0" for="jadwalArea">Area</label>
     <select id="jadwalArea" class="input-field w-64" data-on-change="muatJadwal">
         {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}

@@ -1,6 +1,6 @@
 {% from "partials/layout/_macros.html" import section_header %}
-<div class="flex flex-wrap items-center gap-2 mb-4">
-    <div class="flex gap-1.5 flex-wrap">
+<div class="filter-bar">
+    <div class="seg flex-wrap">
         {% for kode, label in [('', 'Semua'), ('LOGIN', 'Login'), ('LOGIN_GAGAL', 'Login Gagal'), ('LOGIN_TERKUNCI', 'Terkunci'),
                                ('AKSES_DITOLAK', 'Akses Ditolak'), ('KIOSK_DITOLAK', 'Kiosk Ditolak'), ('CSRF_GAGAL', 'CSRF Gagal'),
                                ('SESI_IDLE_HABIS', 'Sesi Habis'), ('PAKSA_KELUAR', 'Paksa Keluar'), ('RESET_PASSWORD', 'Reset Password')] %}

@@ -37,24 +37,37 @@ function cariBlacklistTunda() {
 async function muatBlacklist() {
     const params = new URLSearchParams({ tipe: tipeFilterBlacklist, cari: document.getElementById('cariBlacklist').value.trim() });
     const data = await ambilJson(`/api/blacklist?${params}`);
-    const tbody = document.getElementById('tabelBlacklist');
-    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
+    const wadah = document.getElementById('kartuBlacklist');
+    if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
     dataBlacklist = data;
-    tbody.innerHTML = data.map(r => `
-        <tr class="hover:bg-slate-50">
-            <td class="table-cell whitespace-nowrap">${escapeHtml(r.tgl_blacklist)}</td>
-            <td class="table-cell">${r.tipe_entitas === 'PERSONEL' ? badge('Personel', WARNA_BADGE.biru) : badge('Kendaraan', WARNA_BADGE.abu)}</td>
-            <td class="table-cell">${escapeHtml(namaTarget(r))}${r.no_plat_terkait || r.customer_terkait ? `<div class="text-xs text-slate-500">
-                ${escapeHtml([r.no_plat_terkait, r.customer_terkait, r.pengangkutan_terkait].filter(Boolean).join(' · '))}</div>` : ''}</td>
-            <td class="table-cell">${r.no_surat_blacklist ? escapeHtml(r.no_surat_blacklist) : badge('Surat menyusul', WARNA_BADGE.oranye)}</td>
-            <td class="table-cell max-w-xs truncate" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</td>
-            <td class="table-cell">${escapeHtml(r.oleh)} (${escapeHtml(r.role_oleh)})${r.area_oleh ? `<div class="text-xs text-slate-500">${escapeHtml(r.area_oleh)}</div>` : ''}</td>
-            <td class="table-cell text-right">${r.file_surat_blacklist
-                ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
-                : (!r.id_dokumen && tbody.dataset.bolehTambah === '1'
-                    ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan</button>` : '-')}</td>
-        </tr>`).join('') || barisKosong(7, 'Belum ada blacklist');
-    catatanBatas(tbody, data.length, 200, 7);
+    const bolehTambah = wadah.dataset.bolehTambah === '1';
+    document.getElementById('totalBlacklist').innerHTML = `Total terblokir: <b class="text-red-600">${data.length}</b>` +
+        `${data.length >= 200 ? ' (200 terbaru, persempit dengan pencarian)' : ''} · berlaku <b>permanen</b> di semua area`;
+    wadah.innerHTML = data.map(r => {
+        const terkait = [r.no_plat_terkait, r.customer_terkait, r.pengangkutan_terkait].filter(Boolean).join(' · ');
+        const surat = r.file_surat_blacklist
+            ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600"><i class="fa-regular fa-file-lines mr-1"></i>Lihat Surat</a>`
+            : (!r.id_dokumen && bolehTambah
+                ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '');
+        return `<div class="bg-white rounded-xl border border-red-200 border-t-4 border-t-red-600 shadow-sm p-5">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-mono font-bold text-lg text-slate-900 truncate">${escapeHtml(namaTarget(r))}</p>
+                    <p class="text-sm text-slate-600 mt-0.5">${r.tipe_entitas === 'PERSONEL' ? 'Personel' : 'Kendaraan'}${terkait ? ` · ${escapeHtml(terkait)}` : ''}</p>
+                </div>
+                <span class="text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded flex-shrink-0">DILARANG MASUK</span>
+            </div>
+            <div class="mt-4 rounded-lg bg-red-50/60 border border-red-100 p-3">
+                <p class="text-sm font-bold text-red-700"><i class="fa-regular fa-file-lines mr-1"></i>Alasan &amp; bukti</p>
+                <p class="text-sm text-red-800 mt-1">${escapeHtml(r.alasan_blacklist)}</p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span class="font-mono text-slate-500">${escapeHtml(r.tgl_blacklist)} · ${r.no_surat_blacklist ? `Surat ${escapeHtml(r.no_surat_blacklist)}` : 'Surat menyusul'}</span>
+                ${surat}
+            </div>
+            <p class="mt-2 text-xs text-slate-400">Oleh ${escapeHtml(r.oleh)} (${escapeHtml(r.role_oleh)})${r.area_oleh ? ` · ${escapeHtml(r.area_oleh)}` : ''}</p>
+        </div>`;
+    }).join('') || '<div class="card text-center text-sm text-slate-400 lg:col-span-2">Belum ada blacklist</div>';
 }
 
 // ===== MODAL TAMBAH =====

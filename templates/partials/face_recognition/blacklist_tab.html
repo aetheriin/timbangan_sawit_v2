@@ -1,8 +1,8 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="blacklist" class="hidden">
 
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-        <div id="chipTipeBlacklist" class="flex gap-1.5">
+    <div class="filter-bar">
+        <div id="chipTipeBlacklist" class="seg flex-wrap">
             <button type="button" class="chip chip-active" data-tipe="" data-on-click="filterBlacklist" data-arg="$el">Semua</button>
             <button type="button" class="chip" data-tipe="PERSONEL" data-on-click="filterBlacklist" data-arg="$el">Personel</button>
             <button type="button" class="chip" data-tipe="KENDARAAN" data-on-click="filterBlacklist" data-arg="$el">Kendaraan</button>
@@ -20,24 +20,7 @@
         {% endif %}
     </div>
 
-    <div class="section-box">
-        {{ section_header('riwayat-blacklist', 'Riwayat Blacklist') }}
-        <div id="body-riwayat-blacklist" class="section-body">
-            <table class="w-full text-left text-sm">
-                <thead class="table-header-row">
-                    <tr>
-                        <th class="table-cell">Tanggal</th><th class="table-cell">Entitas</th><th class="table-cell">Target</th>
-                        <th class="table-cell">No. Surat</th><th class="table-cell">Alasan</th><th class="table-cell">Oleh</th>
-                        <th class="table-cell text-right">Surat</th>
-                    </tr>
-                </thead>
-                <tbody data-per-halaman="20" id="tabelBlacklist" data-boleh-tambah="{{ 1 if boleh_blacklist else 0 }}" class="divide-y divide-slate-100"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="note-warning">
-        <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-        Blacklist bersifat <b>PERMANEN</b>.
-    </div>
+    <p id="totalBlacklist" class="text-xs text-slate-500 mb-3">Memuat...</p>
+    {# Satu kartu per blacklist (ala prototipe): target besar, badge DILARANG MASUK, alasan di kotak merah #}
+    <div id="kartuBlacklist" data-boleh-tambah="{{ 1 if boleh_blacklist else 0 }}" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
 </div>

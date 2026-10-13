@@ -61,6 +61,13 @@
   .page-header-icon { @apply w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white flex items-center justify-center text-sm shadow-sm shadow-blue-500/20; }
   .page-header-sub { @apply text-sm text-slate-500; }
   .halaman-judul { @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pb-4 border-b border-slate-200; }
+  .filter-bar { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-3 mb-5 flex flex-wrap items-center gap-2; }
+  .judul-ikon { @apply w-10 h-10 rounded-xl flex items-center justify-center text-base flex-shrink-0; }
+  .judul-ikon-biru { @apply bg-blue-50 text-blue-600 border border-blue-100; }
+  .judul-ikon-merah { @apply bg-red-50 text-red-600 border border-red-100; }
+  .judul-ikon-kuning { @apply bg-amber-50 text-amber-600 border border-amber-100; }
+  .judul-ikon-hijau { @apply bg-emerald-50 text-emerald-600 border border-emerald-100; }
+  .judul-ikon-gelap { @apply bg-slate-900 text-white; }
   .konten { @apply w-full max-w-[96rem] mx-auto px-6; }
   .halaman-judul h1 { @apply text-xl font-bold text-slate-900 tracking-tight; }
   .halaman-judul p { @apply text-sm text-slate-500 mt-0.5; }

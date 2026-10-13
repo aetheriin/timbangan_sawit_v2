@@ -3,7 +3,7 @@ ubah = KTU / HO (tetapkan / kembalikan). Diatur di Admin › Level & Hak Akses."
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils import db_kelebihan_do as db, notifikasi
+from utils import db_kelebihan_do as db, notifikasi, pengaturan
 from utils.hak_akses import izin, boleh
 from utils.area import area_data
 
@@ -14,7 +14,8 @@ kelebihan_do_bp = Blueprint("kelebihan_do", __name__)
 @login_required
 def halaman():
     return render_template("kelebihan_do/kelebihan_do.html", halaman="kelebihan_do",
-                           boleh_ajukan=boleh(db.MENU, "tambah"), boleh_tetapkan=boleh(db.MENU, "ubah"))
+                           boleh_ajukan=boleh(db.MENU, "tambah"), boleh_tetapkan=boleh(db.MENU, "ubah"),
+                           toleransi_kg=pengaturan.nilai("TOLERANSI_KELEBIHAN_DO"))
 
 
 @kelebihan_do_bp.route("/api/kelebihan-do")

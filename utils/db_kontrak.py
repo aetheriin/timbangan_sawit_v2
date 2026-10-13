@@ -8,7 +8,11 @@ CARA_ANGKUT = ("PENGIRIM", "PENERIMA", "PIHAK_KETIGA")
 
 _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transaksi, k.id_customer,
                     c.nama_supplier AS nama_customer, k.id_produk, p.nama_produk, k.tanggal AS tanggal_kontrak,
-                    k.qty_kg, k.harga_per_kg, k.keterangan, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at
+                    k.qty_kg, k.harga_per_kg, k.keterangan, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at,
+                    -- realisasi: total netto tiket DO ini (tanpa VOID)
+                    (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
+                     LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
+                     WHERE t.id_do = o.id_do AND t.status_alur <> 'VOID') AS realisasi_kg
              FROM delivery_order o
              JOIN kontrak k ON k.id_kontrak = o.id_kontrak
              JOIN mitra c ON c.id_supplier = k.id_customer

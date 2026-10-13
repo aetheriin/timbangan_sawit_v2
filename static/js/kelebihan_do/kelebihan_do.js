@@ -16,8 +16,12 @@ function filterKelebihan(el) {
 
 async function muatKelebihan() {
     const tbody = document.getElementById('tabelKelebihan');
-    const data = await ambilJson(`/api/kelebihan-do?status=${encodeURIComponent(statusKelebihan)}`);
-    if (data.error) { tbody.innerHTML = barisKosong(9, data.error); return; }
+    const semua = await ambilJson('/api/kelebihan-do?status=');       // semua status: untuk kartu ringkasan
+    if (semua.error) { tbody.innerHTML = barisKosong(9, semua.error); return; }
+    const jumlah = st => semua.filter(r => st.includes(r.status)).length;
+    document.getElementById('kpiMenungguDO').textContent = jumlah(['MENUNGGU', 'DIKEMBALIKAN']);
+    document.getElementById('kpiDiajukan').textContent = jumlah(['DIAJUKAN']);
+    const data = statusKelebihan ? semua.filter(r => r.status === statusKelebihan) : semua;
     dataKelebihan = data;
     const ajukan = tbody.dataset.bolehAjukan === '1', tetapkan = tbody.dataset.bolehTetapkan === '1';
     tbody.innerHTML = data.map(r => `

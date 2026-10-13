@@ -22,7 +22,7 @@ def _angka(v):
 def _json_do(d):
     return {**d, "tanggal_do": _tgl(d["tanggal_do"]), "berlaku_sampai": _tgl(d["berlaku_sampai"]),
             "tanggal_kontrak": _tgl(d["tanggal_kontrak"]), "created_at": _tgl(d["created_at"]),
-            "qty_kg": _angka(d["qty_kg"]), "harga_per_kg": _angka(d["harga_per_kg"]),
+            "qty_kg": _angka(d["qty_kg"]), "harga_per_kg": _angka(d["harga_per_kg"]), "realisasi_kg": _angka(d.get("realisasi_kg")),
             "angkutan": [{**a, "qty_kg": _angka(a["qty_kg"])} for a in d["angkutan"]]}
 
 

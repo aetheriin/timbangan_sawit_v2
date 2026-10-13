@@ -37,7 +37,7 @@
     <div class="section-box">
         {% call section_header('absensi-harian', 'Absensi Hari Ini') %}
         <div class="flex items-center gap-2" data-henti-klik>
-            <div id="chipKategoriAbsen" class="flex gap-1.5">
+            <div id="chipKategoriAbsen" class="seg flex-wrap">
                 <button type="button" class="chip chip-active" data-kategori="" data-on-click="filterAbsensi" data-arg="$el">Semua</button>
                 <button type="button" class="chip" data-kategori="DRIVER" data-on-click="filterAbsensi" data-arg="$el">Driver</button>
                 <button type="button" class="chip" data-kategori="SECURITY" data-on-click="filterAbsensi" data-arg="$el">Security</button>

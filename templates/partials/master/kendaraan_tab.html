@@ -1,8 +1,8 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="kendaraan" class="hidden">
 
-    <div class="flex flex-wrap items-center gap-2 mb-4">
-        <div class="flex gap-1.5">
+    <div class="filter-bar">
+        <div class="seg flex-wrap">
             <button type="button" class="chip chip-active" data-status="" data-on-click="filterStatusKendaraan" data-arg="$el">Semua</button>
             <button type="button" class="chip" data-status="1" data-on-click="filterStatusKendaraan" data-arg="$el">Aktif</button>
             <button type="button" class="chip" data-status="0" data-on-click="filterStatusKendaraan" data-arg="$el">Nonaktif</button>
