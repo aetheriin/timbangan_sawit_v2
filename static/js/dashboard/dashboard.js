@@ -1,17 +1,21 @@
-// ===== DASHBOARD HARGA =====
-// Empat ukuran dengan satuan berbeda -> satu kartu & satu grafik garis per ukuran (tidak digabung dua sumbu).
-// Satu seri per grafik: warna tunggal, judul kartu menjadi namanya. Tabel di bawah = tampilan data lengkap.
+// ===== DASHBOARD =====
+// Empat ukuran harga (satuan berbeda) -> satu kartu & satu grafik area per ukuran, warna per ukuran.
+// Di bawahnya arus penimbangan hari ini, status jembatan timbang, distribusi muatan; tabel riwayat harga paling bawah.
 const UKURAN = [
-    { kunci: 'harga_cpo', judul: 'Harga CPO', satuan: 'Rp/kg', desimal: 0 },
-    { kunci: 'harga_kernel', judul: 'Harga Kernel', satuan: 'Rp/kg', desimal: 0 },
-    { kunci: 'oer_cpo', judul: 'OER CPO', satuan: '%', desimal: 2 },
-    { kunci: 'biaya_olah', judul: 'Biaya Olah', satuan: 'Rp/kg TBS', desimal: 0 },
+    { kunci: 'harga_cpo', judul: 'Harga CPO', satuan: 'Rp/kg', desimal: 0, warna: '#2563eb', ket: 'vs penetapan sebelumnya' },
+    { kunci: 'harga_kernel', judul: 'Harga Kernel', satuan: 'Rp/kg', desimal: 0, warna: '#4f46e5', ket: 'vs penetapan sebelumnya' },
+    { kunci: 'oer_cpo', judul: 'OER CPO', satuan: 'Rendemen %', desimal: 2, warna: '#059669', ket: 'target ekstraksi pabrik' },
+    { kunci: 'biaya_olah', judul: 'Biaya Olah', satuan: 'Rp/kg TBS', desimal: 0, warna: '#0284c7', ket: 'standar biaya proses mill' },
 ];
-const WARNA_GARIS = '#2563eb';
 let hariDashboard = 30;
 let dataHarga = [];
 
-document.addEventListener('DOMContentLoaded', muatDashboard);
+const pollingArus = new Poller(muatArus, 30000);
+document.addEventListener('DOMContentLoaded', () => {
+    muatDashboard();
+    pollingArus.start();
+    if (location.hash === '#isi-harga' && document.getElementById('formHarga')) bukaIsiHarga();   // tombol Isi Harga di header
+});
 
 const angka = (v, d) => v == null ? '-' : Number(v).toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
 const tglPendek = s => new Date(`${s}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
@@ -35,27 +39,31 @@ async function muatDashboard() {
 function kartuUkuran(u) {
     const titik = dataHarga.filter(r => r[u.kunci] != null);
     const akhir = titik[titik.length - 1], sebelum = titik[titik.length - 2];
-    let ubah = '<span class="text-slate-400">Belum ada pembanding</span>';
+    let ubah = '<span class="text-slate-400 font-mono">Belum ada pembanding</span>';
     if (akhir && sebelum) {
         const d = akhir[u.kunci] - sebelum[u.kunci];
-        const arah = d > 0 ? '▲ naik' : d < 0 ? '▼ turun' : '● tetap';
-        ubah = `<span class="text-slate-600">${arah} ${angka(Math.abs(d), u.desimal)} dari ${tglPendek(sebelum.tanggal)}</span>`;
+        ubah = d > 0 ? `<span class="text-emerald-700 font-semibold font-mono"><i class="fa-solid fa-arrow-trend-up mr-1"></i>+${angka(d, u.desimal)}</span>`
+             : d < 0 ? `<span class="text-red-600 font-semibold font-mono"><i class="fa-solid fa-arrow-trend-down mr-1"></i>${angka(d, u.desimal)}</span>`
+             : '<span class="text-slate-400 font-mono">Stabil</span>';
     }
-    return `<div class="stat-card">
-        <div class="flex items-baseline justify-between gap-2">
-            <p class="stat-label">${u.judul} <span class="text-slate-400">(${u.satuan})</span></p>
-            <p class="text-xs text-slate-400">${akhir ? escapeHtml(tglPendek(akhir.tanggal)) : ''}</p>
+    const nilai = akhir ? angka(akhir[u.kunci], u.desimal) + (u.kunci === 'oer_cpo' ? '%' : '') : '-';
+    return `<div class="stat-card hover:shadow-md transition-shadow">
+        <div class="flex items-start justify-between gap-2">
+            <div>
+                <p class="text-sm font-medium text-slate-500">${u.judul} <span class="text-slate-400 font-normal">(${u.satuan})</span></p>
+                <p class="text-3xl font-bold font-mono tracking-tight text-slate-900 mt-1 tabular-nums">${nilai}</p>
+            </div>
+            ${akhir ? `<span class="kpi-tanggal">${escapeHtml(tglPendek(akhir.tanggal))}</span>` : ''}
         </div>
-        <p class="text-3xl font-semibold text-slate-800 mt-1">${akhir ? angka(akhir[u.kunci], u.desimal) : '-'}</p>
-        <p class="text-xs mt-1">${ubah}</p>
-        <div class="relative mt-3" id="grafik-${u.kunci}">${grafikGaris(titik, u)}
+        <p class="mt-3 flex items-center gap-2 text-xs">${ubah}<span class="text-slate-400">${u.ket}</span></p>
+        <div class="relative mt-4 pt-3 border-t border-slate-100" id="grafik-${u.kunci}">${grafikGaris(titik, u)}
             <div data-tooltip class="hidden absolute pointer-events-none bg-slate-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap"></div>
         </div>
     </div>`;
 }
 
-// Grafik garis SVG: garis 2px, grid & sumbu samar, label min / maks, titik akhir diberi penanda
-const G = { w: 560, h: 150, kiri: 8, kanan: 8, atas: 10, bawah: 22 };
+// Grafik area SVG: garis 2px + isian gradasi, label tanggal awal / akhir, titik akhir diberi penanda
+const G = { w: 280, h: 90, kiri: 4, kanan: 6, atas: 8, bawah: 18 };
 
 function skala(titik, u) {
     const nilai = titik.map(r => r[u.kunci]);
@@ -71,20 +79,23 @@ function skala(titik, u) {
 }
 
 function grafikGaris(titik, u) {
-    if (!titik.length) return `<p class="text-xs text-slate-400 py-8 text-center">Belum ada data ${hariDashboard} hari terakhir</p>`;
+    if (!titik.length) return `<p class="text-xs text-slate-400 py-6 text-center">Belum ada data ${hariDashboard} hari terakhir</p>`;
     const s = skala(titik, u);
     const jalur = titik.map((r, i) => `${i ? 'L' : 'M'}${s.x(i).toFixed(1)},${s.y(r[u.kunci]).toFixed(1)}`).join(' ');
+    const dasar = G.h - G.bawah;
+    const area = `${jalur} L${s.x(titik.length - 1).toFixed(1)},${dasar} L${s.x(0).toFixed(1)},${dasar} Z`;
     const akhir = titik.length - 1;
-    const grid = [0, 0.5, 1].map(f => { const y = G.atas + f * (G.h - G.atas - G.bawah);
-        return `<line x1="${G.kiri}" x2="${G.w - G.kanan}" y1="${y}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`; }).join('');
-    return `<svg viewBox="0 0 ${G.w} ${G.h}" class="w-full h-auto" role="img" aria-label="${u.judul} ${hariDashboard} hari">
-        ${grid}
-        <path d="${jalur}" fill="none" stroke="${WARNA_GARIS}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        <circle cx="${s.x(akhir)}" cy="${s.y(titik[akhir][u.kunci])}" r="4" fill="${WARNA_GARIS}" stroke="#fff" stroke-width="2"/>
-        <text x="${G.kiri}" y="${G.h - 6}" font-size="11" fill="#64748b">${escapeHtml(tglPendek(titik[0].tanggal))}</text>
-        <text x="${G.w - G.kanan}" y="${G.h - 6}" font-size="11" fill="#64748b" text-anchor="end">${escapeHtml(tglPendek(titik[akhir].tanggal))}</text>
-        <line data-silang x1="0" x2="0" y1="${G.atas}" y2="${G.h - G.bawah}" stroke="#94a3b8" stroke-width="1" visibility="hidden"/>
-        <circle data-titik r="5" fill="${WARNA_GARIS}" stroke="#fff" stroke-width="2" visibility="hidden"/>
+    return `<svg viewBox="0 0 ${G.w} ${G.h}" class="w-full h-auto overflow-visible" role="img" aria-label="${u.judul} ${hariDashboard} hari">
+        <defs><linearGradient id="gradasi-${u.kunci}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${u.warna}" stop-opacity="0.25"/><stop offset="100%" stop-color="${u.warna}" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path d="${area}" fill="url(#gradasi-${u.kunci})"/>
+        <path d="${jalur}" fill="none" stroke="${u.warna}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${s.x(akhir)}" cy="${s.y(titik[akhir][u.kunci])}" r="4" fill="${u.warna}" stroke="#fff" stroke-width="2"/>
+        <text x="${G.kiri}" y="${G.h - 3}" font-size="9" font-family="JetBrains Mono, monospace" fill="#94a3b8">${escapeHtml(tglPendek(titik[0].tanggal))}</text>
+        <text x="${G.w - G.kanan}" y="${G.h - 3}" font-size="9" font-family="JetBrains Mono, monospace" fill="#94a3b8" text-anchor="end">${escapeHtml(tglPendek(titik[akhir].tanggal))}</text>
+        <line data-silang x1="0" x2="0" y1="${G.atas}" y2="${dasar}" stroke="#94a3b8" stroke-width="1" visibility="hidden"/>
+        <circle data-titik r="4" fill="${u.warna}" stroke="#fff" stroke-width="2" visibility="hidden"/>
         <rect data-area x="0" y="0" width="${G.w}" height="${G.h}" fill="transparent"/>
     </svg>`;
 }
@@ -139,3 +150,60 @@ document.getElementById('formHarga')?.addEventListener('submit', e => {
     e.preventDefault();
     kirimFormAdmin(e.target, '/api/dashboard/harga/simpan', { modal: 'modalHarga', setelahnya: muatDashboard });
 });
+
+// ===== ARUS PENIMBANGAN HARI INI =====
+const WARNA_DISTRIBUSI = ['bg-blue-600', 'bg-emerald-600', 'bg-indigo-600', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500'];
+const TIKET_FINAL = ['SELESAI', 'REJECTED', 'VOID'];
+
+async function muatArus() {
+    const r = await Api.get('/api/dashboard/arus', { polling: true });
+    const d = r.data;
+    if (!d || d.error) return;
+    const s = d.ringkas;
+    const stat = (label, nilai, satuan) => `<div class="mini-stat"><p class="mini-stat-label">${label}</p>
+        <p class="mini-stat-nilai">${nilai} <span class="text-xs font-sans font-normal text-slate-500">${satuan}</span></p></div>`;
+    document.getElementById('arusRingkas').innerHTML =
+        stat('TBS diterima hari ini', angka((s.tbs_kg || 0) / 1000, 1), 'ton') +
+        stat('Truk masuk / selesai', `${angka(s.masuk || 0, 0)} / ${angka(s.selesai || 0, 0)}`, 'truk') +
+        stat('Truk di dalam', angka(s.di_dalam || 0, 0), 'truk') +
+        stat('Rata-rata siklus', s.siklus_menit != null ? angka(s.siklus_menit, 0) : '-', 'menit');
+
+    document.getElementById('tabelTerkini').innerHTML = d.terkini.map(t => {
+        const selesai = TIKET_FINAL.includes(t.status_alur);
+        return `<tr class="hover:bg-slate-50">
+            <td class="table-cell font-mono font-semibold text-slate-900 whitespace-nowrap">${escapeHtml(t.no_tiket)}</td>
+            <td class="table-cell font-mono whitespace-nowrap">${escapeHtml(t.no_plat)}</td>
+            <td class="table-cell font-semibold text-slate-700">${escapeHtml(t.produk)}</td>
+            <td class="table-cell text-slate-600 max-w-[12rem] truncate">${escapeHtml(t.customer)}</td>
+            <td class="table-cell text-right font-mono font-bold whitespace-nowrap">${t.netto != null ? `${angka(t.netto, 0)} kg` : '–'}</td>
+            <td class="table-cell">${badgeStatusTiket(t.status_alur)}</td>
+            <td class="table-cell text-right whitespace-nowrap">${selesai
+                ? `<a class="link-aksi text-blue-600" href="/cetak/tiket/${encodeURIComponent(t.no_tiket)}" target="_blank">Lihat Slip</a>`
+                : `<a class="link-aksi text-blue-600" href="/weighbridge?view=form&plat=${encodeURIComponent(t.no_plat)}">Buka</a>`}</td>
+        </tr>`;
+    }).join('') || barisKosong(7, 'Belum ada tiket');
+
+    document.getElementById('statusJembatan').innerHTML = d.jembatan.map(j => `
+        <div class="p-3 rounded-lg border border-slate-100 bg-slate-50/70">
+            <div class="flex items-center justify-between gap-2 text-sm font-semibold text-slate-800">
+                <span class="truncate">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</span>
+                <span class="font-mono text-[11px] ${j.terhubung ? 'text-emerald-700' : 'text-red-600'}">${j.terhubung ? (j.stabil ? 'STABIL' : 'TERHUBUNG') : 'TERPUTUS'}</span>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">${j.terhubung ? `Berat saat ini <span class="font-mono font-semibold text-slate-800">${angka(j.berat || 0, 0)} kg</span>`
+                : escapeHtml(j.error || 'Indikator tidak mengirim data')}</p>
+            <p class="mt-1 text-[11px] text-slate-400">${escapeHtml(j.area)}</p>
+        </div>`).join('') || '<p class="text-sm text-slate-400">Belum ada jembatan timbang aktif</p>';
+
+    const total = d.distribusi.reduce((a, x) => a + (x.netto || 0), 0);
+    document.getElementById('distribusiMuatan').innerHTML = d.distribusi.map((x, i) => {
+        const persen = total ? (x.netto / total) * 100 : 0;
+        return `<div>
+            <div class="flex items-center justify-between text-sm text-slate-600 mb-1">
+                <span class="font-medium">${escapeHtml(x.produk)} <span class="text-xs text-slate-400 font-mono">${angka(x.netto / 1000, 1)} ton</span></span>
+                <span class="font-mono font-bold text-slate-900">${angka(persen, 1)}%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full ${WARNA_DISTRIBUSI[i % WARNA_DISTRIBUSI.length]} rounded-full" style="width:${persen.toFixed(1)}%"></div>
+            </div></div>`;
+    }).join('') || '<p class="text-sm text-slate-400">Belum ada muatan selesai hari ini</p>';
+}

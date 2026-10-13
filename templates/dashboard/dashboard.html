@@ -6,28 +6,66 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-<div class="page-header">
-    <div class="page-header-icon"><i class="fa-solid fa-chart-line"></i></div>
+<div class="halaman-judul">
     <div>
-        <h1 class="text-sm font-semibold">Dashboard</h1>
+        <h1>Dashboard Indikator Pasar &amp; Timbangan</h1>
+        <p>Harga referensi CPO &amp; kernel, OER, biaya olah, dan arus penimbangan hari ini.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <div class="seg">
+            {% for h in (7, 30, 90) %}
+            <button type="button" class="chip{% if h == 30 %} chip-active{% endif %}" data-hari="{{ h }}" data-on-click="filterHariDashboard" data-arg="$el">{{ h }} Hari</button>
+            {% endfor %}
+        </div>
+        {% if boleh_ubah %}
+        <button type="button" class="btn-primary" data-on-click="bukaIsiHarga"><i class="fa-solid fa-plus"></i> Isi Harga</button>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block tab_content %}
-<div class="flex flex-wrap items-center gap-2 mb-4">
-    <div class="flex gap-1.5">
-        {% for h in (7, 30, 90) %}
-        <button type="button" class="chip{% if h == 30 %} chip-active{% endif %}" data-hari="{{ h }}" data-on-click="filterHariDashboard" data-arg="$el">{{ h }} Hari</button>
-        {% endfor %}
-    </div>
-    <div class="flex-1"></div>
-    {% if boleh_ubah %}
-    <button type="button" class="btn-primary" data-on-click="bukaIsiHarga"><i class="fa-solid fa-plus mr-1"></i> Isi Harga</button>
-    {% endif %}
-</div>
+<div id="kartuDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
 
-<div id="kartuDashboard" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4"></div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
+    <div class="card xl:col-span-2">
+        <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">Arus Penimbangan Hari Ini</h2>
+                <p class="text-xs text-slate-500">Tiket yang dibuat hari ini di area Anda</p>
+            </div>
+            <a href="/weighbridge?view=form&amp;tab=timbangan" class="btn-light btn-sm"><i class="fa-solid fa-scale-balanced"></i> Buka Stasiun Timbang</a>
+        </div>
+        <div id="arusRingkas" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4"></div>
+        <p class="text-xs font-bold text-slate-800 uppercase tracking-wider mt-5 mb-2">Tiket timbangan terkini</p>
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">No. Tiket</th><th class="table-cell">Plat</th><th class="table-cell">Produk</th>
+                        <th class="table-cell">Customer</th><th class="table-cell text-right">Netto</th>
+                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody id="tabelTerkini" class="divide-y divide-slate-100">
+                    <tr><td colspan="7" class="table-cell text-slate-400 text-center py-6">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card space-y-5">
+        <div>
+            <div class="pb-3 border-b border-slate-100">
+                <h2 class="text-sm font-bold text-slate-900">Status Jembatan Timbang</h2>
+                <p class="text-xs text-slate-500">Koneksi indikator dan berat saat ini</p>
+            </div>
+            <div id="statusJembatan" class="mt-4 space-y-3"></div>
+        </div>
+        <div>
+            <p class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Distribusi muatan hari ini</p>
+            <div id="distribusiMuatan" class="space-y-2.5"></div>
+        </div>
+    </div>
+</div>
 
 <div class="section-box">
     {{ section_header('riwayat-harga', 'Riwayat Harga') }}

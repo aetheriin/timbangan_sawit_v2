@@ -4,7 +4,10 @@ from datetime import date
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga
+from utils.area import area_data
+from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga, arus_hari_ini
+from utils.db_jembatan import daftar_jembatan
+from utils.serial_reader import baca_status
 from utils.hak_akses import izin, boleh
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -43,3 +46,30 @@ def dashboard_harga_simpan():
         return jsonify({"error": "Tanggal tidak boleh setelah hari ini"}), 400
     simpan_harga(tanggal, nilai, current_user.id)
     return jsonify({"message": f"Harga {tanggal:%d-%m-%Y} disimpan"})
+
+
+def _angka(v):
+    return float(v) if v is not None else None
+
+
+@dashboard_bp.route("/api/dashboard/arus")
+@login_required
+def dashboard_arus():
+    """Arus penimbangan hari ini + status jembatan timbang (area user; area pusat = semua)."""
+    id_area = area_data(current_user.id)
+    ringkas, distribusi, terkini = arus_hari_ini(id_area)
+    try:
+        jembatan = [j for j in daftar_jembatan() if j["is_active"] and (id_area is None or j["id_comp_area"] == id_area)]
+    except Exception:       # noqa: BLE001 - tabel jembatan belum ada
+        jembatan = []
+    status = []
+    for j in jembatan:
+        st = baca_status(j["id_jembatan"])
+        status.append({"kode": j["kode"], "nama": j["nama"], "area": j["area"], "terhubung": bool(st.get("terhubung")),
+                       "berat": st.get("berat"), "stabil": bool(st.get("stabil")), "error": st.get("error")})
+    return jsonify({
+        "ringkas": {k: _angka(v) for k, v in ringkas.items()},
+        "distribusi": [{"produk": r["produk"], "netto": _angka(r["netto"])} for r in distribusi],
+        "terkini": [{**r, "netto": _angka(r["netto"]), "created_at": r["created_at"].strftime("%H:%M")} for r in terkini],
+        "jembatan": status,
+    })

@@ -5,7 +5,6 @@
 @layer base {
   html { font-size: 81.25%; }               /* 13px: padat untuk layar operator, tetap terbaca */
   body { @apply text-slate-900 bg-slate-50; }
-  .font-mono, kbd { font-feature-settings: "zero" 1; }
 }
 
 @layer components {
@@ -61,6 +60,15 @@
   .page-header h1 { @apply text-xl font-bold text-slate-900 tracking-tight; }
   .page-header-icon { @apply w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white flex items-center justify-center text-sm shadow-sm shadow-blue-500/20; }
   .page-header-sub { @apply text-sm text-slate-500; }
+  .halaman-judul { @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 mx-6 mt-6 pb-4 border-b border-slate-200; }
+  .halaman-judul h1 { @apply text-xl font-bold text-slate-900 tracking-tight; }
+  .halaman-judul p { @apply text-sm text-slate-500 mt-0.5; }
+  .seg .chip { @apply border-0 bg-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent rounded-md; }
+  .seg .chip-active { @apply bg-white text-slate-900 shadow-sm hover:bg-white; }
+  .kpi-tanggal { @apply text-[11px] font-medium text-slate-400 px-2 py-0.5 bg-slate-50 border border-slate-100 rounded; }
+  .mini-stat { @apply p-3 rounded-lg border border-slate-100 bg-slate-50/70; }
+  .mini-stat-label { @apply text-xs text-slate-500; }
+  .mini-stat-nilai { @apply text-xl font-bold font-mono text-slate-900 mt-1; }
   .stat-card { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-5; }
   .stat-label { @apply text-sm font-medium text-slate-500; }
   .stat-value { @apply text-2xl font-bold text-slate-900 mt-1 font-mono tracking-tight; }
