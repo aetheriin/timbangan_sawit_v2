@@ -1,5 +1,7 @@
 // ===== PENCARIAN GLOBAL (header › Cari, Ctrl+K) =====
-// Kosong: aksi cepat + menu. Diketik (min 2 huruf): menu yang cocok + hasil server (tiket, personel, kendaraan / akun).
+// Kosong: aksi cepat + pencarian terakhir + menu. Diketik (min 2 huruf): menu yang cocok + hasil server
+// (tiket, DO / kontrak, personel, kendaraan; admin: akun). Kata yang hasilnya dibuka disimpan sebagai
+// "pencarian terakhir" (5 terakhir, per user, di browser ini).
 const CARI_ADMIN = !!document.querySelector('.sidebar-link[href^="/admin"]');
 let cariTimer = null, cariUrutan = 0, cariPilih = 0;
 
@@ -10,6 +12,27 @@ function bukaCari() {
     const input = document.getElementById('cariInput');
     input.value = '';
     tampilkanCari('', null);
+    input.focus();
+}
+
+const KUNCI_RIWAYAT_CARI = `cari-terakhir:${document.body.dataset.user || '-'}`;
+function riwayatCari() {
+    try { return JSON.parse(localStorage.getItem(KUNCI_RIWAYAT_CARI)) || []; } catch (e) { return []; }
+}
+function simpanRiwayatCari(kata) {
+    if (kata.length < 2) return;
+    const daftar = [kata, ...riwayatCari().filter(k => k.toLowerCase() !== kata.toLowerCase())].slice(0, 5);
+    try { localStorage.setItem(KUNCI_RIWAYAT_CARI, JSON.stringify(daftar)); } catch (e) { /* abaikan */ }
+}
+function hapusRiwayatCari() {
+    try { localStorage.removeItem(KUNCI_RIWAYAT_CARI); } catch (e) { /* abaikan */ }
+    tampilkanCari('', null);
+    document.getElementById('cariInput').focus();
+}
+function isiCari(kata) {
+    const input = document.getElementById('cariInput');
+    input.value = kata;
+    input.dispatchEvent(new Event('input'));
     input.focus();
 }
 
@@ -51,6 +74,14 @@ function tampilkanCari(kata, data) {
     if (!k) {
         html += `<div><div class="cari-grup-judul"><span>Aksi cepat</span></div><div class="grid grid-cols-3 gap-2">${aksiCepat().map(a =>
             `<a href="${escapeHtml(a.url)}" class="cari-aksi" data-cari-item><span class="cari-ikon"><i class="${escapeHtml(a.ikon)}"></i></span>${escapeHtml(a.judul)}</a>`).join('')}</div></div>`;
+        const riwayat = riwayatCari();
+        if (riwayat.length) {
+            html += `<div><div class="cari-grup-judul"><span>Pencarian terakhir</span>
+                <button type="button" class="normal-case font-semibold text-blue-600 hover:underline" data-on-click="hapusRiwayatCari">Hapus</button></div>
+                <div class="space-y-0.5">${riwayat.map(r => `<button type="button" class="cari-item w-full text-left" data-cari-item
+                    data-on-click="isiCari" data-arg="${escapeHtml(r.replace(/\|/g, ' '))}"><span class="cari-ikon"><i class="fa-solid fa-clock-rotate-left text-slate-400"></i></span>
+                    <span class="flex-1 font-mono font-semibold text-slate-800 truncate">${escapeHtml(r)}</span></button>`).join('')}</div></div>`;
+        }
     }
     html += grupCari('Menu', menu.map(m => itemCari({ url: m.url, ikon: `<i class="${escapeHtml(m.ikon)}"></i>`,
         kiri: `<span class="font-semibold text-slate-800">${escapeHtml(m.judul)}</span>` })).join(''));
@@ -66,6 +97,17 @@ function tampilkanCari(kata, data) {
                         <span class="block text-[11px] text-slate-500">${selesai ? escapeHtml(t.created_at) : badgeStatusTiket(t.status_alur)}</span>`,
             });
         }).join(''), 'klik untuk buka');
+        html += grupCari(`DO / Kontrak (${(data.do || []).length})`, (data.do || []).map(d => {
+            const persen = d.qty_kg ? Math.round((d.realisasi_kg || 0) / d.qty_kg * 100) : null;
+            return itemCari({
+                url: `/kontrak?cari=${encodeURIComponent(d.no_do)}`, ikon: '<i class="fa-solid fa-file-contract text-indigo-600"></i>',
+                kiri: `<span class="block font-mono font-semibold text-slate-900 truncate">${escapeHtml(d.no_do)}
+                       ${d.is_active ? '' : '<span class="ml-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded">NONAKTIF</span>'}</span>
+                       <span class="block text-xs text-slate-500 truncate">${escapeHtml(d.no_kontrak)} · ${escapeHtml(d.customer)} · ${escapeHtml(d.produk)}</span>`,
+                kanan: persen == null ? '' : `<span class="block font-mono font-bold ${persen > 100 ? 'text-red-600' : 'text-slate-900'}">${persen}%</span>
+                       <span class="block text-[11px] text-slate-500">${kgCari(d.realisasi_kg || 0)} / ${kgCari(d.qty_kg)}</span>`,
+            });
+        }).join(''));
         html += grupCari(`Personel (${data.personel.length})`, data.personel.map(p => itemCari({
             url: p.kategori === 'DRIVER' ? '/master?tab=personel' : '/face-recognition?tab=personel',
             ikon: `<span class="font-mono text-[10px] font-bold">${escapeHtml((p.nama_personel || '?').slice(0, 2).toUpperCase())}</span>`,
@@ -113,6 +155,11 @@ document.getElementById('cariInput')?.addEventListener('input', e => {
         if (nomor !== cariUrutan) return;                 // ketikan sudah berubah, hasil lama dibuang
         tampilkanCari(kata, data.error ? null : data);
     }, 250);
+});
+
+// Hasil yang dibuka -> kata pencariannya disimpan sebagai "pencarian terakhir"
+document.getElementById('cariHasil')?.addEventListener('click', e => {
+    if (e.target.closest('a[data-cari-item]')) simpanRiwayatCari(document.getElementById('cariInput').value.trim());
 });
 
 document.getElementById('cariInput')?.addEventListener('keydown', e => {

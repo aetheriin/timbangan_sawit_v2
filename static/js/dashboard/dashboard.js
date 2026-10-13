@@ -12,6 +12,8 @@ let dataHarga = [];
 
 const pollingArus = new Poller(muatArus, 30000);
 document.addEventListener('DOMContentLoaded', () => {
+    const hariTersimpan = document.querySelector(`[data-hari="${Number(Pilihan.ambil('hari'))}"]`);
+    if (hariTersimpan) { aktifkanChip(hariTersimpan); hariDashboard = Number(hariTersimpan.dataset.hari); }
     muatDashboard();
     pollingArus.start();
     if (location.hash === '#isi-harga' && document.getElementById('formHarga')) bukaIsiHarga();   // tombol Isi Harga di header
@@ -23,6 +25,7 @@ const tglPendek = s => new Date(`${s}T00:00:00`).toLocaleDateString('id-ID', { d
 function filterHariDashboard(el) {
     aktifkanChip(el);
     hariDashboard = Number(el.dataset.hari);
+    Pilihan.simpan('hari', hariDashboard);
     muatDashboard();
 }
 
@@ -170,7 +173,7 @@ async function muatArus() {
 
     document.getElementById('tabelTerkini').innerHTML = d.terkini.map(t => {
         const selesai = TIKET_FINAL.includes(t.status_alur);
-        return `<tr class="hover:bg-slate-50">
+        return `<tr class="hover:bg-slate-50" data-jejak="${escapeHtml(`${t.no_tiket}|${t.status_alur}`)}">
             <td class="table-cell font-mono font-semibold text-slate-900 whitespace-nowrap">${escapeHtml(t.no_tiket)}</td>
             <td class="table-cell font-mono whitespace-nowrap">${escapeHtml(t.no_plat)}</td>
             <td class="table-cell font-semibold text-slate-700">${escapeHtml(t.produk)}</td>

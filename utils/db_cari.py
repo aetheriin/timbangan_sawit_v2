@@ -1,4 +1,4 @@
-"""Pencarian global (header › Cari / Ctrl+K): tiket, personel, kendaraan; admin: akun."""
+"""Pencarian global (header › Cari / Ctrl+K): tiket, DO / kontrak, personel, kendaraan; admin: akun."""
 from utils.db_utils import get_connection, _rows_to_dicts, _filter_area
 
 
@@ -34,6 +34,23 @@ def cari_tiket(kata, id_area=None, batas=8):
         WHERE (t.no_tiket LIKE ? OR REPLACE(k.no_plat, ' ', '') LIKE REPLACE(?, ' ', '') OR t.no_do LIKE ?
                OR d.nama_personel LIKE ? OR s.nama_supplier LIKE ?){filter_area}
         ORDER BY t.created_at DESC""", pola, pola, pola, pola, pola, *param_area)
+
+
+def cari_do(kata, batas=5):
+    """DO / kontrak: no. DO, no. kontrak, atau nama customer. Realisasi = total netto tiket DO (tanpa VOID)."""
+    pola = _pola(kata)
+    return _query(f"""
+        SELECT TOP {int(batas)} o.no_do, k.no_kontrak, c.nama_supplier AS customer, p.nama_produk AS produk,
+               k.qty_kg, o.is_active, o.berlaku_sampai,
+               (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
+                LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
+                WHERE t.id_do = o.id_do AND t.status_alur <> 'VOID') AS realisasi_kg
+        FROM delivery_order o
+        JOIN kontrak k ON k.id_kontrak = o.id_kontrak
+        JOIN mitra c ON c.id_supplier = k.id_customer
+        JOIN produk p ON p.id_produk = k.id_produk
+        WHERE o.no_do LIKE ? OR k.no_kontrak LIKE ? OR c.nama_supplier LIKE ?
+        ORDER BY o.is_active DESC, o.created_at DESC""", pola, pola, pola)
 
 
 def cari_personel(kata, batas=5):

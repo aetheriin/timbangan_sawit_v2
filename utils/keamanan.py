@@ -90,7 +90,7 @@ def cek_secret(app):
 BATAS_COOKIE_JAM = 24
 # Request otomatis (polling) tidak dihitung sebagai aktivitas, supaya layar yang ditinggal tetap logout
 PATH_POLLING = ("/api/timbang/status", "/health", "/api/notifikasi", "/api/dashboard/arus",
-                "/api/admin/sesi")
+                "/api/admin/sesi", "/api/security/list-tiket-aktif")
 
 
 def pasang_cookie(app):

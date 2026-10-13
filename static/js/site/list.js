@@ -1,8 +1,12 @@
 // ===== HALAMAN LIST: tiket aktif per tahap + history per produk 7 hari =====
 // Tahap tiket = siapa yang harus memproses berikutnya: Timbangan, Sortasi / Lab (sesuai alur mill), Timbangan lagi.
 // Tab Security = semua tiket aktif (truk yang masih di dalam) + posisinya. Lama di dalam ada di History.
+// Tiket aktif dimuat ulang tiap 15 detik; tiket baru / yang pindah tahap disorot sebentar (Halaman.sorot).
+// Pilihan tahap & produk history diingat per user (Pilihan di common.js).
 let daftarTiket = [];
 let tahapAktif = '';
+let tiketSudahDimuat = false;
+const jejakTiket = t => `${t.no_tiket}|${t.status_alur}`;
 
 function tahapTiket(t) {
     if (t.status_alur === 'SECURITY_REGISTER') return ['timbangan'];
@@ -16,15 +20,21 @@ function tahapTiket(t) {
 const LABEL_TAHAP = { security: 'Security', timbangan: 'Timbangan', sortasi: 'Sortasi', lab: 'Laboratorium' };
 
 document.addEventListener('DOMContentLoaded', () => {
-    tahapAktif = document.getElementById('chipTahap').dataset.awal || '';
-    muatTiketAktif();
+    const chip = document.getElementById('chipTahap');
+    const tersimpan = Pilihan.ambil('tahap');
+    tahapAktif = tersimpan != null && chip.querySelector(`[data-tahap="${CSS.escape(tersimpan)}"]`) ? tersimpan : chip.dataset.awal || '';
+    aktifkanChip(chip.querySelector(`[data-tahap="${CSS.escape(tahapAktif)}"]`));
+    new Poller(muatTiketAktif, 15000).start();
     muatHistoryProduk();
 });
 
 async function muatTiketAktif() {
-    const data = await ambilJson('/api/security/list-tiket-aktif');
+    const data = await ambilJson('/api/security/list-tiket-aktif', { polling: tiketSudahDimuat });
     const tbody = document.getElementById('tabelTicketAktif');
-    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
+    if (data.error) { if (!tiketSudahDimuat) tbody.innerHTML = barisKosong(7, data.error); return; }
+    // Muatan pertama: semua tiket dianggap sudah dikenal (tidak disorot walau tab tahap diganti)
+    if (!tiketSudahDimuat) Halaman.kenali(tbody, data.map(jejakTiket));
+    tiketSudahDimuat = true;
     daftarTiket = data;
     tampilkanTiket();
 }
@@ -40,7 +50,7 @@ function tampilkanTiket() {
         // Tab tujuan saat "Buka": tahap yang dipilih, atau tahap berikutnya tiket ini
         const tab = tahapAktif && tahapAktif !== 'security' ? tahapAktif : tahapTiket(t).slice(-1)[0];
         const menunggu = { SECURITY_REGISTER: 'Timbang 1', TIMBANG_2: 'Timbang 2' }[t.status_alur] || LABEL_TAHAP[tahapTiket(t)[0]];
-        return `<tr class="hover:bg-slate-50">
+        return `<tr class="hover:bg-slate-50" data-jejak="${escapeHtml(jejakTiket(t))}">
             <td class="table-cell">${duaBaris(escapeHtml(t.no_tiket), escapeHtml(t.created_at), true)}</td>
             <td class="table-cell">${duaBaris(escapeHtml(t.no_plat), escapeHtml(t.supir), true)}</td>
             <td class="table-cell">${duaBaris(`<span class="font-semibold">${escapeHtml(t.produk)}</span>`, escapeHtml(labelKode(t.jenis_transaksi)))}</td>
@@ -61,6 +71,7 @@ function tampilkanTiket() {
 function filterTahap(el) {
     aktifkanChip(el);
     tahapAktif = el.dataset.tahap;
+    Pilihan.simpan('tahap', tahapAktif);
     tampilkanTiket();
 }
 

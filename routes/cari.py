@@ -22,15 +22,22 @@ def _waktu(r):
     return {**r, "created_at": f"{w.day} {BULAN[w.month - 1]} {w.year}, {w:%H:%M}" if w else None}
 
 
+def _angka(v):
+    return float(v) if v is not None else None
+
+
 @cari_bp.route("/api/cari")
 @login_required
 def cari():
     kata = _kata()
     if len(kata) < MIN_HURUF:
-        return jsonify({"tiket": [], "personel": [], "kendaraan": []})
+        return jsonify({"tiket": [], "do": [], "personel": [], "kendaraan": []})
     return jsonify({
         "tiket": [_waktu({**r, "netto": float(r["netto"]) if r["netto"] is not None else None})
                   for r in db_cari.cari_tiket(kata, area_data(current_user.id))],
+        "do": [{**r, "qty_kg": _angka(r["qty_kg"]), "realisasi_kg": _angka(r["realisasi_kg"]),
+                "berlaku_sampai": str(r["berlaku_sampai"])[:10] if r["berlaku_sampai"] else None}
+               for r in db_cari.cari_do(kata)],
         "personel": db_cari.cari_personel(kata),
         "kendaraan": db_cari.cari_kendaraan(kata),
     })

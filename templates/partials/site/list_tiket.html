@@ -20,9 +20,15 @@
 </div>
 
 <div class="card p-0 overflow-hidden mb-5">
-    <div class="px-5 py-3.5 border-b border-slate-100">
-        <h2 class="text-sm font-bold text-slate-900">Tiket Aktif</h2>
-        <p class="text-xs text-slate-500">Truk yang masih di dalam, beserta tahap yang ditunggu</p>
+    <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-sm font-bold text-slate-900">Tiket Aktif</h2>
+            <p class="text-xs text-slate-500">Truk yang masih di dalam, beserta tahap yang ditunggu · diperbarui otomatis tiap 15 detik</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelTicketAktif|xlsx|Tiket Aktif" title="Unduh Excel (semua baris yang tampil)"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelTicketAktif|pdf|Tiket Aktif" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
+        </div>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -31,7 +37,7 @@
                     <th class="table-cell">Customer &amp; DO</th><th class="table-cell">Status</th>
                     <th class="table-cell">Menunggu</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
-            <tbody data-per-halaman="20" id="tabelTicketAktif" class="divide-y divide-slate-100">
+            <tbody data-per-halaman="20" data-sorot id="tabelTicketAktif" class="divide-y divide-slate-100">
                 <tr><td colspan="7" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
             </tbody>
         </table>
@@ -44,10 +50,16 @@
             <h2 class="text-sm font-bold text-slate-900">Riwayat Penimbangan (7 Hari Terakhir)</h2>
             <p class="text-xs text-slate-500">Bruto, tara, netto, dan lama truk di dalam</p>
         </div>
-        <select id="filterProdukHistory" class="input-field w-52" data-on-change="muatHistoryProduk">
+        <div class="flex flex-wrap items-center gap-2">
+        <select id="filterProdukHistory" data-simpan="produk_history" class="input-field w-52" data-on-change="muatHistoryProduk">
             <option value="">Semua produk</option>
             {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
         </select>
+        <div class="flex items-center gap-1.5">
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHistoryProduk|xlsx|Riwayat Penimbangan" title="Unduh Excel (semua baris yang tampil)"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHistoryProduk|pdf|Riwayat Penimbangan" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
+        </div>
+        </div>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">

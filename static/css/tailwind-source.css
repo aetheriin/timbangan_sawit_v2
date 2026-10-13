@@ -182,6 +182,29 @@
   to { opacity: 1; transform: none; }
 }
 
+/* ===== Tabel: kepala menempel di bawah header (halaman.js), sorot data baru, cetak PDF ===== */
+.tabel-lekat, .lekat-induk { overflow: clip; }
+.tabel-lekat > table > thead th { position: sticky; top: 4rem; z-index: 5; background-color: #f8fafc; box-shadow: inset 0 -1px 0 #e2e8f0; }
+@keyframes sorot-baru { from { background-color: #fef3c7; } to { background-color: transparent; } }
+.baris-baru > td { animation: sorot-baru 6s ease-out; }
+.baris-baru > td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+
+/* Ekspor PDF tabel (ekspor.js): saat dicetak hanya #areaCetakTabel yang tampil, A4 mendatar */
+#areaCetakTabel { display: none; }
+@page lanskap { size: A4 landscape; margin: 10mm; }
+@media print {
+  body.mode-cetak-tabel > *:not(#areaCetakTabel) { display: none !important; }
+  body.mode-cetak-tabel #areaCetakTabel { display: block; page: lanskap; color: #000; font-size: 9pt; }
+  #areaCetakTabel h1 { font-size: 14pt; font-weight: 700; margin: 0 0 2pt; }
+  #areaCetakTabel p { font-size: 8pt; color: #475569; margin: 0 0 8pt; }
+  #areaCetakTabel table { width: 100%; border-collapse: collapse; }
+  #areaCetakTabel thead { display: table-header-group; }
+  #areaCetakTabel tr { break-inside: avoid; }
+  #areaCetakTabel th, #areaCetakTabel td { border: 1px solid #cbd5e1; padding: 3pt 5pt; text-align: left; vertical-align: top; }
+  #areaCetakTabel th { background: #e2e8f0; font-weight: 700; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #areaCetakTabel .kanan { text-align: right; font-variant-numeric: tabular-nums; }
+}
+
 /* ===================== MODE GELAP (html.dark, static/js/tema.js) =====================
    Hanya sidebar + header yang gelap; isi halaman tetap terang supaya tabel, badge, dan form
    tetap jelas. Ditulis di luar @layer supaya selalu ikut ter-build. Panel notifikasi tetap terang. */

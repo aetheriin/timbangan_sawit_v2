@@ -45,7 +45,7 @@
                         <th class="table-cell">Customer</th><th class="table-cell text-right">Netto</th>
                         <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
                 </thead>
-                <tbody id="tabelTerkini" class="divide-y divide-slate-100">
+                <tbody id="tabelTerkini" data-sorot class="divide-y divide-slate-100">
                     <tr><td colspan="7" class="table-cell text-slate-400 text-center py-6">Memuat data...</td></tr>
                 </tbody>
             </table>
@@ -74,6 +74,10 @@
 <div class="section-box">
     {{ section_header('riwayat-harga', 'Riwayat Harga') }}
     <div id="body-riwayat-harga" class="section-body overflow-x-auto">
+        <div class="flex justify-end gap-1.5 px-4 pt-3">
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHarga|xlsx|Riwayat Harga" title="Unduh Excel"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
+            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHarga|pdf|Riwayat Harga" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
+        </div>
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
                 <tr><th class="table-cell">Tanggal</th><th class="table-cell text-right">Harga CPO (Rp/kg)</th><th class="table-cell text-right">Harga Kernel (Rp/kg)</th>

@@ -34,6 +34,7 @@ function switchTab(tabName) {
         el.classList.toggle('hidden', el.dataset.tabContent !== tabName);
     });
     setUrlParam('tab', tabName);
+    Pilihan.simpan('tab', tabName);
     window.dispatchEvent(new CustomEvent('tabChange', { detail: tabName }));
 }
 
@@ -42,11 +43,11 @@ function toggleSection(id) {
     document.getElementById(`chevron-${id}`).classList.toggle('section-chevron-collapsed');
 }
 
-// Tab awal: ?tab=... atau <meta name="tab-awal"> (sesuai role), selain itu tab pertama
+// Tab awal: ?tab=..., tab terakhir yang dibuka user ini, <meta name="tab-awal"> (sesuai role), selain itu tab pertama
 document.addEventListener('DOMContentLoaded', () => {
     const tabs = daftarTab();
     if (!tabs.length) return;
-    const minta = new URLSearchParams(window.location.search).get('tab')
-        || document.querySelector('meta[name="tab-awal"]')?.content;
-    switchTab(tabs.includes(minta) ? minta : tabs[0]);
+    const awal = [new URLSearchParams(window.location.search).get('tab'), Pilihan.ambil('tab'),
+                  document.querySelector('meta[name="tab-awal"]')?.content];
+    switchTab(awal.find(t => tabs.includes(t)) || tabs[0]);
 });

@@ -4,7 +4,12 @@ let filterAktifDO = '';
 let timerCariDO = null;
 const bolehUbahDO = () => document.getElementById('tabelDO').dataset.bolehUbah === '1';
 
-document.addEventListener('DOMContentLoaded', muatDO);
+// ?cari=NO_DO dari pencarian global (Ctrl+K) -> kotak cari langsung terisi
+document.addEventListener('DOMContentLoaded', () => {
+    const cari = new URLSearchParams(location.search).get('cari');
+    if (cari) document.getElementById('cariDO').value = cari;
+    muatDO();
+});
 
 async function muatDO() {
     const q = document.getElementById('cariDO').value.trim();

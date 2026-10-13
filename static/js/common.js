@@ -141,3 +141,21 @@ document.addEventListener('DOMContentLoaded', () => {
     new MutationObserver(daftar => daftar.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) ikonkanAksi(n); })))
         .observe(document.body, { childList: true, subtree: true });
 });
+
+// ===== PILIHAN TERSIMPAN PER USER (filter, tab, jumlah baris) =====
+// Disimpan di browser ini (localStorage), dipisah per user & per halaman. Gagal simpan (mode privat) diabaikan.
+// <select data-simpan="nama"> / <input data-simpan="nama">: nilai dipulihkan saat halaman dibuka & disimpan saat berubah.
+const Pilihan = {
+    kunci(nama) { return `pilihan:${document.body.dataset.user || '-'}:${location.pathname}:${nama}`; },
+    ambil(nama) { try { return localStorage.getItem(this.kunci(nama)); } catch (e) { return null; } },
+    simpan(nama, nilai) { try { localStorage.setItem(this.kunci(nama), nilai); } catch (e) { /* abaikan */ } },
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-simpan]').forEach(el => {
+        const nilai = Pilihan.ambil(el.dataset.simpan);
+        // Pilihan lama yang sudah tidak ada di daftar (mis. produk dihapus) tidak dipulihkan
+        if (nilai != null && (el.tagName !== 'SELECT' || [...el.options].some(o => o.value === nilai))) el.value = nilai;
+        el.addEventListener('change', () => Pilihan.simpan(el.dataset.simpan, el.value));
+    });
+});
