@@ -43,6 +43,7 @@
 
 {% block modals %}{% endblock %}
 {% include "partials/layout/notifikasi.html" %}
+{% if current_user.is_authenticated %}{% include "partials/layout/cari.html" %}{% endif %}
 
 {# Semua script defer: diunduh paralel, dijalankan berurutan setelah HTML selesai dibaca #}
 <script defer src="{{ url_for('static', filename='js/common.js') }}"></script>
@@ -53,6 +54,7 @@
 <script defer src="{{ url_for('static', filename='js/ui.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/base.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/notifikasi.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/cari.js') }}"></script>
 {% block info_bar_script %}
 <script defer src="{{ url_for('static', filename='js/info_bar.js') }}"></script>
 {% endblock %}
