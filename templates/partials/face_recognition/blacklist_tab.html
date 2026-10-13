@@ -20,7 +20,19 @@
         {% endif %}
     </div>
 
-    <p id="totalBlacklist" class="text-xs text-slate-500 mb-3">Memuat...</p>
-    {# Satu kartu per blacklist (ala prototipe): target besar, badge DILARANG MASUK, alasan di kotak merah #}
-    <div id="kartuBlacklist" data-boleh-tambah="{{ 1 if boleh_blacklist else 0 }}" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+    <div class="card p-0 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-bold text-slate-900">Daftar Blacklist</h2>
+            <p id="totalBlacklist" class="text-xs text-slate-500">Memuat...</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Target</th><th class="table-cell">Alasan &amp; Bukti</th><th class="table-cell">Surat</th>
+                        <th class="table-cell">Ditetapkan</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody data-per-halaman="20" id="kartuBlacklist" data-boleh-tambah="{{ 1 if boleh_blacklist else 0 }}" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
 </div>

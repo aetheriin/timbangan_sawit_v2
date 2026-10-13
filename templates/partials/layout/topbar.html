@@ -25,9 +25,6 @@
 
     <div class="flex items-center gap-2.5 text-sm">
         {% if not current_user.is_admin %}
-        {% if boleh('DASHBOARD', 'ubah') %}
-        <a href="/dashboard#isi-harga" class="btn-light btn-sm"><i class="fa-solid fa-plus"></i> Isi Harga</a>
-        {% endif %}
         {% if boleh('FORM_SECURITY', 'tambah') %}
         <a href="{{ url_for('main.weighbridge', view='form', tab='security') }}" class="btn-primary btn-sm"><i class="fa-solid fa-scale-balanced"></i> Tiket Baru</a>
         {% endif %}

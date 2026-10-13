@@ -112,3 +112,32 @@ function tiketPunyaTahap(t, kode) {
     if (t.alur_tahap && t.alur_tahap.length) return t.alur_tahap.includes(kode);
     return t.kategori_produk === (kode === 'SORTASI' ? 'TBS' : 'PRODUK_PKS');
 }
+
+// ===== AKSI TABEL = IKON =====
+// Tombol / link teks "Ubah", "Hapus", dst. (kelas link-aksi) otomatis diganti ikon + tooltip; warna teks lama tetap.
+// Berlaku juga untuk baris yang dirender belakangan (MutationObserver). Label yang tidak dikenal tetap berupa teks.
+const IKON_AKSI = {
+    'Ubah': 'fa-pen', 'Edit': 'fa-pen', 'Hapus': 'fa-trash-can', 'Nonaktifkan': 'fa-toggle-off', 'Aktifkan': 'fa-toggle-on',
+    'Reset Password': 'fa-key', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
+    'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban',
+    'Lampirkan Surat': 'fa-paperclip', 'Lampirkan BA': 'fa-paperclip', 'Lampirkan': 'fa-paperclip', 'Lihat Surat': 'fa-file-lines',
+    'Tetapkan': 'fa-circle-check', 'Kembalikan': 'fa-rotate-left', 'Isi DO Baru': 'fa-file-pen', 'Ganti Token': 'fa-key',
+    'Data mentah': 'fa-wave-square', 'Buka Kunci': 'fa-lock-open',
+};
+
+function ikonkanAksi(akar) {
+    (akar.querySelectorAll ? akar.querySelectorAll('.link-aksi') : []).forEach(el => {
+        const teks = el.textContent.trim();
+        const ikon = IKON_AKSI[teks];
+        if (!ikon) return;
+        el.title = el.title || teks;
+        el.setAttribute('aria-label', teks);
+        el.innerHTML = `<i class="fa-solid ${ikon}"></i>`;
+        el.classList.replace('link-aksi', 'aksi-tombol');
+    });
+}
+document.addEventListener('DOMContentLoaded', () => {
+    ikonkanAksi(document);
+    new MutationObserver(daftar => daftar.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) ikonkanAksi(n); })))
+        .observe(document.body, { childList: true, subtree: true });
+});

@@ -183,16 +183,19 @@ async function muatArus() {
         </tr>`;
     }).join('') || barisKosong(7, 'Belum ada tiket');
 
-    document.getElementById('statusJembatan').innerHTML = d.jembatan.map(j => `
-        <div class="p-3 rounded-lg border border-slate-100 bg-slate-50/70">
-            <div class="flex items-center justify-between gap-2 text-sm font-semibold text-slate-800">
-                <span class="truncate">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</span>
-                <span class="font-mono text-[11px] ${j.terhubung ? 'text-emerald-700' : 'text-red-600'}">${j.terhubung ? (j.stabil ? 'STABIL' : 'TERHUBUNG') : 'TERPUTUS'}</span>
+    const jembatan = [...d.jembatan].sort((a, b) => a.terhubung - b.terhubung || a.area.localeCompare(b.area) || a.kode.localeCompare(b.kode));
+    const online = jembatan.filter(j => j.terhubung).length;
+    document.getElementById('ringkasJembatan').innerHTML = jembatan.length
+        ? `<span class="${online === jembatan.length ? 'text-emerald-600' : 'text-red-600'}">${online}/${jembatan.length}</span> terhubung` : '';
+    document.getElementById('statusJembatan').innerHTML = jembatan.map(j => `
+        <div class="flex items-center gap-3 py-2.5">
+            <span class="w-2 h-2 rounded-full flex-shrink-0 ${j.terhubung ? (j.stabil ? 'bg-emerald-500' : 'bg-amber-400') : 'bg-red-500'}"></span>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</p>
+                <p class="text-[11px] text-slate-400 truncate">${escapeHtml(j.area)}${j.terhubung ? '' : ` · ${escapeHtml(j.error || 'tidak mengirim data')}`}</p>
             </div>
-            <p class="mt-1 text-xs text-slate-500">${j.terhubung ? `Berat saat ini <span class="font-mono font-semibold text-slate-800">${angka(j.berat || 0, 0)} kg</span>`
-                : escapeHtml(j.error || 'Indikator tidak mengirim data')}</p>
-            <p class="mt-1 text-[11px] text-slate-400">${escapeHtml(j.area)}</p>
-        </div>`).join('') || '<p class="text-sm text-slate-400">Belum ada jembatan timbang aktif</p>';
+            <span class="font-mono text-xs font-semibold whitespace-nowrap ${j.terhubung ? 'text-slate-800' : 'text-red-600'}">${j.terhubung ? `${angka(j.berat || 0, 0)} kg` : 'TERPUTUS'}</span>
+        </div>`).join('') || '<p class="text-sm text-slate-400 py-2">Belum ada jembatan timbang aktif</p>';
 
     const total = d.distribusi.reduce((a, x) => a + (x.netto || 0), 0);
     document.getElementById('distribusiMuatan').innerHTML = d.distribusi.map((x, i) => {

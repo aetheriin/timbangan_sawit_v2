@@ -5,9 +5,18 @@
     <button type="button" class="btn-secondary" data-on-click="muatUlang" data-arg="$el|muatSesi"><i class="fa-solid fa-rotate mr-1"></i> Muat Ulang</button>
 </div>
 
-<p class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Sedang login</p>
-{# Satu kartu per sesi (ala prototipe): user, perangkat, IP, waktu masuk, tidak aktif, paksa keluar #}
-<div id="tabelSesi" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5"></div>
+<div class="card p-0 overflow-hidden mb-5">
+    <div class="px-5 py-3.5 border-b border-slate-100"><h2 class="text-sm font-bold text-slate-900">Sedang Login</h2></div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">User</th><th class="table-cell">Perangkat</th><th class="table-cell">IP</th>
+                    <th class="table-cell">Login Sejak</th><th class="table-cell">Tidak Aktif</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelSesi" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
 
 <div class="section-box">
     {% call section_header('login-terkunci', 'Login Terkunci') %}

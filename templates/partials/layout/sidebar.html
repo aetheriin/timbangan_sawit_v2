@@ -49,6 +49,10 @@
             <p class="text-xs font-bold text-slate-900 truncate">{{ current_user.nama_lengkap }}</p>
             <p class="text-[10px] text-slate-500 truncate">{{ current_user.nama_level }}</p>
         </div>
+        {# Mode terang / gelap (disimpan di browser ini, static/js/tema.js) #}
+        <button type="button" data-on-click="gantiTema" class="sidebar-ikon-btn ml-auto" title="Mode gelap / terang">
+            <i class="fa-solid fa-moon tema-ikon-gelap"></i><i class="fa-solid fa-sun tema-ikon-terang"></i>
+        </button>
     </div>
     {% endif %}
 </aside>
