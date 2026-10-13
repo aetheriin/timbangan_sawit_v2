@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import tab_header %}
+{% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
 {% block title %}Face Recognition · Weighbridge{% endblock %}
 
 {# Tanpa info bar (kontainer atas khusus site) #}
@@ -7,7 +7,8 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'), ('audit', 'Audit Log')], 'mt-4') }}
+    {{ judul_halaman('Face Recognition', 'Absensi karyawan, data personel & wajah, serta audit verifikasi') }}
+    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'), ('audit', 'Audit Log')]) }}
 {% endblock %}
 
 {% block tab_content %}

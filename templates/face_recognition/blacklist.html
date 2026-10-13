@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import tab_header %}
+{% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
 {% block title %}Blacklist · Weighbridge{% endblock %}
 
 {# Menu Blacklist (sidebar). Hak aksi: Admin › Level & Hak Akses › BLACKLIST #}
@@ -7,7 +7,8 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('blacklist', 'Blacklist')], 'mt-4') }}
+    {{ judul_halaman('Pengawasan & Blacklist', 'Kendaraan dan personel yang diblacklist berlaku di semua area') }}
+    {{ tab_header([('blacklist', 'Blacklist')], 'hidden') }}
 {% endblock %}
 
 {% block tab_content %}

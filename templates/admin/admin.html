@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/layout/_macros.html" import judul_halaman %}
 {% block title %}{{ judul }} · Admin{% endblock %}
 
 {# Halaman Admin (super admin): tanpa info bar & tanpa tab. Satu menu sidebar = satu halaman.
@@ -7,12 +8,7 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-<div class="page-header">
-    <div class="page-header-icon"><i class="fa-solid {{ ikon }}"></i></div>
-    <div>
-        <h1 class="text-sm font-semibold">{{ judul }}</h1>
-    </div>
-</div>
+    {{ judul_halaman(judul, keterangan) }}
 {% endblock %}
 
 {% block tab_content %}

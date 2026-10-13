@@ -597,9 +597,11 @@ def get_list_tiket_aktif(id_area=None):
     cursor = conn.cursor()
     cursor.execute(f"""
         SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
-               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, ml.id_alur
+               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, ml.id_alur,
+               t.no_do, d.nama_personel AS supir
         FROM transaksi t
         LEFT JOIN mill ml ON ml.id_mill = t.id_mill
+        LEFT JOIN personel d ON d.id_personel = t.id_driver
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
@@ -621,7 +623,8 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
             SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
-                   t.jenis_transaksi, tb.berat_netto, t.status_alur,
+                   t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
+                   t.status_alur, t.no_do, d.nama_personel AS supir,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
                    CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
                         DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
@@ -631,6 +634,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
             JOIN mitra s ON t.id_supplier = s.id_supplier
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
+            LEFT JOIN personel d ON d.id_personel = t.id_driver
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
             ORDER BY t.created_at DESC""", *params)
         return _rows_to_dicts(cursor)

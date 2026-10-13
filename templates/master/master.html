@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import tab_header %}
+{% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
 {% block title %}Data Master · Weighbridge{% endblock %}
 
 {# Data Master: Driver (personel kategori DRIVER), Kendaraan, Mitra, Produk. Tombol tambah / ubah sesuai Admin › Hak Akses. #}
@@ -7,7 +7,8 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan'), ('mitra', 'Mitra'), ('produk', 'Produk')], 'mt-4') }}
+    {{ judul_halaman('Data Master', 'Driver, kendaraan, mitra, dan produk') }}
+    {{ tab_header([('personel', 'Driver'), ('kendaraan', 'Kendaraan'), ('mitra', 'Mitra'), ('produk', 'Produk')]) }}
 {% endblock %}
 
 {% block tab_content %}

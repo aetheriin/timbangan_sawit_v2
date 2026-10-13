@@ -1,49 +1,61 @@
-{% from "partials/layout/_macros.html" import section_header %}
-<div class="flex flex-wrap items-center gap-2 mb-4">
-    <div id="chipTahap" class="flex gap-1.5" data-awal="{{ tahap_awal }}">
-        {% for kode, label in [('', 'Semua'), ('security', 'Security'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
-        <button type="button" class="chip{% if kode == tahap_awal %} chip-active{% endif %}" data-tahap="{{ kode }}"
-                data-on-click="filterTahap" data-arg="$el">{{ label }}</button>
-        {% endfor %}
+{# Halaman List: kartu filter, tiket aktif per tahap, riwayat 7 hari per produk. Logika di static/js/site/list.js #}
+<div class="card p-4 mb-5">
+    <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+            <input type="text" id="searchTiket" placeholder="Cari No. Tiket, plat, supir, customer, atau No. DO..." class="input-field pl-9"
+                   data-on-input="saringTabel" data-arg="$value">
+        </div>
+        <div id="chipTahap" class="seg" data-awal="{{ tahap_awal }}">
+            {% for kode, label in [('', 'Semua'), ('security', 'Security'), ('timbangan', 'Timbangan'), ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')] %}
+            <button type="button" class="chip{% if kode == tahap_awal %} chip-active{% endif %}" data-tahap="{{ kode }}"
+                    data-on-click="filterTahap" data-arg="$el">{{ label }}</button>
+            {% endfor %}
+        </div>
     </div>
-    <div class="flex-1"></div>
-    <div class="relative">
-        <input type="text" id="searchTiket" placeholder="Cari tiket / plat / customer" class="input-field pl-9 w-64"
-               data-on-input="saringTabel" data-arg="$value">
-        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+    <div class="flex items-center justify-between gap-3 text-xs text-slate-500 pt-3 mt-3 border-t border-slate-100">
+        <span id="infoJumlahTiket">Memuat...</span>
+        <span id="infoTotalNetto" class="font-mono"></span>
     </div>
-    <a href="{{ url_for('main.weighbridge', view='form', tab='security') }}" class="btn-primary"><i class="fa-solid fa-plus mr-1"></i> Create Ticket</a>
 </div>
 
-<div class="section-box">
-    {{ section_header('ticket-aktif', 'Tiket Aktif') }}
-    <div id="body-ticket-aktif" class="section-body overflow-x-auto">
+<div class="card p-0 overflow-hidden mb-5">
+    <div class="px-5 py-3.5 border-b border-slate-100">
+        <h2 class="text-sm font-bold text-slate-900">Tiket Aktif</h2>
+        <p class="text-xs text-slate-500">Truk yang masih di dalam, beserta tahap yang ditunggu</p>
+    </div>
+    <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
-                <tr><th class="table-cell">Waktu</th><th class="table-cell">No. Tiket</th><th class="table-cell">No. Plat</th>
-                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Jenis Transaksi</th>
-                    <th class="table-cell">Status</th><th class="table-cell">Menunggu</th><th class="table-cell text-right">Aksi</th></tr>
+                <tr><th class="table-cell">No. Tiket</th><th class="table-cell">Plat / Supir</th><th class="table-cell">Produk</th>
+                    <th class="table-cell">Customer &amp; DO</th><th class="table-cell">Status</th>
+                    <th class="table-cell">Menunggu</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
             <tbody data-per-halaman="20" id="tabelTicketAktif" class="divide-y divide-slate-100">
-                <tr><td colspan="9" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
+                <tr><td colspan="7" class="table-cell text-slate-400 text-center py-8">Memuat data...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
-<div class="section-box">
-    {% call section_header('history-produk', 'History per Produk (7 Hari Terakhir)') %}
-    <select id="filterProdukHistory" class="input-field py-1.5 w-48" data-henti-klik data-on-change="muatHistoryProduk">
-        <option value="">Semua produk</option>
-        {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
-    </select>
-    {% endcall %}
-    <div id="body-history-produk" class="section-body overflow-x-auto">
+<div class="card p-0 overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-sm font-bold text-slate-900">Riwayat Penimbangan (7 Hari Terakhir)</h2>
+            <p class="text-xs text-slate-500">Bruto, tara, netto, dan lama truk di dalam</p>
+        </div>
+        <select id="filterProdukHistory" class="input-field w-52" data-on-change="muatHistoryProduk">
+            <option value="">Semua produk</option>
+            {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
-                <tr><th class="table-cell">Waktu</th><th class="table-cell">No. Tiket</th><th class="table-cell">No. Plat</th>
-                    <th class="table-cell">Customer</th><th class="table-cell">Produk</th><th class="table-cell">Jenis Transaksi</th>
-                    <th class="table-cell text-right">Netto (Kg)</th><th class="table-cell">Lama di Dalam</th><th class="table-cell">Status</th></tr>
+                <tr><th class="table-cell">No. Tiket</th><th class="table-cell">Plat / Supir</th><th class="table-cell">Produk</th>
+                    <th class="table-cell">Customer &amp; DO</th><th class="table-cell text-right">Bruto (kg)</th>
+                    <th class="table-cell text-right">Tara (kg)</th><th class="table-cell text-right">Netto (kg)</th>
+                    <th class="table-cell">Lama di Dalam</th><th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
             <tbody data-per-halaman="20" id="tabelHistoryProduk" class="divide-y divide-slate-100"></tbody>
         </table>

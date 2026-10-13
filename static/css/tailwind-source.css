@@ -43,24 +43,25 @@
   .cari-ikon { @apply w-8 h-8 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center flex-shrink-0; }
 
   /* Info bar (halaman Form) */
-  .info-bar { @apply bg-white mx-6 mt-5 rounded-xl border border-slate-200 shadow-sm p-5 flex items-start justify-between gap-6; }
+  .info-bar { @apply bg-white mt-5 rounded-xl border border-slate-200 shadow-sm p-5 flex items-start justify-between gap-6; }
   .info-grid { @apply grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1; }
   .info-field-label { @apply text-xs font-semibold text-slate-500 mb-1 block; }
   .info-field-input { @apply w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500; }
   .info-photo-box { @apply w-28 h-28 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center bg-slate-50 flex-shrink-0 overflow-hidden; }
 
   /* Tab = kontrol segmen */
-  .tab-header { @apply flex gap-1 bg-white border border-slate-200 shadow-sm mx-6 mt-5 rounded-xl p-1; }
+  .tab-header { @apply flex gap-1 bg-white border border-slate-200 shadow-sm mt-5 rounded-xl p-1; }
   .tab-btn { @apply flex-1 py-2 rounded-lg text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition text-center; }
   .tab-btn-active { @apply bg-slate-900 text-white shadow-sm hover:bg-slate-900 hover:text-white; }
-  .tab-body { @apply mx-6 mt-5 mb-10; }
+  .tab-body { @apply mt-5 mb-10; }
 
   /* Judul halaman (halaman tanpa tab) */
-  .page-header { @apply flex items-center gap-3 mx-6 mt-6 pb-4 border-b border-slate-200; }
+  .page-header { @apply flex items-center gap-3 mt-6 pb-4 border-b border-slate-200; }
   .page-header h1 { @apply text-xl font-bold text-slate-900 tracking-tight; }
   .page-header-icon { @apply w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 text-white flex items-center justify-center text-sm shadow-sm shadow-blue-500/20; }
   .page-header-sub { @apply text-sm text-slate-500; }
-  .halaman-judul { @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 mx-6 mt-6 pb-4 border-b border-slate-200; }
+  .halaman-judul { @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 pb-4 border-b border-slate-200; }
+  .konten { @apply w-full max-w-[96rem] mx-auto px-6; }
   .halaman-judul h1 { @apply text-xl font-bold text-slate-900 tracking-tight; }
   .halaman-judul p { @apply text-sm text-slate-500 mt-0.5; }
   .seg .chip { @apply border-0 bg-transparent text-slate-600 hover:text-slate-900 hover:bg-transparent rounded-md; }
@@ -104,6 +105,7 @@
   .btn-danger { @apply inline-flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg text-sm shadow-sm transition disabled:bg-slate-300 disabled:cursor-not-allowed; }
   .btn-outline-danger { @apply inline-flex items-center justify-center gap-1.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg text-sm transition; }
   .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .aksi-ikon { @apply inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition; }
   .link-aksi { @apply text-xs font-semibold hover:underline; }
 
   /* Kartu putih di dalam section / tab body */

@@ -25,6 +25,7 @@
 
         {% include "partials/layout/topbar.html" %}
 
+        <div class="konten">
         {% block info_bar %}
             {% include "partials/layout/info_bar.html" %}
         {% endblock %}
@@ -36,6 +37,7 @@
 
         <div id="tabBody" class="tab-body">
             {% block tab_content %}{% endblock %}
+        </div>
         </div>
 
     </div>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import tab_header, section_header %}
+{% from "partials/layout/_macros.html" import tab_header, section_header, judul_halaman %}
 {% block title %}Kelebihan DO · Weighbridge{% endblock %}
 
 {# DO melebihi kuota: kelebihan jadi tiket baru (truk sama). Krani isi No. DO baru dari Ascend, KTU / HO menetapkan. #}
@@ -7,7 +7,8 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('kelebihan', 'Kelebihan DO')], 'mt-4') }}
+    {{ judul_halaman('Kelebihan DO', 'Netto yang melewati kuota DO menjadi tiket -S1; isi No. DO baru lalu tetapkan') }}
+    {{ tab_header([('kelebihan', 'Kelebihan DO')], 'hidden') }}
 {% endblock %}
 
 {% block tab_content %}

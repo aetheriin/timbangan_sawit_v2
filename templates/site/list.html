@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/layout/_macros.html" import judul_halaman %}
 {% block title %}List Tiket · Weighbridge{% endblock %}
 
 {# Halaman List: tanpa info bar & tanpa tab. Tiket aktif per tahap (default tahap role) + history per produk. #}
@@ -6,13 +7,11 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-<div class="page-header">
-    <div class="page-header-icon"><i class="fa-solid fa-list"></i></div>
-    <div>
-        <h1 class="text-sm font-semibold">List Tiket</h1>
-        
-    </div>
-</div>
+    {% call judul_halaman('Daftar & Rekapitulasi Tiket', 'Tiket aktif per tahap dan riwayat penimbangan 7 hari terakhir') %}
+        {% if boleh('FORM_SECURITY', 'tambah') %}
+        <a href="{{ url_for('main.weighbridge', view='form', tab='security') }}" class="btn-primary"><i class="fa-solid fa-plus"></i> Tiket Baru</a>
+        {% endif %}
+    {% endcall %}
 {% endblock %}
 
 {% block tab_content %}

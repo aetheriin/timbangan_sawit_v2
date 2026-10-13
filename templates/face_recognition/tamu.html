@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import tab_header %}
+{% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
 {% block title %}Tamu · Weighbridge{% endblock %}
 
 {# Menu Tamu (sidebar). Hak aksi: Admin › Level & Hak Akses › KUNJUNGAN #}
@@ -7,7 +7,8 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ tab_header([('kunjungan', 'Tamu')], 'mt-4') }}
+    {{ judul_halaman('Buku Tamu', 'Scan wajah tamu, catat kunjungan masuk dan keluar') }}
+    {{ tab_header([('kunjungan', 'Tamu')], 'hidden') }}
 {% endblock %}
 
 {% block tab_content %}

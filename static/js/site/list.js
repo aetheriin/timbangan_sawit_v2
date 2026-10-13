@@ -24,10 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
 async function muatTiketAktif() {
     const data = await ambilJson('/api/security/list-tiket-aktif');
     const tbody = document.getElementById('tabelTicketAktif');
-    if (data.error) { tbody.innerHTML = barisKosong(9, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(7, data.error); return; }
     daftarTiket = data;
     tampilkanTiket();
 }
+
+const angkaKg = v => v == null ? '–' : Number(v).toLocaleString('id-ID');
+// Sel dua baris: teks utama + keterangan kecil di bawahnya
+const duaBaris = (atas, bawah, mono = false) => `<span class="block ${mono ? 'font-mono font-semibold text-slate-900' : 'text-slate-800'} whitespace-nowrap">${atas}</span>
+    <span class="block text-xs text-slate-500 truncate max-w-[14rem]">${bawah || '-'}</span>`;
 
 function tampilkanTiket() {
     const baris = daftarTiket.filter(t => !tahapAktif || tahapAktif === 'security' || tahapTiket(t).includes(tahapAktif));
@@ -36,21 +41,20 @@ function tampilkanTiket() {
         const tab = tahapAktif && tahapAktif !== 'security' ? tahapAktif : tahapTiket(t).slice(-1)[0];
         const menunggu = { SECURITY_REGISTER: 'Timbang 1', TIMBANG_2: 'Timbang 2' }[t.status_alur] || LABEL_TAHAP[tahapTiket(t)[0]];
         return `<tr class="hover:bg-slate-50">
-            <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(t.created_at)}</td>
-            <td class="table-cell font-mono text-xs">${escapeHtml(t.no_tiket)}</td>
-            <td class="table-cell">${escapeHtml(t.no_plat)}</td>
-            <td class="table-cell">${escapeHtml(t.supplier)}</td>
-            <td class="table-cell">${escapeHtml(t.produk)}</td>
-            <td class="table-cell">${escapeHtml(labelKode(t.jenis_transaksi))}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(t.no_tiket), escapeHtml(t.created_at), true)}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(t.no_plat), escapeHtml(t.supir), true)}</td>
+            <td class="table-cell">${duaBaris(`<span class="font-semibold">${escapeHtml(t.produk)}</span>`, escapeHtml(labelKode(t.jenis_transaksi)))}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(t.supplier), `<span class="font-mono">${escapeHtml(t.no_do || 'Tanpa DO')}</span>`)}</td>
             <td class="table-cell">${badgeStatusTiket(t.status_alur)}</td>
-            <td class="table-cell text-xs text-slate-600">${escapeHtml(menunggu)}</td>
-            <td class="table-cell text-right whitespace-nowrap space-x-3">
-                <a class="link-aksi text-blue-600" href="/weighbridge?view=form&tab=${encodeURIComponent(tab)}&plat=${encodeURIComponent(t.no_plat)}">Buka</a>
-                <a class="link-aksi text-emerald-600" href="/cetak/tiket/${encodeURIComponent(t.no_tiket)}" target="_blank">Cetak QR</a>
+            <td class="table-cell text-xs font-semibold text-slate-600">${escapeHtml(menunggu)}</td>
+            <td class="table-cell text-right whitespace-nowrap">
+                <a class="aksi-ikon" title="Buka di form" href="/weighbridge?view=form&tab=${encodeURIComponent(tab)}&plat=${encodeURIComponent(t.no_plat)}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                <a class="aksi-ikon" title="Cetak QR" href="/cetak/tiket/${encodeURIComponent(t.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>
             </td>
         </tr>`;
-    }).join('') || barisKosong(9, tahapAktif === 'security' ? 'Tidak ada truk di dalam'
+    }).join('') || barisKosong(7, tahapAktif === 'security' ? 'Tidak ada truk di dalam'
         : tahapAktif ? `Tidak ada tiket yang menunggu ${LABEL_TAHAP[tahapAktif]}` : 'Belum ada tiket aktif');
+    document.getElementById('infoJumlahTiket').innerHTML = `Menampilkan <b class="text-slate-900">${baris.length}</b> dari ${daftarTiket.length} tiket aktif`;
     saringTabel(document.getElementById('searchTiket').value);
 }
 
@@ -64,20 +68,25 @@ async function muatHistoryProduk() {
     const idProduk = document.getElementById('filterProdukHistory').value;
     const data = await ambilJson(`/api/list/history-produk?id_produk=${encodeURIComponent(idProduk)}`);
     const tbody = document.getElementById('tabelHistoryProduk');
-    if (data.error) { tbody.innerHTML = barisKosong(9, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(10, data.error); return; }
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
-            <td class="table-cell whitespace-nowrap text-xs">${escapeHtml(r.created_at)}</td>
-            <td class="table-cell font-mono text-xs">${escapeHtml(r.no_tiket)}</td>
-            <td class="table-cell">${escapeHtml(r.no_plat)}</td>
-            <td class="table-cell">${escapeHtml(r.supplier)}</td>
-            <td class="table-cell">${escapeHtml(r.produk)}</td>
-            <td class="table-cell">${escapeHtml(labelKode(r.jenis_transaksi))}</td>
-            <td class="table-cell text-right">${r.berat_netto != null ? Number(r.berat_netto).toLocaleString('id-ID') : '-'}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(r.no_tiket), escapeHtml(r.created_at), true)}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(r.no_plat), escapeHtml(r.supir), true)}</td>
+            <td class="table-cell">${duaBaris(`<span class="font-semibold">${escapeHtml(r.produk)}</span>`, escapeHtml(labelKode(r.jenis_transaksi)))}</td>
+            <td class="table-cell">${duaBaris(escapeHtml(r.supplier), `<span class="font-mono">${escapeHtml(r.no_do || 'Tanpa DO')}</span>`)}</td>
+            <td class="table-cell text-right font-mono text-slate-600">${angkaKg(r.berat_bruto)}</td>
+            <td class="table-cell text-right font-mono text-slate-600">${angkaKg(r.berat_tara)}</td>
+            <td class="table-cell text-right font-mono font-bold text-blue-700">${angkaKg(r.berat_netto)}</td>
             <td class="table-cell whitespace-nowrap text-xs">${labelLama(r.lama_menit)}</td>
             <td class="table-cell">${badgeStatusTiket(r.status_alur)}</td>
-        </tr>`).join('') || barisKosong(9, 'Belum ada transaksi 7 hari terakhir');
-    catatanBatas(tbody, data.length, 500, 9);
+            <td class="table-cell text-right whitespace-nowrap">
+                <a class="aksi-ikon" title="Cetak tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>
+            </td>
+        </tr>`).join('') || barisKosong(10, 'Belum ada transaksi 7 hari terakhir');
+    const total = data.reduce((a, r) => a + (Number(r.berat_netto) || 0), 0);
+    document.getElementById('infoTotalNetto').innerHTML = `Total netto 7 hari: <b class="text-slate-900">${angkaKg(total)} kg</b>`;
+    catatanBatas(tbody, data.length, 500, 10);
     saringTabel(document.getElementById('searchTiket').value);
 }
 

@@ -18,3 +18,14 @@
     {{ caller() if caller else '' }}
 </div>
 {% endmacro %}
+
+{# Judul halaman ala prototipe: judul + subjudul di kiri, aksi (caller) di kanan #}
+{% macro judul_halaman(judul, sub="") %}
+<div class="halaman-judul">
+    <div>
+        <h1>{{ judul }}</h1>
+        {% if sub %}<p>{{ sub }}</p>{% endif %}
+    </div>
+    {% if caller %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
+</div>
+{% endmacro %}

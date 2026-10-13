@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/layout/_macros.html" import judul_halaman %}
 {% block title %}Kontrak & DO · Weighbridge{% endblock %}
 
 {# Menu HO: daftar DO. Security cukup mengetik No DO di Form, data transaksi terisi dari sini. #}
@@ -6,12 +7,7 @@
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-<div class="page-header">
-    <div class="page-header-icon"><i class="fa-solid fa-file-contract"></i></div>
-    <div>
-        <h1 class="text-sm font-semibold">Kontrak & DO</h1>
-    </div>
-</div>
+    {{ judul_halaman('Kontrak & Delivery Order', 'Kontrak per mitra & produk, DO beserta kuota dan pengangkut yang diizinkan') }}
 {% endblock %}
 
 {% block tab_content %}
