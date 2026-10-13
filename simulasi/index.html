@@ -170,6 +170,29 @@ tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
 .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
 kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
 
+/* statistik antrean */
+:root { --c-layan: #14a090; --c-tunggu: #c87a1a; }
+.stat-legend { display: flex; gap: 14px; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.stat-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.stat { display: flex; flex-direction: column; gap: 7px; }
+.stat-row { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px; align-items: center; font-size: 12px; }
+.stat-row .nm { color: var(--fg); line-height: 1.2; }
+.stat-row .nm small { display: block; color: var(--muted); font-size: 10px; }
+.stat-row .bar { display: flex; gap: 2px; height: 10px; align-items: stretch; }
+.stat-row .bar span { display: block; height: 100%; min-width: 0; }
+.stat-row .bar .l { background: var(--c-layan); border-radius: 4px 0 0 4px; }
+.stat-row .bar .t { background: var(--c-tunggu); border-radius: 0 4px 4px 0; }
+.stat-row .bar .l:last-child { border-radius: 4px; }
+.stat-row .val { grid-column: 2; font: 500 11px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.stat-row .val b { color: var(--fg); font-weight: 600; }
+.stat-row.macet .nm { color: var(--warn); }
+.stat-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.stat-sum .v { font: 600 16px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.stat-sum .l { color: var(--muted); font-size: 11px; }
+.atur { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 6px 10px; align-items: center; font-size: 12px; }
+.atur label { color: var(--muted); }
+.atur .full { grid-column: 1 / -1; }
+
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
 </style>
 </head>
@@ -200,6 +223,7 @@ kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-bottom
     <button class="btn" type="button" data-add="CPO"><span class="dot" style="background:var(--cpo)"></span>+ Tangki CPO</button>
     <button class="btn" type="button" data-add="KERNEL"><span class="dot" style="background:var(--cpo)"></span>+ Truk Kernel</button>
     <button class="btn" type="button" data-add="SAJA"><span class="dot" style="background:var(--saja)"></span>+ Timbang Saja</button>
+    <button class="btn sim-ctl" type="button" id="btnRombongan" title="10 truk datang hampir bersamaan">+ Rombongan 10 truk</button>
     <span class="sep" aria-hidden="true"></span>
     <label class="toggle"><input type="checkbox" id="optAuto" checked> Truk datang otomatis</label>
     <label class="toggle"><input type="checkbox" id="optBl"> Ada truk blacklist</label>
@@ -273,6 +297,35 @@ kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-bottom
         <div class="kpi"><div class="v" id="kTbs">0</div><div class="l">Netto TBS (t)</div></div>
         <div class="kpi"><div class="v" id="kPks">0</div><div class="l">Kirim PKS (t)</div></div>
       </div>
+    </div>
+
+    <div class="card sim-card">
+      <h2>Statistik antrean <small>rata-rata per truk, menit jam pabrik</small></h2>
+      <div class="stat-legend"><span><i style="background:var(--c-layan)"></i>Dilayani</span><span><i style="background:var(--c-tunggu)"></i>Menunggu / antre</span></div>
+      <div class="stat" id="statList"></div>
+      <div class="stat-sum">
+        <div><div class="v" id="sTotal">–</div><div class="l">Rata-rata di pabrik (mnt)</div></div>
+        <div><div class="v" id="sLuar">0</div><div class="l">Antre di jalan raya (truk)<br><span id="sLuarT"></span></div></div>
+        <div><div class="v" id="sPerJam">–</div><div class="l">Tiket selesai / jam</div></div>
+      </div>
+    </div>
+
+    <div class="card sim-card">
+      <h2>Pengaturan &amp; skenario <small>tersimpan per site</small></h2>
+      <div class="atur">
+        <label for="aRamai">Kedatangan truk</label>
+        <select id="aRamai"><option value="8">Sepi (8/jam)</option><option value="15">Normal (15/jam)</option><option value="25">Ramai (25/jam)</option><option value="40">Panen raya (40/jam)</option><option value="">Atur sendiri</option></select>
+        <label for="aPerJam">Truk per jam</label><input type="number" id="aPerJam" min="1" max="120" step="1">
+        <label for="aWajah">Supir sudah terdaftar wajahnya (%)</label><input type="number" id="aWajah" min="0" max="100" step="5">
+        <div class="full hint" style="margin:4px 0 0">Durasi pelayanan (menit):</div>
+        <label for="dScan">Pos 1: cek plat, scan wajah, cetak tiket</label><input type="number" id="dScan" min="0.5" max="60" step="0.5" data-durasi="scan">
+        <label for="dDaftar">Pos 2: daftar supir baru (foto wajah &amp; SIM)</label><input type="number" id="dDaftar" min="0.5" max="60" step="0.5" data-durasi="daftar">
+        <label for="dBongkar">Bongkar &amp; sortasi TBS</label><input type="number" id="dBongkar" min="0.5" max="120" step="0.5" data-durasi="bongkar">
+        <label for="dCpo">Muat CPO</label><input type="number" id="dCpo" min="0.5" max="120" step="0.5" data-durasi="muat_cpo">
+        <label for="dKernel">Muat kernel</label><input type="number" id="dKernel" min="0.5" max="120" step="0.5" data-durasi="muat_kernel">
+        <label for="dLab">Uji lab</label><input type="number" id="dLab" min="0.5" max="120" step="0.5" data-durasi="lab">
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn sm" type="button" id="btnAturDefault">Kembalikan default</button></div>
     </div>
 
     <div class="card sim-card">
@@ -363,6 +416,7 @@ const KATALOG = {
   masuk:       { nama: 'Titik masuk truk', grup: 'alur', nempel: 'snap', w: 30, h: 30, label: 'MASUK', warna: C.ok, ket: 'Tempat truk muncul. Letakkan di jalan, biasanya di tepi denah.' },
   keluar:      { nama: 'Titik keluar truk', grup: 'alur', nempel: 'snap', w: 30, h: 30, label: 'KELUAR', warna: C.ok, ket: 'Truk yang selesai menghilang di sini.' },
   security:    { nama: 'Pos Security', grup: 'alur', nempel: 'samping', w: 62, h: 44, label: 'POS', sub: 'Security', warna: C.accent, ket: 'Cek plat, blacklist, scan wajah, cetak tiket QR.' },
+  pos_daftar:  { nama: 'Pos 2 · pendaftaran wajah', grup: 'alur', nempel: 'samping', w: 70, h: 44, label: 'POS 2', sub: 'Daftar wajah', warna: C.warn, ket: 'Opsional. Supir yang wajahnya belum terdaftar diarahkan ke sini. Tanpa Pos 2, pendaftaran dilakukan di Pos Security.' },
   barrier:     { nama: 'Barrier gate', grup: 'alur', nempel: 'snap', w: 16, h: 16, label: 'Barrier', syarat: 'tiket', warna: C.bad, ket: 'Palang yang terbuka hanya bila syarat truk terpenuhi.' },
   jembatan:    { nama: 'Jembatan timbang', grup: 'alur', nempel: 'snap', w: 124, h: 34, label: '', kode: 'JT-1', warna: C.accent, ket: 'Plat timbangan.' },
   lampu:       { nama: 'Lampu lalu lintas', grup: 'alur', nempel: 'snap', w: 16, h: 16, label: 'Lampu', jt: '', warna: C.ok, ket: 'Merah bila jembatan tujuannya terisi. Pasang di jalan sebelum jembatan.' },
@@ -380,6 +434,7 @@ const KATALOG = {
   teks:        { nama: 'Teks / label', grup: 'hias', w: 160, h: 18, label: 'Teks', warna: C.muted },
 };
 const SYARAT_BARRIER = {
+  scan: 'Sudah scan wajah di Pos 1',
   tiket: 'Sudah punya tiket (lewat security)',
   timbang: 'Sudah timbang masuk',
   selesai: 'Tiket selesai / ditolak (keluar)',
@@ -393,10 +448,10 @@ const BAWAH = new Set(['lantai', 'kolam']);   // digambar di bawah jalan
    SITE & DENAH BAWAAN (nama site masih contoh, bisa diganti di Edit Denah)
    ===================================================================================== */
 const SITES = [
-  { id: 'A', nama: 'Site A · PKS Sungai Lestari', jt: 4, bay: 3, kernel: true, cermin: false },
-  { id: 'B', nama: 'Site B · PKS Bukit Harapan', jt: 2, bay: 2, kernel: true, cermin: true },
-  { id: 'C', nama: 'Site C · PKS Tanjung Makmur', jt: 3, bay: 3, kernel: false, cermin: false },
-  { id: 'D', nama: 'Site D · PKS Rantau Jaya', jt: 2, bay: 2, kernel: false, cermin: true },
+  { id: 'A', nama: 'Site A · PKS Sungai Lestari', jt: 4, bay: 3, kernel: true, cermin: false, pos2: true },
+  { id: 'B', nama: 'Site B · PKS Bukit Harapan', jt: 2, bay: 2, kernel: true, cermin: true, pos2: false },
+  { id: 'C', nama: 'Site C · PKS Tanjung Makmur', jt: 3, bay: 3, kernel: false, cermin: false, pos2: true },
+  { id: 'D', nama: 'Site D · PKS Rantau Jaya', jt: 2, bay: 2, kernel: false, cermin: true, pos2: false },
 ];
 
 function denahBawaan(site) {
@@ -421,7 +476,7 @@ function denahBawaan(site) {
   const ujungRamp = xsBay[xsBay.length - 1] + 40;
 
   // --- hiasan bawah (lantai, kolam)
-  o('lantai', (660 + ujungRamp) / 2, 225, { w: ujungRamp - 660, h: 150 });
+  o('lantai', (660 + ujungRamp) / 2, 200, { w: ujungRamp - 660, h: 150 });
   o('kolam', 990, 445, { w: 120, h: 90 });
   o('kolam', 1117, 445, { w: 105, h: 90 });
   o('kolam', 1050, 555, { w: 240, h: 100, label: 'Kolam Limbah (IPAL)' });
@@ -447,31 +502,42 @@ function denahBawaan(site) {
   const RT_ = n(1220, 110); r(prev, RT_); r(RT_, RU);
   const RR = n(1220, 652); r(RU, RR); r(RR, R1);
   const B = n(250, 652); r(RR, B); r(B, J);
+  if (site.pos2) {
+    // kantong Pos 2: supir yang wajahnya belum terdaftar belok ke sini, lalu bergabung lagi ke jalan timbangan
+    const Q1 = n(150, 556), Q2 = n(250, 556);
+    r(S_, Q1); r(Q1, Q2); r(Q2, J);
+  }
 
   // --- objek alur
   o('masuk', 14, 738);
   o('keluar', 1262, 738);
-  o('security', 100, 680);
-  o('barrier', 150, 645, { syarat: 'tiket', label: 'Barrier Security' });
+  if (site.pos2) {
+    o('security', 100, 680, { label: 'POS 1', sub: 'Scan wajah' });
+    o('barrier', 150, 645, { syarat: 'scan', label: 'Barrier Pos 1' });
+    o('pos_daftar', 200, 516);
+  } else {
+    o('security', 100, 680);
+    o('barrier', 150, 645, { syarat: 'tiket', label: 'Barrier Security' });
+  }
   o('barrier', 1220, 700, { syarat: 'selesai', label: 'Barrier Keluar' });
   xsJT.forEach((x, i) => {
     const jt = o('jembatan', x, 462, { kode: `JT-${i + 1}` });
     o('lampu', x, 540, { jt, label: `Lampu JT-${i + 1}` });
   });
-  xsBay.forEach((x, i) => o('sortasi', x + 22, 236, { label: `Bay ${i + 1}` }));
-  o('muat_cpo', 1040, 236);
-  if (site.kernel) o('muat_kernel', 1162, 225);
+  xsBay.forEach((x, i) => o('sortasi', x + 22, 196, { label: `Bay ${i + 1}` }));
+  o('muat_cpo', 1040, 180);
+  if (site.kernel) o('muat_kernel', 1162, 180);
   o('lab', 1150, 62);
 
   // --- hiasan
-  o('teks', (660 + ujungRamp) / 2, 160, { label: 'LOADING RAMP & SORTASI TBS', w: 200 });
+  o('teks', (660 + ujungRamp) / 2, 136, { label: 'LOADING RAMP & SORTASI TBS', w: 200 });
   o('pabrik', 520, 215);
   o('boiler', 588, 93);
   o('tangki', 930, 245, { w: 68, h: 68, label: 'TANGKI CPO 1', sub: '1.500 t' });
   o('tangki', 980, 175, { w: 60, h: 60, label: 'TANGKI CPO 2', sub: '1.000 t' });
   o('gedung', 965, 63, { w: 130, h: 46, label: 'BENGKEL', sub: 'Workshop' });
   o('gedung', 124, 420, { w: 120, h: 80, label: 'KANTOR', sub: 'Administrasi · HO' });
-  o('gedung', 124, 510, { w: 120, h: 60, label: 'MUSHOLA', sub: '' });
+  o('gedung', site.pos2 ? 104 : 124, 510, { w: site.pos2 ? 80 : 120, h: 60, label: 'MUSHOLA', sub: '' });
   o('gedung', xsJT[xsJT.length - 1] + 81, 468, { w: 78, h: 96, label: 'KANTOR', sub: 'Timbangan' });
   o('teks', 640, 756, { label: 'JALAN RAYA LINTAS KEBUN', w: 240, h: 14 });
   o('teks', 222, 700, { label: 'GERBANG MASUK', w: 110, h: 14 });
@@ -484,7 +550,7 @@ function denahBawaan(site) {
   pohon.push([700, 380], [760, 400], [820, 380], [720, 470], [790, 520], [860, 470], [850, 560]);
   pohon.forEach(([x, y]) => o('pohon', x, y));
 
-  const L = { versi: 1, site: site.id, nama: site.nama, latar: null, latarOpacity: 0.6, objek, jalan: { titik, ruas } };
+  const L = { versi: 1, site: site.id, nama: site.nama, latar: null, latarOpacity: 0.6, pengaturan: {}, objek, jalan: { titik, ruas } };
   if (site.cermin) {
     titik.forEach(p => { p.x = W - p.x; });
     objek.forEach(ob => { ob.x = W - ob.x; ob.rot = -(ob.rot || 0); });
@@ -722,6 +788,11 @@ function validasi() {
   const ringkas = Object.keys(alur).map(k => alur[k]
     ? { k: 'ok', t: `Alur ${NAMA_ALUR[k]} siap.` }
     : { k: 'bad', t: `Alur ${NAMA_ALUR[k]} belum bisa: ${alasan[k]}.` });
+  for (const p2 of nempel('pos_daftar')) {
+    const ok = secOk.some(s => bisa(s, p2)) && jtOk.some(j => bisa(p2, j));
+    if (!ok && !dasar) pesan.push({ k: 'warn', t: `${namaObj(p2)} tidak terhubung (Pos 1 → Pos 2 → jembatan). Supir baru akan didaftarkan di Pos 1.` });
+  }
+  if (!nempel('pos_daftar').length && !dasar) pesan.push({ k: 'ok', t: 'Tanpa Pos 2: supir yang wajahnya belum terdaftar didaftarkan di Pos Security.' });
   for (const lp of L.objek.filter(o => o.tipe === 'lampu')) {
     if (G.anchor.has(lp.id) && !lampuJT(lp)) pesan.push({ k: 'warn', t: `${namaObj(lp)} belum terhubung ke jembatan.` });
   }
@@ -729,8 +800,23 @@ function validasi() {
 }
 
 /* =====================================================================================
+   PENGATURAN PER SITE (durasi dalam menit jam pabrik)
+   ===================================================================================== */
+const PENGATURAN_DEFAULT = {
+  perJam: 15, persenTerdaftar: 75,
+  durasi: { scan: 1.5, daftar: 5, bongkar: 8, muat_cpo: 12, muat_kernel: 8, lab: 6 },
+};
+function atur() {
+  const p = L.pengaturan || {};
+  return { ...PENGATURAN_DEFAULT, ...p, durasi: { ...PENGATURAN_DEFAULT.durasi, ...(p.durasi || {}) } };
+}
+const durasiSim = k => atur().durasi[k] * 60 / SIM_RATE;   // menit jam pabrik → detik simulasi
+const AMBANG_WAJAH = 0.55;                                  // default AMBANG_WAJAH di Admin › Pengaturan
+
+/* =====================================================================================
    SIMULASI
    ===================================================================================== */
+const SIM_RATE = 12;                 // 1 detik simulasi = 12 detik jam pabrik
 const PROFIL_JT = { toleransi: 5, durasiStabil: 3, beratMin: 100 };   // default jembatan_timbang
 const MITRA_TBS = ['KUD Sawit Makmur', 'CV Tani Jaya', 'Kebun Plasma Blok C', 'UD Berkah Sawit', 'Koperasi Sido Rukun', 'PT Agro Lestari'];
 const MITRA_PKS = ['PT Minyak Nusantara', 'PT Sinar Refinery', 'PT Kernel Prima'];
@@ -745,16 +831,34 @@ const mulai = new Date(); mulai.setHours(7, 0, 0, 0);
 const S = {
   t: 0, speed: 2, paused: false, auto: true,
   trucks: [], antre: [], log: [], nextId: 1, nextSpawn: 2, sel: null,
-  totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [],
+  totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [], nomorPersonel: 250,
 };
+/* ---- statistik antrean per tahap (detik simulasi) ---- */
+const STAT = new Map();
+const STAT_URUT = [
+  ['SECURITY', 'Pos 1', 'scan wajah'], ['DAFTAR', 'Pos 2', 'daftar wajah'],
+  ['TIMBANG_1', 'Timbang', 'masuk'], ['SORTASI', 'Sortasi', 'bongkar TBS'], ['MUAT', 'Muat', 'CPO / kernel'],
+  ['LAB', 'Lab', 'uji mutu'], ['TIMBANG_2', 'Timbang', 'keluar'],
+];
+function statTambah(k, tunggu, layan) {
+  if (!STAT.has(k)) STAT.set(k, { n: 0, tunggu: 0, layan: 0, maks: 0 });
+  const x = STAT.get(k);
+  x.n++; x.tunggu += Math.max(0, tunggu); x.layan += Math.max(0, layan); x.maks = Math.max(x.maks, tunggu);
+}
+function catatTahap(t) {
+  // Dipanggil saat satu tahap selesai: tunggu = waktu tempuh dikurangi waktu jalan tanpa hambatan.
+  const g = t.leg;
+  if (!g || g.tiba == null) return;
+  statTambah(g.tahap, (g.tiba - g.mulai) - g.bebas, S.t - g.tiba);
+  t.leg = null;
+}
+const KECEPATAN = 58;
 const RT = new Map();        // keadaan berjalan per objek (jembatan, barrier)
 function rt(o) {
   if (!RT.has(o.id)) RT.set(o.id, { truk: null, reservasi: null, baca: 0, buka: 0, tahan: 0, minta: false, stabil: false });
   return RT.get(o.id);
 }
 
-/* 1 detik simulasi = SIM_RATE detik di jam pabrik (supaya satu truk selesai dalam beberapa menit nyata) */
-const SIM_RATE = 12;
 function jamSim() { return new Date(mulai.getTime() + S.t * 1000 * SIM_RATE); }
 function jamStr(d = jamSim()) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
 function stamp(d = jamSim()) {
@@ -768,7 +872,7 @@ const JENIS = {
   SAJA: { label: 'Timbang saja', produk: 'Cangkang', warna: C.saja, alur: 'TIMBANG_SAJA', transaksi: 'PENIMBANGAN_SAJA', tahap: ['SECURITY', 'TIMBANG_1'] },
 };
 const NAMA_TAHAP = {
-  SECURITY: 'Pos Security', TIMBANG_1: 'Timbang masuk', SORTASI: 'Bongkar & sortasi', MUAT: 'Muat produk',
+  SECURITY: 'Pos Security · scan wajah', DAFTAR: 'Pos 2 · pendaftaran wajah', TIMBANG_1: 'Timbang masuk', SORTASI: 'Bongkar & sortasi', MUAT: 'Muat produk',
   LAB: 'Laboratorium', TIMBANG_2: 'Timbang keluar',
 };
 
@@ -788,6 +892,8 @@ const menuju = o => S.trucks.filter(x => x.tujuan === o).length;
 function pilihTujuan(t, tahap) {
   const kel = stasiun('keluar');
   if (tahap === 'SECURITY') return pilihTerbaik(t, stasiun('security'), menuju);
+  if (tahap === 'DAFTAR') return pilihTerbaik(t, stasiun('pos_daftar'), menuju,
+    o => stasiun('jembatan').some(j => rute(nodeObj(o), nodeObj(j))));
   if (tahap === 'TIMBANG_1') return pilihTerbaik(t, stasiun('jembatan'),
     o => S.trucks.filter(x => x.jt === o && x.w1 == null).length + (rt(o).truk ? 1 : 0),
     o => kel.some(k => rute(nodeObj(o), nodeObj(k))));
@@ -800,18 +906,40 @@ function pilihTujuan(t, tahap) {
 }
 
 /* ---------------- truk ---------------- */
+const MAKS_ANTRE_LUAR = 60, MAKS_TRUK_DALAM = 45;
 function tambahTruk(kind, opsi = {}) {
   if (!V.alur[kind]) { catat(`Truk ${JENIS[kind].label} tidak bisa masuk: ${V.alasan[kind]}.`, 'warn'); return false; }
-  S.antre.push({ kind, opsi });
+  if (S.antre.length >= MAKS_ANTRE_LUAR) {
+    if (!S.penuhDicatat) catat(`Antrean di jalan raya sudah ${MAKS_ANTRE_LUAR} truk. Kedatangan baru ditolak simulasi.`, 'bad');
+    S.penuhDicatat = true;
+    return false;
+  }
+  S.penuhDicatat = false;
+  S.antre.push({ kind, opsi, t0: S.t });
   return true;
+}
+function acakJenis() {
+  const bobot = [['TBS', 0.58], ['CPO', 0.2], ['KERNEL', 0.12], ['SAJA', 0.1]].filter(([k]) => V.alur[k]);
+  const total = bobot.reduce((s, [, b]) => s + b, 0);
+  if (!total) return null;
+  let r = Math.random() * total;
+  for (const [k, b] of bobot) { if (r < b) return k; r -= b; }
+  return bobot[0][0];
+}
+function opsiAcak(kind) {
+  return {
+    blacklist: el('optBl').checked && Math.random() < 0.25,
+    reject: el('optRej').checked && (kind === 'CPO' || kind === 'KERNEL') && Math.random() < 0.5,
+  };
 }
 function munculkanAntre() {
   if (!S.antre.length) return;
   for (const m of stasiun('masuk')) {
-    if (!S.antre.length) return;
+    if (!S.antre.length || S.trucks.length >= MAKS_TRUK_DALAM) return;
     const an = G.anchor.get(m.id);
     if (S.trucks.some(t => Math.hypot(t.x - an.x, t.y - an.y) < 62)) continue;
-    const { kind, opsi } = S.antre.shift();
+    const { kind, opsi, t0 } = S.antre.shift();
+    statTambah('LUAR', S.t - t0, 0);
     buatTruk(kind, opsi, m);
   }
 }
@@ -825,7 +953,8 @@ function buatTruk(kind, opsi, masuk) {
     blacklist: !!opsi.blacklist, rejectLab: !!opsi.reject,
     tara: 0, muatan: 0, muatanNow: 0,
     node: an.node, x: an.x, y: an.y, ang: an.ang, s: 0, v: 0, gates: [], path: smooth([{ x: an.x, y: an.y }]),
-    tahapIdx: 0, aksi: null, aksiSisa: 0, sub: '', status: 'DATANG', jt: null, tujuan: null,
+    tahap: [...j.tahap], tahapIdx: 0, aksi: null, aksiSisa: 0, sub: '', status: 'DATANG', jt: null, tujuan: null, lahir: S.t,
+    wajahTerdaftar: !!opsi.blacklist || Math.random() * 100 < atur().persenTerdaftar,
     w1: null, w2: null, netto: null, sortasi: null, lab: null, riwayat: {}, selesai: false, blokir: 0, hantu: 0,
   };
   if (kind === 'TBS') { t.tara = bulat10(rnd(7200, 9400)); t.muatan = bulat10(rnd(6500, 12500)); t.muatanNow = t.muatan; }
@@ -865,7 +994,7 @@ function jalanKe(t, obj) {
 }
 
 function menujuTahap(t) {
-  const tahap = t.keluar ? 'KELUAR' : t.j.tahap[t.tahapIdx];
+  const tahap = t.keluar ? 'KELUAR' : t.tahap[t.tahapIdx];
   const tujuan = pilihTujuan(t, tahap);
   if (tahap === 'TIMBANG_1' && tujuan) t.jt = tujuan;
   if (!tujuan || !jalanKe(t, tujuan)) {
@@ -873,7 +1002,9 @@ function menujuTahap(t) {
     t.macet = true; t.hapusDalam = 3; t.sub = 'Tidak ada jalan';
     return;
   }
+  t.leg = tahap === 'KELUAR' ? null : { tahap: tahap === 'MUAT' ? 'MUAT' : tahap, mulai: S.t, tiba: null, bebas: t.path.len / KECEPATAN };
   if (tahap === 'SECURITY') t.sub = 'Menuju Pos Security';
+  else if (tahap === 'DAFTAR') t.sub = `Menuju ${tujuan.label || 'Pos 2'} untuk pendaftaran wajah`;
   else if (tahap === 'TIMBANG_1') t.sub = `Menuju ${t.jt.kode}`;
   else if (tahap === 'SORTASI') t.sub = `Menuju ${tujuan.label || 'bay sortasi'}`;
   else if (tahap === 'MUAT') t.sub = t.kind === 'CPO' ? 'Menuju titik muat CPO' : 'Menuju bunker kernel';
@@ -883,26 +1014,29 @@ function menujuTahap(t) {
 }
 
 function mulaiAksi(t, nama, durasi, sub) { t.aksi = nama; t.aksiSisa = durasi; t.aksiTotal = durasi; t.sub = sub || ''; }
-function tahapNow(t) { return t.j.tahap[t.tahapIdx]; }
+function tahapNow(t) { return t.tahap[t.tahapIdx]; }
 
 /* ---- saat truk tiba di tujuan ---- */
 function tiba(t) {
   t.node = t.tujuanNode;
-  if (t.keluar) { t.selesai = true; return; }
+  if (t.keluar) { t.selesai = true; statTambah('TOTAL', S.t - t.lahir, 0); return; }
+  if (t.leg) t.leg.tiba = S.t;
   const tahap = tahapNow(t);
   if (tahap === 'SECURITY') {
     t.status = 'SECURITY_REGISTER'; t.secLangkah = 0;
-    mulaiAksi(t, 'security', 2.2, 'Cek plat & blacklist');
+    mulaiAksi(t, 'security', durasiSim('scan') * 0.35, 'Cek plat & blacklist');
+  } else if (tahap === 'DAFTAR') {
+    mulaiAksi(t, 'daftar', durasiSim('daftar'), 'Pendaftaran supir baru: foto wajah & SIM');
   } else if (tahap === 'TIMBANG_1' || tahap === 'TIMBANG_2') {
     const r = rt(t.jt);
     if (r.truk && r.truk !== t) { t.aksi = 'tungguJT'; t.sub = `Menunggu ${t.jt.kode} kosong`; return; }
     mulaiTimbang(t);
   } else if (tahap === 'SORTASI') {
-    mulaiAksi(t, 'bongkar', 9, `Bongkar TBS di ${t.tujuan.label || 'loading ramp'}`);
+    mulaiAksi(t, 'bongkar', durasiSim('bongkar'), `Bongkar TBS di ${t.tujuan.label || 'loading ramp'}`);
   } else if (tahap === 'MUAT') {
-    mulaiAksi(t, 'muat', 10, t.kind === 'CPO' ? 'Pengisian CPO dari tangki timbun' : 'Pengisian kernel dari bunker');
+    mulaiAksi(t, 'muat', durasiSim(t.kind === 'CPO' ? 'muat_cpo' : 'muat_kernel'), t.kind === 'CPO' ? 'Pengisian CPO dari tangki timbun' : 'Pengisian kernel dari bunker');
   } else if (tahap === 'LAB') {
-    mulaiAksi(t, 'lab', 7, 'Ambil sampel & uji mutu');
+    mulaiAksi(t, 'lab', durasiSim('lab'), 'Ambil sampel & uji mutu');
   }
 }
 
@@ -965,12 +1099,20 @@ function simpanTimbang(t, jt) {
   lanjut(t);
 }
 function lanjut(t) {
+  catatTahap(t);
   t.tahapIdx++;
   if (!tahapNow(t)) { S.nSelesai++; t.keluar = true; }
   menujuTahap(t);
 }
 
-/* ---- aksi di tempat (security, bongkar, muat, lab) ---- */
+function buatTiket(t) {
+  t.no_tiket = `TKT-${t.plat.replace(/\s/g, '')}-${stamp()}`;
+  t.riwayat.SECURITY = t.riwayat.SECURITY || jamStr();
+  t.status = 'SECURITY_REGISTER';
+  catat(`${t.plat}: tiket ${t.no_tiket} dibuat, supir ${t.supir}${t.peringatan ? ' (dengan peringatan blacklist)' : ''}.`, t.peringatan ? 'warn' : '');
+}
+
+/* ---- aksi di tempat (security, pendaftaran, bongkar, muat, lab) ---- */
 function selesaiAksi(t, a) {
   if (a === 'security') {
     t.secLangkah++;
@@ -979,13 +1121,47 @@ function selesaiAksi(t, a) {
         t.peringatan = true;
         catat(`PERINGATAN: ${t.plat} / supir ${t.supir} terdaftar BLACKLIST. Tercatat TRY_SCAN_BLACKLIST untuk HO.`, 'bad');
       }
-      mulaiAksi(t, 'security', 2.5, 'Scan wajah supir');
+      mulaiAksi(t, 'security', durasiSim('scan') * 0.35, 'Scan wajah supir');
       return;
     }
-    if (t.secLangkah === 2) { mulaiAksi(t, 'security', 1.8, 'Simpan tiket & cetak QR'); return; }
-    t.no_tiket = `TKT-${t.plat.replace(/\s/g, '')}-${stamp()}`;
-    t.riwayat.SECURITY = jamStr();
-    catat(`${t.plat}: tiket ${t.no_tiket} dibuat, supir ${t.supir}${t.peringatan ? ' (dengan peringatan blacklist)' : ''}.`, t.peringatan ? 'warn' : '');
+    if (t.secLangkah === 2) {
+      t.scanSelesai = true;
+      if (t.wajahTerdaftar) {
+        t.jarakWajah = +rnd(0.28, 0.48).toFixed(2);
+        t.kodePersonel = `PRGBS-${String(rint(1, 249)).padStart(3, '0')}`;
+        t.hasilWajah = `Cocok ${t.kodePersonel} (jarak ${t.jarakWajah} ≤ ${AMBANG_WAJAH})`;
+        catat(`${t.plat}: wajah supir cocok dengan ${t.supir} (${t.kodePersonel}), jarak ${t.jarakWajah}. Cetak tiket.`);
+        mulaiAksi(t, 'security', durasiSim('scan') * 0.3, 'Wajah cocok, simpan tiket & cetak QR');
+        return;
+      }
+      t.jarakWajah = +rnd(0.62, 0.86).toFixed(2);
+      const pos2 = pilihTujuan(t, 'DAFTAR');
+      if (pos2) {
+        t.hasilWajah = `Tidak dikenali (jarak ${t.jarakWajah} > ${AMBANG_WAJAH}) → Pos 2`;
+        catat(`${t.plat}: wajah supir tidak dikenali (jarak ${t.jarakWajah} > ${AMBANG_WAJAH}). Diarahkan ke ${pos2.label || 'Pos 2'} untuk pendaftaran.`, 'warn');
+        t.status = 'SCAN_WAJAH';
+        t.riwayat.SECURITY = jamStr();
+        catatTahap(t);
+        t.tahap.splice(t.tahapIdx + 1, 0, 'DAFTAR');
+        t.tahapIdx++;
+        menujuTahap(t);
+        return;
+      }
+      t.hasilWajah = `Tidak dikenali (jarak ${t.jarakWajah} > ${AMBANG_WAJAH}), didaftarkan di pos ini`;
+      catat(`${t.plat}: wajah supir tidak dikenali. Site ini tidak punya Pos 2, supir didaftarkan di Pos Security (truk di belakangnya ikut menunggu).`, 'warn');
+      t.status = 'SCAN_WAJAH';
+      mulaiAksi(t, 'daftar', durasiSim('daftar'), 'Daftarkan supir baru di pos: foto wajah & SIM');
+      return;
+    }
+    buatTiket(t);
+    lanjut(t);
+    return;
+  }
+  if (a === 'daftar') {
+    t.kodePersonel = `PRGBS-${String(++S.nomorPersonel).padStart(3, '0')}`;
+    t.riwayat.DAFTAR = jamStr();
+    catat(`Supir baru ${t.supir} (${t.plat}) terdaftar sebagai ${t.kodePersonel}, wajah disimpan.`, 'ok');
+    buatTiket(t);
     lanjut(t);
     return;
   }
@@ -1018,7 +1194,8 @@ function selesaiAksi(t, a) {
     } else {
       t.status = 'REJECTED';
       catat(`Lab ${t.plat}: FFA ${l.ffa}%, air ${l.air}% di luar spesifikasi → REJECT. Tiket ditutup, tidak timbang keluar.`, 'bad');
-      t.tahapIdx = t.j.tahap.length - 1;
+      catatTahap(t);
+      t.tahapIdx = t.tahap.length - 1;
       t.keluar = true;
       menujuTahap(t);
     }
@@ -1029,6 +1206,7 @@ function selesaiAksi(t, a) {
 function syaratOk(o, t) {
   const s = o.syarat || 'tiket';
   if (s === 'bebas') return true;
+  if (s === 'scan') return !!(t.scanSelesai || t.no_tiket);
   if (s === 'tiket') return !!t.no_tiket;
   if (s === 'timbang') return t.w1 != null;
   if (s === 'selesai') return t.status === 'SELESAI' || t.status === 'REJECTED';
@@ -1095,6 +1273,16 @@ function batasGerbang(t) {
   }
   return batas;
 }
+function lingkaranTunggu(t, halang) {
+  const anggota = [t];
+  let c = halang;
+  for (let i = 0; i < 12 && c && !c.aksi; i++) {
+    if (c === t) return anggota.every(x => x.id >= t.id);
+    anggota.push(c);
+    c = c.hantu > 0 ? null : terhalang(c);
+  }
+  return false;
+}
 function updateTruk(t, dt) {
   if (t.macet) { t.hapusDalam -= dt; if (t.hapusDalam <= 0) t.selesai = true; return; }
   if (t.aksi) {
@@ -1114,13 +1302,13 @@ function updateTruk(t, dt) {
   const batas = batasGerbang(t);
   const sisa = batas - t.s;
   const halang = t.hantu > 0 ? null : terhalang(t);
-  let target = t.keluar && t.s > 10 ? 70 : 58;
+  let target = t.keluar && t.s > 10 ? 70 : KECEPATAN;
   if (sisa < 40) target = sisa > 1 ? Math.max(10, sisa * 1.4) : 0;
   if (halang) {
     target = 0;
     t.blokir += dt;
-    // Dua truk saling tunggu di pertemuan jalan: yang datang lebih dulu boleh jalan.
-    if (t.blokir > 1.2 && !halang.aksi && terhalang(halang) === t && t.id < halang.id) t.hantu = 1.2;
+    // Truk saling tunggu melingkar di persimpangan (2, 3, atau lebih truk): yang datang paling dulu boleh jalan.
+    if (t.blokir > 1.2 && lingkaranTunggu(t, halang)) t.hantu = 1.5;
   } else t.blokir = 0;
   if (t.hantu > 0) t.hantu -= dt;
   t.v += (target - t.v) * Math.min(1, dt * (target < t.v ? 7 : 2.2));
@@ -1139,18 +1327,12 @@ function step(dt) {
   S.t += dt;
   if (S.auto) {
     S.nextSpawn -= dt;
-    const antreLuar = S.antre.length + S.trucks.filter(t => t.tahapIdx === 0).length;
-    if (S.nextSpawn <= 0 && antreLuar < 4 && S.trucks.length < 22) {
-      const bobot = [['TBS', 0.58], ['CPO', 0.2], ['KERNEL', 0.12], ['SAJA', 0.1]].filter(([k]) => V.alur[k]);
-      const total = bobot.reduce((s, [, b]) => s + b, 0);
-      if (total > 0) {
-        let r = Math.random() * total, kind = bobot[0][0];
-        for (const [k, b] of bobot) { if (r < b) { kind = k; break; } r -= b; }
-        const bl = el('optBl').checked && Math.random() < 0.25;
-        const rej = el('optRej').checked && (kind === 'CPO' || kind === 'KERNEL') && Math.random() < 0.5;
-        tambahTruk(kind, { blacklist: bl, reject: rej });
-      }
-      S.nextSpawn = rnd(9, 16);
+    if (S.nextSpawn <= 0) {
+      const kind = acakJenis();
+      if (kind) tambahTruk(kind, opsiAcak(kind));
+      // jarak kedatangan acak (eksponensial) dengan rata-rata sesuai "truk per jam"
+      const rata = 3600 / Math.max(1, atur().perJam) / SIM_RATE;
+      S.nextSpawn = -Math.log(1 - Math.random()) * rata;
     }
   }
   munculkanAntre();
@@ -1190,7 +1372,7 @@ function label(g, txt, x, y, opt = {}) {
   if (opt.ls && 'letterSpacing' in g) g.letterSpacing = opt.ls;
   if (opt.bg) {
     const m = g.measureText(txt).width;
-    g.fillStyle = opt.bg; rrect(g, x - (opt.align === 'left' ? 4 : m / 2 + 4), y - 8, m + 8, 16, 3); g.fill();
+    g.fillStyle = opt.bg; rrect(g, x - (opt.align === 'left' ? 4 : opt.align === 'right' ? m + 4 : m / 2 + 4), y - 8, m + 8, 16, 3); g.fill();
   }
   g.fillStyle = opt.color || C.text;
   g.fillText(txt, x, y);
@@ -1228,7 +1410,7 @@ function gambarObjek(g, o) {
     case 'kolam':
       g.fillStyle = C.water; rrect(g, -w / 2, -h / 2, w, h, 10); g.fill();
       g.strokeStyle = C.waterHi; g.lineWidth = 2; g.stroke(); break;
-    case 'gedung': case 'security': case 'lab': atap(g, w, h); break;
+    case 'gedung': case 'security': case 'pos_daftar': case 'lab': atap(g, w, h); break;
     case 'pabrik':
       atap(g, w, h);
       g.strokeStyle = '#6b6f6c'; g.lineWidth = 2;
@@ -1287,7 +1469,7 @@ function gambarObjek(g, o) {
   // label tegak (tidak ikut diputar supaya tetap terbaca)
   const k = KATALOG[o.tipe];
   switch (o.tipe) {
-    case 'gedung': case 'security': case 'lab': case 'pabrik': case 'muat_kernel':
+    case 'gedung': case 'security': case 'pos_daftar': case 'lab': case 'pabrik': case 'muat_kernel':
       label(g, o.label, x, y - (o.sub ? 7 : 0), { size: o.tipe === 'muat_kernel' ? 10 : 13, w: 700 });
       if (o.sub) label(g, o.sub, x, y + 9, { size: 10, w: 500, color: o.tipe === 'muat_kernel' ? '#e6d9c6' : C.muted, font: FONT_BODY });
       break;
@@ -1493,6 +1675,26 @@ function gambar() {
   for (const p of S.smoke) {
     ctx.fillStyle = `rgba(190,200,195,${Math.max(0, p.a)})`;
     ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  // jumlah truk yang sedang antre (berhenti, belum dilayani) per tujuan
+  const antreDi = new Map();
+  for (const t of S.trucks) {
+    if (t.aksi || t.keluar || !t.tujuan || t.v > 3 || t.s < 1) continue;
+    antreDi.set(t.tujuan, (antreDi.get(t.tujuan) || 0) + 1);
+  }
+  for (const [o, n] of antreDi) {
+    if (n < 2) continue;
+    const { x, y } = posisiObj(o);
+    label(ctx, `antre ${n}`, x, y - 34, { size: 11, w: 700, color: '#1a1405', bg: n >= 4 ? C.bad : C.warn });
+  }
+  if (S.antre.length) {
+    const m = stasiun('masuk')[0];
+    if (m) {
+      const { x, y } = posisiObj(m);
+      const kiri = x < W / 2;
+      label(ctx, `+${S.antre.length} truk antre di jalan raya`, kiri ? x + 34 : x - 34, y + 12,
+        { size: 12, w: 700, color: '#fff', bg: S.antre.length >= 10 ? C.bad : '#7a5a1c', align: kiri ? 'left' : 'right' });
+    }
   }
   const blTruk = S.trucks.find(t => t.peringatan && t.tahapIdx === 0);
   if (blTruk) label(ctx, 'BLACKLIST: peringatan ke HO', blTruk.x, blTruk.y - 34, { size: 11, w: 700, color: '#fff', bg: C.bad });
@@ -1941,7 +2143,7 @@ function catat(teks, jenis = '') {
   S.logBaru = true;
 }
 const STATUS_TAMPIL = {
-  DATANG: ['Menuju security', 'idle'], SECURITY_REGISTER: ['SECURITY_REGISTER', 'warn'], TIMBANG_1: ['TIMBANG_1', 'warn'],
+  DATANG: ['Menuju security', 'idle'], SCAN_WAJAH: ['SCAN_WAJAH', 'warn'], SECURITY_REGISTER: ['SECURITY_REGISTER', 'warn'], TIMBANG_1: ['TIMBANG_1', 'warn'],
   TIMBANG_2: ['TIMBANG_2', 'warn'], SELESAI: ['SELESAI', 'ok'], REJECTED: ['REJECTED', 'bad'],
 };
 function statusHtml(t) {
@@ -1974,10 +2176,11 @@ function renderTabel() {
 function renderTiket() {
   const t = S.sel;
   if (!t) { el('tiket').innerHTML = '<p class="note">Klik truk di denah atau baris di tabel untuk melihat perjalanan tiketnya.</p>'; return; }
-  const tahap = t.j.tahap;
+  const tahap = t.tahap;
   const idx = t.status === 'SELESAI' || t.status === 'REJECTED' ? tahap.length : t.tahapIdx;
   const nilai = k => {
     if (k === 'SECURITY') return t.no_tiket ? (t.riwayat.SECURITY || '') : '';
+    if (k === 'DAFTAR') return t.riwayat.DAFTAR || '';
     if (k === 'TIMBANG_1') return t.w1 != null ? `${fmtKg(t.w1)} kg` : '';
     if (k === 'TIMBANG_2') return t.w2 != null ? `${fmtKg(t.w2)} kg` : '';
     if (k === 'SORTASI' && t.sortasi) return `−${t.sortasi.persenPotongan}%`;
@@ -1986,7 +2189,8 @@ function renderTiket() {
     return '';
   };
   const sub = k => {
-    if (k === 'SECURITY') return t.peringatan ? 'Peringatan blacklist, tercatat di Audit Log' : 'Cek plat, scan wajah supir, cetak QR';
+    if (k === 'SECURITY') return [t.peringatan ? 'Peringatan blacklist, tercatat di Audit Log' : '', t.hasilWajah ? `Wajah: ${t.hasilWajah}` : 'Cek plat, scan wajah supir, cetak QR'].filter(Boolean).join(' · ');
+    if (k === 'DAFTAR') return t.riwayat.DAFTAR ? `Supir baru terdaftar ${t.kodePersonel}, tiket dicetak di Pos 2` : 'Foto wajah & SIM, simpan personel baru, cetak tiket';
     if (k === 'TIMBANG_1') return t.jt ? `${t.jt.kode} · ${t.j.transaksi === 'PENJUALAN' ? 'tara (truk kosong)' : 'bruto (truk + muatan)'}` : 'Jembatan dipilih saat menuju timbangan';
     if (k === 'TIMBANG_2') return t.jt ? `Wajib ${t.jt.kode} · ${t.j.transaksi === 'PENJUALAN' ? 'bruto (truk + muatan)' : 'tara (truk kosong)'}` : '';
     if (k === 'SORTASI') return t.sortasi
@@ -2016,7 +2220,7 @@ function renderTiket() {
         <dt>Transaksi</dt><dd>${t.j.transaksi} · alur ${t.j.alur}</dd>
         <dt>Produk</dt><dd>${esc(t.j.produk)}</dd>
         <dt>Mitra</dt><dd>${esc(t.mitra)}${t.no_do ? ' · ' + t.no_do : ''}</dd>
-        <dt>Supir</dt><dd>${esc(t.supir)}</dd>
+        <dt>Supir</dt><dd>${esc(t.supir)}${t.kodePersonel ? ' · ' + t.kodePersonel : ''}</dd>
         <dt>Posisi</dt><dd>${esc(posisi)}</dd>
         ${netto}
       </dl>
@@ -2043,7 +2247,7 @@ function renderPanel(paksa) {
   const now = performance.now();
   if (!paksa && now - tPanel < 200) return;
   tPanel = now;
-  renderKpi(); renderJT(); renderTabel(); renderTiket(); renderLog();
+  renderKpi(); renderJT(); renderTabel(); renderTiket(); renderLog(); renderStat();
 }
 
 /* ---------------- interaksi simulasi ---------------- */
@@ -2076,6 +2280,77 @@ el('btnPlay').addEventListener('click', () => {
 });
 el('optAuto').addEventListener('change', e => { S.auto = e.target.checked; });
 el('btnReset').addEventListener('click', () => reset());
+el('btnRombongan').addEventListener('click', () => {
+  let n = 0;
+  for (let i = 0; i < 10; i++) { const k = acakJenis(); if (k && tambahTruk(k, opsiAcak(k))) n++; }
+  if (n) catat(`Rombongan ${n} truk tiba bersamaan di jalan raya.`, 'warn');
+  renderPanel(true);
+});
+
+/* ---------------- statistik & pengaturan ---------------- */
+const mnt = detik => detik * SIM_RATE / 60;
+const fmtM = v => v.toLocaleString('id-ID', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+function renderStat() {
+  const baris = STAT_URUT.filter(([k]) => STAT.get(k)?.n).map(([k, nama, sub]) => {
+    const x = STAT.get(k);
+    return { k, nama, sub, n: x.n, tunggu: mnt(x.tunggu / x.n), layan: mnt(x.layan / x.n), maks: mnt(x.maks) };
+  });
+  const skala = Math.max(1, ...baris.map(b => b.tunggu + b.layan));
+  const macet = baris.reduce((m, b) => (b.tunggu > (m?.tunggu ?? 2) ? b : m), null);
+  el('statList').innerHTML = baris.length ? baris.map(b => {
+    const pl = b.layan / skala * 100, pt = b.tunggu / skala * 100;
+    const judul = `${b.nama} ${b.sub}: ${b.n} truk · tunggu rata-rata ${fmtM(b.tunggu)} mnt (maks ${fmtM(b.maks)}) · dilayani ${fmtM(b.layan)} mnt`;
+    return `<div class="stat-row${b === macet ? ' macet' : ''}" title="${esc(judul)}">
+      <div class="nm">${esc(b.nama)}<small>${esc(b.sub)}</small></div>
+      <div class="bar">${pl > 0.3 ? `<span class="l" style="width:${pl}%"></span>` : ''}${pt > 0.3 ? `<span class="t" style="width:${pt}%"></span>` : ''}</div>
+      <div class="val"><b>${fmtM(b.tunggu)}</b> tunggu · ${fmtM(b.layan)} layan · ${b.n} truk${b === macet ? ' · <b style="color:var(--warn)">⚠ titik macet</b>' : ''}</div>
+    </div>`;
+  }).join('') : '<p class="note">Statistik muncul setelah truk menyelesaikan tahap pertama.</p>';
+  const tot = STAT.get('TOTAL');
+  el('sTotal').textContent = tot?.n ? fmtM(mnt(tot.tunggu / tot.n)) : '–';
+  el('sLuar').textContent = S.antre.length;
+  const luar = STAT.get('LUAR');
+  el('sLuarT').textContent = luar?.n ? `tunggu rata-rata ${fmtM(mnt(luar.tunggu / luar.n))} mnt` : '';
+  const jam = mnt(S.t - (S.mulaiStat || 0)) / 60;
+  el('sPerJam').textContent = jam > 0.2 ? fmtM((S.nSelesai - (S.selesaiAwal || 0)) / jam) : '–';
+}
+function isiAtur() {
+  const a = atur();
+  const preset = ['8', '15', '25', '40'].includes(String(a.perJam)) ? String(a.perJam) : '';
+  el('aRamai').value = preset;
+  el('aPerJam').value = a.perJam;
+  el('aWajah').value = a.persenTerdaftar;
+  document.querySelectorAll('[data-durasi]').forEach(i => { i.value = a.durasi[i.dataset.durasi]; });
+}
+function simpanAtur(ubah) {
+  L.pengaturan = L.pengaturan || {};
+  ubah(L.pengaturan);
+  simpanDenah();
+}
+el('aRamai').addEventListener('change', e => {
+  if (!e.target.value) { el('aPerJam').focus(); return; }
+  simpanAtur(p => { p.perJam = +e.target.value; });
+  el('aPerJam').value = e.target.value;
+  S.nextSpawn = Math.min(S.nextSpawn, 1);
+  catat(`Kedatangan diubah: ${e.target.selectedOptions[0].text} (${e.target.value} truk/jam).`);
+});
+el('aPerJam').addEventListener('change', e => {
+  const v = Math.max(1, Math.min(120, Math.round(+e.target.value) || 20));
+  e.target.value = v;
+  simpanAtur(p => { p.perJam = v; });
+  el('aRamai').value = ['8', '15', '25', '40'].includes(String(v)) ? String(v) : '';
+});
+el('aWajah').addEventListener('change', e => {
+  const v = Math.max(0, Math.min(100, Math.round(+e.target.value)));
+  e.target.value = v;
+  simpanAtur(p => { p.persenTerdaftar = v; });
+});
+document.querySelectorAll('[data-durasi]').forEach(i => i.addEventListener('change', () => {
+  const v = Math.max(0.5, Math.min(120, +i.value || PENGATURAN_DEFAULT.durasi[i.dataset.durasi]));
+  i.value = v;
+  simpanAtur(p => { p.durasi = { ...(p.durasi || {}), [i.dataset.durasi]: v }; });
+}));
+el('btnAturDefault').addEventListener('click', () => { simpanAtur(p => { delete p.perJam; delete p.persenTerdaftar; delete p.durasi; }); isiAtur(); });
 
 /* ---------------- site ---------------- */
 function isiPilihSite() {
@@ -2102,8 +2377,9 @@ function muatSite(id) {
 el('pilihSite').addEventListener('change', e => muatSite(e.target.value));
 
 function reset() {
-  Object.assign(S, { t: 0, trucks: [], antre: [], log: [], nextId: 1, nextSpawn: 1, sel: null, totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [] });
-  RT.clear();
+  Object.assign(S, { t: 0, trucks: [], antre: [], log: [], nextId: 1, nextSpawn: 1, sel: null, totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [], nomorPersonel: 250 });
+  RT.clear(); STAT.clear();
+  isiAtur();
   bangunGraf(); validasi();
   catat(`Simulasi ${L.nama} dimulai. Pabrik buka pukul 07.00.`);
   if (V.alur.SAJA) pemanasan();
@@ -2114,6 +2390,7 @@ function pemanasan() {
   // Isi denah dengan beberapa truk dulu supaya langsung terlihat hidup.
   ['TBS', 'CPO', 'TBS', 'KERNEL', 'TBS'].forEach(k => { if (V.alur[k]) tambahTruk(k); });
   for (let i = 0; i < 60 * 70; i++) step(1 / 60);
+  STAT.clear(); S.mulaiStat = S.t; S.selesaiAwal = S.nSelesai;
   S.sel = S.trucks.find(t => t.w1 && !t.keluar) || S.trucks[0] || null;
 }
 

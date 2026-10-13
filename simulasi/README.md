@@ -12,12 +12,41 @@ Klik dua kali `simulasi/index.html` (Chrome / Edge). Tidak perlu server, Python,
 
 Pilihan **Site** di kanan atas berisi 4 site contoh (nama masih dummy, ganti di Edit Denah → Nama site):
 
-| Site | Jembatan | Bay sortasi | Kernel | Bentuk |
-|---|---|---|---|---|
-| A · PKS Sungai Lestari | 4 | 3 | ada | gerbang di kiri |
-| B · PKS Bukit Harapan | 2 | 2 | ada | dicerminkan (gerbang di kanan) |
-| C · PKS Tanjung Makmur | 3 | 3 | tidak | gerbang di kiri |
-| D · PKS Rantau Jaya | 2 | 2 | tidak | dicerminkan |
+| Site | Jembatan | Bay sortasi | Kernel | Pos security | Bentuk |
+|---|---|---|---|---|---|
+| A · PKS Sungai Lestari | 4 | 3 | ada | 2 (Pos 1 scan wajah + Pos 2 pendaftaran) | gerbang di kiri |
+| B · PKS Bukit Harapan | 2 | 2 | ada | 1 | dicerminkan (gerbang di kanan) |
+| C · PKS Tanjung Makmur | 3 | 3 | tidak | 2 | gerbang di kiri |
+| D · PKS Rantau Jaya | 2 | 2 | tidak | 1 | dicerminkan |
+
+## Validasi wajah & Pos 2
+
+Di Pos 1 (Pos Security) truk berhenti: cek plat & blacklist → **scan wajah supir**.
+
+- **Wajah terdaftar** (jarak ≤ ambang 0,55, sama dengan default `AMBANG_WAJAH`): tiket langsung dicetak, palang terbuka,
+  truk lanjut ke timbangan.
+- **Wajah tidak terdaftar**:
+  - Site **dengan Pos 2**: palang Pos 1 (syarat *Sudah scan wajah di Pos 1*) terbuka, supir diarahkan ke **Pos 2** di
+    kantong samping untuk foto wajah & SIM, didaftarkan sebagai personel baru `PRGBS-###`, tiket dicetak di Pos 2,
+    lalu lanjut ke timbangan. Antrean di Pos 1 tidak tertahan.
+  - Site **tanpa Pos 2**: pendaftaran dilakukan di Pos 1, truk di belakangnya ikut menunggu.
+
+Pos 2 adalah objek *Pos 2 · pendaftaran wajah* di Edit Denah; pasang atau hapus sesuai site.
+
+## Pengaturan, skenario ramai & statistik antrean
+
+Kartu **Pengaturan & skenario** (tersimpan per site):
+
+- **Kedatangan truk**: Sepi 8/jam, Normal 15/jam, Ramai 25/jam, Panen raya 40/jam, atau angka sendiri.
+  Kedatangan acak (Poisson) sehingga kadang beberapa truk datang berdekatan.
+- **Supir sudah terdaftar wajahnya (%)**: makin kecil, makin banyak yang ke Pos 2.
+- **Durasi pelayanan** (menit jam pabrik): Pos 1, Pos 2, bongkar & sortasi, muat CPO, muat kernel, uji lab.
+- Tombol **+ Rombongan 10 truk**: 10 truk datang hampir bersamaan.
+
+Kartu **Statistik antrean** menampilkan rata-rata menit **menunggu** dan **dilayani** per tahap
+(Pos 1, Pos 2, timbang masuk, sortasi, muat, lab, timbang keluar), menandai **titik macet** (tunggu terlama),
+jumlah & lama antre di jalan raya, rata-rata waktu di pabrik, dan tiket selesai per jam.
+Di denah muncul tanda **antre N** di tempat yang sedang mengantre dan jumlah truk yang antre di jalan raya.
 
 Tiap site punya denah sendiri, tersimpan otomatis di browser komputer itu.
 
@@ -34,8 +63,9 @@ Tombol **Edit Denah** menghentikan simulasi dan membuka editor:
 | Objek | Letak | Fungsi |
 |---|---|---|
 | Titik masuk / keluar truk | di atas jalan | truk muncul / menghilang |
-| Pos Security | samping jalan | cek plat, blacklist, scan wajah, cetak tiket |
-| **Barrier gate** | di atas jalan | palang terbuka hanya bila syarat terpenuhi: sudah punya tiket / sudah timbang masuk / tiket selesai / semua truk |
+| Pos Security (Pos 1) | samping jalan | cek plat, blacklist, scan wajah, cetak tiket |
+| Pos 2 · pendaftaran wajah | samping jalan | opsional; daftar supir yang wajahnya belum dikenal |
+| **Barrier gate** | di atas jalan | palang terbuka hanya bila syarat terpenuhi: sudah scan wajah di Pos 1 / sudah punya tiket / sudah timbang masuk / tiket selesai / semua truk |
 | Jembatan timbang | di atas jalan | arah plat otomatis mengikuti jalan |
 | **Lampu lalu lintas** | di atas jalan, sebelum jembatan | merah bila jembatan terisi atau sudah dipesan truk lain; truk menunggu di garis berhenti |
 | Bay sortasi TBS, Bunker kernel, Laboratorium | samping jalan | truk berhenti di titik jalan terdekat |
@@ -67,6 +97,7 @@ lab REJECT menutup tiket tanpa timbang keluar, no. tiket `TKT-{PLAT}-{yyyyMMddHH
 {
   "versi": 1, "site": "A", "nama": "Site A · PKS Sungai Lestari",
   "latar": null, "latarOpacity": 0.6,
+  "pengaturan": { "perJam": 15, "persenTerdaftar": 75, "durasi": { "scan": 1.5, "daftar": 5, "bongkar": 8, "muat_cpo": 12, "muat_kernel": 8, "lab": 6 } },
   "objek": [ { "id": "o1", "tipe": "barrier", "x": 150, "y": 645, "w": 16, "h": 16, "rot": 0,
                "label": "Barrier Security", "syarat": "tiket" } ],
   "jalan": { "titik": [ { "id": "n1", "x": 10, "y": 738 } ],
@@ -75,7 +106,7 @@ lab REJECT menutup tiket tanpa timbang keluar, no. tiket `TKT-{PLAT}-{yyyyMMddHH
 ```
 
 Koordinat denah 1280 × 760. `ruas.dua = false` berarti satu arah dari `a` ke `b`.
-Tipe objek: `masuk, keluar, security, barrier, jembatan, lampu, sortasi, muat_cpo, muat_kernel, lab,
+Tipe objek: `masuk, keluar, security, pos_daftar, barrier, jembatan, lampu, sortasi, muat_cpo, muat_kernel, lab,
 gedung, pabrik, boiler, tangki, kolam, lantai, pohon, teks`.
 
 Semua angka (plat, supir, mitra, berat, hasil sortasi & lab) dibuat acak untuk demo.
