@@ -42,7 +42,7 @@ function itemCari({ url, baru = false, ikon, kiri, kanan = '' }) {
 }
 
 const TIKET_SELESAI = ['SELESAI', 'REJECTED', 'VOID'];
-const kg = v => v == null ? '–' : `${Number(v).toLocaleString('id-ID')} kg`;
+const kgCari = v => v == null ? '–' : `${Number(v).toLocaleString('id-ID')} kg`;
 
 function tampilkanCari(kata, data) {
     const k = kata.toLowerCase();
@@ -62,7 +62,7 @@ function tampilkanCari(kata, data) {
                 baru: selesai, ikon: '<i class="fa-regular fa-file-lines text-blue-600"></i>',
                 kiri: `<span class="block font-mono font-semibold text-slate-900 truncate">${escapeHtml(t.no_tiket)} · ${escapeHtml(t.no_plat)}</span>
                        <span class="block text-xs text-slate-500 truncate">${escapeHtml(t.supir)} · ${escapeHtml(t.customer)} · ${escapeHtml(t.produk)}</span>`,
-                kanan: `<span class="block font-mono font-bold text-slate-900">${kg(t.netto)}</span>
+                kanan: `<span class="block font-mono font-bold text-slate-900">${kgCari(t.netto)}</span>
                         <span class="block text-[11px] text-slate-500">${selesai ? escapeHtml(t.created_at) : badgeStatusTiket(t.status_alur)}</span>`,
             });
         }).join(''), 'klik untuk buka');
