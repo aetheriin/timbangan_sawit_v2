@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulasi Alur Timbangan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: denah pabrik (kanvas) di kiri, panel ruang kontrol di kanan; bertumpuk di layar sempit.
+   Tampilan gelap tunggal ala layar ruang kontrol, disengaja. */
+:root {
+  color-scheme: dark;
+  --bg: #0e1411;
+  --panel: #151d19;
+  --panel-2: #1b2520;
+  --line: #2a3832;
+  --fg: #e4ebe5;
+  --muted: #8fa198;
+  --accent: #f2c230;      /* kuning keselamatan: jembatan timbang, sorotan */
+  --tbs: #e8673d;         /* TBS: buah sawit */
+  --cpo: #3fb6a8;         /* produk PKS: CPO / kernel */
+  --saja: #9aa4ff;        /* penimbangan saja */
+  --ok: #5ccb8b;
+  --warn: #f2a03a;
+  --bad: #ef5a52;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.45 var(--f-body);
+}
+button, select { font: inherit; color: inherit; }
+.app {
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px;
+  padding-block: 16px; padding-inline: 16px; min-height: 100%;
+}
+@media (max-width: 1080px) { .app { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- kepala ---------- */
+.head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.brand .eyebrow { font: 600 11px/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.brand h1 { margin: 4px 0 0; font: 700 28px/1 var(--f-display); letter-spacing: .01em; text-wrap: balance; }
+.clock { margin-left: auto; text-align: right; }
+.clock .t { font: 600 26px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.clock .d { color: var(--muted); font-size: 12px; }
+
+.controls { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn {
+  border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px;
+  padding: 7px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:focus-visible, select:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: #1a1405; border-color: var(--accent); font-weight: 600; }
+.btn .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel-2); padding: 7px 11px; cursor: pointer; font-family: var(--f-mono); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.sep { width: 1px; height: 26px; background: var(--line); margin-inline: 4px; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); }
+
+/* ---------- denah ---------- */
+.map-wrap { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.map {
+  position: relative; width: 100%; aspect-ratio: 1280 / 760; max-width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #18221c;
+}
+.map-scroll { overflow-x: auto; border-radius: 8px; }
+@media (max-width: 800px) { .map { min-width: 760px; } }
+.map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 12px; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+
+/* ---------- panel ---------- */
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.card h2 {
+  margin: 0 0 10px; font: 600 15px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.card h2 small { font: 500 11px var(--f-body); letter-spacing: 0; text-transform: none; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.kpi .v { font: 600 20px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.kpi .l { color: var(--muted); font-size: 11px; }
+
+.jts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.jt { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.jt .top { display: flex; justify-content: space-between; align-items: center; font: 600 13px var(--f-display); letter-spacing: .08em; }
+.jt .w { font: 600 22px/1.2 var(--f-mono); color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
+.jt .w.idle { color: #4e5d55; }
+.jt .who { color: var(--muted); font-size: 11px; min-height: 1.45em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill { font: 600 10px/1 var(--f-body); letter-spacing: .06em; text-transform: uppercase; padding: 3px 6px; border-radius: 99px; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.idle { color: var(--muted); } .pill.bad { color: var(--bad); }
+
+.tbl-wrap { overflow-x: auto; max-height: 250px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+td { padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td.num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+tbody tr { cursor: pointer; }
+tbody tr:hover, tbody tr.sel { background: var(--panel-2); }
+.plat { font-family: var(--f-mono); font-weight: 600; }
+.tag { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.stage { font: 600 10px var(--f-body); letter-spacing: .05em; text-transform: uppercase; }
+.empty { color: var(--muted); font-size: 12px; padding: 8px 0; }
+
+.log { max-height: 210px; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.log div { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+.log time { color: var(--muted); font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.log .bad { color: var(--bad); } .log .ok { color: var(--ok); } .log .warn { color: var(--warn); }
+
+/* kartu tiket terpilih */
+.ticket { font-size: 12px; }
+.ticket .no { font: 600 12px var(--f-mono); color: var(--muted); word-break: break-all; }
+.ticket .ttl { display: flex; align-items: center; gap: 8px; margin: 2px 0 8px; font: 700 20px/1.1 var(--f-display); }
+.ticket dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0 0 10px; }
+.ticket dt { color: var(--muted); }
+.ticket dd { margin: 0; font-variant-numeric: tabular-nums; }
+.steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.steps li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.steps .mk { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); margin-top: 2px; }
+.steps li.done .mk { background: var(--ok); border-color: var(--ok); }
+.steps li.now .mk { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(242, 194, 48, .25); }
+.steps li.fail .mk { background: var(--bad); border-color: var(--bad); }
+.steps .sub { color: var(--muted); font-size: 11px; }
+.steps .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.note { color: var(--muted); font-size: 12px; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div class="brand">
+      <span class="eyebrow">Smart Weighbridge · Mode Demo</span>
+      <h1>Alur Truk dari Gerbang sampai Keluar</h1>
+    </div>
+    <div class="clock"><div class="t" id="jam">07:00:00</div><div class="d" id="tgl"></div></div>
+  </header>
+
+  <div class="controls" role="toolbar" aria-label="Kontrol simulasi">
+    <button class="btn primary" id="btnPlay" type="button">Jeda</button>
+    <div class="seg" role="group" aria-label="Kecepatan">
+      <button type="button" data-speed="1" aria-pressed="false">1×</button>
+      <button type="button" data-speed="2" aria-pressed="true">2×</button>
+      <button type="button" data-speed="4" aria-pressed="false">4×</button>
+      <button type="button" data-speed="8" aria-pressed="false">8×</button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="btn" type="button" data-add="TBS"><span class="dot" style="background:var(--tbs)"></span>+ Truk TBS</button>
+    <button class="btn" type="button" data-add="CPO"><span class="dot" style="background:var(--cpo)"></span>+ Tangki CPO</button>
+    <button class="btn" type="button" data-add="KERNEL"><span class="dot" style="background:var(--cpo)"></span>+ Truk Kernel</button>
+    <button class="btn" type="button" data-add="SAJA"><span class="dot" style="background:var(--saja)"></span>+ Timbang Saja</button>
+    <span class="sep" aria-hidden="true"></span>
+    <label class="toggle"><input type="checkbox" id="optAuto" checked> Truk datang otomatis</label>
+    <label class="toggle"><input type="checkbox" id="optBl"> Ada truk blacklist</label>
+    <label class="toggle"><input type="checkbox" id="optRej"> Ada lab reject</label>
+    <button class="btn" type="button" id="btnReset">Ulang</button>
+  </div>
+
+  <section class="map-wrap" aria-label="Denah pabrik">
+    <div class="map-scroll"><div class="map"><canvas id="peta" aria-label="Denah pabrik kelapa sawit dengan truk yang bergerak"></canvas></div></div>
+    <div class="legend">
+      <span><i style="background:var(--tbs)"></i>TBS (pembelian): Security → Timbang masuk → Sortasi → Timbang keluar</span>
+      <span><i style="background:var(--cpo)"></i>Produk PKS (penjualan): Security → Timbang masuk → Muat → Lab → Timbang keluar</span>
+      <span><i style="background:var(--saja)"></i>Penimbangan saja: Security → Timbang sekali</span>
+      <span>Klik truk untuk melihat tiketnya.</span>
+    </div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h2>Hari ini <small>sejak simulasi dimulai</small></h2>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="kAktif">0</div><div class="l">Tiket aktif</div></div>
+        <div class="kpi"><div class="v" id="kSelesai">0</div><div class="l">Selesai</div></div>
+        <div class="kpi"><div class="v" id="kTbs">0</div><div class="l">Netto TBS (t)</div></div>
+        <div class="kpi"><div class="v" id="kPks">0</div><div class="l">Kirim PKS (t)</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Indikator timbangan <small>status seperti tab Timbangan</small></h2>
+      <div class="jts" id="jtPanel"></div>
+    </div>
+
+    <div class="card" id="tiketCard">
+      <h2>Tiket terpilih</h2>
+      <div id="tiket"><p class="note">Klik truk di denah atau baris di tabel untuk melihat perjalanan tiketnya.</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Tiket aktif <small id="nAktif"></small></h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Plat</th><th>Produk</th><th>Status alur</th><th>JT</th><th class="num">Berat 1 (kg)</th></tr></thead>
+          <tbody id="tblAktif"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Log kejadian</h2>
+      <div class="log" id="log" aria-live="polite"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================================
+   Simulasi alur timbangan PKS (demo, tidak terhubung ke database / server).
+   Aturan mengikuti sistem Smart Weighbridge:
+   - Alur TBS: SECURITY → TIMBANG_1 → SORTASI → TIMBANG_2; PKS: SECURITY → TIMBANG_1 → LAB → TIMBANG_2;
+     Penimbangan saja: SECURITY → TIMBANG_1.
+   - status_alur: SECURITY_REGISTER (menunggu timbang masuk) → TIMBANG_1 (menunggu sortasi / lab)
+     → TIMBANG_2 (menunggu timbang keluar) → SELESAI. Lab REJECT → REJECTED.
+   - Timbang keluar wajib di jembatan yang sama dengan timbang masuk.
+   - PEMBELIAN: timbang 1 = bruto, timbang 2 = tara. PENJUALAN: timbang 1 = tara, timbang 2 = bruto.
+   - Berat disimpan hanya bila stabil (berubah ≤ toleransi selama durasi stabil) dan ≥ berat minimum.
+   - Potongan sortasi = (buah mentah + tangkai panjang + sampah) % × netto.
+   - No. tiket: TKT-{PLAT}-{yyyyMMddHHmmss}.
+   ===================================================================================== */
+
+const W = 1280, H = 760;
+const canvas = document.getElementById('peta');
+const ctx = canvas.getContext('2d');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const C = {
+  ground: '#1a251e', ground2: '#1e2b23', road: '#2c3330', roadEdge: '#3b4440', mark: '#c9cfc9',
+  roof: '#3a4943', roofHi: '#4a5c55', wall: '#26332e', concrete: '#3d4642',
+  steel: '#59645f', accent: '#f2c230', tbs: '#e8673d', cpo: '#3fb6a8', saja: '#9aa4ff',
+  ok: '#5ccb8b', bad: '#ef5a52', warn: '#f2a03a', text: '#e4ebe5', muted: '#8fa198',
+  water: '#1d3b3d', waterHi: '#24494a', palm: '#2f6b3e', palmDark: '#244f30', kernel: '#8a6a45', cpoOil: '#d9822b',
+};
+
+/* ---------------- tata letak denah (koordinat logis 1280 × 760) ---------------- */
+const Y_MAIN = 738, Y_LOW = 600, Y_RET = 652, Y_UP = 330, Y_TOP = 110;
+const X_GATE = 150, X_MERGE = 250, X_RIGHT = 1220;
+const JT = [
+  { kode: 'JT-1', x: 330 }, { kode: 'JT-2', x: 410 }, { kode: 'JT-3', x: 490 }, { kode: 'JT-4', x: 570 },
+];
+const JT_STOP_Y = 462;                         // titik tengah plat timbangan
+const BAY_TBS = [{ x: 700, nama: 'Bay 1' }, { x: 770, nama: 'Bay 2' }, { x: 840, nama: 'Bay 3' }];
+const BAY_STOP_Y = 236;
+const X_CPO = 1040, X_KERNEL = 1120, MUAT_STOP_Y = 236;
+const X_LAB_STOP = 1160;
+const SEC_STOP = { x: X_GATE, y: 692 };   // truk berhenti di depan palang, samping pos
+
+const PROFIL_JT = { toleransi: 5, durasiStabil: 3, beratMin: 100 };   // default jembatan_timbang
+
+/* ---------------- data acak ---------------- */
+const MITRA_TBS = ['KUD Sawit Makmur', 'CV Tani Jaya', 'Kebun Plasma Blok C', 'UD Berkah Sawit', 'Koperasi Sido Rukun', 'PT Agro Lestari'];
+const MITRA_PKS = ['PT Minyak Nusantara', 'PT Sinar Refinery', 'PT Kernel Prima'];
+const SUPIR = ['Budi S.', 'Andi P.', 'Rahmat', 'Joko W.', 'Hendra', 'Sutrisno', 'Wahyu', 'Agus R.', 'Darmawan', 'Slamet', 'Yusuf', 'Ilham'];
+const KODE_PLAT = ['BK', 'BM', 'BH', 'KB', 'KT', 'DA', 'BG', 'BA'];
+const rnd = (a, b) => a + Math.random() * (b - a);
+const rint = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const bulat10 = v => Math.round(v / 10) * 10;
+const fmtKg = v => v == null ? '–' : Math.round(v).toLocaleString('id-ID');
+const fmtT = v => (v / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const pad = n => String(n).padStart(2, '0');
+function buatPlat() {
+  const huruf = 'ABCDEFGHJKLMNPRSTUVWXYZ';
+  return `${pick(KODE_PLAT)} ${rint(1000, 9899)} ${huruf[rint(0, 22)]}${huruf[rint(0, 22)]}`;
+}
+
+/* ---------------- jam simulasi ---------------- */
+const mulai = new Date(); mulai.setHours(7, 0, 0, 0);
+const S = {
+  t: 0,                 // detik simulasi
+  speed: 2, paused: false, auto: true,
+  trucks: [], selesai: [], log: [], nextId: 1, nextSpawn: 2, sel: null,
+  totalTbs: 0, totalPks: 0, nSelesai: 0,
+  smoke: [], blHint: false, rejHint: false,
+};
+/* 1 detik nyata = SIM_RATE detik di jam pabrik (supaya satu truk selesai dalam beberapa menit nyata) */
+const SIM_RATE = 12;
+function jamSim() { return new Date(mulai.getTime() + S.t * 1000 * SIM_RATE); }
+function jamStr(d = jamSim()) { return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function stamp(d = jamSim()) {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+/* ---------------- jalur ---------------- */
+function smooth(pts, r = 20) {
+  // Bulatkan sudut polyline (kurva kuadrat) supaya truk berbelok halus.
+  const out = [pts[0]];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], p = pts[i], b = pts[i + 1];
+    const d1x = p.x - a.x, d1y = p.y - a.y, d2x = b.x - p.x, d2y = b.y - p.y;
+    const l1 = Math.hypot(d1x, d1y), l2 = Math.hypot(d2x, d2y);
+    const cross = d1x * d2y - d1y * d2x;
+    if (l1 < 1 || l2 < 1 || Math.abs(cross) < 1e-3 * l1 * l2) { out.push(p); continue; }
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const s = { x: p.x - d1x / l1 * rr, y: p.y - d1y / l1 * rr };
+    const e = { x: p.x + d2x / l2 * rr, y: p.y + d2y / l2 * rr };
+    for (let k = 0; k <= 8; k++) {
+      const t = k / 8, u = 1 - t;
+      out.push({ x: u * u * s.x + 2 * u * t * p.x + t * t * e.x, y: u * u * s.y + 2 * u * t * p.y + t * t * e.y });
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  const path = { pts: out, cum: [0] };
+  for (let i = 1; i < out.length; i++) path.cum.push(path.cum[i - 1] + Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y));
+  path.len = path.cum[path.cum.length - 1];
+  return path;
+}
+function titikDi(path, s) {
+  s = Math.max(0, Math.min(path.len, s));
+  let lo = 0, hi = path.cum.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (path.cum[m] <= s) lo = m; else hi = m; }
+  const a = path.pts[lo], b = path.pts[hi], seg = path.cum[hi] - path.cum[lo] || 1, t = (s - path.cum[lo]) / seg;
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+}
+
+// Ruas jalan dari posisi sekarang ke tahap berikutnya (jalan satu arah, lihat gambar).
+const keJT = (jt) => [{ x: X_MERGE, y: Y_RET }, { x: X_MERGE, y: Y_LOW }, { x: jt.x, y: Y_LOW }, { x: jt.x, y: JT_STOP_Y }];
+const RUTE = {
+  datang: () => [{ x: -80, y: Y_MAIN }, { x: X_GATE, y: Y_MAIN }, { x: X_GATE, y: SEC_STOP.y }],
+  timbang1: (t) => [{ x: X_GATE, y: SEC_STOP.y }, { x: X_GATE, y: Y_LOW }, { x: t.jt.x, y: Y_LOW }, { x: t.jt.x, y: JT_STOP_Y }],
+  sortasi: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: t.bay.x, y: Y_UP }, { x: t.bay.x, y: BAY_STOP_Y }],
+  muat: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: t.xMuat, y: Y_UP }, { x: t.xMuat, y: MUAT_STOP_Y }],
+  lab: (t) => [{ x: t.xMuat, y: MUAT_STOP_Y }, { x: t.xMuat, y: Y_TOP }, { x: X_LAB_STOP, y: Y_TOP }],
+  timbang2DariBay: (t) => [{ x: t.bay.x, y: BAY_STOP_Y }, { x: t.bay.x, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_RET }, ...keJT(t.jt)],
+  timbang2DariLab: (t) => [{ x: X_LAB_STOP, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_RET }, ...keJT(t.jt)],
+  keluarDariJT: (t) => [{ x: t.jt.x, y: JT_STOP_Y }, { x: t.jt.x, y: Y_UP }, { x: X_RIGHT, y: Y_UP }, { x: X_RIGHT, y: Y_MAIN }, { x: W + 90, y: Y_MAIN }],
+  keluarDariLab: () => [{ x: X_LAB_STOP, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_MAIN }, { x: W + 90, y: Y_MAIN }],
+};
+
+/* ---------------- jenis muatan ---------------- */
+const JENIS = {
+  TBS: { label: 'TBS', produk: 'TBS', warna: C.tbs, alur: 'TBS', transaksi: 'PEMBELIAN', tahap: ['SECURITY', 'TIMBANG_1', 'SORTASI', 'TIMBANG_2'] },
+  CPO: { label: 'CPO', produk: 'CPO', warna: C.cpo, alur: 'PKS', transaksi: 'PENJUALAN', tahap: ['SECURITY', 'TIMBANG_1', 'MUAT', 'LAB', 'TIMBANG_2'] },
+  KERNEL: { label: 'Kernel', produk: 'Inti sawit (PK)', warna: C.cpo, alur: 'PKS', transaksi: 'PENJUALAN', tahap: ['SECURITY', 'TIMBANG_1', 'MUAT', 'LAB', 'TIMBANG_2'] },
+  SAJA: { label: 'Timbang saja', produk: 'Cangkang', warna: C.saja, alur: 'TIMBANG_SAJA', transaksi: 'PENIMBANGAN_SAJA', tahap: ['SECURITY', 'TIMBANG_1'] },
+};
+const NAMA_TAHAP = {
+  SECURITY: 'Pos Security', TIMBANG_1: 'Timbang masuk', SORTASI: 'Bongkar & sortasi', MUAT: 'Muat produk',
+  LAB: 'Laboratorium', TIMBANG_2: 'Timbang keluar',
+};
+
+/* ---------------- truk ---------------- */
+function pilihJT() {
+  // Jembatan dengan antrean timbang masuk paling sedikit.
+  const beban = JT.map(j => S.trucks.filter(t => t.jt === j && !t.w1).length + (j.truk ? 1 : 0));
+  const min = Math.min(...beban);
+  return pick(JT.filter((j, i) => beban[i] === min));
+}
+function pilihBay() {
+  const beban = BAY_TBS.map(b => S.trucks.filter(t => t.bay === b && !t.sortasi).length);
+  const min = Math.min(...beban);
+  return pick(BAY_TBS.filter((b, i) => beban[i] === min));
+}
+
+function tambahTruk(kind, opsi = {}) {
+  const j = JENIS[kind];
+  const plat = buatPlat();
+  const t = {
+    id: S.nextId++, kind, j, plat, supir: pick(SUPIR),
+    mitra: kind === 'TBS' ? pick(MITRA_TBS) : kind === 'SAJA' ? 'PT Sendiri (internal)' : pick(MITRA_PKS),
+    no_do: kind === 'TBS' || kind === 'SAJA' ? null : `DO-${jamSim().getFullYear()}-${rint(100, 999)}`,
+    blacklist: !!opsi.blacklist, rejectLab: !!opsi.reject,
+    tara: 0, muatan: 0, muatanNow: 0,
+    path: smooth(RUTE.datang()), s: 0, v: 0, x: -80, y: Y_MAIN, ang: 0,
+    tahapIdx: 0, aksi: null, aksiSisa: 0, sub: '', status: 'DATANG', jt: null, bay: null,
+    w1: null, w2: null, netto: null, sortasi: null, lab: null, riwayat: {}, selesai: false, blokir: 0, hantu: 0,
+  };
+  if (kind === 'TBS') { t.tara = bulat10(rnd(7200, 9400)); t.muatan = bulat10(rnd(6500, 12500)); t.muatanNow = t.muatan; }
+  if (kind === 'CPO') { t.tara = bulat10(rnd(10800, 12400)); t.muatan = bulat10(rnd(22000, 27500)); }
+  if (kind === 'KERNEL') { t.tara = bulat10(rnd(8200, 9600)); t.muatan = bulat10(rnd(12000, 17500)); t.xMuat = X_KERNEL; }
+  if (kind === 'CPO') t.xMuat = X_CPO;
+  if (kind === 'SAJA') { t.tara = bulat10(rnd(6800, 8200)); t.muatan = bulat10(rnd(5000, 9000)); t.muatanNow = t.muatan; }
+  t.panjang = kind === 'CPO' ? 50 : 42;
+  t.lebar = 17;
+  S.trucks.push(t);
+  catat(`${t.plat} (${t.j.label}) tiba di gerbang, antre ke Pos Security.`);
+  return t;
+}
+
+function mulaiJalan(t, pts) { t.path = smooth(pts); t.s = 0; t.aksi = null; }
+function mulaiAksi(t, nama, durasi, sub) { t.aksi = nama; t.aksiSisa = durasi; t.aksiTotal = durasi; t.sub = sub || ''; }
+function tahapNow(t) { return t.j.tahap[t.tahapIdx]; }
+
+/* ---- saat truk tiba di titik berhenti ---- */
+function tiba(t) {
+  const tahap = tahapNow(t);
+  if (t.keluar) { t.selesai = true; return; }
+  if (tahap === 'SECURITY') {
+    t.status = 'SECURITY_REGISTER';
+    t.secLangkah = 0;
+    mulaiAksi(t, 'security', 2.2, 'Cek plat & blacklist');
+  } else if (tahap === 'TIMBANG_1' || tahap === 'TIMBANG_2') {
+    if (t.jt.truk && t.jt.truk !== t) { t.aksi = 'tungguJT'; t.sub = `Menunggu ${t.jt.kode} kosong`; return; }
+    mulaiTimbang(t);
+  } else if (tahap === 'SORTASI') {
+    mulaiAksi(t, 'bongkar', 9, 'Bongkar TBS di loading ramp');
+  } else if (tahap === 'MUAT') {
+    mulaiAksi(t, 'muat', 10, t.kind === 'CPO' ? 'Pengisian CPO dari tangki timbun' : 'Pengisian kernel dari bunker');
+  } else if (tahap === 'LAB') {
+    mulaiAksi(t, 'lab', 7, 'Ambil sampel & uji mutu');
+  }
+}
+
+/* ---- penimbangan dengan indikator ---- */
+function mulaiTimbang(t) {
+  const jt = t.jt;
+  const ke = tahapNow(t) === 'TIMBANG_1' ? 1 : 2;
+  // Berat sebenarnya di atas plat: truk kosong + muatan saat ini.
+  const target = t.tara + (t.muatanNow || 0);
+  jt.truk = t;
+  jt.target = target + rnd(-4, 4);
+  jt.baca = 0; jt.stabilSejak = null; jt.ke = ke; jt.riwayatBaca = [];
+  mulaiAksi(t, 'timbang', 99, ke === 1 ? 'Truk naik plat, menunggu berat stabil' : 'Timbang keluar, menunggu berat stabil');
+}
+function updateJT(jt, dt) {
+  if (!jt.truk) {
+    jt.baca += (0 - jt.baca) * Math.min(1, dt * 4);
+    if (Math.abs(jt.baca) < 1) jt.baca = 0;
+    return;
+  }
+  const t = jt.truk;
+  if (t.aksi !== 'timbang') return;
+  // Berat naik seperti truk naik plat, lalu berayun mengecil sampai stabil.
+  const umur = t.aksiTotal - t.aksiSisa;
+  const ayun = Math.max(0, 240 * Math.exp(-umur * 0.9)) * Math.sin(umur * 7);
+  const naik = Math.min(1, umur / 1.2);
+  const mentah = jt.target * naik + ayun + rnd(-1.5, 1.5);
+  jt.baca = Math.round(mentah / 10) * 10;
+  jt.riwayatBaca.push({ u: umur, b: jt.baca });
+  jt.riwayatBaca = jt.riwayatBaca.filter(r => umur - r.u <= PROFIL_JT.durasiStabil);
+  const vals = jt.riwayatBaca.map(r => r.b);
+  const rentang = Math.max(...vals) - Math.min(...vals);
+  const cukupLama = jt.riwayatBaca.length && umur - jt.riwayatBaca[0].u >= PROFIL_JT.durasiStabil - 0.05;
+  jt.stabil = naik >= 1 && rentang <= PROFIL_JT.toleransi * 2 && cukupLama;
+  t.sub = jt.stabil ? 'Stabil, operator klik Simpan' : 'Bergerak';
+  if (jt.stabil && !jt.stabilSejak) jt.stabilSejak = umur;
+  if (jt.stabil && umur - jt.stabilSejak > 0.9) simpanTimbang(t, jt);
+}
+function simpanTimbang(t, jt) {
+  const berat = jt.baca;
+  const w = jamStr();
+  if (berat < PROFIL_JT.beratMin) return;
+  if (jt.ke === 1) {
+    t.w1 = berat; t.riwayat.TIMBANG_1 = w;
+    const sebut = t.j.transaksi === 'PENJUALAN' ? 'tara' : 'bruto';
+    if (t.kind === 'SAJA') {
+      t.netto = berat - t.tara; t.status = 'SELESAI';
+      catat(`${t.plat} timbang di ${jt.kode}: ${fmtKg(berat)} kg (sekali timbang). Tiket SELESAI.`, 'ok');
+    } else {
+      t.status = 'TIMBANG_1';
+      catat(`${t.plat} timbang masuk ${jt.kode}: ${fmtKg(berat)} kg (${sebut}). Menunggu ${t.kind === 'TBS' ? 'sortasi' : 'muat & lab'}.`);
+    }
+  } else {
+    t.w2 = berat; t.riwayat.TIMBANG_2 = w;
+    t.netto = Math.abs(t.w1 - t.w2);
+    t.status = 'SELESAI';
+    let pot = '';
+    if (t.sortasi) {
+      t.sortasi.potonganKg = Math.round(t.netto * t.sortasi.persenPotongan / 100);
+      pot = `, potongan sortasi ${fmtKg(t.sortasi.potonganKg)} kg`;
+      S.totalTbs += t.netto - t.sortasi.potonganKg;
+    } else {
+      S.totalPks += t.netto;
+    }
+    catat(`${t.plat} timbang keluar ${jt.kode}: ${fmtKg(berat)} kg. Netto ${fmtKg(t.netto)} kg${pot}. Tiket SELESAI.`, 'ok');
+  }
+  jt.truk = null; jt.stabil = false;
+  lanjut(t);
+}
+
+/* ---- selesai satu tahap, pindah ke tahap berikutnya ---- */
+function lanjut(t) {
+  const dari = tahapNow(t);
+  t.tahapIdx++;
+  const ke = tahapNow(t);
+  if (!ke) {
+    S.nSelesai++;
+    t.keluar = true; t.sub = 'Menuju gerbang keluar';
+    mulaiJalan(t, dari === 'LAB' ? RUTE.keluarDariLab() : RUTE.keluarDariJT(t));
+    return;
+  }
+  if (ke === 'TIMBANG_1') { t.jt = pilihJT(); t.sub = `Menuju ${t.jt.kode}`; mulaiJalan(t, RUTE.timbang1(t)); }
+  else if (ke === 'SORTASI') { t.bay = pilihBay(); t.sub = `Menuju loading ramp ${t.bay.nama}`; mulaiJalan(t, RUTE.sortasi(t)); }
+  else if (ke === 'MUAT') { t.sub = t.kind === 'CPO' ? 'Menuju stasiun muat CPO' : 'Menuju bunker kernel'; mulaiJalan(t, RUTE.muat(t)); }
+  else if (ke === 'LAB') { t.sub = 'Menuju titik sampling lab'; mulaiJalan(t, RUTE.lab(t)); }
+  else if (ke === 'TIMBANG_2') {
+    t.sub = `Kembali ke ${t.jt.kode} (wajib jembatan yang sama)`;
+    mulaiJalan(t, dari === 'SORTASI' ? RUTE.timbang2DariBay(t) : RUTE.timbang2DariLab(t));
+  }
+}
+
+/* ---- aksi di tempat (security, bongkar, muat, lab) ---- */
+function selesaiAksi(t, a) {
+  if (a === 'security') {
+    t.secLangkah++;
+    if (t.secLangkah === 1) {
+      if (t.blacklist) {
+        t.peringatan = true;
+        catat(`PERINGATAN: ${t.plat} / supir ${t.supir} terdaftar BLACKLIST. Tercatat TRY_SCAN_BLACKLIST untuk HO.`, 'bad');
+      }
+      mulaiAksi(t, 'security', 2.5, 'Scan wajah supir');
+      return;
+    }
+    if (t.secLangkah === 2) {
+      mulaiAksi(t, 'security', 1.8, 'Simpan tiket & cetak QR');
+      return;
+    }
+    t.no_tiket = `TKT-${t.plat.replace(/\s/g, '')}-${stamp()}`;
+    t.riwayat.SECURITY = jamStr();
+    t.status = 'SECURITY_REGISTER';
+    catat(`${t.plat}: tiket ${t.no_tiket} dibuat, supir ${t.supir}${t.peringatan ? ' (dengan peringatan blacklist)' : ''}.`, t.peringatan ? 'warn' : '');
+    S.palang = 1.6;
+    lanjut(t);
+    return;
+  }
+  if (a === 'bongkar') {
+    const s = {
+      mentah: +rnd(0.5, 4).toFixed(1), busuk: +rnd(0, 1.2).toFixed(1), tangkai: +rnd(0.2, 1.5).toFixed(1),
+      sampah: +rnd(0.1, 1).toFixed(1), brondolan: +rnd(8, 14).toFixed(1),
+    };
+    s.matang = +(100 - s.mentah - s.busuk - s.tangkai - s.sampah - s.brondolan).toFixed(1);
+    s.persenPotongan = +(s.mentah + s.tangkai + s.sampah).toFixed(2);
+    t.sortasi = s; t.riwayat.SORTASI = jamStr(); t.status = 'TIMBANG_2';
+    catat(`${t.plat} selesai sortasi di ${t.bay.nama}: mentah ${s.mentah}%, tangkai ${s.tangkai}%, sampah ${s.sampah}% → potongan ${s.persenPotongan}%.`);
+    lanjut(t);
+    return;
+  }
+  if (a === 'muat') {
+    catat(`${t.plat} selesai muat ${t.j.label}, ±${fmtKg(t.muatan)} kg. Menuju lab.`);
+    lanjut(t);
+    return;
+  }
+  if (a === 'lab') {
+    const cpo = t.kind === 'CPO';
+    const l = cpo
+      ? { ffa: +rnd(2.9, 4.6).toFixed(2), air: +rnd(0.1, 0.22).toFixed(2), kotoran: +rnd(0.01, 0.03).toFixed(3) }
+      : { ffa: +rnd(1.2, 2.2).toFixed(2), air: +rnd(6.0, 7.0).toFixed(2), kotoran: +rnd(4.5, 5.8).toFixed(2) };
+    if (t.rejectLab) { if (cpo) l.ffa = +rnd(5.3, 6.4).toFixed(2); else l.air = +rnd(7.6, 8.8).toFixed(2); }
+    const batas = cpo ? { ffa: 5, air: 0.25, kotoran: 0.05 } : { ffa: 3, air: 7.5, kotoran: 6 };
+    l.keputusan = (l.ffa <= batas.ffa && l.air <= batas.air && l.kotoran <= batas.kotoran) ? 'APPROVE' : 'REJECT';
+    t.lab = l; t.riwayat.LAB = jamStr();
+    if (l.keputusan === 'APPROVE') {
+      t.status = 'TIMBANG_2';
+      catat(`Lab ${t.plat}: FFA ${l.ffa}%, air ${l.air}%, kotoran ${l.kotoran}% → APPROVE (COA terbit).`, 'ok');
+      lanjut(t);
+    } else {
+      t.status = 'REJECTED';
+      catat(`Lab ${t.plat}: FFA ${l.ffa}%, air ${l.air}% di luar spesifikasi → REJECT. Tiket ditutup, tidak timbang keluar.`, 'bad');
+      t.tahapIdx = t.j.tahap.length - 1;   // lewati timbang keluar
+      t.keluar = true; t.sub = 'Ditolak lab, menuju gerbang keluar';
+      mulaiJalan(t, RUTE.keluarDariLab());
+    }
+  }
+}
+
+/* ---------------- gerak & antrean ---------------- */
+const CEK_DEPAN = [10, 20, 30, 40, 50, 58], RADIUS_TABRAK = 16;
+function terhalang(t) {
+  // Lihat beberapa titik di depan pada rute truk ini; ada truk lain (badan depan / belakang) di situ → berhenti.
+  // Dengan cara ini antrean terbentuk sendiri di gerbang, jembatan timbang, bay, dan titik muat.
+  for (const d of CEK_DEPAN) {
+    if (t.s + d > t.path.len + 4) break;
+    const p = titikDi(t.path, t.s + d);
+    for (const o of S.trucks) {
+      if (o === t || o.selesai) continue;
+      const bx = Math.cos(o.ang) * o.panjang * 0.35, by = Math.sin(o.ang) * o.panjang * 0.35;
+      if (Math.hypot(o.x - p.x, o.y - p.y) < RADIUS_TABRAK || Math.hypot(o.x - bx - p.x, o.y - by - p.y) < RADIUS_TABRAK
+          || Math.hypot(o.x + bx - p.x, o.y + by - p.y) < RADIUS_TABRAK) return o;
+    }
+  }
+  return null;
+}
+function updateTruk(t, dt) {
+  if (t.aksi) {
+    if (t.aksi === 'timbang') { t.aksiSisa -= dt; return; }
+    if (t.aksi === 'tungguJT') { if (!t.jt.truk) { t.aksi = null; mulaiTimbang(t); } return; }
+    t.aksiSisa -= dt;
+    if (t.aksi === 'bongkar') t.muatanNow = t.muatan * Math.max(0, t.aksiSisa / t.aksiTotal);
+    if (t.aksi === 'muat') t.muatanNow = t.muatan * (1 - Math.max(0, t.aksiSisa / t.aksiTotal));
+    if (t.aksiSisa <= 0) { const a = t.aksi; t.aksi = null; if (a === 'muat') t.muatanNow = t.muatan; if (a === 'bongkar') t.muatanNow = 0; selesaiAksi(t, a); }
+    return;
+  }
+  const sisa = t.path.len - t.s;
+  const halang = t.hantu > 0 ? null : terhalang(t);
+  let target = t.keluar && t.s > 10 ? 70 : 58;
+  if (sisa < 40) target = Math.max(10, sisa * 1.4);
+  if (halang) {
+    target = 0;
+    t.blokir += dt;
+    // Dua truk saling tunggu di pertemuan jalan: yang datang lebih dulu boleh jalan.
+    if (t.blokir > 1.2 && !halang.aksi && terhalang(halang) === t && t.id < halang.id) t.hantu = 1.2;
+  } else t.blokir = 0;
+  if (t.hantu > 0) t.hantu -= dt;
+  t.v += (target - t.v) * Math.min(1, dt * (target < t.v ? 7 : 2.2));
+  t.s = Math.min(t.path.len, t.s + t.v * dt);
+  const p = titikDi(t.path, t.s);
+  t.x = p.x; t.y = p.y;
+  if (t.path.len > 0.5) {
+    let d = p.ang - t.ang; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    t.ang += d * Math.min(1, dt * 10);
+  }
+  if (t.s >= t.path.len - 0.5) { t.v = 0; tiba(t); }
+}
+
+/* ---------------- langkah simulasi ---------------- */
+function step(dt) {
+  S.t += dt;
+  if (S.auto) {
+    S.nextSpawn -= dt;
+    const antreLuar = S.trucks.filter(t => t.tahapIdx === 0).length;
+    if (S.nextSpawn <= 0 && antreLuar < 4 && S.trucks.length < 22) {
+      const r = Math.random();
+      const kind = r < 0.58 ? 'TBS' : r < 0.78 ? 'CPO' : r < 0.9 ? 'KERNEL' : 'SAJA';
+      const bl = document.getElementById('optBl').checked && Math.random() < 0.25;
+      const rej = document.getElementById('optRej').checked && (kind === 'CPO' || kind === 'KERNEL') && Math.random() < 0.5;
+      tambahTruk(kind, { blacklist: bl, reject: rej });
+      S.nextSpawn = rnd(9, 16);
+    }
+  }
+  for (const t of S.trucks) updateTruk(t, dt);
+  for (const jt of JT) updateJT(jt, dt);
+  const keluar = S.trucks.filter(t => t.selesai);
+  if (keluar.length) {
+    for (const t of keluar) S.selesai.unshift(t);
+    S.selesai.length = Math.min(S.selesai.length, 30);
+    S.trucks = S.trucks.filter(t => !t.selesai);
+  }
+  if (S.palang > 0) S.palang -= dt;
+  // asap cerobong boiler
+  if (!reduceMotion && Math.random() < dt * 3) S.smoke.push({ x: 588, y: 82, r: 4, a: 0.22 });
+  for (const p of S.smoke) { p.x += dt * 10; p.y -= dt * 7; p.r += dt * 2.2; p.a -= dt * 0.035; }
+  S.smoke = S.smoke.filter(p => p.a > 0);
+}
+
+/* =====================================================================================
+   GAMBAR
+   ===================================================================================== */
+const latar = document.createElement('canvas');
+latar.width = W; latar.height = H;
+
+function rrect(g, x, y, w, h, r) { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function label(g, txt, x, y, opt = {}) {
+  g.save();
+  g.font = `${opt.w || 600} ${opt.size || 12}px ${opt.font || '"Barlow Condensed", "Arial Narrow", sans-serif'}`;
+  g.textAlign = opt.align || 'center'; g.textBaseline = 'middle';
+  if (opt.bg) {
+    const m = g.measureText(txt).width;
+    g.fillStyle = opt.bg; rrect(g, x - (opt.align === 'left' ? 4 : m / 2 + 4), y - 8, m + 8, 16, 3); g.fill();
+  }
+  g.fillStyle = opt.color || C.text;
+  if (opt.ls) g.letterSpacing = opt.ls;
+  g.fillText(txt, x, y);
+  g.restore();
+}
+function sawit(g, x, y, s = 1) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = C.palmDark; g.beginPath(); g.arc(1.5 * s, 1.5 * s, 13 * s, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = C.palm; g.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2 + (x * 0.13 % 1);
+    g.lineWidth = 4 * s; g.beginPath(); g.moveTo(0, 0);
+    g.quadraticCurveTo(Math.cos(a + 0.3) * 8 * s, Math.sin(a + 0.3) * 8 * s, Math.cos(a) * 15 * s, Math.sin(a) * 15 * s); g.stroke();
+  }
+  g.fillStyle = '#5a4630'; g.beginPath(); g.arc(0, 0, 2.5 * s, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+function jalan(g, pts, lebar = 30) {
+  g.save(); g.lineJoin = 'round'; g.lineCap = 'round';
+  g.strokeStyle = C.roadEdge; g.lineWidth = lebar + 4; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); g.stroke();
+  g.strokeStyle = C.road; g.lineWidth = lebar; g.stroke();
+  g.restore();
+}
+function panah(g, x, y, ang) {
+  g.save(); g.translate(x, y); g.rotate(ang); g.fillStyle = 'rgba(201,207,201,.35)';
+  g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -5); g.lineTo(-2, 0); g.lineTo(-5, 5); g.closePath(); g.fill(); g.restore();
+}
+function gedung(g, x, y, w, h, nama, sub) {
+  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, x + 4, y + 5, w, h, 3); g.fill();
+  g.fillStyle = C.roof; rrect(g, x, y, w, h, 3); g.fill();
+  g.fillStyle = C.roofHi; g.fillRect(x, y, w, h / 2);
+  g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
+  for (let i = x + 8; i < x + w; i += 8) { g.beginPath(); g.moveTo(i, y + 2); g.lineTo(i, y + h - 2); g.stroke(); }
+  if (nama) label(g, nama, x + w / 2, y + h / 2 - (sub ? 7 : 0), { size: 13, w: 700 });
+  if (sub) label(g, sub, x + w / 2, y + h / 2 + 9, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
+}
+function tangki(g, x, y, r, nama, isi) {
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(x + 4, y + 5, r, 0, Math.PI * 2); g.fill();
+  const gr = g.createRadialGradient(x - r / 3, y - r / 3, r / 5, x, y, r);
+  gr.addColorStop(0, '#7f8d87'); gr.addColorStop(1, '#4b5752');
+  g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#2b3430'; g.lineWidth = 2; g.stroke();
+  g.beginPath(); g.arc(x, y, r * 0.55, 0, Math.PI * 2); g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1; g.stroke();
+  label(g, nama, x, y - 6, { size: 12, w: 700 });
+  label(g, isi, x, y + 9, { size: 10, w: 500, color: '#dfe7e2', font: '"IBM Plex Sans", sans-serif' });
+}
+
+function gambarLatar() {
+  const g = latar.getContext('2d');
+  g.fillStyle = C.ground; g.fillRect(0, 0, W, H);
+  // petak tanah dalam pagar
+  g.fillStyle = C.ground2; g.fillRect(40, 30, 1220, 640);
+  g.strokeStyle = '#3b4a40'; g.setLineDash([6, 5]); g.lineWidth = 2; g.strokeRect(40, 30, 1220, 640); g.setLineDash([]);
+
+  // kolam limbah
+  for (const [x, y, w, h] of [[930, 400, 120, 90], [1065, 400, 105, 90], [930, 505, 240, 100]]) {
+    g.fillStyle = C.water; rrect(g, x, y, w, h, 10); g.fill();
+    g.strokeStyle = C.waterHi; g.lineWidth = 2; g.stroke();
+  }
+  label(g, 'Kolam Limbah (IPAL)', 1050, 555, { size: 12, w: 600, color: '#9cc6c3' });
+
+  // jalan
+  jalan(g, [{ x: -20, y: Y_MAIN }, { x: W + 20, y: Y_MAIN }], 40);
+  jalan(g, [{ x: X_GATE, y: Y_MAIN }, { x: X_GATE, y: Y_LOW }, { x: 610, y: Y_LOW }]);
+  jalan(g, [{ x: X_RIGHT, y: Y_RET }, { x: X_MERGE, y: Y_RET }, { x: X_MERGE, y: Y_LOW }]);
+  for (const j of JT) jalan(g, [{ x: j.x, y: Y_LOW }, { x: j.x, y: Y_UP }], 28);
+  jalan(g, [{ x: JT[0].x, y: Y_UP }, { x: X_RIGHT, y: Y_UP }]);
+  for (const b of BAY_TBS) jalan(g, [{ x: b.x, y: Y_UP }, { x: b.x, y: Y_TOP }], 28);
+  jalan(g, [{ x: X_CPO, y: Y_UP }, { x: X_CPO, y: Y_TOP }], 28);
+  jalan(g, [{ x: X_KERNEL, y: Y_UP }, { x: X_KERNEL, y: Y_TOP }], 28);
+  jalan(g, [{ x: BAY_TBS[0].x, y: Y_TOP }, { x: X_RIGHT, y: Y_TOP }, { x: X_RIGHT, y: Y_MAIN }]);
+  // marka jalan raya
+  g.strokeStyle = 'rgba(201,207,201,.5)'; g.setLineDash([16, 14]); g.lineWidth = 2;
+  g.beginPath(); g.moveTo(0, Y_MAIN - 18); g.lineTo(W, Y_MAIN - 18); g.stroke(); g.setLineDash([]);
+  label(g, 'JALAN RAYA LINTAS KEBUN', 640, Y_MAIN + 12, { size: 11, color: C.muted, ls: '3px' });
+  // panah satu arah
+  for (const x of [300, 600, 900, 1150]) panah(g, x, Y_MAIN, 0);
+  for (const x of [200, 560]) panah(g, x, Y_LOW, 0);
+  for (const x of [700, 1000, 1150]) panah(g, x, Y_UP, 0);
+  for (const x of [1000, 600, 340]) panah(g, x, Y_RET, Math.PI);
+  for (const y of [200, 500, 690]) panah(g, X_RIGHT, y, Math.PI / 2);
+  for (const x of [880, 1190]) panah(g, x, Y_TOP, 0);
+
+  // gerbang & pos security
+  g.fillStyle = '#5b4a2a'; g.fillRect(X_GATE - 30, 660, 8, 8); g.fillRect(X_GATE + 22, 660, 8, 8);
+  gedung(g, 62, 664, 62, 44, 'POS', 'Security');
+  label(g, 'GERBANG MASUK', X_GATE + 24, 682, { size: 11, w: 700, color: C.accent, bg: 'rgba(14,20,17,.75)', align: 'left' });
+  gedung(g, X_RIGHT + 18, 640, 34, 40, '', '');
+  label(g, 'GERBANG KELUAR', X_RIGHT - 52, 700, { size: 11, w: 700, color: C.accent, bg: 'rgba(14,20,17,.75)' });
+
+  // jembatan timbang
+  for (const j of JT) {
+    const x = j.x - 17, y = JT_STOP_Y - 62;
+    g.fillStyle = '#121714'; g.fillRect(x - 3, y - 3, 40, 130);
+    g.fillStyle = C.steel; g.fillRect(x, y, 34, 124);
+    g.strokeStyle = 'rgba(0,0,0,.25)'; g.lineWidth = 1;
+    for (let k = y + 6; k < y + 124; k += 7) { g.beginPath(); g.moveTo(x + 2, k); g.lineTo(x + 32, k + 4); g.stroke(); }
+    // strip kuning-hitam di ujung
+    for (const yy of [y - 3, y + 121]) for (let k = 0; k < 40; k += 8) {
+      g.fillStyle = (k / 8) % 2 ? '#1b1b1b' : C.accent; g.fillRect(x - 3 + k, yy, 8, 6);
+    }
+    label(g, j.kode, j.x, y - 14, { size: 13, w: 700, color: C.accent });
+  }
+  gedung(g, 612, 420, 78, 96, 'KANTOR', 'Timbangan');
+
+  // loading ramp TBS
+  g.fillStyle = C.concrete; g.fillRect(660, 150, 220, 150);
+  for (const b of BAY_TBS) {
+    g.fillStyle = '#2f3633'; g.fillRect(b.x - 16, 150, 32, 150);
+  }
+  for (let i = 0; i < BAY_TBS.length - 1; i++) {
+    // hopper di antara lajur dengan tumpukan buah
+    const x = (BAY_TBS[i].x + BAY_TBS[i + 1].x) / 2;
+    g.fillStyle = '#4c3b2a'; g.fillRect(x - 15, 170, 30, 110);
+    for (let k = 0; k < 26; k++) {
+      g.fillStyle = k % 3 ? '#b8452a' : '#7a2e1f';
+      g.beginPath(); g.arc(x - 10 + (k * 7) % 20, 180 + (k * 13) % 92, 3.2, 0, Math.PI * 2); g.fill();
+    }
+  }
+  g.fillStyle = 'rgba(58,73,67,.55)'; g.fillRect(660, 140, 220, 22);
+  label(g, 'LOADING RAMP & SORTASI TBS', 770, 151, { size: 12, w: 700 });
+  for (const b of BAY_TBS) label(g, b.nama, b.x, 290, { size: 10, w: 600, color: C.muted });
+
+  // pabrik (stasiun proses)
+  gedung(g, 420, 140, 200, 150, 'PABRIK KELAPA SAWIT', 'Rebusan · Press · Klarifikasi');
+  // rel lori rebusan
+  g.strokeStyle = '#6b6f6c'; g.lineWidth = 2;
+  for (const yy of [262, 270]) { g.beginPath(); g.moveTo(430, yy); g.lineTo(610, yy); g.stroke(); }
+  for (let k = 440; k < 610; k += 26) { g.fillStyle = '#5c625e'; g.fillRect(k, 258, 18, 16); }
+  // konveyor ramp → pabrik
+  g.fillStyle = '#4a514d'; g.fillRect(620, 196, 40, 10);
+  // boiler & cerobong
+  gedung(g, 560, 62, 56, 62, '', '');
+  label(g, 'Boiler', 588, 112, { size: 11, w: 600 });
+  g.fillStyle = '#5a605c'; g.beginPath(); g.arc(588, 82, 10, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#222'; g.beginPath(); g.arc(588, 82, 6, 0, Math.PI * 2); g.fill();
+
+  // tangki timbun & kernel
+  tangki(g, 930, 245, 34, 'TANGKI CPO 1', '1.500 t');
+  tangki(g, 980, 175, 30, 'TANGKI CPO 2', '1.000 t');
+  g.strokeStyle = C.cpoOil; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(964, 245); g.lineTo(X_CPO - 18, 245); g.stroke();
+  g.beginPath(); g.moveTo(1008, 185); g.lineTo(1015, 185); g.lineTo(1015, 236); g.lineTo(X_CPO - 18, 236); g.stroke();
+  g.fillStyle = '#6b7470'; g.fillRect(X_CPO - 20, 214, 6, 44); g.fillRect(X_CPO + 14, 214, 6, 44);
+  g.fillRect(X_CPO - 20, 214, 40, 5);
+  label(g, 'MUAT CPO', X_CPO, 300, { size: 11, w: 700, color: C.cpo });
+  // bunker kernel
+  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(X_KERNEL + 22, 196, 44, 70);
+  g.fillStyle = '#6d5b45'; g.fillRect(X_KERNEL + 18, 190, 44, 70);
+  g.fillStyle = '#857057'; g.fillRect(X_KERNEL + 18, 190, 44, 24);
+  label(g, 'BUNKER', X_KERNEL + 40, 220, { size: 10, w: 700 });
+  label(g, 'Kernel', X_KERNEL + 40, 234, { size: 10, w: 500, color: '#e6d9c6' });
+  g.fillStyle = '#857057'; g.fillRect(X_KERNEL, 228, 18, 6);
+  label(g, 'MUAT KERNEL', X_KERNEL, 300, { size: 11, w: 700, color: C.cpo });
+
+  // laboratorium
+  gedung(g, 1100, 40, 100, 48, 'LABORATORIUM', 'Uji FFA · air · kotoran');
+  g.fillStyle = C.accent; g.beginPath(); g.arc(X_LAB_STOP, Y_TOP + 22, 4, 0, Math.PI * 2); g.fill();
+  label(g, 'titik sampling', X_LAB_STOP, Y_TOP + 34, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
+
+  // kantor & area lain
+  gedung(g, 64, 380, 120, 80, 'KANTOR', 'Administrasi · HO');
+  gedung(g, 64, 480, 120, 60, 'MUSHOLA', '');
+  gedung(g, 900, 40, 130, 46, 'BENGKEL', 'Workshop');
+  label(g, 'Jalur kembali ke jembatan yang sama untuk timbang keluar', 700, Y_RET + 26, { size: 10, w: 500, color: C.muted, font: '"IBM Plex Sans", sans-serif' });
+
+  // pohon sawit di tepi
+  for (let x = 70; x < 1250; x += 46) { sawit(g, x, 12, 0.8); }
+  for (let y = 120; y < 380; y += 44) sawit(g, 70, y, 0.9), sawit(g, 120, y + 20, 0.85), sawit(g, 175, y + 6, 0.85);
+  for (let y = 70; y < 680; y += 48) sawit(g, 1262, y, 0.8);
+  for (const [x, y] of [[230, 140], [280, 190], [235, 245], [300, 260], [330, 160], [380, 210], [250, 300], [1260, 620]]) sawit(g, x, y, 0.9);
+  for (const [x, y] of [[700, 380], [760, 400], [820, 380], [720, 470], [790, 520], [860, 470], [850, 560]]) sawit(g, x, y, 0.75);
+
+  // kompas
+  g.save(); g.translate(1240, 52);
+  g.fillStyle = 'rgba(14,20,17,.7)'; g.beginPath(); g.arc(0, 0, 16, 0, Math.PI * 2); g.fill();
+  g.fillStyle = C.accent; g.beginPath(); g.moveTo(0, -12); g.lineTo(5, 3); g.lineTo(-5, 3); g.closePath(); g.fill();
+  label(g, 'U', 0, 9, { size: 9, w: 700 }); g.restore();
+}
+
+function gambarTruk(g, t) {
+  g.save(); g.translate(t.x, t.y); g.rotate(t.ang);
+  const L = t.panjang, Wd = t.lebar, warna = t.j.warna;
+  // bayangan
+  g.fillStyle = 'rgba(0,0,0,.35)'; rrect(g, -L / 2 + 3, -Wd / 2 + 4, L, Wd, 3); g.fill();
+  // bak / tangki
+  const bakL = L - 13;
+  if (t.kind === 'CPO') {
+    g.fillStyle = '#c9d2ce'; rrect(g, -L / 2, -Wd / 2 + 1, bakL, Wd - 2, 7); g.fill();
+    g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-L / 2 + 4, -1, bakL - 8, 2);
+    for (const k of [0.25, 0.5, 0.75]) { g.fillStyle = '#8c9893'; g.beginPath(); g.arc(-L / 2 + bakL * k, 0, 2.6, 0, Math.PI * 2); g.fill(); }
+  } else {
+    g.fillStyle = '#4b524f'; rrect(g, -L / 2, -Wd / 2, bakL, Wd, 2); g.fill();
+    g.fillStyle = '#2a2f2c'; g.fillRect(-L / 2 + 2, -Wd / 2 + 2, bakL - 4, Wd - 4);
+    const isi = t.muatan ? Math.max(0, Math.min(1, t.muatanNow / t.muatan)) : 0;
+    if (isi > 0.02) {
+      if (t.kind === 'TBS') {
+        const n = Math.round(isi * 14);
+        for (let k = 0; k < n; k++) {
+          g.fillStyle = k % 3 ? '#c4492b' : '#7d2f1f';
+          g.beginPath(); g.arc(-L / 2 + 6 + (k % 5) * 5.4, -Wd / 2 + 5 + Math.floor(k / 5) * 3.6, 2.7, 0, Math.PI * 2); g.fill();
+        }
+      } else {
+        g.fillStyle = t.kind === 'KERNEL' ? C.kernel : '#7d7466';
+        g.fillRect(-L / 2 + 2, -Wd / 2 + 2, (bakL - 4) * isi, Wd - 4);
+      }
+    }
+  }
+  // kabin warna produk
+  g.fillStyle = warna; rrect(g, L / 2 - 12, -Wd / 2, 12, Wd, 3); g.fill();
+  g.fillStyle = 'rgba(20,30,30,.75)'; g.fillRect(L / 2 - 4, -Wd / 2 + 2, 3, Wd - 4);
+  // lampu
+  g.fillStyle = '#fff6c8'; g.fillRect(L / 2 - 1, -Wd / 2 + 1, 1.5, 3); g.fillRect(L / 2 - 1, Wd / 2 - 4, 1.5, 3);
+  g.restore();
+
+  // tanda di atas truk
+  if (S.sel === t) {
+    g.save(); g.strokeStyle = C.accent; g.lineWidth = 2; g.setLineDash([4, 3]);
+    g.beginPath(); g.arc(t.x, t.y, 32, 0, Math.PI * 2); g.stroke(); g.restore();
+  }
+  if (t.peringatan && !t.keluar) {
+    g.save(); g.fillStyle = C.bad; g.beginPath(); g.arc(t.x + 14, t.y - 14, 7, 0, Math.PI * 2); g.fill();
+    label(g, '!', t.x + 14, t.y - 14, { size: 11, w: 700, color: '#fff' }); g.restore();
+  }
+  if (t.status === 'REJECTED') {
+    label(g, 'REJECT', t.x, t.y - 20, { size: 10, w: 700, color: '#fff', bg: C.bad });
+  }
+  // label plat (hanya saat truk sedang beraksi / terpilih, supaya denah tidak penuh)
+  if (t.aksi || S.sel === t) {
+    label(g, t.plat, t.x, t.y + 22, { size: 11, w: 600, color: C.text, bg: 'rgba(14,20,17,.82)', font: '"IBM Plex Mono", monospace' });
+  }
+  // cincin progres aksi
+  if (t.aksi && t.aksi !== 'timbang') {
+    const p = 1 - Math.max(0, t.aksiSisa / t.aksiTotal);
+    g.save(); g.lineWidth = 3;
+    g.strokeStyle = 'rgba(255,255,255,.15)'; g.beginPath(); g.arc(t.x, t.y, 26, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = t.aksi === 'lab' ? C.cpo : t.aksi === 'security' ? C.accent : t.j.warna;
+    g.beginPath(); g.arc(t.x, t.y, 26, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); g.stroke(); g.restore();
+  }
+}
+
+function gambar() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const sk = canvas.width / W;
+  ctx.setTransform(sk, 0, 0, sk, 0, 0);
+  ctx.drawImage(latar, 0, 0);
+
+  // palang gerbang (naik saat tiket selesai dibuat)
+  ctx.save(); ctx.translate(X_GATE - 22, 664);
+  ctx.rotate(S.palang > 0 ? -1.3 : 0);
+  ctx.fillStyle = C.bad; ctx.fillRect(0, -2, 44, 4);
+  ctx.fillStyle = '#fff'; for (let k = 6; k < 44; k += 12) ctx.fillRect(k, -2, 5, 4);
+  ctx.restore();
+
+  // layar indikator kecil di tiap jembatan
+  for (const j of JT) {
+    const teks = fmtKg(j.baca || 0);
+    ctx.save(); ctx.translate(j.x, JT_STOP_Y + 74);
+    ctx.fillStyle = '#0a0e0c'; rrect(ctx, -30, -9, 60, 18, 3); ctx.fill();
+    ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = j.truk ? (j.stabil ? C.ok : C.warn) : '#3c4842';
+    ctx.fillText(teks, 0, 0.5); ctx.restore();
+  }
+
+  // aliran minyak / buah saat aksi
+  const fase = (S.t * 40) % 12;
+  for (const t of S.trucks) {
+    if (t.aksi === 'muat') {
+      ctx.save(); ctx.strokeStyle = t.kind === 'CPO' ? C.cpoOil : C.kernel; ctx.lineWidth = 3; ctx.setLineDash([5, 7]); ctx.lineDashOffset = -fase;
+      ctx.beginPath();
+      if (t.kind === 'CPO') { ctx.moveTo(X_CPO, 216); ctx.lineTo(t.x, t.y); } else { ctx.moveTo(X_KERNEL + 18, 231); ctx.lineTo(t.x + 4, t.y); }
+      ctx.stroke(); ctx.restore();
+    }
+    if (t.aksi === 'bongkar') {
+      ctx.save(); ctx.strokeStyle = C.tbs; ctx.lineWidth = 3; ctx.setLineDash([3, 6]); ctx.lineDashOffset = -fase;
+      ctx.beginPath(); ctx.moveTo(t.x, t.y + 20); ctx.lineTo(t.x + (t.bay === BAY_TBS[2] ? -26 : 26), t.y + 10); ctx.stroke(); ctx.restore();
+    }
+  }
+  // konveyor buah ke pabrik
+  ctx.save(); ctx.strokeStyle = 'rgba(232,103,61,.7)'; ctx.lineWidth = 2; ctx.setLineDash([4, 8]); ctx.lineDashOffset = fase;
+  ctx.beginPath(); ctx.moveTo(660, 201); ctx.lineTo(620, 201); ctx.stroke(); ctx.restore();
+
+  // truk (urut y supaya tumpang tindih wajar)
+  const urut = [...S.trucks].sort((a, b) => a.y - b.y);
+  for (const t of urut) gambarTruk(ctx, t);
+
+  // asap
+  for (const p of S.smoke) {
+    ctx.fillStyle = `rgba(190,200,195,${Math.max(0, p.a)})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // banner peringatan blacklist di pos
+  const blTruk = S.trucks.find(t => t.peringatan && t.tahapIdx === 0);
+  if (blTruk) {
+    label(ctx, 'BLACKLIST: peringatan ke HO', 93, 648, { size: 11, w: 700, color: '#fff', bg: C.bad });
+  }
+}
+
+/* ---------------- ukuran kanvas ---------------- */
+function ukur() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.max(320, Math.round(r.width * dpr));
+  canvas.height = Math.round(canvas.width * H / W);
+}
+window.addEventListener('resize', ukur);
+
+/* =====================================================================================
+   PANEL
+   ===================================================================================== */
+function catat(teks, jenis = '') {
+  S.log.unshift({ w: jamStr(), teks, jenis });
+  S.log.length = Math.min(S.log.length, 80);
+  S.logBaru = true;
+}
+const el = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const STATUS_TAMPIL = {
+  DATANG: ['Antre security', 'idle'], SECURITY_REGISTER: ['SECURITY_REGISTER', 'warn'], TIMBANG_1: ['TIMBANG_1', 'warn'],
+  TIMBANG_2: ['TIMBANG_2', 'warn'], SELESAI: ['SELESAI', 'ok'], REJECTED: ['REJECTED', 'bad'],
+};
+function statusHtml(t) {
+  const [teks, k] = STATUS_TAMPIL[t.status] || [t.status, 'idle'];
+  return `<span class="pill ${k}">${esc(teks)}</span>`;
+}
+
+function renderJT() {
+  el('jtPanel').innerHTML = JT.map(j => {
+    let pill = '<span class="pill idle">Kosong</span>', who = 'Tidak ada truk';
+    if (j.truk) {
+      pill = j.stabil ? '<span class="pill ok">Stabil</span>' : '<span class="pill warn">Bergerak</span>';
+      who = `${j.truk.plat} · timbang ${j.ke === 1 ? 'masuk' : 'keluar'}`;
+    }
+    return `<div class="jt"><div class="top"><span>${j.kode}</span>${pill}</div>
+      <div class="w ${j.truk ? '' : 'idle'}">${fmtKg(j.baca || 0)}<small style="font-size:11px;color:var(--muted)"> kg</small></div>
+      <div class="who">${esc(who)}</div></div>`;
+  }).join('');
+}
+
+function renderTabel() {
+  const aktif = S.trucks.filter(t => !t.keluar || t.status === 'REJECTED');
+  el('nAktif').textContent = `${aktif.length} truk di area`;
+  el('tblAktif').innerHTML = aktif.length ? aktif.map(t => `<tr data-id="${t.id}" class="${S.sel === t ? 'sel' : ''}">
+      <td><span class="tag" style="background:${t.j.warna}"></span><span class="plat">${esc(t.plat)}</span></td>
+      <td>${esc(t.j.label)}</td><td>${statusHtml(t)}</td><td>${t.jt ? t.jt.kode : '–'}</td>
+      <td class="num">${fmtKg(t.w1)}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">Belum ada truk. Tekan + Truk TBS.</td></tr>';
+}
+
+function renderTiket() {
+  const t = S.sel;
+  if (!t) return;
+  const tahap = t.j.tahap;
+  const idx = t.status === 'SELESAI' || t.status === 'REJECTED' ? tahap.length : t.tahapIdx;
+  const nilai = k => {
+    if (k === 'SECURITY') return t.no_tiket ? (t.riwayat.SECURITY || '') : '';
+    if (k === 'TIMBANG_1') return t.w1 != null ? `${fmtKg(t.w1)} kg` : '';
+    if (k === 'TIMBANG_2') return t.w2 != null ? `${fmtKg(t.w2)} kg` : '';
+    if (k === 'SORTASI' && t.sortasi) return `−${t.sortasi.persenPotongan}%`;
+    if (k === 'LAB' && t.lab) return t.lab.keputusan;
+    if (k === 'MUAT' && idx > tahap.indexOf('MUAT')) return `±${fmtKg(t.muatan)} kg`;
+    return '';
+  };
+  const sub = k => {
+    if (k === 'SECURITY') return t.peringatan ? 'Peringatan blacklist, tercatat di Audit Log' : 'Cek plat, scan wajah supir, cetak QR';
+    if (k === 'TIMBANG_1') return t.jt ? `${t.jt.kode} · ${t.j.transaksi === 'PENJUALAN' ? 'tara (truk kosong)' : 'bruto (truk + muatan)'}` : 'Jembatan dipilih saat menuju timbangan';
+    if (k === 'TIMBANG_2') return t.jt ? `Wajib ${t.jt.kode} · ${t.j.transaksi === 'PENJUALAN' ? 'bruto (truk + muatan)' : 'tara (truk kosong)'}` : '';
+    if (k === 'SORTASI') return t.sortasi
+      ? `Mentah ${t.sortasi.mentah}% · busuk ${t.sortasi.busuk}% · tangkai ${t.sortasi.tangkai}% · sampah ${t.sortasi.sampah}% · brondolan ${t.sortasi.brondolan}%`
+      : `Loading ramp${t.bay ? ' ' + t.bay.nama : ''}, grading buah`;
+    if (k === 'MUAT') return t.kind === 'CPO' ? 'Pengisian dari tangki timbun (proses fisik, di luar aplikasi)' : 'Pengisian dari bunker kernel (proses fisik)';
+    if (k === 'LAB') return t.lab ? `FFA ${t.lab.ffa}% · air ${t.lab.air}% · kotoran ${t.lab.kotoran}%` : 'Sampel diambil setelah muat';
+    return '';
+  };
+  const langkah = tahap.map((k, i) => {
+    let cls = i < idx ? 'done' : i === idx ? 'now' : '';
+    if (k === 'LAB' && t.lab && t.lab.keputusan === 'REJECT') cls = 'fail';
+    if (k === 'TIMBANG_2' && t.status === 'REJECTED') cls = '';
+    return `<li class="${cls}"><span class="mk"></span><div>${NAMA_TAHAP[k]}<div class="sub">${esc(sub(k))}</div></div><span class="val">${esc(nilai(k))}</span></li>`;
+  }).join('');
+  let netto = '';
+  if (t.netto != null && t.kind !== 'SAJA') {
+    netto = `<dt>Netto</dt><dd><b>${fmtKg(t.netto)} kg</b></dd>`;
+    if (t.sortasi && t.sortasi.potonganKg != null) netto += `<dt>Potongan</dt><dd>${fmtKg(t.sortasi.potonganKg)} kg → diterima ${fmtKg(t.netto - t.sortasi.potonganKg)} kg</dd>`;
+  }
+  el('tiket').innerHTML = `
+    <div class="ticket">
+      <div class="no">${esc(t.no_tiket || 'Tiket belum dibuat (masih di security)')}</div>
+      <div class="ttl"><span class="tag" style="background:${t.j.warna}"></span>${esc(t.plat)} ${statusHtml(t)}</div>
+      <dl>
+        <dt>Transaksi</dt><dd>${t.j.transaksi} · alur ${t.j.alur}</dd>
+        <dt>Produk</dt><dd>${esc(t.j.produk)}</dd>
+        <dt>Mitra</dt><dd>${esc(t.mitra)}${t.no_do ? ' · ' + t.no_do : ''}</dd>
+        <dt>Supir</dt><dd>${esc(t.supir)}</dd>
+        <dt>Posisi</dt><dd>${esc(t.keluar && !t.selesai ? (t.sub || 'Menuju gerbang keluar') : t.selesai ? 'Sudah keluar pabrik' : t.sub || 'Antre di gerbang')}</dd>
+        ${netto}
+      </dl>
+      <ol class="steps">${langkah}</ol>
+    </div>`;
+}
+
+function renderLog() {
+  if (!S.logBaru) return;
+  S.logBaru = false;
+  el('log').innerHTML = S.log.map(l => `<div><time>${l.w}</time><span class="${l.jenis}">${esc(l.teks)}</span></div>`).join('');
+}
+
+function renderKpi() {
+  el('kAktif').textContent = S.trucks.length;
+  el('kSelesai').textContent = S.nSelesai;
+  el('kTbs').textContent = fmtT(S.totalTbs);
+  el('kPks').textContent = fmtT(S.totalPks);
+  const d = jamSim();
+  el('jam').textContent = jamStr(d);
+  el('tgl').textContent = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+let tPanel = 0;
+function renderPanel(paksa) {
+  const now = performance.now();
+  if (!paksa && now - tPanel < 200) return;
+  tPanel = now;
+  renderKpi(); renderJT(); renderTabel(); renderTiket(); renderLog();
+}
+
+/* ---------------- interaksi ---------------- */
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * W, y = (e.clientY - r.top) / r.height * H;
+  let best = null, jarak = 34;
+  for (const t of S.trucks) { const d = Math.hypot(t.x - x, t.y - y); if (d < jarak) { jarak = d; best = t; } }
+  if (best) { S.sel = best; renderPanel(true); }
+});
+el('tblAktif').addEventListener('pointerdown', e => {
+  const tr = e.target.closest('tr[data-id]');
+  if (!tr) return;
+  S.sel = S.trucks.find(t => t.id === +tr.dataset.id) || null;
+  renderPanel(true);
+});
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  const kind = b.dataset.add;
+  const t = tambahTruk(kind, {
+    blacklist: el('optBl').checked && Math.random() < 0.35,
+    reject: el('optRej').checked && (kind === 'CPO' || kind === 'KERNEL'),
+  });
+  S.sel = t; renderPanel(true);
+}));
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => {
+  S.speed = +b.dataset.speed;
+  document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+}));
+el('btnPlay').addEventListener('click', () => {
+  S.paused = !S.paused;
+  el('btnPlay').textContent = S.paused ? 'Jalankan' : 'Jeda';
+});
+el('optAuto').addEventListener('change', e => { S.auto = e.target.checked; });
+el('btnReset').addEventListener('click', () => reset());
+
+function reset() {
+  Object.assign(S, { t: 0, trucks: [], selesai: [], log: [], nextId: 1, nextSpawn: 1, sel: null, totalTbs: 0, totalPks: 0, nSelesai: 0, smoke: [], palang: 0 });
+  for (const j of JT) Object.assign(j, { truk: null, baca: 0, stabil: false });
+  catat('Simulasi dimulai. Pabrik buka pukul 07.00, truk mulai berdatangan.');
+  // kondisi awal: beberapa truk sudah di dalam supaya denah langsung hidup
+  pemanasan();
+  renderPanel(true);
+}
+function pemanasan() {
+  const awal = ['TBS', 'CPO', 'TBS', 'KERNEL', 'TBS'];
+  awal.forEach((k, i) => {
+    const t = tambahTruk(k);
+    // geser tiap truk ke titik antre berbeda di jalan raya
+    t.path = smooth([{ x: -80 - i * 70, y: Y_MAIN }, ...RUTE.datang().slice(1)]);
+  });
+  // jalankan simulasi beberapa saat tanpa digambar
+  for (let i = 0; i < 60 * 70; i++) step(1 / 60);
+  S.sel = S.trucks.find(t => t.w1 && !t.keluar) || S.trucks[0] || null;
+}
+
+/* ---------------- loop ---------------- */
+let last = performance.now();
+function loop(now) {
+  const dtNyata = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (!S.paused) {
+    const total = dtNyata * S.speed;
+    const n = Math.ceil(total / (1 / 60));
+    for (let i = 0; i < n; i++) step(total / n);
+  }
+  gambar();
+  renderPanel(false);
+  requestAnimationFrame(loop);
+}
+
+function boot() {
+  ukur();
+  gambarLatar();
+  reset();
+  requestAnimationFrame(t => { last = t; loop(t); });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(boot, boot); else boot();
+</script>
+</body>
+</html>
