@@ -63,7 +63,7 @@ function kartuUkuran(u) {
 }
 
 // Grafik area SVG: garis 2px + isian gradasi, label tanggal awal / akhir, titik akhir diberi penanda
-const G = { w: 280, h: 90, kiri: 4, kanan: 6, atas: 8, bawah: 18 };
+const G = { w: 280, h: 120, kiri: 4, kanan: 6, atas: 8, bawah: 18 };
 
 function skala(titik, u) {
     const nilai = titik.map(r => r[u.kunci]);
