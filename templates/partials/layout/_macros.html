@@ -21,8 +21,8 @@
 
 {# Judul halaman ala prototipe: judul + subjudul di kiri, aksi (caller) di kanan #}
 {# Warna ikon (ditulis lengkap supaya terbaca Tailwind): judul-ikon-biru judul-ikon-merah judul-ikon-kuning judul-ikon-hijau judul-ikon-gelap #}
-{% macro judul_halaman(judul, sub="", ikon="", warna="biru") %}
-<div class="halaman-judul">
+{% macro judul_halaman(judul, sub="", ikon="", warna="biru", kartu=false) %}
+<div class="halaman-judul{% if kartu %} halaman-judul-kartu{% endif %}">
     <div class="flex items-center gap-3">
         {% if ikon %}<div class="judul-ikon judul-ikon-{{ warna }}"><i class="fa-solid {{ ikon }}"></i></div>{% endif %}
         <div>

@@ -99,29 +99,37 @@ let daftarJembatan = [];
 
 function tampilkanJembatan(data) {
     daftarJembatan = data;
+    const baris = (label, nilai, mono = true) => `<div class="flex items-start justify-between gap-3 text-sm">
+        <span class="text-slate-500 flex-shrink-0">${label}</span><span class="${mono ? 'font-mono font-semibold ' : ''}text-slate-800 text-right">${nilai}</span></div>`;
     document.getElementById('tabelJembatan').innerHTML = data.map(j => {
         const st = j.status;
-        const live = !st ? '<span class="text-slate-400">Tidak dibaca</span>'
-            : st.terhubung ? `${escapeHtml(st.berat)} Kg${st.siap_kunci ? ' <span class="text-emerald-600">(stabil)</span>' : ''}`
-            : `<span class="text-red-600" title="${escapeHtml(st.error || '')}">Tidak terhubung</span>`;
-        const sambung = j.mode === 'AGEN'
-            ? `Agen di PC jembatan · ID agen <b>${j.id_jembatan}</b><br>${escapeHtml(j.port)}`
-            : escapeHtml(j.port);
-        return `<tr class="hover:bg-slate-50${j.is_active ? '' : ' text-slate-400'}">
-            <td class="table-cell font-mono">${escapeHtml(j.kode)}</td>
-            <td class="table-cell">${escapeHtml(j.nama)}</td>
-            <td class="table-cell">${escapeHtml(j.area)}</td>
-            <td class="table-cell text-xs">${sambung} · ${Number(j.baudrate)} ${j.data_bits}${escapeHtml(j.parity)}${Number(j.stop_bits)}
-                · ${escapeHtml(j.format_data)}</td>
-            <td class="table-cell">${live}</td>
-            <td class="table-cell">${badgeAktif(j.is_active)}</td>
-            <td class="table-cell text-right whitespace-nowrap space-x-3">
-                ${j.is_active ? `<button type="button" class="link-aksi text-slate-700" data-on-click="bukaMentah" data-arg="${j.id_jembatan}">Data mentah</button>` : ''}
+        const [status, warna] = !j.is_active ? ['NONAKTIF', 'text-slate-500 bg-slate-100 border-slate-200']
+            : !st ? ['TIDAK DIBACA', 'text-slate-500 bg-slate-100 border-slate-200']
+            : st.terhubung ? ['ONLINE', 'text-emerald-700 bg-emerald-50 border-emerald-200'] : ['TERPUTUS', 'text-red-700 bg-red-50 border-red-200'];
+        const live = st && st.terhubung ? `${escapeHtml(st.berat)} kg${st.siap_kunci ? ' · stabil' : ''}`
+            : `<span class="font-sans font-normal text-slate-400" title="${escapeHtml((st && st.error) || '')}">${st ? 'tidak terhubung' : '-'}</span>`;
+        return `<div class="rounded-xl border border-slate-200 p-5${j.is_active ? '' : ' opacity-60'}">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-bold text-slate-900">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</p>
+                    <p class="text-xs font-mono text-slate-500">${escapeHtml(j.area)} · mode ${escapeHtml(j.mode)}</p>
+                </div>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded border flex-shrink-0 ${warna}">● ${status}</span>
+            </div>
+            <div class="mt-4 rounded-lg bg-slate-50 border border-slate-100 p-3 space-y-1.5">
+                ${baris('Sambungan', j.mode === 'AGEN' ? `Agen ID ${j.id_jembatan} · ${escapeHtml(j.port)}` : escapeHtml(j.port))}
+                ${baris('Serial', `${Number(j.baudrate)}-${j.data_bits}-${escapeHtml(j.parity)}-${Number(j.stop_bits)}`)}
+                ${baris('Format data', escapeHtml(j.format_data))}
+                ${baris('Berat live', live)}
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-3 mt-3">
+                ${j.is_active ? `<button type="button" class="btn-light btn-sm" data-on-click="bukaMentah" data-arg="${j.id_jembatan}"><i class="fa-solid fa-wave-square"></i> Data mentah</button>` : ''}
                 <button type="button" class="link-aksi text-blue-600" data-on-click="bukaJembatan" data-arg="${j.id_jembatan}">Ubah</button>
                 <button type="button" class="link-aksi ${j.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifJembatan"
                     data-arg="${j.id_jembatan}">${j.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>
-            </td></tr>`;
-    }).join('') || barisKosong(7, 'Belum ada jembatan timbang');
+            </div>
+        </div>`;
+    }).join('') || '<p class="text-sm text-slate-400 text-center py-6 lg:col-span-2">Belum ada jembatan timbang</p>';
 }
 
 function bukaJembatan(id) {

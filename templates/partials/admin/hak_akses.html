@@ -1,19 +1,13 @@
 {% from "partials/layout/_macros.html" import section_header %}
 {# Level = pengganti role. Semua level non-admin melihat semua menu; yang diatur di sini hanya aksi tambah / ubah / hapus. #}
 <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
-    <div class="xl:col-span-2 section-box">
-        {% call section_header('daftar-level', 'Level') %}
-        <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaLevel"><i class="fa-solid fa-plus mr-1"></i> Tambah Level</button>
-        {% endcall %}
-        <div id="body-daftar-level" class="section-body overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="table-header-row">
-                    <tr><th class="table-cell">Level</th><th class="table-cell">Halaman Awal</th><th class="table-cell">User</th>
-                        <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
-                </thead>
-                <tbody id="tabelLevel" class="divide-y divide-slate-100"></tbody>
-            </table>
+    <div class="xl:col-span-2">
+        <div class="flex items-center justify-between gap-2 mb-3">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Daftar level (jabatan)</p>
+            <button type="button" class="btn-primary btn-sm" data-on-click="bukaLevel"><i class="fa-solid fa-plus"></i> Tambah Level</button>
         </div>
+        {# Satu kartu per level; klik kartu = tampilkan matriks hak aksesnya di kanan #}
+        <div id="tabelLevel" class="space-y-3"></div>
     </div>
 
     <div class="xl:col-span-3 section-box">

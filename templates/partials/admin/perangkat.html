@@ -42,14 +42,8 @@
         <button type="button" class="btn-primary py-1.5" data-on-click="bukaJembatan"><i class="fa-solid fa-plus mr-1"></i> Tambah Jembatan</button>
     </div>
     {% endcall %}
-    <div id="body-jembatan-timbang" class="section-body overflow-x-auto">
-        <table class="w-full text-left text-sm">
-            <thead class="table-header-row">
-                <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Area</th>
-                    <th class="table-cell">Sambungan</th><th class="table-cell">Berat Live</th><th class="table-cell">Status</th>
-                    <th class="table-cell text-right">Aksi</th></tr>
-            </thead>
-            <tbody id="tabelJembatan" class="divide-y divide-slate-100"></tbody>
-        </table>
+    {# Satu kartu per jembatan timbang (indikator): sambungan, format, berat live, aksi #}
+    <div id="body-jembatan-timbang" class="section-body p-4">
+        <div id="tabelJembatan" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
     </div>
 </div>

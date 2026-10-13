@@ -7,21 +7,28 @@ document.addEventListener('DOMContentLoaded', muatLevel);
 async function muatLevel() {
     const data = await ambilJson('/api/admin/level');
     const tbody = document.getElementById('tabelLevel');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (data.error) { tbody.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
     daftarLevel = data;
     tbody.innerHTML = data.map(lv => `
-        <tr class="hover:bg-slate-50 cursor-pointer${lv.is_active ? '' : ' text-slate-400'}${lv.id_level === levelDipilih ? ' bg-blue-50' : ''}"
+        <div class="card p-4 cursor-pointer hover:shadow-md transition${lv.id_level === levelDipilih ? ' border-blue-400 ring-1 ring-blue-200' : ''}${lv.is_active ? '' : ' opacity-60'}"
             data-on-click="pilihLevel" data-arg="${lv.id_level}">
-            <td class="table-cell">${badgeRole(lv.kode, lv.nama)}<div class="text-xs text-slate-400 font-mono">${escapeHtml(lv.kode)}</div></td>
-            <td class="table-cell text-xs">${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</td>
-            <td class="table-cell">${Number(lv.jumlah_user)}</td>
-            <td class="table-cell">${badgeAktif(lv.is_active)}</td>
-            <td class="table-cell text-right whitespace-nowrap space-x-3" data-henti-klik>
-                <button type="button" class="link-aksi text-blue-600" data-on-click="bukaLevel" data-arg="${lv.id_level}">Ubah</button>
-                ${lv.is_admin ? '' : `<button type="button" class="link-aksi ${lv.is_active ? 'text-red-600' : 'text-emerald-600'}"
-                    data-on-click="ubahAktifLevel" data-arg="${lv.id_level}">${lv.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
-            </td>
-        </tr>`).join('') || barisKosong(5, 'Belum ada level');
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <p class="font-bold text-slate-900">${escapeHtml(lv.nama)} <span class="ml-1 text-[11px] font-mono text-slate-400">${escapeHtml(lv.kode)}</span></p>
+                    <p class="text-xs text-slate-500 mt-0.5">Halaman awal: ${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</p>
+                    ${lv.keterangan ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(lv.keterangan)}</p>` : ''}
+                </div>
+                <span class="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex-shrink-0">${Number(lv.jumlah_user)} User</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
+                ${badgeAktif(lv.is_active)}
+                <span class="space-x-3" data-henti-klik>
+                    <button type="button" class="link-aksi text-blue-600" data-on-click="bukaLevel" data-arg="${lv.id_level}">Ubah</button>
+                    ${lv.is_admin ? '' : `<button type="button" class="link-aksi ${lv.is_active ? 'text-red-600' : 'text-emerald-600'}"
+                        data-on-click="ubahAktifLevel" data-arg="${lv.id_level}">${lv.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
+                </span>
+            </div>
+        </div>`).join('') || '<p class="text-sm text-slate-400">Belum ada level</p>';
 }
 
 async function pilihLevel(id) {
