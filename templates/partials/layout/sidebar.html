@@ -1,18 +1,32 @@
-{# Sidebar: List & Form = halaman site (/weighbridge), Face Recognition = /face-recognition.
+{# Sidebar putih: brand, menu (dari tabel menu; admin: menu Admin), profil di bawah.
    Di halaman site, klik List / Form tidak memuat ulang halaman (ditangani base.js).
    ADMIN (super admin) hanya melihat menu Admin (routes/admin.py HALAMAN). #}
 <aside id="sidebar" class="sidebar">
-    <div class="sidebar-title">MENU</div>
-    <nav>
+    <div class="sidebar-brand">
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="sidebar-logo"><i class="fa-solid fa-scale-balanced"></i></div>
+            <div class="min-w-0">
+                <p class="font-bold text-slate-900 text-sm leading-tight truncate">Weighbridge</p>
+                <p class="text-[10px] font-semibold text-slate-500 tracking-wider uppercase truncate">
+                    {{ 'Admin Console' if current_user.is_admin else 'Mill Terminal' }}</p>
+            </div>
+        </div>
+        <button type="button" data-on-click="toggleSidebar" class="sidebar-ikon-btn" title="Sembunyikan menu">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
     {% if current_user.is_admin %}
         <div class="sidebar-section">Admin</div>
         {% for key, (judul_menu, ikon_menu, _) in (menu_admin or {}).items() %}
         <a href="{{ url_for('admin.admin_halaman', halaman=key) }}"
            class="sidebar-link{% if admin_aktif == key %} sidebar-link-active{% endif %}">
-            <i class="fa-solid {{ ikon_menu }} w-4"></i> {{ judul_menu }}
+            <i class="fa-solid {{ ikon_menu }} sidebar-link-ikon"></i><span class="truncate">{{ judul_menu }}</span>
         </a>
         {% endfor %}
     {% else %}
+        <div class="sidebar-section">Menu</div>
         {# Menu dari tabel menu (Admin › Hak Akses: urutan, nama, ikon). Semua level non-admin melihat semua menu. #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
@@ -21,9 +35,20 @@
         {% for m in menu_sidebar() %}
         <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
            class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">
-            <i class="fa-solid {{ m.ikon or 'fa-circle' }} w-4"></i> {{ m.nama }}
+            <i class="fa-solid {{ m.ikon or 'fa-circle' }} sidebar-link-ikon"></i><span class="truncate">{{ m.nama }}</span>
+            {% if m.kode == 'FORM' %}<span class="sidebar-badge sidebar-badge-hijau">Live</span>{% endif %}
         </a>
         {% endfor %}
     {% endif %}
     </nav>
+
+    {% if current_user.is_authenticated %}
+    <div class="sidebar-profil">
+        <div class="avatar">{{ ((current_user.nama_lengkap or '?').split() | map('first') | join('') | upper)[:2] }}</div>
+        <div class="min-w-0">
+            <p class="text-xs font-bold text-slate-900 truncate">{{ current_user.nama_lengkap }}</p>
+            <p class="text-[10px] text-slate-500 truncate">{{ current_user.nama_level }}</p>
+        </div>
+    </div>
+    {% endif %}
 </aside>

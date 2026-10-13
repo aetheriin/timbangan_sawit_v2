@@ -44,7 +44,7 @@ def cek_koneksi_db():
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, u.id_level, l.is_admin,
+    cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, l.nama AS nama_level, u.id_level, l.is_admin,
                              l.halaman_awal, u.sesi_versi, u.password_changed_at
                       FROM akun u JOIN level l ON l.id_level = u.id_level
                       WHERE u.username = ? AND u.is_active = 1 AND l.is_active = 1""", username)
@@ -57,7 +57,7 @@ def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
-    cursor.execute("""SELECT u.id_user, u.username, u.nama, l.kode AS role, u.id_level, l.is_admin, l.halaman_awal,
+    cursor.execute("""SELECT u.id_user, u.username, u.nama, l.kode AS role, l.nama AS nama_level, u.id_level, l.is_admin, l.halaman_awal,
                              u.sesi_versi
                       FROM akun u JOIN level l ON l.id_level = u.id_level
                       WHERE u.id_user = ? AND u.is_active = 1 AND l.is_active = 1""", user_id)
