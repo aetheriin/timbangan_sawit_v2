@@ -59,10 +59,14 @@ const Halaman = {
     lekatkan(wadah) {
         // Tabel di modal / kotak bergulir sendiri (overflow-y-auto) tidak diubah
         if (!wadah.closest('.main-area') || /max-h-|overflow-y-auto/.test(wadah.className)) return;
+        // Dicek dari style yang benar-benar berlaku (getComputedStyle), bukan nama kelas: kotak seperti
+        // .section-box / .card memakai overflow hidden lewat CSS komponen. Kotak yang memang bergulir
+        // sendiri (overflow-y auto/scroll + max-height) dibiarkan; tabelnya tidak dibuat menempel.
         const induk = [];
         for (let el = wadah.parentElement; !el.classList.contains('main-area'); el = el.parentElement) {
-            if (/(^|\s)overflow-(y-)?auto(\s|$)/.test(el.className)) return;
-            if (/(^|\s)overflow-(hidden|x-auto)(\s|$)/.test(el.className)) induk.push(el);
+            const cs = getComputedStyle(el);
+            if (/auto|scroll/.test(cs.overflowY) && cs.maxHeight !== 'none') return;
+            if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') induk.push(el);
         }
         const tabel = wadah.querySelector('table');
         const atur = () => {

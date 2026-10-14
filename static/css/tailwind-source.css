@@ -182,6 +182,9 @@
   to { opacity: 1; transform: none; }
 }
 
+/* Kotak isian huruf besar: teks contoh (placeholder) tetap huruf biasa */
+input.uppercase::placeholder { text-transform: none; }
+
 /* ===== Tabel: kepala menempel di bawah header (halaman.js), sorot data baru, cetak PDF ===== */
 .tabel-lekat, .lekat-induk { overflow: clip; }
 .tabel-lekat > table > thead th { position: sticky; top: 4rem; z-index: 5; background-color: #f8fafc; box-shadow: inset 0 -1px 0 #e2e8f0; }

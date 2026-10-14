@@ -85,7 +85,7 @@ function aturStatusForm(status) {
     document.getElementById('sectionInfoDriver').classList.toggle('section-disabled', status === 'draft');
 
     const btn = document.getElementById('btnMulaiValidasi');
-    const beku = status === 'validasi';      // beku sampai scan wajah + Submit
+    const beku = status === 'validasi';      // beku sampai scan wajah + Buat Tiket
     btn.textContent = status === 'selesai' ? 'Sudah Validasi' : 'Mulai Validasi Awal';
     btn.disabled = status !== 'draft';
     btn.classList.toggle('btn-primary', status !== 'selesai');
@@ -106,9 +106,9 @@ function perbaruiTombolSubmit() {
 
     let hint = '';
     if (statusForm === 'selesai') hint = 'Tiket sudah dibuat. Gunakan tombol Cetak QR Code di atas.';
-    else if (statusForm === 'validasi' && !adaSupir) hint = 'Pilih supir: Mulai Scan Wajah, Tambah (supir baru), atau Update.';
-    else if (statusForm === 'validasi' && !siap) hint = 'Silakan scan wajah supir. Tombol Submit aktif setelah supir terverifikasi.';
-    else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Submit untuk membuat tiket.'
+    else if (statusForm === 'validasi' && !adaSupir) hint = 'Silakan pilih supir: Mulai Scan Wajah, Tambah Supir (supir baru), atau Ubah Supir.';
+    else if (statusForm === 'validasi' && !siap) hint = 'Silakan scan wajah supir. Tombol Buat Tiket aktif setelah supir terverifikasi.';
+    else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Buat Tiket untuk menyimpan tiket.'
                                             : 'Scan wajah tidak diwajibkan di site ini.';
     document.getElementById('hintSubmit').textContent = hint;
 }

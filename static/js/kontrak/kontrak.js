@@ -30,7 +30,7 @@ function tampilkanDO() {
         const persen = d.qty_kg ? Math.round((d.realisasi_kg || 0) / d.qty_kg * 100) : null;
         const warnaBar = persen == null ? 'bg-slate-300' : persen > 100 ? 'bg-red-500' : persen >= 90 ? 'bg-amber-500' : 'bg-emerald-500';
         const sisa = d.qty_kg ? d.qty_kg - (d.realisasi_kg || 0) : null;
-        return `<div class="card${d.is_active ? '' : ' opacity-60'}">
+        return `<div class="card flex flex-col${d.is_active ? '' : ' opacity-60'}">
             <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="judul-ikon judul-ikon-hijau"><i class="fa-solid fa-building"></i></div>
@@ -47,7 +47,7 @@ function tampilkanDO() {
                 ${baris2('Pengangkutan', d.angkutan.map(a => escapeHtml(a.label)).join('<br>') || '-')}
                 ${baris2('Tanggal DO', `${escapeHtml(d.tanggal_do)}${d.berlaku_sampai ? ` s/d ${escapeHtml(d.berlaku_sampai)}` : ''}`, true)}
             </div>
-            <div class="pt-3">
+            <div class="pt-3 pb-3">
                 <div class="flex items-center justify-between text-sm"><span class="text-slate-500">Realisasi kuota</span>
                     <span class="font-mono font-bold ${persen > 100 ? 'text-red-600' : 'text-slate-900'}">${persen == null ? '-' : persen + '%'}</span></div>
                 <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-1.5">
@@ -56,7 +56,7 @@ function tampilkanDO() {
                     <span>Realisasi: ${fmtKg(d.realisasi_kg || 0)} kg</span><span>Kuota: ${fmtKg(d.qty_kg)} kg</span></div>
                 ${sisa != null && sisa < 0 ? `<p class="text-[11px] text-red-600 mt-1">Lebih ${fmtKg(-sisa)} kg dari kuota</p>` : ''}
             </div>
-            <div class="flex items-center justify-between gap-2 pt-3 mt-3 border-t border-slate-100">
+            <div class="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-slate-100">
                 ${badgeAktif(d.is_active)}
                 <span class="space-x-3">${bolehUbahDO() ? `
                     <button type="button" class="link-aksi text-blue-600" data-on-click="bukaDO" data-arg="${d.id_do}">Ubah</button>

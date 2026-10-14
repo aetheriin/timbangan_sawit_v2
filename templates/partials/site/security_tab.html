@@ -41,7 +41,7 @@
                                     <input type="text" id="formNoPlat" data-plat class="input-field uppercase" data-on-enter="lookupPlat" data-arg="$value" data-plat-otomatis>
                                 </div>
                                 <div>
-                                    <label class="field-label">No. Ticket</label>
+                                    <label class="field-label">No. Tiket</label>
                                     <input type="text" id="formNoTiket" readonly class="input-field bg-slate-50 text-slate-400">
                                 </div>
                                 <div>
@@ -166,12 +166,12 @@
                             </div>
                         </div>
 
-                        <!-- Tambah = supir baru | Update = ganti/edit supir, supir & kontrak truk | Submit = buat tiket -->
+                        <!-- Tambah Supir = supir baru | Ubah Supir = ganti/edit supir, supir & kontrak truk | Buat Tiket = simpan tiket -->
                         <div class="flex gap-3 mt-5">
-                            <button id="btnTambahSupir" data-on-click="bukaTambahSupir" data-arg="tiket" class="btn-success">Tambah</button>
-                            <button id="btnUpdateSupir" data-on-click="bukaModalUpdate" class="btn-secondary">Update</button>
+                            <button id="btnTambahSupir" data-on-click="bukaTambahSupir" data-arg="tiket" class="btn-success"><i class="fa-solid fa-user-plus"></i> Tambah Supir</button>
+                            <button id="btnUpdateSupir" data-on-click="bukaModalUpdate" class="btn-secondary"><i class="fa-solid fa-user-pen"></i> Ubah Supir</button>
                             <button id="btnSubmitTiket" data-on-click="submitCreateTiket" data-arg="$el" disabled
-                                class="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed">Submit</button>
+                                class="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed"><i class="fa-solid fa-ticket"></i> Buat Tiket</button>
                         </div>
                         <p id="hintSubmit" class="text-xs text-slate-500 mt-2"></p>
                     </div>

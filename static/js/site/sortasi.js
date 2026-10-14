@@ -29,7 +29,7 @@ function hitungPotongan() {
     document.getElementById('srEstimasiPersen').textContent = totalPersen.toFixed(1) + '%';
     document.getElementById('srTotalPotongan').textContent = beratAcuanSortasi == null
         ? 'dihitung saat timbang kedua'
-        : round2(beratAcuanSortasi * totalPersen / 100) + ' Kg';
+        : round2(beratAcuanSortasi * totalPersen / 100) + ' kg';
     document.getElementById('srStatusMutu').textContent = totalPersen > 15 ? 'Kurang Baik' : 'Baik';
 }
 function round2(n) { return Math.round(n * 100) / 100; }
