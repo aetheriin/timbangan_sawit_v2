@@ -9,7 +9,7 @@ function dataTabel(idTbody) {
     const tbody = document.getElementById(idTbody);
     const tabel = tbody.closest('table');
     const th = [...tabel.querySelectorAll('thead th')];
-    const pakai = th.map(h => !h.hasAttribute('data-tanpa-ekspor') && h.textContent.trim().toLowerCase() !== 'aksi');
+    const pakai = th.map(h => !h.hasAttribute('data-tanpa-ekspor') && !['aksi', 'action', 'actions'].includes(h.textContent.trim().toLowerCase()));
     const kepala = th.filter((_, i) => pakai[i]).map(h => h.textContent.trim());
     const baris = [...tbody.rows]
         .filter(tr => tr.cells.length > 1 && !tr.classList.contains('hidden'))
