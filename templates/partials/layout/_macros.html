@@ -33,3 +33,11 @@
     {% if caller %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
 </div>
 {% endmacro %}
+
+{# Tombol ekspor tabel (static/js/ekspor.js): Excel (.xlsx) dan PDF dari <tbody id=id_tbody> #}
+{% macro tombol_ekspor(id_tbody, judul) %}
+<div class="flex items-center gap-1.5">
+    <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="{{ id_tbody }}|xlsx|{{ judul }}" title="Unduh Excel (semua baris yang tampil)"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
+    <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="{{ id_tbody }}|pdf|{{ judul }}" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
+</div>
+{% endmacro %}

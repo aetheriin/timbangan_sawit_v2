@@ -159,3 +159,36 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('change', () => Pilihan.simpan(el.dataset.simpan, el.value));
     });
 });
+
+// ===== NOMOR PLAT (semua kotak <input data-plat>) =====
+// Diketik -> langsung huruf besar. Tab / pindah kotak / mouse keluar dari kotak yang sedang diketik ->
+// dirapikan ke format baku "BK 1234 AB" (pola sama dengan utils/plat_utils.py; server tetap memvalidasi).
+// Teks yang bukan plat (mis. No. Tiket hasil scanner "TKT-...") hanya dijadikan huruf besar.
+const POLA_PLAT_BAKU = /^([A-Z]{1,2})[\s.\-]*([1-9][0-9]{0,3})[\s.\-]*([A-Z]{0,3})$/;
+
+function rapikanPlat(teks) {
+    const t = String(teks ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+    const m = t.startsWith('TKT-') ? null : t.match(POLA_PLAT_BAKU);
+    return m ? m.slice(1).filter(Boolean).join(' ') : t;
+}
+
+function rapikanKotakPlat(input) {
+    const rapi = rapikanPlat(input.value);
+    if (rapi !== input.value) input.value = rapi;
+}
+
+document.addEventListener('input', e => {
+    const el = e.target;
+    if (!el.matches || !el.matches('input[data-plat]')) return;
+    const besar = el.value.toUpperCase();
+    if (besar === el.value) return;
+    const posisi = el.selectionStart;
+    el.value = besar;
+    el.setSelectionRange(posisi, posisi);
+});
+document.addEventListener('focusout', e => { if (e.target.matches && e.target.matches('input[data-plat]')) rapikanKotakPlat(e.target); });
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('input[data-plat]').forEach(el => el.addEventListener('mouseleave', () => {
+        if (document.activeElement === el) rapikanKotakPlat(el);
+    }));
+});

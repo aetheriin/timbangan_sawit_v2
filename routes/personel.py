@@ -173,7 +173,7 @@ def personel_tambah():
     id_baru = insert_personel(data["nik"], data["nama"], data["no_sim"], data["kategori"], data["kode"],
                               embedding_to_binary(embedding), relatif, data["foto_sumber"], current_user.id,
                               data["id_jenis_sim"], data["sim_berlaku"])
-    return jsonify({"message": f"Personel '{data['nama']}' ditambahkan dengan ID {id_baru:03d}",
+    return jsonify({"message": f"Personel {data['nama']} berhasil ditambahkan dengan ID {id_baru:03d}",
                     "id_personel": id_baru, "cek": hasil})
 
 
@@ -209,7 +209,7 @@ def personel_update(id_personel):
     update_personel(id_personel, data["kode"], data["nik"], data["nama"], data["no_sim"], data["kategori"],
                     current_user.id, embedding_binary, relatif, data["foto_sumber"] if relatif else None,
                     data["id_jenis_sim"], data["sim_berlaku"])
-    return jsonify({"message": f"Data '{data['nama']}' diperbarui, tercatat di Audit Log",
+    return jsonify({"message": f"Data {data['nama']} berhasil diperbarui dan tercatat di Audit Log",
                     "personel": get_personel(id_personel)})
 
 
@@ -226,5 +226,5 @@ def personel_hapus(id_personel):
     if p["is_blacklisted"]:
         return jsonify({"error": "Personel blacklist tidak bisa dihapus (blacklist permanen)"}), 400
     hapus_personel(id_personel, current_user.id)
-    return jsonify({"message": f"{format_nama_personel(p['kode_personel'], id_personel, p['nama_personel'])} dihapus. "
+    return jsonify({"message": f"{format_nama_personel(p['kode_personel'], id_personel, p['nama_personel'])} berhasil dihapus. "
                                "Riwayat tiket & absensi tetap tersimpan."})

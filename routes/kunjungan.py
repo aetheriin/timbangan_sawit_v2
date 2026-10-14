@@ -64,15 +64,15 @@ def kunjungan_cari_wajah():
     try:
         with slot_proses_wajah():
             if not cek_liveness(paths, request.form.get("tantangan", ""), wajib):
-                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
+                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, jumlah, _ = embedding_frontal(paths)       # frame paling menghadap kamera
     finally:
         for p in paths:
             hapus_file(p)
     if jumlah > 1:
-        return jsonify({"error": f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
+        return jsonify({"error": f"Terdeteksi {jumlah} wajah. Pastikan hanya 1 orang di depan kamera"}), 400
     if not embeddings:
-        return jsonify({"error": "Wajah tidak terdeteksi, ulangi sambil menghadap kamera"}), 400
+        return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi sambil menghadap kamera"}), 400
     id_personel, _, jarak = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
     p = get_personel(id_personel) if id_personel else None
     if not p:
@@ -103,7 +103,7 @@ def kunjungan_tamu_baru():
         embedding, jumlah = extract_embedding_tunggal(path_disk)
     if jumlah != 1:
         hapus_file(path_disk)
-        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
+        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah. Pastikan hanya 1 orang di depan kamera"}), 400
     id_mirip, _, _ = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", db.area_akun(current_user.id)))
     if id_mirip:
         hapus_file(path_disk)
@@ -111,7 +111,7 @@ def kunjungan_tamu_baru():
         return jsonify({"error": f"Wajah sudah terdaftar sebagai {format_nama_personel(p['kode_personel'], id_mirip, p['nama_personel'])}"}), 400
     id_baru = insert_personel(nik, nama, None, "TAMU", saran_kode_personel("TAMU"), embedding_to_binary(embedding), relatif, "KAMERA",
                               current_user.id)
-    return jsonify({"message": f"Tamu {nama} didaftarkan", **_info_personel(get_personel(id_baru))})
+    return jsonify({"message": f"Tamu {nama} berhasil didaftarkan", **_info_personel(get_personel(id_baru))})
 
 
 def _id_pilihan(nama, pilihan, label):
@@ -130,11 +130,11 @@ def kunjungan_masuk():
         id_tamu = int(f.get("id_personel") or 0)
         p = get_personel(id_tamu) if id_tamu else None
         if not p or not p["is_active"]:
-            raise ValueError("Scan wajah tamu dulu")
+            raise ValueError("Silakan scan wajah tamu terlebih dahulu")
         if p["kategori"] != "TAMU":
             raise ValueError(f"{p['nama_personel']} bukan tamu (kategori {p['kategori']})")
         if db.kunjungan_aktif(id_tamu):
-            raise ValueError(f"{p['nama_personel']} masih tercatat di dalam. Catat keluar dulu.")
+            raise ValueError(f"{p['nama_personel']} masih tercatat di dalam. Silakan catat keluar terlebih dahulu.")
         id_dituju = _id_pilihan("id_dituju", {d["id_personel"] for d in db.daftar_dituju()}, "orang yang dituju")
         id_keperluan = _id_pilihan("id_keperluan", {k["id_keperluan"] for k in db.daftar_keperluan()}, "keperluan")
         no_plat = None
@@ -160,7 +160,7 @@ def kunjungan_masuk():
             foto = None                 # snapshot opsional, kunjungan tetap dicatat
     id_kunjungan = db.catat_masuk(id_tamu, id_dituju, id_keperluan, keterangan, asal, no_plat,
                                   db.area_akun(current_user.id), foto, current_user.id)
-    return jsonify({"message": f"Kunjungan {p['nama_personel']} dicatat", "id_kunjungan": id_kunjungan})
+    return jsonify({"message": f"Kunjungan {p['nama_personel']} berhasil dicatat", "id_kunjungan": id_kunjungan})
 
 
 @kunjungan_bp.route("/api/kunjungan/<int:id_kunjungan>/keluar", methods=["POST"])
@@ -168,5 +168,5 @@ def kunjungan_masuk():
 @izin("KUNJUNGAN", "ubah")
 def kunjungan_keluar(id_kunjungan):
     if not db.catat_keluar(id_kunjungan):
-        return jsonify({"error": "Kunjungan tidak ditemukan atau sudah keluar"}), 400
-    return jsonify({"message": "Tamu dicatat keluar"})
+        return jsonify({"error": "Data kunjungan tidak ditemukan atau tamu sudah keluar"}), 400
+    return jsonify({"message": "Tamu berhasil dicatat keluar"})

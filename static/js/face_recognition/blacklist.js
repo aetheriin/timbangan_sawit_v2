@@ -87,7 +87,7 @@ function setCaraBlacklist(cara) {
     cari.placeholder = cara === 'SIM' ? 'Ketik No SIM' : 'Cari kode / NIK / nama';
     document.getElementById('blPanelKamera').classList.toggle('hidden', cara !== 'KAMERA');
     document.getElementById('blPanelUpload').classList.toggle('hidden', cara !== 'UPLOAD');
-    if (cara === 'KAMERA') Kamera.mulai(document.getElementById('blVideo')).catch(err => Notif.gagal(`Kamera tidak bisa dipakai: ${err.message}`));
+    if (cara === 'KAMERA') Kamera.mulai(document.getElementById('blVideo')).catch(err => Notif.gagal(`Kamera tidak dapat digunakan: ${err.message}`));
     else Kamera.stop();
 }
 
@@ -99,11 +99,11 @@ async function cocokkanWajah(foto, btn) {
     if (data.error) { Notif.gagal(data.error); return; }
     hasilCariTarget = [data];
     pilihTargetBlacklist(0);
-    Notif.sukses(`Wajah cocok: ${data.nama_personel}`);
+    Notif.sukses(`Wajah dikenali: ${data.nama_personel}`);
 }
 
 async function cocokkanWajahKamera(btn) {
-    if (!Kamera.aktif()) { Notif.peringatan('Kamera belum menyala'); return; }
+    if (!Kamera.aktif()) { Notif.peringatan('Kamera belum aktif. Silakan nyalakan kamera'); return; }
     cocokkanWajah(await Kamera.ambilFrame(document.getElementById('blVideo')), btn);
 }
 
@@ -198,12 +198,12 @@ function tampilkanTerkait(t) {
 }
 
 async function simpanBlacklist(btn) {
-    if (!targetBlacklist) { Notif.peringatan('Pilih target blacklist dulu'); return; }
+    if (!targetBlacklist) { Notif.peringatan('Silakan pilih target blacklist'); return; }
     const file = document.getElementById('blFile').files[0];
     const noSurat = document.getElementById('blNoSurat').value.trim();
     const alasan = document.getElementById('blAlasan').value.trim();
     if (!alasan) { Notif.peringatan('Alasan wajib diisi'); return; }
-    if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat bersama-sama, atau kosongkan keduanya (surat menyusul)'); return; }
+    if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
     const ok = await Dialog.konfirmasi({ judul: 'Tetapkan blacklist permanen?', teksYa: 'Tetapkan Blacklist', bahaya: true,
         pesan: `${nama} akan masuk blacklist secara PERMANEN dan tidak bisa dicabut.\nWajah / kendaraan ini ditolak di semua site.` });

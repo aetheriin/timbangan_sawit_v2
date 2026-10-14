@@ -34,7 +34,7 @@ def lab_standar_update():
     if any(v < 0 or v > 100 for v in nilai):
         return jsonify({"error": "Batas standar harus 0 - 100 %"}), 400
     update_standar_mutu(id_produk, *nilai, user_id=current_user.id)
-    return jsonify({"message": "Standar mutu diperbarui"}), 200
+    return jsonify({"message": "Standar mutu berhasil diperbarui"}), 200
 
 
 @lab_bp.route("/api/lab/standar/history")
@@ -54,7 +54,7 @@ def lab_simpan():
         return jsonify({"error": "Keputusan harus APPROVE atau REJECT"}), 400
     trx = cari_transaksi_aktif(no_tiket=no_tiket)
     if trx is None:
-        return jsonify({"error": "Tiket tidak ditemukan / sudah selesai / ditolak"}), 404
+        return jsonify({"error": "Tiket tidak ditemukan, sudah selesai, atau ditolak"}), 404
     if not _tahap_ada(trx, "LAB"):
         return jsonify({"error": "Pemeriksaan lab tidak ada di alur tiket ini (lihat Admin › Organisasi › Mill)"}), 400
     if trx.status_alur not in ('TIMBANG_1', 'TIMBANG_2'):
@@ -63,7 +63,7 @@ def lab_simpan():
     simpan_lab(no_tiket, f.get("ffa"), f.get("kadar_air"), f.get("kadar_kotoran"),
                f.get("warna_locis"), keputusan, no_coa, current_user.id)
     lanjut = "lanjut timbang kedua" if keputusan == 'APPROVE' else "tiket ditolak"
-    return jsonify({"message": f"Hasil lab tersimpan ({keputusan}), {lanjut}", "no_dokumen_coa": no_coa}), 200
+    return jsonify({"message": f"Hasil lab berhasil disimpan ({keputusan}), {lanjut}", "no_dokumen_coa": no_coa}), 200
 
 @lab_bp.route("/api/history/lab")
 @login_required

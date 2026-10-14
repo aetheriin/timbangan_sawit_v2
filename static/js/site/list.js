@@ -17,13 +17,19 @@ function tahapTiket(t) {
     return ['timbangan'];                                    // TIMBANG_2: menunggu timbang kedua
 }
 
+// Cetak QR hanya untuk tiket yang belum selesai (/cetak/tiket menolak tiket selesai)
+const TIKET_SELESAI_LIST = ['SELESAI', 'REJECTED', 'VOID'];
 const LABEL_TAHAP = { security: 'Security', timbangan: 'Timbangan', sortasi: 'Sortasi', lab: 'Laboratorium' };
 
 document.addEventListener('DOMContentLoaded', () => {
     const chip = document.getElementById('chipTahap');
-    const tersimpan = Pilihan.ambil('tahap');
+    // ?tahap= (dari Dashboard › Posisi truk) didahulukan, lalu pilihan terakhir user
+    const tersimpan = new URLSearchParams(location.search).get('tahap') ?? Pilihan.ambil('tahap');
     tahapAktif = tersimpan != null && chip.querySelector(`[data-tahap="${CSS.escape(tersimpan)}"]`) ? tersimpan : chip.dataset.awal || '';
     aktifkanChip(chip.querySelector(`[data-tahap="${CSS.escape(tahapAktif)}"]`));
+    // ?cari=... (dari pencarian global) -> kotak cari terisi
+    const cariAwal = new URLSearchParams(location.search).get('cari');
+    if (cariAwal) document.getElementById('searchTiket').value = cariAwal;
     new Poller(muatTiketAktif, 15000).start();
     muatHistoryProduk();
 });
@@ -91,8 +97,8 @@ async function muatHistoryProduk() {
             <td class="table-cell text-right font-mono font-bold text-blue-700">${angkaKg(r.berat_netto)}</td>
             <td class="table-cell whitespace-nowrap text-xs">${labelLama(r.lama_menit)}</td>
             <td class="table-cell">${badgeStatusTiket(r.status_alur)}</td>
-            <td class="table-cell text-right whitespace-nowrap">
-                <a class="aksi-ikon" title="Cetak tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>
+            <td class="table-cell text-right whitespace-nowrap">${TIKET_SELESAI_LIST.includes(r.status_alur) ? '' :
+                `<a class="aksi-ikon" title="Cetak QR tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>`}
             </td>
         </tr>`).join('') || barisKosong(10, 'Belum ada transaksi 7 hari terakhir');
     const total = data.reduce((a, r) => a + (Number(r.berat_netto) || 0), 0);

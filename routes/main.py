@@ -105,7 +105,8 @@ def api_plat_lookup():
         return jsonify({"error": error}), 400
 
     kendaraan = get_kendaraan_by_plat(no_plat)
-    blacklist = (get_surat_blacklist("KENDARAAN", kendaraan.id_kendaraan)
+    # Ditandai blacklist tapi data surat belum ada -> tetap diperingatkan (dict kosong, bukan None)
+    blacklist = ((get_surat_blacklist("KENDARAAN", kendaraan.id_kendaraan) or {"no_surat_blacklist": None})
                  if kendaraan and kendaraan.is_blacklisted else None)
 
     row = cari_transaksi_aktif(no_plat=no_plat)
@@ -165,7 +166,7 @@ def qr_tiket(no_tiket):
 def cetak_tiket(no_tiket):
     row = cari_transaksi_aktif(no_tiket=no_tiket)
     if not row:
-        abort(404, "Tiket tidak ditemukan / sudah selesai")
+        abort(404, "Tiket tidak ditemukan atau sudah selesai")
     cetakan_ke = catat_cetak_qr(no_tiket) + 1
     return render_template("site/cetak_tiket.html", t=row, qr_svg=_svg_qr(row.no_tiket), cetakan_ke=cetakan_ke,
                            now=datetime.now().strftime("%d-%m-%Y %H:%M"))

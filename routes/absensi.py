@@ -47,10 +47,10 @@ def absensi_scan():
     try:
         with slot_proses_wajah():
             if not cek_liveness(paths, tantangan, wajib):      # gagal liveness tidak dicatat (bisa diulang)
-                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
+                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, _, tengah = embedding_frontal(paths)   # frame paling menghadap kamera, bukan frame tengah
         if not embeddings:
-            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan sambil menghadap kamera"}), 400
+            return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi scan sambil menghadap kamera"}), 400
 
         sekarang = datetime.now()
         folder_foto = os.path.join(UPLOAD_FOLDER, "absensi")
@@ -63,7 +63,7 @@ def absensi_scan():
         id_personel, jarak = _personel_terdekat(embeddings)
         if id_personel is None:
             insert_absensi(None, None, "TIDAK_DIKENALI", None, None, jarak, tantangan, foto_path, perangkat, ip, sekarang)
-            return jsonify({"status": "TIDAK_DIKENALI", "error": "Wajah tidak dikenali. Hubungi HO untuk pendaftaran."}), 404
+            return jsonify({"status": "TIDAK_DIKENALI", "error": "Wajah tidak dikenali. Silakan hubungi HO untuk pendaftaran."}), 404
 
         p = get_personel(id_personel)
         nama = format_nama_personel(p["kode_personel"], id_personel, p["nama_personel"])
@@ -76,11 +76,11 @@ def absensi_scan():
             return jsonify({"status": "DITOLAK_BLACKLIST", "error": f"{nama} masuk daftar BLACKLIST. Absensi ditolak."}), 403
 
         if p["kategori"] == "TAMU":         # tamu tidak absen; kedatangannya dicatat di Kunjungan Tamu
-            return jsonify({"status": "TAMU", "error": f"{nama} terdaftar sebagai tamu. Catat di menu Kunjungan Tamu."}), 400
+            return jsonify({"status": "TAMU", "error": f"{nama} terdaftar sebagai tamu. Silakan catat melalui menu Tamu."}), 400
 
         terakhir, sudah_masuk = get_scan_terakhir(id_personel, sekarang.date())
         if is_duplikat(terakhir, sekarang):
-            return jsonify({"status": "DUPLIKAT", "error": f"{nama} sudah absen pukul {terakhir:%H:%M}. Scan diabaikan."}), 409
+            return jsonify({"status": "DUPLIKAT", "error": f"{nama} sudah tercatat absen pukul {terakhir:%H:%M}."}), 409
 
         jenis = tentukan_jenis(sudah_masuk)
         jadwal = get_jadwal_hari(hari_iso(sekarang), area_akun(current_user.id))      # jadwal area akun yang men-scan

@@ -38,7 +38,7 @@ def agen_konfigurasi(id_jembatan):
         return salah
     cfg = konfigurasi(id_jembatan)
     if cfg is None:
-        return jsonify({"error": "Pembaca jembatan belum siap, coba lagi"}), 503
+        return jsonify({"error": "Pembaca jembatan belum siap. Silakan coba lagi"}), 503
     return jsonify({**cfg, "kode": j["kode"], "nama": j["nama"]})
 
 

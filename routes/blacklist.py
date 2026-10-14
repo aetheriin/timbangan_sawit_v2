@@ -59,11 +59,11 @@ def blacklist_cari_wajah():
     finally:
         hapus_file(path_disk)
     if jumlah != 1:
-        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah, harus 1 orang"}), 400
+        return jsonify({"error": "Wajah tidak terdeteksi" if jumlah == 0 else f"Terdeteksi {jumlah} wajah. Pastikan hanya 1 orang di depan kamera"}), 400
     id_personel, _, jarak = cari_terdekat(embedding, pengaturan.nilai("AMBANG_WAJAH", area_akun(current_user.id)))
     target = get_target_personel(id_personel) if id_personel else None
     if not target:
-        return jsonify({"error": "Wajah tidak cocok dengan personel mana pun. Daftarkan dulu di menu Personel."}), 404
+        return jsonify({"error": "Wajah tidak cocok dengan personel mana pun. Silakan daftarkan melalui menu Personel."}), 404
     return jsonify({**target, "jarak_wajah": round(jarak, 3)})
 
 
@@ -88,7 +88,7 @@ def blacklist_tambah():
     id_target = f.get("id_target", type=int)
     no_surat, alasan = f.get("no_surat", "").strip(), f.get("alasan", "").strip()
     if tipe not in TIPE_VALID or not id_target:
-        return jsonify({"error": "Pilih target blacklist dulu"}), 400
+        return jsonify({"error": "Silakan pilih target blacklist"}), 400
     if not alasan:
         return jsonify({"error": "Alasan wajib diisi"}), 400
     file = request.files.get("file_surat")
@@ -122,7 +122,7 @@ def blacklist_tambah():
         if isinstance(e, ValueError):
             return jsonify({"error": str(e)}), 400
         raise
-    return jsonify({"message": "Blacklist ditetapkan (permanen)" + ("" if no_surat else ". Surat bisa dilampirkan menyusul.")})
+    return jsonify({"message": "Blacklist berhasil ditetapkan (permanen)" + ("" if no_surat else ". Surat dapat dilampirkan menyusul.")})
 
 
 def _tanggal_surat(f):
@@ -158,4 +158,4 @@ def blacklist_lampirkan_surat(id_blacklist):
         if isinstance(e, ValueError):
             return jsonify({"error": str(e)}), 400
         raise
-    return jsonify({"message": "Surat blacklist dilampirkan"})
+    return jsonify({"message": "Surat blacklist berhasil dilampirkan"})

@@ -53,7 +53,7 @@ window.addEventListener('tabChange', e => {
 });
 
 async function simpanHasilTimbangan(btn) {
-    if (!noTiketAktif) { Notif.peringatan('Pilih plat/tiket dulu di kolom atas'); return; }
+    if (!noTiketAktif) { Notif.peringatan('Silakan pilih plat atau tiket pada kolom di atas'); return; }
     const data = await denganTombol(btn, () => kirimForm('/api/timbang/simpan', { no_tiket: noTiketAktif }));
     if (tampilkanHasil(data)) muatDataTimbanganTersimpan(noTiketAktif);
     const lebih = data.kelebihan_do;
@@ -86,7 +86,7 @@ function pilihJembatanTimbang(id) {
     if (!id) return;
     document.cookie = `jembatan_timbang=${encodeURIComponent(id)}; path=/; max-age=31536000; SameSite=Lax`;
     const opsi = document.querySelector(`#pilihJembatan option[value="${CSS.escape(id)}"]`);
-    Notif.sukses(`PC ini memakai ${opsi ? opsi.textContent : 'jembatan ' + id}`);
+    Notif.sukses(`PC ini sekarang menggunakan ${opsi ? opsi.textContent : 'jembatan ' + id}`);
 }
 
 // History: default 7 hari terakhir, atau satu tanggal dalam 30 hari terakhir
@@ -187,7 +187,7 @@ async function tutupScanQR() {
 function kirimScanTiket() {
     const input = document.getElementById('inputScanTiket');
     if (!input.value.trim()) {
-        Notif.peringatan('Ketik atau scan No. Tiket dulu');
+        Notif.peringatan('Silakan masukkan atau scan No. Tiket');
         input.focus();
         return;
     }

@@ -169,7 +169,7 @@ async function setSumberFoto(sumber) {
         try {
             await Kamera.mulai(document.getElementById('personelVideo'));
         } catch (err) {
-            Notif.gagal('Kamera tidak bisa dibuka. Izinkan akses kamera atau gunakan Upload Foto.');
+            Notif.gagal('Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan Upload Foto.');
             setSumberFoto('UPLOAD');
         }
     } else {
@@ -251,7 +251,7 @@ async function cekFotoPersonel() {
 }
 
 async function simpanPersonel() {
-    if (!document.getElementById('personelKategori').value) { Notif.peringatan('Pilih kategori personel'); return; }
+    if (!document.getElementById('personelKategori').value) { Notif.peringatan('Silakan pilih kategori personel'); return; }
     if (modePersonel === 'tambah' && !fotoPersonel) { Notif.peringatan('Foto wajah wajib diisi (upload atau kamera)'); return; }
     const formData = new FormData();
     [['kode_personel', 'personelKode'], ['nama', 'personelNama'], ['nik', 'personelNik'],

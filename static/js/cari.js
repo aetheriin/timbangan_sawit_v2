@@ -89,8 +89,8 @@ function tampilkanCari(kata, data) {
         html += grupCari(`Tiket timbangan (${data.tiket.length})`, data.tiket.map(t => {
             const selesai = TIKET_SELESAI.includes(t.status_alur);
             return itemCari({
-                url: selesai ? `/cetak/tiket/${encodeURIComponent(t.no_tiket)}` : `/weighbridge?view=form&plat=${encodeURIComponent(t.no_plat)}`,
-                baru: selesai, ikon: '<i class="fa-regular fa-file-lines text-blue-600"></i>',
+                // Tiket selesai dibuka di List (riwayat) dengan kotak cari terisi; tiket aktif dibuka di Form
+                url: selesai ? `/weighbridge?view=list&cari=${encodeURIComponent(t.no_tiket)}` : `/weighbridge?view=form&plat=${encodeURIComponent(t.no_plat)}`, ikon: '<i class="fa-regular fa-file-lines text-blue-600"></i>',
                 kiri: `<span class="block font-mono font-semibold text-slate-900 truncate">${escapeHtml(t.no_tiket)} · ${escapeHtml(t.no_plat)}</span>
                        <span class="block text-xs text-slate-500 truncate">${escapeHtml(t.supir)} · ${escapeHtml(t.customer)} · ${escapeHtml(t.produk)}</span>`,
                 kanan: `<span class="block font-mono font-bold text-slate-900">${kgCari(t.netto)}</span>

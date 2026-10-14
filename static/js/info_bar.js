@@ -66,7 +66,7 @@ function terapkanHasilLookup(data) {
     if (data.status === 'DRAFT' && tab !== 'security') {
         kosongkanInfoBar();
         document.getElementById('infoPlat').value = data.no_plat;
-        Notif.peringatan('Plat ini belum punya tiket aktif. Daftarkan dulu di tab Security.');
+        Notif.peringatan('Plat ini belum memiliki tiket aktif. Silakan daftarkan melalui tab Security.');
         window.dispatchEvent(new CustomEvent('platLookup', { detail: data }));
         return;
     }
@@ -88,8 +88,11 @@ function terapkanHasilLookup(data) {
     }
     document.getElementById('infoSupir').value = data.driver
         ? formatNamaPersonel(data.driver.kode_personel, data.driver.id_driver, data.driver.nama) : '';
-    // Plat blacklist ditandai merah; detail & banner ditampilkan di Form (security.js)
+    // Blacklist ditandai merah + label di info bar (terlihat di semua tab); detail & banner ada di tab Security
+    const supirBlacklist = !!(data.driver && data.driver.is_blacklisted);
     document.getElementById('infoPlat').classList.toggle('border-red-500', !!data.kendaraan_blacklist);
+    document.getElementById('infoSupir').classList.toggle('border-red-500', supirBlacklist);
+    tandaiBlacklistInfoBar([data.kendaraan_blacklist && 'Kendaraan', supirBlacklist && 'Supir'].filter(Boolean));
     tampilkanFotoDriver(data.driver ? data.driver.foto_path : null);
     perbaruiTombolValidasi();
 
@@ -99,9 +102,18 @@ function terapkanHasilLookup(data) {
 function kosongkanInfoBar() {
     ['infoNoTiket', 'infoNoDO', 'infoSupplier', 'infoProduk', 'infoJenis', 'infoSupir'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('infoPlat').classList.remove('border-red-500');
+    document.getElementById('infoSupir').classList.remove('border-red-500');
+    tandaiBlacklistInfoBar([]);
     tampilkanFotoDriver(null);
     statusValidasi = 'none';
     perbaruiTombolValidasi();
+}
+
+function tandaiBlacklistInfoBar(siapa) {
+    const label = document.getElementById('infoBlacklist');
+    label.classList.toggle('hidden', !siapa.length);
+    label.textContent = siapa.length ? `BLACKLIST: ${siapa.join(' & ')}` : '';
+    label.title = siapa.length ? 'Masuk daftar blacklist. Detail tersedia di tab Security.' : '';
 }
 
 function tampilkanFotoDriver(path) {
@@ -116,7 +128,7 @@ function tampilkanFotoDriver(path) {
 async function klikValidasi() {
     const plat = document.getElementById('infoPlat').value.trim();
     if (!plat) {
-        Notif.peringatan('Ketik nomor plat dulu');
+        Notif.peringatan('Silakan masukkan nomor plat');
         document.getElementById('infoPlat').focus();
         return;
     }

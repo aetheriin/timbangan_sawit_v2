@@ -137,7 +137,7 @@ def do_simpan():
         db.simpan_do(id_do, d, angkutan, current_user.id)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify({"message": f"DO {d['no_do']} disimpan"})
+    return jsonify({"message": f"DO {d['no_do']} berhasil disimpan"})
 
 
 @kontrak_bp.route("/api/kontrak/do/<int:id_do>/aktif", methods=["POST"])
@@ -149,7 +149,7 @@ def do_aktif(id_do):
         db.set_aktif_do(id_do, aktif)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-    return jsonify({"message": "DO " + ("diaktifkan" if aktif else "dinonaktifkan")})
+    return jsonify({"message": "DO berhasil " + ("diaktifkan" if aktif else "dinonaktifkan")})
 
 
 @kontrak_bp.route("/api/do/<path:no_do>")

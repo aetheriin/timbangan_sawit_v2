@@ -83,7 +83,7 @@ function resetFormTamu() {
 
 async function scanWajahTamu(btn) {
     const video = document.getElementById('tamuVideo');
-    if (!Kamera.aktif()) { Notif.peringatan('Nyalakan kamera dulu'); return; }
+    if (!Kamera.aktif()) { Notif.peringatan('Silakan nyalakan kamera terlebih dahulu'); return; }
     const status = document.getElementById('tamuStatus');
     const { tamu: wajib } = await aturanTantangan();       // Admin › Pengaturan Site (per area)
     const fd = new FormData();
@@ -131,7 +131,7 @@ function tampilkanTamu(p) {
     const hasil = document.getElementById('tamuHasil');
     // Blacklist = peringatan (tamu tetap bisa dicatat), bukan penghalang
     const masalah = p.kategori !== 'TAMU' ? `Terdaftar sebagai ${labelKode(p.kategori)}, bukan tamu.`
-        : p.kunjungan_aktif ? 'Masih tercatat di dalam. Catat keluar dulu di tabel di bawah.' : '';
+        : p.kunjungan_aktif ? 'Masih tercatat di dalam. Silakan catat keluar melalui tabel di bawah.' : '';
     tamuBlacklist = p.is_blacklisted ? p.nama_tampil : null;
     hasil.className = `rounded-lg p-4 text-sm flex items-center gap-4 ${p.is_blacklisted ? 'border-2 border-red-500 bg-red-50' : 'border border-slate-200 bg-white'}`;
     hasil.innerHTML = `
@@ -159,7 +159,7 @@ function tampilkanTamu(p) {
 }
 
 async function daftarkanTamu(btn) {
-    if (!fotoTamu) { Notif.peringatan('Ambil foto wajah dulu'); return; }
+    if (!fotoTamu) { Notif.peringatan('Silakan ambil foto wajah terlebih dahulu'); return; }
     const fd = new FormData();
     fd.append('nik', document.getElementById('tamuNik').value.trim());
     fd.append('nama', document.getElementById('tamuNama').value.trim());

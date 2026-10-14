@@ -157,7 +157,7 @@ def users_tambah():
         nama, (level, id_department, id_area), pw = _teks("nama"), _akun_form(), _password_form()
         db.tambah_user(username, nama, level["id_level"], id_department, id_area, generate_password_hash(pw))
         _audit("USER_TAMBAH", username, f"level {level['kode']}")
-        return jsonify({"message": f"User {username} ditambahkan"})
+        return jsonify({"message": f"User {username} berhasil ditambahkan"})
     return _jalankan(aksi)
 
 
@@ -184,7 +184,7 @@ def users_ubah(id_user):
         _audit("USER_UBAH", u["username"], f"level {u['role']} -> {level['kode']}" if ganti_level else "data diubah")
         if ganti_level:
             sesi_aktif.hapus_user(id_user, "ROLE_DIUBAH")
-        return jsonify({"message": f"User {u['username']} diperbarui" +
+        return jsonify({"message": f"User {u['username']} berhasil diperbarui" +
                         (" (sesi lamanya diakhiri, login ulang dengan level baru)" if ganti_level else "")})
     return _jalankan(aksi)
 
@@ -202,7 +202,7 @@ def users_reset_password(id_user):
         sesi_aktif.hapus_user(id_user, "RESET_PASSWORD")
         _audit("USER_RESET_PASSWORD", u["username"])
         log_keamanan("RESET_PASSWORD", f"username={u['username']}")
-        return jsonify({"message": f"Password {u['username']} direset. Ia wajib membuat password baru saat login."})
+        return jsonify({"message": f"Password pengguna {u['username']} berhasil direset. Pengguna wajib membuat password baru saat login berikutnya."})
     return _jalankan(aksi)
 
 
@@ -219,7 +219,7 @@ def users_aktif(id_user):
         db.set_aktif_user(id_user, aktif)
         sesi_aktif.hapus_user(id_user, "NONAKTIF")
         _audit("USER_AKTIF" if aktif else "USER_NONAKTIF", u["username"])
-        return jsonify({"message": f"User {u['username']} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"User {u['username']} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 
@@ -264,7 +264,7 @@ def level_simpan():
         hak_akses.simpan_level(id_level, kode, nama, halaman_awal, keterangan)
         get_user_by_id.hapus()
         _audit("LEVEL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Level {kode} disimpan"})
+        return jsonify({"message": f"Level {kode} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -278,7 +278,7 @@ def level_aktif(id_level):
         hak_akses.set_aktif_level(id_level, aktif)
         get_user_by_id.hapus()          # user level nonaktif langsung tidak bisa memakai sesinya
         _audit("LEVEL_AKTIF" if aktif else "LEVEL_NONAKTIF", lv["kode"])
-        return jsonify({"message": f"Level {lv['kode']} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"Level {lv['kode']} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 
@@ -308,7 +308,7 @@ def level_akses_simpan(id_level):
         hak_akses.simpan_akses_level(id_level, akses)
         jumlah = sum(any(v) for v in akses.values())
         _audit("HAK_AKSES_UBAH", lv["kode"], f"{jumlah} menu punya aksi")
-        return jsonify({"message": f"Hak akses {lv['nama']} disimpan, langsung berlaku (±30 detik di semua PC)"})
+        return jsonify({"message": f"Hak akses {lv['nama']} berhasil disimpan dan berlaku di semua PC dalam ±30 detik"})
     return _jalankan(aksi)
 
 
@@ -360,7 +360,7 @@ def kategori_simpan():
         db_personel.simpan_kategori(kode_lama, kode, nama, prefix, bool(request.form.get("wajib_sim")),
                                     bool(request.form.get("boleh_akun")))
         _audit("KATEGORI_PERSONEL_SIMPAN", kode, f"{nama} prefix {prefix or '-'}")
-        return jsonify({"message": f"Kategori {nama} disimpan"})
+        return jsonify({"message": f"Kategori {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -373,7 +373,7 @@ def kategori_aktif(kode):
             raise ValueError("Kategori tidak ditemukan")
         db_personel.set_aktif_kategori(kode, aktif)
         _audit(f"KATEGORI_PERSONEL_{'AKTIF' if aktif else 'NONAKTIF'}", kode)
-        return jsonify({"message": f"Kategori {kode} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"Kategori {kode} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 
@@ -385,7 +385,7 @@ def company_simpan():
         kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
         org.simpan_company(id_c, kode, nama)
         _audit("COMPANY_SIMPAN", kode, nama)
-        return jsonify({"message": f"Company {nama} disimpan"})
+        return jsonify({"message": f"Company {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -398,7 +398,7 @@ def area_simpan():
         kode, nama = _kode_org("comp_area", "id_comp_area", id_a), _teks("nama")
         org.simpan_area(id_a, id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None)
         _audit("AREA_SIMPAN", kode, nama)
-        return jsonify({"message": f"Area {nama} disimpan"})
+        return jsonify({"message": f"Area {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -411,7 +411,7 @@ def department_simpan():
             raise ValueError(f"Department {nama} sudah ada")
         org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None)
         _audit("DEPARTMENT_SIMPAN", nama)
-        return jsonify({"message": f"Department {nama} disimpan"})
+        return jsonify({"message": f"Department {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -429,7 +429,7 @@ def mill_simpan():
             raise ValueError(f"Kode {kode} sudah dipakai di area ini")
         alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
         _audit("MILL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Mill {nama} disimpan"})
+        return jsonify({"message": f"Mill {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -448,10 +448,10 @@ def organisasi_aktif(jenis, id_baris):
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
             if dict(dipakai).get(id_baris):
-                raise ValueError(f"{jenis.capitalize()} masih dipakai, pindahkan dulu user / area-nya")
+                raise ValueError(f"{jenis.capitalize()} masih digunakan. Pindahkan user / area terkait terlebih dahulu")
         fungsi[jenis](id_baris, aktif)
         _audit(f"{jenis.upper()}_{'AKTIF' if aktif else 'NONAKTIF'}", str(id_baris))
-        return jsonify({"message": f"{jenis.capitalize()} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"{jenis.capitalize()} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 
@@ -481,7 +481,7 @@ def sesi_paksa_keluar():
         sesi_aktif.hapus_user(id_user)
         _audit("SESI_PAKSA_KELUAR", u["username"])
         log_keamanan("PAKSA_KELUAR", f"username={u['username']}")
-        return jsonify({"message": f"Semua sesi {u['username']} diakhiri"})
+        return jsonify({"message": f"Semua sesi {u['username']} berhasil diakhiri"})
     return _jalankan(aksi)
 
 
@@ -499,7 +499,7 @@ def sesi_buka_kunci():
     if not dibuka:
         return jsonify({"error": f"{target or 'Data'} tidak sedang terkunci"}), 400
     _audit("BUKA_KUNCI_LOGIN", target)
-    return jsonify({"message": f"Kunci login {target} dibuka"})
+    return jsonify({"message": f"Kunci login {target} berhasil dibuka"})
 
 
 @admin_bp.route("/api/admin/sesi/buka-semua", methods=["POST"])
@@ -509,7 +509,7 @@ def sesi_buka_semua():
     if not jumlah:
         return jsonify({"error": "Tidak ada login yang terkunci"}), 400
     _audit("BUKA_KUNCI_LOGIN", "SEMUA", f"{jumlah} kunci")
-    return jsonify({"message": f"{jumlah} kunci login dibuka"})
+    return jsonify({"message": f"{jumlah} kunci login berhasil dibuka"})
 
 
 # ===== VOID TIKET =====
@@ -536,7 +536,7 @@ def tiket_void():
             hapus_file_info([ba["file_info"]] if ba else [])
             raise
         _audit("TIKET_VOID", no_tiket, alasan + (f" · BA {ba['no']}" if ba else " · BA menyusul"))
-        return jsonify({"message": f"Tiket {no_tiket} di-void" + ("" if ba else ". Berita acara bisa dilampirkan menyusul.")})
+        return jsonify({"message": f"Tiket {no_tiket} berhasil dibatalkan (void)" + ("" if ba else ". Berita acara bisa dilampirkan menyusul.")})
     return _jalankan(aksi)
 
 
@@ -571,7 +571,7 @@ def tiket_ba(no_tiket):
             hapus_file_info([ba["file_info"]])
             raise
         _audit("TIKET_VOID_BA", no_tiket, f"BA {ba['no']}")
-        return jsonify({"message": f"Berita acara tiket {no_tiket} dilampirkan"})
+        return jsonify({"message": f"Berita acara tiket {no_tiket} berhasil dilampirkan"})
     return _jalankan(aksi)
 
 
@@ -612,7 +612,7 @@ def jadwal_simpan():
                 raise ValueError("Jam pulang harus setelah jam masuk")
         db.ubah_jadwal(id_area, hari, libur, masuk, pulang, toleransi)
         _audit("JADWAL_UBAH", f"area {id_area} hari {hari}", "libur" if libur else f"{masuk}-{pulang}, toleransi {toleransi} mnt")
-        return jsonify({"message": "Jadwal disimpan"})
+        return jsonify({"message": "Jadwal berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -646,11 +646,11 @@ def pengaturan_simpan():
         masuk = {k: pengaturan.validasi(k, v) for k, v in request.form.items() if k in lama}
         berubah = {k: v for k, v in masuk.items() if pengaturan.validasi(k, lama[k]) != v}
         if not berubah:
-            return jsonify({"message": "Tidak ada perubahan"})
+            return jsonify({"message": "Tidak ada perubahan yang disimpan"})
         pengaturan.simpan(berubah, current_user.id, id_area)
         for kunci, teks in berubah.items():
             _audit("PENGATURAN_UBAH", f"{kunci} (area {id_area})" if id_area else kunci, f"{lama[kunci]} -> {teks}")
-        return jsonify({"message": f"{len(berubah)} pengaturan disimpan dan langsung berlaku"})
+        return jsonify({"message": f"{len(berubah)} pengaturan berhasil disimpan dan langsung berlaku"})
     return _jalankan(aksi)
 
 
@@ -661,7 +661,7 @@ def pengaturan_salin_company():
     def aksi():
         id_area = _area_pengaturan(request.form.get("id_comp_area"))
         if not id_area:
-            raise ValueError("Pilih area dulu")
+            raise ValueError("Silakan pilih area")
         areas = org.daftar_area()
         id_company = next(a["id_company"] for a in areas if a["id_comp_area"] == id_area)
         tujuan = [a for a in areas if a["id_company"] == id_company and a["is_active"] and a["id_comp_area"] != id_area]
@@ -671,7 +671,7 @@ def pengaturan_salin_company():
         for a in tujuan:
             pengaturan.simpan(nilai, current_user.id, a["id_comp_area"])
         _audit("PENGATURAN_SALIN_COMPANY", f"area {id_area}", ", ".join(a["nama"] for a in tujuan))
-        return jsonify({"message": f"Pengaturan diterapkan ke {len(tujuan)} area lain: {', '.join(a['nama'] for a in tujuan)}"})
+        return jsonify({"message": f"Pengaturan berhasil diterapkan ke {len(tujuan)} area lain: {', '.join(a['nama'] for a in tujuan)}"})
     return _jalankan(aksi)
 
 
@@ -687,7 +687,7 @@ def pengaturan_bawaan():
         return jsonify({"error": str(e)}), 400
     pengaturan.kembalikan_bawaan(kunci, id_area)
     _audit("PENGATURAN_BAWAAN", f"{kunci} (area {id_area})" if id_area else kunci)
-    return jsonify({"message": "Kembali mengikuti nilai global" if id_area else "Dikembalikan ke nilai bawaan"})
+    return jsonify({"message": "Pengaturan kembali mengikuti nilai global" if id_area else "Dikembalikan ke nilai bawaan"})
 
 
 # ===== PERANGKAT / KIOSK =====
@@ -798,7 +798,7 @@ def jembatan_simpan():
         _atur_pembaca()
         _audit("JEMBATAN_SIMPAN", kode, f"{profil['mode']} {port} {baud} {profil['data_bits']}{profil['parity']}"
                                         f"{profil['stop_bits']:g} {profil['format_data']}")
-        return jsonify({"message": f"Jembatan {kode} disimpan dan langsung berlaku"})
+        return jsonify({"message": f"Jembatan {kode} berhasil disimpan dan langsung berlaku"})
     return _jalankan(aksi)
 
 
@@ -810,7 +810,7 @@ def jembatan_aktif(id_jembatan):
         jembatan_db.set_aktif_jembatan(id_jembatan, aktif)
         _atur_pembaca()
         _audit("JEMBATAN_AKTIF" if aktif else "JEMBATAN_NONAKTIF", str(id_jembatan))
-        return jsonify({"message": "Jembatan " + ("diaktifkan" if aktif else "dinonaktifkan")})
+        return jsonify({"message": "Jembatan berhasil " + ("diaktifkan" if aktif else "dinonaktifkan")})
     return _jalankan(aksi)
 
 
@@ -842,7 +842,7 @@ def perangkat_tambah():
         id_pos, nama, lokasi = _id_pos_form(), _teks("nama"), _teks("lokasi", wajib=False)
         token = kiosk.tambah(id_pos, nama, lokasi, _area_pos_form())
         _audit("KIOSK_TAMBAH", id_pos, nama)
-        return jsonify({"message": f"Pos {id_pos} ditambahkan", "id_pos": id_pos, "token": token})
+        return jsonify({"message": f"Pos {id_pos} berhasil ditambahkan", "id_pos": id_pos, "token": token})
     return _jalankan(aksi)
 
 
@@ -853,7 +853,7 @@ def perangkat_ubah():
         id_pos = _id_pos_form()
         kiosk.ubah(id_pos, _teks("nama"), _teks("lokasi", wajib=False), _area_pos_form())
         _audit("KIOSK_UBAH", id_pos)
-        return jsonify({"message": f"Pos {id_pos} diperbarui"})
+        return jsonify({"message": f"Pos {id_pos} berhasil diperbarui"})
     return _jalankan(aksi)
 
 
@@ -865,7 +865,7 @@ def perangkat_ganti_token():
         token = kiosk.ganti_token(id_pos)
         _audit("KIOSK_GANTI_TOKEN", id_pos)
         log_keamanan("KIOSK_GANTI_TOKEN", f"pos={id_pos}")
-        return jsonify({"message": f"Token pos {id_pos} diganti. Token lama langsung tidak berlaku.",
+        return jsonify({"message": f"Token pos {id_pos} berhasil diganti. Token lama langsung tidak berlaku.",
                         "id_pos": id_pos, "token": token})
     return _jalankan(aksi)
 
@@ -877,7 +877,7 @@ def perangkat_aktif():
         id_pos, aktif = _id_pos_form(), _aktif_dari_form()
         kiosk.set_aktif(id_pos, aktif)
         _audit("KIOSK_AKTIF" if aktif else "KIOSK_NONAKTIF", id_pos)
-        return jsonify({"message": f"Pos {id_pos} {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"Pos {id_pos} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 

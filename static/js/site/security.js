@@ -107,7 +107,7 @@ function perbaruiTombolSubmit() {
     let hint = '';
     if (statusForm === 'selesai') hint = 'Tiket sudah dibuat. Gunakan tombol Cetak QR Code di atas.';
     else if (statusForm === 'validasi' && !adaSupir) hint = 'Pilih supir: Mulai Scan Wajah, Tambah (supir baru), atau Update.';
-    else if (statusForm === 'validasi' && !siap) hint = 'Scan wajah supir dulu, setelah terverifikasi tombol Submit aktif.';
+    else if (statusForm === 'validasi' && !siap) hint = 'Silakan scan wajah supir. Tombol Submit aktif setelah supir terverifikasi.';
     else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Submit untuk membuat tiket.'
                                             : 'Scan wajah tidak diwajibkan di site ini.';
     document.getElementById('hintSubmit').textContent = hint;
@@ -205,8 +205,8 @@ window.addEventListener('platLookup', (e) => {
     document.getElementById('formNoTiket').value = d.no_tiket || d.no_tiket_reserved || '';
     document.getElementById('formNoStnk').value = d.no_stnk || '';
     tampilkanPengemudiTerakhir(d.driver, d.driver_utama);
-    aturBlacklist('kendaraan', d.kendaraan_blacklist && d.status !== 'ADA_TIKET'
-        ? { siapa: d.no_plat, info: d.kendaraan_blacklist } : null);
+    // Peringatan blacklist selalu tampil, juga untuk plat yang sudah punya tiket (mis. diblacklist setelah tiket dibuat)
+    aturBlacklist('kendaraan', d.kendaraan_blacklist ? { siapa: d.no_plat, info: d.kendaraan_blacklist } : null);
 
     if (d.status === 'ADA_TIKET') {
         document.getElementById('formNoDo').value = d.no_do || '';
@@ -226,8 +226,9 @@ window.addEventListener('platLookup', (e) => {
         document.getElementById('formNoDo').value = '';
         document.getElementById('infoDO').classList.add('hidden');
     }
-    // Tiket yang sudah ada: tanpa banner (sama seperti kendaraan). Draft: supir terakhir / utama blacklist ikut diperingatkan
-    aturBlacklistSupir(d.status === 'ADA_TIKET' ? null : [d.driver_utama, d.driver].find(x => x && x.is_blacklisted) || null);
+    // Tiket yang sudah ada: supir tiket itu. Draft: supir terakhir / utama yang blacklist ikut diperingatkan
+    aturBlacklistSupir(d.status === 'ADA_TIKET' ? (d.driver && d.driver.is_blacklisted ? d.driver : null)
+        : [d.driver_utama, d.driver].find(x => x && x.is_blacklisted) || null);
 });
 
 // ===== VALIDASI AWAL (buka section Informasi Driver) =====
@@ -235,7 +236,7 @@ function mulaiValidasiAwal() {
     const wajib = ['formNoPlat', 'formNoTiket', 'formNoStnk', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
     for (const id of wajib) {
         if (!document.getElementById(id).value.trim()) {
-            Notif.peringatan('Lengkapi plat, No. STNK, jenis transaksi, customer, dan produk (No DO + Tab mengisi otomatis).');
+            Notif.peringatan('Lengkapi plat, No. STNK, jenis transaksi, customer, dan produk (isi No. DO lalu tekan Tab untuk mengisi otomatis).');
             return;
         }
     }
@@ -311,7 +312,7 @@ async function mulaiScanWajah() {
 function terapkanHasilScanWajah(data) {
     const status = document.getElementById('statusScanWajah');
     const nama = formatNamaPersonel(data.kode_personel, data.id_driver, data.nama);
-    if (data.is_blacklisted) Notif.peringatan(`${nama} masuk daftar blacklist`);   // banner diisi isiDriver()
+    if (data.is_blacklisted) Notif.peringatan(`${nama} terdaftar dalam daftar blacklist`);   // banner diisi isiDriver()
     if (data.kategori && data.kategori !== 'DRIVER') {
         status.innerHTML = `<span class="text-red-600">${escapeHtml(nama)} terdaftar sebagai ${escapeHtml((LABEL_KATEGORI[data.kategori] || [labelKode(data.kategori)])[0])}, bukan supir.</span>`;
         return;
@@ -510,7 +511,7 @@ async function simpanEditIdentitas(btn) {
         || nik !== document.getElementById('driverNik').value
         || sim !== document.getElementById('driverSim').value
         || streamState['updateBlob'];
-    if (!berubah) { Notif.info('Tidak ada perubahan untuk disimpan'); return; }
+    if (!berubah) { Notif.info('Tidak ada perubahan yang perlu disimpan'); return; }
     const ok = await Dialog.konfirmasi({ judul: 'Simpan perubahan identitas?', teksYa: 'Simpan',
         pesan: 'Perubahan identitas supir tercatat permanen di Audit Log dan supir ditandai "Pernah Diperbarui".' });
     if (!ok) return;
@@ -537,7 +538,7 @@ async function simpanEditIdentitas(btn) {
 // ===== SUBMIT CREATE TICKET =====
 async function submitCreateTiket(btn) {
     const idDriver = document.getElementById('driverIdDriver').value;
-    if (!idDriver) { Notif.peringatan('Scan wajah / pilih supir dulu'); return; }
+    if (!idDriver) { Notif.peringatan('Silakan scan wajah atau pilih supir terlebih dahulu'); return; }
     const kenaBlacklist = ['kendaraan', 'supir'].filter(j => blacklistForm[j]).map(j => blacklistForm[j].siapa);
     if (kenaBlacklist.length && !await Dialog.konfirmasi({
         judul: 'Masuk daftar blacklist', teksYa: 'Tetap buat tiket', teksBatal: 'Batal', bahaya: true,
@@ -632,6 +633,6 @@ function bukaHalamanCetak(noTiket) {
 }
 
 function cetakQR() {
-    if (!qrTiketAktif) { Notif.peringatan('Ketik plat lalu tekan Tab dulu'); return; }
+    if (!qrTiketAktif) { Notif.peringatan('Silakan masukkan plat, lalu tekan Tab'); return; }
     bukaHalamanCetak(qrTiketAktif);
 }

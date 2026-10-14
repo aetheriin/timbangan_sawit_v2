@@ -156,10 +156,13 @@ document.getElementById('formHarga')?.addEventListener('submit', e => {
 
 // ===== ARUS PENIMBANGAN HARI INI =====
 const WARNA_DISTRIBUSI = ['bg-blue-600', 'bg-emerald-600', 'bg-indigo-600', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500'];
-const TIKET_FINAL = ['SELESAI', 'REJECTED', 'VOID'];
+
+// HO: pilihan site (#pilihAreaArus, kosong = semua site). Akun site: server selalu memakai site sendiri.
+function muatArusSekarang() { muatArus(); }
 
 async function muatArus() {
-    const r = await Api.get('/api/dashboard/arus', { polling: true });
+    const area = document.getElementById('pilihAreaArus')?.value || '';
+    const r = await Api.get(`/api/dashboard/arus${area ? `?area=${encodeURIComponent(area)}` : ''}`, { polling: true });
     const d = r.data;
     if (!d || d.error) return;
     const s = d.ringkas;
@@ -171,20 +174,8 @@ async function muatArus() {
         stat('Truk di dalam', angka(s.di_dalam || 0, 0), 'truk') +
         stat('Rata-rata siklus', s.siklus_menit != null ? angka(s.siklus_menit, 0) : '-', 'menit');
 
-    document.getElementById('tabelTerkini').innerHTML = d.terkini.map(t => {
-        const selesai = TIKET_FINAL.includes(t.status_alur);
-        return `<tr class="hover:bg-slate-50" data-jejak="${escapeHtml(`${t.no_tiket}|${t.status_alur}`)}">
-            <td class="table-cell font-mono font-semibold text-slate-900 whitespace-nowrap">${escapeHtml(t.no_tiket)}</td>
-            <td class="table-cell font-mono whitespace-nowrap">${escapeHtml(t.no_plat)}</td>
-            <td class="table-cell font-semibold text-slate-700">${escapeHtml(t.produk)}</td>
-            <td class="table-cell text-slate-600 max-w-[12rem] truncate">${escapeHtml(t.customer)}</td>
-            <td class="table-cell text-right font-mono font-bold whitespace-nowrap">${t.netto != null ? `${angka(t.netto, 0)} kg` : '–'}</td>
-            <td class="table-cell">${badgeStatusTiket(t.status_alur)}</td>
-            <td class="table-cell text-right whitespace-nowrap">${selesai
-                ? `<a class="link-aksi text-blue-600" href="/cetak/tiket/${encodeURIComponent(t.no_tiket)}" target="_blank">Lihat Slip</a>`
-                : `<a class="link-aksi text-blue-600" href="/weighbridge?view=form&plat=${encodeURIComponent(t.no_plat)}">Buka</a>`}</td>
-        </tr>`;
-    }).join('') || barisKosong(7, 'Belum ada tiket');
+    document.getElementById('grafikPerJam').innerHTML = grafikPerJam(d.per_jam);
+    tampilkanPosisiTruk(d.posisi);
 
     const jembatan = [...d.jembatan].sort((a, b) => a.terhubung - b.terhubung || a.area.localeCompare(b.area) || a.kode.localeCompare(b.kode));
     const online = jembatan.filter(j => j.terhubung).length;
@@ -212,4 +203,46 @@ async function muatArus() {
                 <div class="h-full ${WARNA_DISTRIBUSI[i % WARNA_DISTRIBUSI.length]} rounded-full" style="width:${persen.toFixed(1)}%"></div>
             </div></div>`;
     }).join('') || '<p class="text-sm text-slate-400">Belum ada muatan selesai hari ini</p>';
+}
+
+// Grafik batang per jam (SVG, tanpa library): masuk (biru) vs selesai (hijau). Rentang jam: dari jam pertama ada
+// data (paling lambat 06.00) sampai jam sekarang, minimal 8 jam. Arahkan mouse ke batang untuk melihat angkanya.
+function grafikPerJam(perJam) {
+    const W = 560, H = 170, KIRI = 22, BAWAH = 18, ATAS = 8;
+    const aktif = perJam.filter(x => x.masuk || x.selesai).map(x => x.jam);
+    let awal = Math.min(6, ...aktif), akhir = Math.max(new Date().getHours(), ...aktif);
+    if (akhir - awal < 7) akhir = Math.min(23, awal + 7);
+    const jam = perJam.slice(awal, akhir + 1);
+    const maks = Math.max(1, ...jam.map(x => Math.max(x.masuk, x.selesai)));
+    const tinggi = H - ATAS - BAWAH, lebarGrup = (W - KIRI) / jam.length, lebarBatang = Math.min(14, lebarGrup * 0.36);
+    const y = v => ATAS + tinggi - (v / maks) * tinggi;
+    const label = jam.length > 12 ? 2 : 1;
+    const batang = jam.map((x, i) => {
+        const tengah = KIRI + lebarGrup * i + lebarGrup / 2;
+        const rect = (v, dx, warna, ket) => `<rect x="${(tengah + dx).toFixed(1)}" y="${y(v).toFixed(1)}" width="${lebarBatang.toFixed(1)}"
+            height="${(ATAS + tinggi - y(v)).toFixed(1)}" rx="2" fill="${warna}"><title>${String(x.jam).padStart(2, '0')}.00 · ${ket}: ${v} truk</title></rect>`;
+        return rect(x.masuk, -lebarBatang - 1, '#2563eb', 'Masuk') + rect(x.selesai, 1, '#10b981', 'Selesai')
+            + (i % label === 0 ? `<text x="${tengah.toFixed(1)}" y="${H - 4}" font-size="10" text-anchor="middle" fill="#94a3b8"
+                font-family="JetBrains Mono, monospace">${String(x.jam).padStart(2, '0')}</text>` : '');
+    }).join('');
+    // Garis bantu 0, setengah, dan puncak; label setengah hanya bila angkanya berbeda dari puncak
+    const garis = [0, ...(maks >= 2 ? [0.5] : []), 1].map(f => {
+        const v = Math.round(maks * f), yy = y(maks * f).toFixed(1);
+        return `<line x1="${KIRI}" x2="${W}" y1="${yy}" y2="${yy}" stroke="#e2e8f0" stroke-dasharray="${f ? '3 3' : ''}"/>
+            ${f ? `<text x="${KIRI - 4}" y="${(+yy + 3).toFixed(1)}" font-size="9" text-anchor="end" fill="#94a3b8" font-family="JetBrains Mono, monospace">${v}</text>` : ''}`;
+    }).join('');
+    const kosong = !aktif.length ? `<text x="${(W + KIRI) / 2}" y="${H / 2}" font-size="12" text-anchor="middle" fill="#94a3b8">Belum ada truk hari ini</text>` : '';
+    return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="Truk masuk dan selesai per jam hari ini">${garis}${batang}${kosong}</svg>`;
+}
+
+// Posisi truk yang masih di dalam per tahap; klik membuka List dengan tahap tersebut
+function tampilkanPosisiTruk(p) {
+    const kotak = (label, nilai, tahap, warna) => `<a href="/weighbridge?view=list&tahap=${tahap}" class="mini-stat block hover:border-slate-300 transition">
+        <p class="mini-stat-label">${label}</p>
+        <p class="mini-stat-nilai ${nilai ? warna : ''}">${angka(nilai || 0, 0)} <span class="text-xs font-sans font-normal text-slate-500">truk</span></p></a>`;
+    document.getElementById('posisiTruk').innerHTML =
+        kotak('Menunggu Timbang 1', p.timbang_1, 'timbangan', 'text-blue-700') +
+        kotak('Sortasi', p.sortasi, 'sortasi', 'text-amber-600') +
+        kotak('Laboratorium', p.lab, 'lab', 'text-indigo-700') +
+        kotak('Menunggu Timbang 2', p.timbang_2, 'timbangan', 'text-emerald-700');
 }

@@ -883,7 +883,7 @@ FROM (VALUES ('FORM_SECURITY',    N'Form › Security',          'FORM', 1),
              ('AUDIT_LOG',        N'Face Recognition › Audit Log', 'FACE_RECOGNITION', 4),
              ('MASTER_DRIVER',    N'Data Master › Driver',     'MASTER', 1),
              ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2),
-             ('MASTER_MITRA',     N'Data Master › Mitra',      'MASTER', 3),
+             ('MASTER_MITRA',     N'Data Master › Supplier',   'MASTER', 3),
              ('MASTER_PRODUK',    N'Data Master › Produk',     'MASTER', 4)) v (kode, nama, induk, urutan)
 JOIN dbo.menu p ON p.kode = v.induk;
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)

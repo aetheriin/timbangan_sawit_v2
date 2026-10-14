@@ -25,7 +25,7 @@ async function muatMitra() {
                 <button type="button" class="link-aksi ${s.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifMitra"
                     data-arg="${s.id_supplier}">${s.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
-        </tr>`).join('') || barisKosong(6, 'Belum ada mitra');
+        </tr>`).join('') || barisKosong(6, 'Belum ada supplier.');
     saringBaris('tabelMitra', document.getElementById('cariMitra').value);
 }
 
@@ -38,7 +38,7 @@ function bukaMitra(id) {
     const s = daftarMitra.find(x => x.id_supplier === id);
     form.reset();
     isiForm(form, s || { id_supplier: '', is_customer: true });
-    document.getElementById('judulModalMitra').textContent = s ? 'Ubah Mitra' : 'Tambah Mitra';
+    document.getElementById('judulModalMitra').textContent = s ? 'Ubah Supplier' : 'Tambah Supplier';
     openModal('modalMitra');
     document.getElementById('mitraKode').focus();
 }
@@ -51,7 +51,7 @@ document.getElementById('formMitra')?.addEventListener('submit', e => {
 function ubahAktifMitra(id) {
     const s = daftarMitra.find(x => x.id_supplier === id);
     konfirmasiAktif({
-        url: `/api/master/mitra/${id}/aktif`, aktif: !s.is_active, nama: s.nama_supplier, jenis: 'mitra',
+        url: `/api/master/mitra/${id}/aktif`, aktif: !s.is_active, nama: s.nama_supplier, jenis: 'supplier',
         pesanNonaktif: 'Tidak muncul lagi di pilihan Form pendaftaran tiket.', setelahnya: muatMitra,
     });
 }

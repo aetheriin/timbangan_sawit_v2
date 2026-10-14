@@ -76,7 +76,7 @@ def simpan_upload(file, subfolder="", ekstensi_izin=FOTO_EKSTENSI, maks_mb=MAKS_
 def simpan_frames(files, maks=20, minimal=3, maks_mb=2):
     """Frame kamera (JPEG) untuk liveness -> daftar path sementara di uploads/tmp. Pemanggil wajib menghapusnya."""
     if len(files) < minimal:
-        raise ValueError("Frame kamera tidak cukup, ulangi scan")
+        raise ValueError("Frame kamera tidak cukup. Silakan ulangi scan")
     if len(files) > maks:
         raise ValueError(f"Frame kamera terlalu banyak (maks {maks})")
     folder = os.path.join(UPLOAD_FOLDER, "tmp")

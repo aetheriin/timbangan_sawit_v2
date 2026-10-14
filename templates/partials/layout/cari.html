@@ -5,7 +5,9 @@
             <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
             <input type="text" id="cariInput" autocomplete="off" class="flex-1 text-base bg-transparent border-0 outline-none placeholder:text-slate-400 text-slate-900"
                    placeholder="{{ 'Cari user atau menu admin...' if current_user.is_admin else 'Cari plat, tiket, DO, supir, customer, atau menu...' }}">
-            <kbd class="topbar-kbd">ESC untuk tutup</kbd>
+            <button type="button" data-on-click="tutupCari" class="sidebar-ikon-btn" title="Tutup (Esc)" aria-label="Tutup pencarian">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
         <div id="cariHasil" class="overflow-y-auto p-3 space-y-4"></div>
         <div class="flex items-center gap-4 px-4 py-2 border-t border-slate-100 bg-slate-50 text-[11px] text-slate-500">

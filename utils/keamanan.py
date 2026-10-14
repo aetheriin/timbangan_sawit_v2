@@ -272,7 +272,7 @@ def pasang_wajib_ganti_password(app):
         if request.path.startswith(PATH_UMUM):
             return None
         if request.path.startswith("/api/"):
-            return jsonify({"error": "Ganti password dulu sebelum melanjutkan."}), 403
+            return jsonify({"error": "Silakan ganti password sebelum melanjutkan."}), 403
         return redirect("/ganti-password")
 
 

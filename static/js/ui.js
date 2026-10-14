@@ -1,11 +1,20 @@
 // ===== NOTIFIKASI (toast) & DIALOG KONFIRMASI =====
 // Pengganti alert() / confirm() bawaan browser. Markup ada di templates/partials/layout/notifikasi.html.
 
+// Pesan dirapikan seragam: huruf pertama kapital dan diakhiri tanda baca (titik bila belum ada).
+function rapikanPesan(pesan) {
+    const t = String(pesan ?? '').trim();
+    if (!t) return '';
+    const awal = t.charAt(0).toUpperCase() + t.slice(1);
+    return /[.!?)]$/.test(awal) ? awal : `${awal}.`;
+}
+
 const Notif = {
     MAKS: 4,                                   // toast lama dibuang supaya tidak menumpuk di memori
 
     tampil(pesan, jenis = 'info', durasiMs) {
         const wadah = document.getElementById('notifWadah');
+        pesan = rapikanPesan(pesan);
         if (!wadah || !pesan) return;
         const gaya = {
             sukses: ['notif-sukses', 'fa-circle-check'],
@@ -40,10 +49,10 @@ const Notif = {
 // Tampilkan hasil API: { message } -> sukses, { error } -> gagal. Kembalikan true bila sukses.
 function tampilkanHasil(data, pesanSukses) {
     if (!data || data.error) {
-        Notif.gagal((data && data.error) || 'Terjadi kesalahan');
+        Notif.gagal((data && data.error) || 'Terjadi kesalahan. Silakan coba lagi.');
         return false;
     }
-    Notif.sukses(data.message || pesanSukses || 'Berhasil');
+    Notif.sukses(data.message || pesanSukses || 'Berhasil disimpan.');
     return true;
 }
 
@@ -54,7 +63,7 @@ const Dialog = {
     konfirmasi({ judul = 'Konfirmasi', pesan = '', teksYa = 'Ya, lanjutkan', teksBatal = 'Batal', bahaya = false } = {}) {
         if (this._selesai) this._selesai(false);          // dialog lama dianggap batal
         document.getElementById('dialogJudul').textContent = judul;
-        document.getElementById('dialogPesan').textContent = pesan;
+        document.getElementById('dialogPesan').textContent = rapikanPesan(pesan);
         const ya = document.getElementById('dialogYa');
         ya.textContent = teksYa;
         ya.className = bahaya ? 'btn-danger flex-1' : 'btn-primary flex-1';

@@ -1,3 +1,4 @@
+{% from "partials/layout/_macros.html" import tombol_ekspor %}
 {# Halaman List: kartu filter, tiket aktif per tahap, riwayat 7 hari per produk. Logika di static/js/site/list.js #}
 <div class="card p-4 mb-5">
     <div class="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -25,10 +26,7 @@
             <h2 class="text-sm font-bold text-slate-900">Tiket Aktif</h2>
             <p class="text-xs text-slate-500">Truk yang masih di dalam, beserta tahap yang ditunggu · diperbarui otomatis tiap 15 detik</p>
         </div>
-        <div class="flex items-center gap-1.5">
-            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelTicketAktif|xlsx|Tiket Aktif" title="Unduh Excel (semua baris yang tampil)"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
-            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelTicketAktif|pdf|Tiket Aktif" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
-        </div>
+        {{ tombol_ekspor('tabelTicketAktif', 'Tiket Aktif') }}
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -55,10 +53,7 @@
             <option value="">Semua produk</option>
             {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
         </select>
-        <div class="flex items-center gap-1.5">
-            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHistoryProduk|xlsx|Riwayat Penimbangan" title="Unduh Excel (semua baris yang tampil)"><i class="fa-regular fa-file-excel text-emerald-600"></i> Excel</button>
-            <button type="button" class="btn-secondary btn-sm" data-on-click="eksporTabel" data-arg="tabelHistoryProduk|pdf|Riwayat Penimbangan" title="Cetak / simpan PDF"><i class="fa-regular fa-file-pdf text-red-600"></i> PDF</button>
-        </div>
+        {{ tombol_ekspor('tabelHistoryProduk', 'Riwayat Penimbangan') }}
         </div>
     </div>
     <div class="overflow-x-auto">

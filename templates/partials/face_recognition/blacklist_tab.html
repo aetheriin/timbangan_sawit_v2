@@ -1,3 +1,4 @@
+{% from "partials/layout/_macros.html" import tombol_ekspor %}
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="blacklist" class="hidden">
 
@@ -22,8 +23,11 @@
 
     <div class="card p-0 overflow-hidden">
         <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-sm font-bold text-slate-900">Daftar Blacklist</h2>
-            <p id="totalBlacklist" class="text-xs text-slate-500">Memuat...</p>
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">Daftar Blacklist</h2>
+                <p id="totalBlacklist" class="text-xs text-slate-500">Memuat...</p>
+            </div>
+            {{ tombol_ekspor('kartuBlacklist', 'Daftar Blacklist') }}
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">

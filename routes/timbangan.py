@@ -31,7 +31,7 @@ def timbang_reset():
     j = jembatan_dipilih(request)
     if j:
         reset_deteksi_stabil(j["id_jembatan"])
-    return jsonify({"message": "Baseline direset"}), 200
+    return jsonify({"message": "Baseline berhasil direset"}), 200
 
 @timbangan_bp.route("/api/timbang/data/<no_tiket>")
 @login_required
@@ -54,7 +54,7 @@ def _netto_akhir(row):
 def timbang_scan_qr():
     row = cari_transaksi_aktif(no_tiket=request.form.get("no_tiket", "").strip())
     if not row:
-        return jsonify({"error": "Tiket tidak ditemukan / sudah selesai"}), 404
+        return jsonify({"error": "Tiket tidak ditemukan atau sudah selesai"}), 404
     return jsonify(serialisasi_tiket(row)), 200
 
 HARI_HISTORY_MAKS = 30
@@ -82,11 +82,11 @@ def history_supplier():
 def timbang_simpan():
     no_tiket = request.form.get("no_tiket", "").strip()
     if not no_tiket:
-        return jsonify({"error": "No. Tiket wajib ada"}), 400
+        return jsonify({"error": "No. Tiket wajib diisi"}), 400
 
     jembatan = jembatan_dipilih(request)
     if jembatan is None:
-        return jsonify({"error": "Pilih jembatan timbang untuk PC ini dulu (di atas tampilan berat)"}), 400
+        return jsonify({"error": "Silakan pilih jembatan timbang untuk PC ini (di atas tampilan berat)"}), 400
     status = baca_status(jembatan["id_jembatan"])
     if not status.get("terhubung"):
         return jsonify({"error": f"Timbangan {jembatan['kode']} tidak terhubung: {status.get('error') or '-'}"}), 400
@@ -102,7 +102,7 @@ def timbang_simpan():
     trx = cari_transaksi_aktif(no_tiket=no_tiket)
     data_lama = get_data_timbangan(no_tiket)
     if trx is None or data_lama is None:
-        return jsonify({"error": "Tiket tidak ditemukan / sudah selesai / ditolak"}), 404
+        return jsonify({"error": "Tiket tidak ditemukan, sudah selesai, atau ditolak"}), 404
     if data_lama.berat_netto is not None:
         return jsonify({"error": "Tiket ini sudah selesai ditimbang"}), 400
 
@@ -112,10 +112,10 @@ def timbang_simpan():
         wajib_kembali_nol(jembatan["id_jembatan"])
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
-            return jsonify({"message": f"Selesai (Penimbangan). Netto: {berat} kg",
+            return jsonify({"message": f"Penimbangan selesai. Netto: {berat} kg",
                             "kelebihan_do": _cek_kelebihan(no_tiket)}), 200
         label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
-        return jsonify({"message": f"{label} tersimpan di {jembatan['kode']}: {berat} kg. "
+        return jsonify({"message": f"{label} berhasil disimpan di {jembatan['kode']}: {berat} kg. "
                                    f"Timbang keluar juga harus di {jembatan['kode']}."}), 200
 
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)

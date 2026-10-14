@@ -55,8 +55,8 @@ function setKeputusan(val) {
 }
 
 async function submitLab(btn) {
-    if (!noTiketLabAktif) { Notif.peringatan('Pilih plat/tiket dulu'); return; }
-    if (!keputusanDipilih) { Notif.peringatan('Pilih Approve/Reject dulu'); return; }
+    if (!noTiketLabAktif) { Notif.peringatan('Silakan pilih plat atau tiket terlebih dahulu'); return; }
+    if (!keputusanDipilih) { Notif.peringatan('Silakan pilih Approve atau Reject'); return; }
     const formData = new FormData();
     formData.append('no_tiket', noTiketLabAktif);
     formData.append('ffa', document.getElementById('labFfa').value);
@@ -69,7 +69,7 @@ async function submitLab(btn) {
 }
 
 function bukaStandarMutu() {
-    if (!idProdukLabAktif) { Notif.peringatan('Pilih tiket produk PKS dulu (ketik plat lalu Tab)'); return; }
+    if (!idProdukLabAktif) { Notif.peringatan('Silakan pilih tiket produk PKS (masukkan plat, lalu tekan Tab)'); return; }
     document.getElementById('stdInputFfa').value = standarAktif.maks_ffa ?? '';
     document.getElementById('stdInputAir').value = standarAktif.maks_air ?? '';
     document.getElementById('stdInputKotoran').value = standarAktif.maks_kotoran ?? '';

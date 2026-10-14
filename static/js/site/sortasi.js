@@ -35,7 +35,7 @@ function hitungPotongan() {
 function round2(n) { return Math.round(n * 100) / 100; }
 
 async function submitSortasi(btn) {
-    if (!noTiketSortasiAktif) { Notif.peringatan('Pilih plat/tiket dulu'); return; }
+    if (!noTiketSortasiAktif) { Notif.peringatan('Silakan pilih plat atau tiket terlebih dahulu'); return; }
     const formData = new FormData();
     formData.append('no_tiket', noTiketSortasiAktif);
     ['mentah', 'busuk', 'tangkai', 'sampah', 'matang', 'brondolan'].forEach(k => {

@@ -42,14 +42,14 @@ def ajukan(id_kelebihan):
     if not no_do or len(no_do) > 50:
         return jsonify({"error": "No. DO baru wajib diisi (maks 50 karakter)"}), 400
     return _jalankan(lambda: db.ajukan(id_kelebihan, no_do, catatan, current_user.id, area_data(current_user.id))) or \
-        jsonify({"message": f"No. DO {no_do} diajukan, menunggu KTU / HO"})
+        jsonify({"message": f"No. DO {no_do} berhasil diajukan, menunggu KTU / HO"})
 
 
 @kelebihan_do_bp.route("/api/kelebihan-do/<int:id_kelebihan>/tetapkan", methods=["POST"])
 @login_required
 @izin(db.MENU, "ubah")
 def tetapkan(id_kelebihan):
-    return _jalankan(lambda: db.tetapkan(id_kelebihan, current_user.id, area_data(current_user.id))) or jsonify({"message": "Kelebihan DO ditetapkan"})
+    return _jalankan(lambda: db.tetapkan(id_kelebihan, current_user.id, area_data(current_user.id))) or jsonify({"message": "Kelebihan DO berhasil ditetapkan"})
 
 
 @kelebihan_do_bp.route("/api/kelebihan-do/<int:id_kelebihan>/kembalikan", methods=["POST"])
@@ -60,7 +60,7 @@ def kembalikan(id_kelebihan):
     if not alasan:
         return jsonify({"error": "Alasan wajib diisi"}), 400
     return _jalankan(lambda: db.kembalikan(id_kelebihan, alasan, current_user.id, area_data(current_user.id))) or \
-        jsonify({"message": "Dikembalikan ke krani"})
+        jsonify({"message": "Berhasil dikembalikan ke krani"})
 
 
 # ===== NOTIFIKASI (lonceng top bar) =====
@@ -76,4 +76,4 @@ def notifikasi_daftar():
 def notifikasi_baca():
     teks = (request.form.get("id_notifikasi") or "").strip()
     notifikasi.tandai_baca(current_user, int(teks) if teks.isdigit() else None, id_area=area_data(current_user.id))
-    return jsonify({"message": "OK"})
+    return jsonify({"message": "Notifikasi ditandai sudah dibaca"})

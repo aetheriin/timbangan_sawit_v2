@@ -70,9 +70,9 @@ function tampilkanToken(idPos, token) {
 async function salinTokenKiosk() {
     try {
         await navigator.clipboard.writeText(document.getElementById('isiEnvKiosk').textContent);
-        Notif.sukses('Disalin');
+        Notif.sukses('Berhasil disalin');
     } catch (e) {
-        Notif.peringatan('Browser menolak menyalin otomatis. Blok teksnya lalu tekan Ctrl+C.');
+        Notif.peringatan('Browser menolak penyalinan otomatis. Silakan blok teks, lalu tekan Ctrl+C.');
     }
 }
 

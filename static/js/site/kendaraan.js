@@ -70,7 +70,7 @@ function renderKontrakTruk(list) {
 }
 
 function pastikanTrukDipilih() {
-    if (!platTrukAktif) { Notif.peringatan('Isi No. Plat di form lalu tekan Tab dulu'); return false; }
+    if (!platTrukAktif) { Notif.peringatan('Silakan isi No. Plat pada form, lalu tekan Tab'); return false; }
     return true;
 }
 

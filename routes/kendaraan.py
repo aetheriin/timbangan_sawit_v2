@@ -65,7 +65,7 @@ def kendaraan_supir_tambah():
     id_kendaraan = get_or_create_kendaraan(no_plat)
     is_utama = request.form.get("is_utama") == "1" or not get_supir_kendaraan(id_kendaraan)   # supir pertama otomatis utama
     tambah_supir_kendaraan(id_kendaraan, driver.id_driver, is_utama, current_user.id)
-    return jsonify({"message": f"{driver.nama_driver} terdaftar sebagai supir {no_plat}"
+    return jsonify({"message": f"{driver.nama_driver} berhasil didaftarkan sebagai supir {no_plat}"
                                + (" (utama)" if is_utama else ""), **_data_kendaraan(no_plat)})
 
 
@@ -81,7 +81,7 @@ def kendaraan_supir_utama():
     if not row or not any(str(s["id_driver"]) == id_driver for s in get_supir_kendaraan(row.id_kendaraan)):
         return jsonify({"error": "Supir belum terdaftar di truk ini"}), 404
     tambah_supir_kendaraan(row.id_kendaraan, int(id_driver), True, current_user.id)
-    return jsonify({"message": "Supir utama diperbarui", **_data_kendaraan(no_plat)})
+    return jsonify({"message": "Supir utama berhasil diperbarui", **_data_kendaraan(no_plat)})
 
 
 @kendaraan_bp.route("/api/kendaraan/supir/hapus", methods=["POST"])
@@ -95,7 +95,7 @@ def kendaraan_supir_hapus():
     if not row:
         return jsonify({"error": "Truk belum terdaftar"}), 404
     nonaktifkan_supir_kendaraan(row.id_kendaraan, request.form.get("id_driver"))
-    return jsonify({"message": "Supir dilepas dari truk ini (data supir tetap ada)", **_data_kendaraan(no_plat)})
+    return jsonify({"message": "Supir berhasil dilepas dari truk ini. Data supir tetap tersimpan", **_data_kendaraan(no_plat)})
 
 
 # ===== KONTRAK TRUK - SUPPLIER =====
@@ -127,12 +127,12 @@ def kendaraan_kontrak_tambah():
                if str(k["id_supplier"]) == id_supplier and k["status"] in ("AKTIF", "BELUM_MULAI")]
     if bentrok:
         return jsonify({"error": f"Truk ini masih punya kontrak aktif dengan {bentrok[0]['nama_supplier']}. "
-                                 "Akhiri dulu kontrak lama."}), 400
+                                 "Akhiri kontrak lama terlebih dahulu."}), 400
 
     tambah_kontrak(id_kendaraan, int(id_supplier), f.get("id_produk") or None, jenis,
                    f.get("no_kontrak", "").strip() or None, mulai, selesai,
                    f.get("keterangan", "").strip() or None, current_user.id)
-    return jsonify({"message": "Kontrak tersimpan", **_data_kendaraan(no_plat)})
+    return jsonify({"message": "Kontrak berhasil disimpan", **_data_kendaraan(no_plat)})
 
 
 @kendaraan_bp.route("/api/kendaraan/kontrak/akhiri", methods=["POST"])
@@ -147,4 +147,4 @@ def kendaraan_kontrak_akhiri():
     if not row or not any(str(k["id_kontrak"]) == id_kontrak for k in get_kontrak_kendaraan(row.id_kendaraan)):
         return jsonify({"error": "Kontrak tidak ditemukan untuk truk ini"}), 404
     akhiri_kontrak(int(id_kontrak))
-    return jsonify({"message": "Kontrak diakhiri", **_data_kendaraan(no_plat)})
+    return jsonify({"message": "Kontrak berhasil diakhiri", **_data_kendaraan(no_plat)})

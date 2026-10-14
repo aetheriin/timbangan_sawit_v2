@@ -72,7 +72,7 @@ def buat_tiket():
 
     existing = cari_transaksi_aktif(no_plat=no_plat)
     if existing:
-        return jsonify({"error": f"Plat ini sudah punya tiket aktif: {existing.no_tiket}"}), 400
+        return jsonify({"error": f"Plat ini sudah memiliki tiket aktif: {existing.no_tiket}"}), 400
 
     ip = request.remote_addr
     driver = get_driver_by_id(id_driver) if str(id_driver).isdigit() else None
@@ -104,7 +104,7 @@ def buat_tiket():
     v = verif.ambil(id_pos(), current_user.id)
     terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)
     if pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)) and not terverifikasi:
-        return jsonify({"error": "Supir belum terverifikasi wajah. Lakukan Scan Wajah dulu."}), 400
+        return jsonify({"error": "Supir belum terverifikasi wajah. Silakan lakukan scan wajah."}), 400
 
     # Supir berbeda dari saran (supir utama / terakhir truk ini) -> dicatat
     saran = f.get("id_driver_saran", "").strip()
@@ -172,7 +172,7 @@ def driver_tambah():
     file = request.files.get("foto")
 
     if not all([nik, nama, no_sim, file]):
-        return jsonify({"error": "Semua field wajib diisi, termasuk foto wajah"}), 400
+        return jsonify({"error": "Semua kolom wajib diisi, termasuk foto wajah"}), 400
     if cek_nik_ada(nik):
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
     if sim_dipakai(no_sim):
@@ -205,7 +205,7 @@ def driver_tambah():
     verif.simpan_hasil_user(id_pos(), current_user.id, id_driver=driver_id, nama=nama, nik=nik, no_sim=no_sim,
                             is_updated=False, foto_path=foto_path, kode_personel=kode, kategori="DRIVER",
                             is_blacklisted=False)
-    return jsonify({"message": f"Supir '{nama}' ({kode}) berhasil ditambahkan",
+    return jsonify({"message": f"Supir {nama} ({kode}) berhasil ditambahkan",
                     "id_driver": driver_id, "kode_personel": kode, "foto_path": foto_path}), 200
 
 @security_bp.route("/api/driver/update-identitas", methods=["POST"])
@@ -218,7 +218,7 @@ def driver_update_identitas():
     file = request.files.get("foto")
 
     if not all([id_driver, nik, nama, no_sim]) or not id_driver.isdigit():
-        return jsonify({"error": "Semua field wajib diisi"}), 400
+        return jsonify({"error": "Semua kolom wajib diisi"}), 400
     if cek_nik_ada(nik, exclude_id=int(id_driver)):
         return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
     if sim_dipakai(no_sim, int(id_driver)):
@@ -243,7 +243,7 @@ def driver_update_identitas():
     if v and str(v["id_driver"]) == str(id_driver):
         verif.simpan_hasil_user(id_pos(), current_user.id, **_data_verif(d, is_updated=True))
     return jsonify({
-        "message": f"Data '{nama}' diperbarui, tercatat di audit log",
+        "message": f"Data {nama} berhasil diperbarui dan tercatat di Audit Log",
         "driver": serialisasi_driver(d)
     }), 200
 
@@ -266,14 +266,14 @@ def scan_wajah_supir():
     try:
         with slot_proses_wajah():
             if not cek_liveness(filepaths, tantangan, wajib):
-                return jsonify({"error": "Liveness tidak lolos. Ikuti tantangan lalu ulangi scan."}), 400
+                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, _, _ = embedding_frontal(filepaths)       # frame paling menghadap kamera
         if not embeddings:
-            return jsonify({"error": "Wajah tidak terdeteksi, ulangi scan sambil menghadap kamera"}), 400
+            return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi scan sambil menghadap kamera"}), 400
 
         id_cocok, _, _ = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
         if id_cocok is None:
-            return jsonify({"error": "Supir tidak dikenali, silakan Tambah Data Baru"}), 404
+            return jsonify({"error": "Supir tidak dikenali. Silakan tambahkan sebagai data baru"}), 404
 
         d = get_driver_by_id(id_cocok)
         nama = format_nama_personel(d.kode_personel, d.id_driver, d.nama_driver)
@@ -285,7 +285,7 @@ def scan_wajah_supir():
         if d.is_blacklisted:
             catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
                                  details={"keterangan": f"Scan wajah: {nama} blacklist", "id_personel": d.id_driver})
-        return jsonify({"terverifikasi": True, "message": f"Terverifikasi: {nama}", **data})
+        return jsonify({"terverifikasi": True, "message": f"Verifikasi berhasil: {nama}", **data})
     finally:
         for path in filepaths:
             hapus_file(path)

@@ -91,7 +91,7 @@ def logout():
 @login_required
 def sesi_perpanjang():
     """Dipanggil tombol "Tetap masuk" pada peringatan sesi hampir habis (aktivitas dicatat before_request)."""
-    return jsonify({"message": "Sesi diperpanjang"})
+    return jsonify({"message": "Sesi berhasil diperpanjang"})
 
 
 PASSWORD_MIN = 8

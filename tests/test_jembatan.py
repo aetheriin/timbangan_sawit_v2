@@ -64,7 +64,7 @@ class TestTimbangKeluarJembatanSama(unittest.TestCase):
         with self.app.test_request_context("/api/timbang/simpan", method="POST", data={"no_tiket": "TKT-1"}):
             (resp, kode), _ = self._simpan(None, lama)
             self.assertEqual(kode, 400)
-            self.assertIn("Pilih jembatan", resp.get_json()["error"])
+            self.assertIn("pilih jembatan", resp.get_json()["error"])
             (resp, kode), kedua = self._simpan(JT2, lama)
             self.assertEqual(kode, 400)
             self.assertIn("harus di JT-1", resp.get_json()["error"])

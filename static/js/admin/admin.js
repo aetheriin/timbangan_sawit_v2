@@ -79,7 +79,7 @@ async function muatUlang(btn, namaFungsi) {
     try {
         const ok = await window[namaFungsi]();          // fungsi muat mengembalikan false bila gagal
         await new Promise(r => setTimeout(r, Math.max(0, 400 - (Date.now() - mulai))));   // putaran sempat terlihat
-        if (ok !== false) Notif.sukses(`Data sudah diperbarui (${new Date().toLocaleTimeString('id-ID')})`);
+        if (ok !== false) Notif.sukses(`Data berhasil diperbarui (${new Date().toLocaleTimeString('id-ID')})`);
     } finally {
         btn.disabled = false;
         if (ikon) ikon.classList.remove('fa-spin');

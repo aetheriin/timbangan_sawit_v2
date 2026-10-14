@@ -5,14 +5,14 @@ const TIMEOUT_DEFAULT_MS = 15000;
 const TIMEOUT_WAJAH_MS = 60000;           // proses face recognition lebih lama
 
 const PESAN_STATUS = {
-    400: 'Data yang dikirim belum lengkap / tidak valid.',
+    400: 'Data yang dikirim belum lengkap atau tidak valid.',
     401: 'Sesi Anda berakhir. Silakan login ulang.',
-    403: 'Anda tidak punya akses untuk tindakan ini.',
+    403: 'Anda tidak memiliki akses untuk tindakan ini.',
     404: 'Data tidak ditemukan.',
-    409: 'Data bentrok dengan data lain.',
+    409: 'Data bertentangan dengan data lain.',
     413: 'Ukuran file terlalu besar.',
-    500: 'Terjadi kesalahan di server. Coba lagi atau hubungi admin.',
-    503: 'Server sedang sibuk. Coba beberapa saat lagi.',
+    500: 'Terjadi kesalahan pada server. Silakan coba lagi atau hubungi admin.',
+    503: 'Server sedang sibuk. Silakan coba beberapa saat lagi.',
 };
 
 function tokenCsrf() {

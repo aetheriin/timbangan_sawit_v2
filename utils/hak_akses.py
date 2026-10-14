@@ -78,7 +78,7 @@ def izin(kode_menu, *aksi):
             if not any(boleh(k, *aksi) for k in daftar_kode):
                 from utils.keamanan import log_keamanan
                 log_keamanan("AKSES_DITOLAK", f"level {current_user.role} ke {f.__name__} ({request.path})")
-                return jsonify({"error": "Level Anda tidak punya akses untuk aksi ini"}), 403
+                return jsonify({"error": "Level Anda tidak memiliki akses untuk tindakan ini"}), 403
             return f(*args, **kwargs)
         return wrapped
     return dekorator

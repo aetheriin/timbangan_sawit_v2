@@ -1,4 +1,4 @@
-{% from "partials/layout/_macros.html" import section_header %}
+{% from "partials/layout/_macros.html" import section_header, tombol_ekspor %}
 <div class="filter-bar">
     <div class="seg flex-wrap">
         {% for kode, label in [('', 'Semua'), ('LOGIN', 'Login'), ('LOGIN_GAGAL', 'Login Gagal'), ('LOGIN_TERKUNCI', 'Terkunci'),
@@ -12,7 +12,8 @@
         <input type="text" id="cariLog" placeholder="Cari user / IP / detail" class="input-field pl-9 w-60" data-on-input="cariLog" data-arg="$value">
         <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
     </div>
-    <button type="button" class="btn-secondary" data-on-click="muatUlang" data-arg="$el|muatLog"><i class="fa-solid fa-rotate"></i></button>
+    <button type="button" class="btn-secondary" data-on-click="muatUlang" data-arg="$el|muatLog" title="Muat ulang"><i class="fa-solid fa-rotate"></i></button>
+    {{ tombol_ekspor('tabelLog', 'Log Keamanan') }}
 </div>
 
 <div class="section-box">
