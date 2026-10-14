@@ -40,6 +40,7 @@ function namaFile(judul, ext) {
 
 function eksporTabel(idTbody, format, judul) {
     const data = dataTabel(idTbody);
+    judul = t(judul);                                     // judul ikut bahasa tampilan (static/js/i18n.js)
     if (!data.baris.length) { Notif.peringatan('Tidak ada data untuk diekspor'); return; }
     if (format === 'pdf') cetakTabelPdf(judul, data);
     else unduhBlob(buatXlsx(judul, data), namaFile(judul, 'xlsx'));
@@ -60,7 +61,7 @@ function cetakTabelPdf(judul, { kepala, baris }) {
     area.id = 'areaCetakTabel';
     const angka = baris[0].map((_, i) => baris.every(r => !r[i] || keAngka(r[i]) != null));
     area.innerHTML = `<h1>${escapeHtml(judul)}</h1>
-        <p>Dicetak ${escapeHtml(new Date().toLocaleString('id-ID'))} oleh ${escapeHtml(document.body.dataset.user || '-')} · ${baris.length} baris</p>
+        <p>${escapeHtml(t(`Dicetak ${new Date().toLocaleString(I18N.lokal)} oleh ${document.body.dataset.user || '-'} · ${baris.length} baris`))}</p>
         <table><thead><tr>${kepala.map((k, i) => `<th${angka[i] ? ' class="kanan"' : ''}>${escapeHtml(k)}</th>`).join('')}</tr></thead>
         <tbody>${baris.map(r => `<tr>${r.map((v, i) => `<td${angka[i] ? ' class="kanan"' : ''}>${escapeHtml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
     document.body.appendChild(area);

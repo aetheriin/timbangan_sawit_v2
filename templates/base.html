@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
     <script src="{{ url_for('static', filename='js/tema.js') }}"></script>
+    {% include "partials/layout/bahasa.html" %}
     {% block extra_head %}{% endblock %}
 </head>
 <body class="font-sans antialiased"{% if current_user.is_authenticated %} data-user="{{ current_user.username }}"{% endif %}>

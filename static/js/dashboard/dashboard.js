@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 const angka = (v, d) => v == null ? '-' : Number(v).toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
-const tglPendek = s => new Date(`${s}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+const tglPendek = s => new Date(`${s}T00:00:00`).toLocaleDateString(I18N.lokal, { day: 'numeric', month: 'short' });
 
 function filterHariDashboard(el) {
     aktifkanChip(el);

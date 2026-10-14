@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fonts/fonts.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    {% include "partials/layout/bahasa.html" %}
 </head>
 <body class="font-sans antialiased bg-slate-50 min-h-screen flex items-center justify-center p-4 sm:p-8">
     <div class="w-full max-w-4xl grid md:grid-cols-5 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/60 overflow-hidden">
@@ -22,7 +23,7 @@
                 <div class="w-14 h-14 rounded-2xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center"><img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="w-11 h-11"></div>
                 <p class="mt-5 text-3xl font-extrabold tracking-tight">CPOS</p>
                 <p class="text-sm text-slate-300 mt-1">Centralized Palm Oil System</p>
-                <p class="text-xs text-slate-400">Sistem Terpusat Kelapa Sawit</p>
+                <p class="text-xs text-slate-400" data-en="Integrated palm oil platform">Sistem Terpusat Kelapa Sawit</p>
             </div>
             <ul class="relative space-y-3 text-sm text-slate-300 my-10">
                 <li class="flex items-center gap-3"><span class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-amber-400"><i class="fa-solid fa-scale-balanced"></i></span>Penimbangan &amp; tiket terpadu</li>
@@ -32,7 +33,8 @@
             <p class="relative text-xs text-slate-400">PT Yuni Bersaudara Sejahtera</p>
         </div>
 
-        <div class="md:col-span-3 p-8 sm:p-10">
+        <div class="md:col-span-3 p-8 sm:p-10 relative">
+            <div class="absolute top-4 right-4">{% include "partials/layout/tombol_bahasa.html" %}</div>
             {# Logo kecil untuk layar sempit (panel merek tersembunyi) #}
             <div class="md:hidden flex items-center gap-3 mb-8">
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="" class="w-10 h-10">

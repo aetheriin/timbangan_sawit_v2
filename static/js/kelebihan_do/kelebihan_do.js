@@ -75,7 +75,7 @@ async function tetapkanKelebihan(id) {
 }
 
 async function kembalikanKelebihan(id) {
-    const alasan = (window.prompt('Alasan dikembalikan ke krani:') || '').trim();
+    const alasan = (window.prompt(t('Alasan dikembalikan ke krani:')) || '').trim();
     if (!alasan) return;
     if (tampilkanHasil(await kirimForm(`/api/kelebihan-do/${id}/kembalikan`, { alasan }))) muatKelebihan();
 }

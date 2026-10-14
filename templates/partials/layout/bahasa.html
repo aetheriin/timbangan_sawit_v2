@@ -1,0 +1,3 @@
+{# Bahasa tampilan: kamus EN hanya dimuat bila dipilih (cookie "bahasa"); i18n.js selalu dimuat (fungsi t() & gantiBahasa) #}
+{% if request.cookies.get('bahasa') == 'en' %}<script src="{{ url_for('static', filename='js/i18n/en.js') }}"></script>{% endif %}
+<script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
