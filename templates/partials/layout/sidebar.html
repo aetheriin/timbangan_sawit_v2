@@ -4,9 +4,9 @@
 <aside id="sidebar" class="sidebar">
     <div class="sidebar-brand">
         <div class="flex items-center gap-3 min-w-0">
-            <div class="sidebar-logo"><i class="fa-solid fa-scale-balanced"></i></div>
+            <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="CPOS" class="w-9 h-9 flex-shrink-0">
             <div class="min-w-0">
-                <p class="font-bold text-slate-900 text-sm leading-tight">Jembatan Timbang</p>
+                <p class="font-extrabold text-slate-900 text-base leading-tight tracking-tight" title="Centralized Palm Oil System">CPOS</p>
                 <p class="text-[11px] font-semibold text-slate-500 tracking-wider uppercase truncate">
                     {{ 'Konsol Admin' if current_user.is_admin else 'Terminal Pabrik' }}</p>
             </div>
