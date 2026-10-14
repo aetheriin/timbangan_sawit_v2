@@ -114,7 +114,7 @@ function tampilkanJembatan(data) {
                     <p class="font-bold text-slate-900">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</p>
                     <p class="text-xs font-mono text-slate-500">${escapeHtml(j.area)} · mode ${escapeHtml(j.mode)}</p>
                 </div>
-                <span class="text-xs font-bold px-2 py-0.5 rounded border flex-shrink-0 ${warna}">● ${status}</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded border flex-shrink-0 ${warna}">● ${status}</span>
             </div>
             <div class="mt-4 rounded-lg bg-slate-50 border border-slate-100 p-3 space-y-1.5">
                 ${baris('Sambungan', j.mode === 'AGEN' ? `Agen ID ${j.id_jembatan} · ${escapeHtml(j.port)}` : escapeHtml(j.port))}

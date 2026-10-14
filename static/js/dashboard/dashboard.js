@@ -186,7 +186,7 @@ async function muatArus() {
             <span class="w-2 h-2 rounded-full flex-shrink-0 ${j.terhubung ? (j.stabil ? 'bg-emerald-500' : 'bg-amber-400') : 'bg-red-500'}"></span>
             <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(j.kode)} · ${escapeHtml(j.nama)}</p>
-                <p class="text-xs text-slate-400 truncate">${escapeHtml(j.area)}${j.terhubung ? '' : ` · ${escapeHtml(j.error || 'tidak mengirim data')}`}</p>
+                <p class="text-[11px] text-slate-400 truncate">${escapeHtml(j.area)}${j.terhubung ? '' : ` · ${escapeHtml(j.error || 'tidak mengirim data')}`}</p>
             </div>
             <span class="font-mono text-xs font-semibold whitespace-nowrap ${j.terhubung ? 'text-slate-800' : 'text-red-600'}">${j.terhubung ? `${angka(j.berat || 0, 0)} kg` : 'TERPUTUS'}</span>
         </div>`).join('') || '<p class="text-sm text-slate-400 py-2">Belum ada jembatan timbang aktif</p>';

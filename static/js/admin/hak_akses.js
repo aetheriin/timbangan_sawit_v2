@@ -14,11 +14,11 @@ async function muatLevel() {
             data-on-click="pilihLevel" data-arg="${lv.id_level}">
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <p class="font-bold text-slate-900">${escapeHtml(lv.nama)} <span class="ml-1 text-xs font-mono text-slate-400">${escapeHtml(lv.kode)}</span></p>
+                    <p class="font-bold text-slate-900">${escapeHtml(lv.nama)} <span class="ml-1 text-[11px] font-mono text-slate-400">${escapeHtml(lv.kode)}</span></p>
                     <p class="text-xs text-slate-500 mt-0.5">Halaman awal: ${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</p>
                     ${lv.keterangan ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(lv.keterangan)}</p>` : ''}
                 </div>
-                <span class="text-xs font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex-shrink-0">${Number(lv.jumlah_user)} Pengguna</span>
+                <span class="text-[11px] font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex-shrink-0">${Number(lv.jumlah_user)} Pengguna</span>
             </div>
             <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                 ${badgeAktif(lv.is_active)}

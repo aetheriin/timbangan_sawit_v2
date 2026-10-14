@@ -94,7 +94,7 @@ function tampilkanCari(kata, data) {
                 kiri: `<span class="block font-mono font-semibold text-slate-900 truncate">${escapeHtml(t.no_tiket)} · ${escapeHtml(t.no_plat)}</span>
                        <span class="block text-xs text-slate-500 truncate">${escapeHtml(t.supir)} · ${escapeHtml(t.customer)} · ${escapeHtml(t.produk)}</span>`,
                 kanan: `<span class="block font-mono font-bold text-slate-900">${kgCari(t.netto)}</span>
-                        <span class="block text-xs text-slate-500">${selesai ? escapeHtml(t.created_at) : badgeStatusTiket(t.status_alur)}</span>`,
+                        <span class="block text-[11px] text-slate-500">${selesai ? escapeHtml(t.created_at) : badgeStatusTiket(t.status_alur)}</span>`,
             });
         }).join(''), 'klik untuk buka');
         html += grupCari(`DO / Kontrak (${(data.do || []).length})`, (data.do || []).map(d => {
@@ -102,33 +102,33 @@ function tampilkanCari(kata, data) {
             return itemCari({
                 url: `/kontrak?cari=${encodeURIComponent(d.no_do)}`, ikon: '<i class="fa-solid fa-file-contract text-indigo-600"></i>',
                 kiri: `<span class="block font-mono font-semibold text-slate-900 truncate">${escapeHtml(d.no_do)}
-                       ${d.is_active ? '' : '<span class="ml-1 text-[11px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded">NONAKTIF</span>'}</span>
+                       ${d.is_active ? '' : '<span class="ml-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 rounded">NONAKTIF</span>'}</span>
                        <span class="block text-xs text-slate-500 truncate">${escapeHtml(d.no_kontrak)} · ${escapeHtml(d.customer)} · ${escapeHtml(d.produk)}</span>`,
                 kanan: persen == null ? '' : `<span class="block font-mono font-bold ${persen > 100 ? 'text-red-600' : 'text-slate-900'}">${persen}%</span>
-                       <span class="block text-xs text-slate-500">${kgCari(d.realisasi_kg || 0)} / ${kgCari(d.qty_kg)}</span>`,
+                       <span class="block text-[11px] text-slate-500">${kgCari(d.realisasi_kg || 0)} / ${kgCari(d.qty_kg)}</span>`,
             });
         }).join(''));
         html += grupCari(`Personel (${data.personel.length})`, data.personel.map(p => itemCari({
             url: p.kategori === 'DRIVER' ? '/master?tab=personel' : '/face-recognition?tab=personel',
-            ikon: `<span class="font-mono text-[11px] font-bold">${escapeHtml((p.nama_personel || '?').slice(0, 2).toUpperCase())}</span>`,
+            ikon: `<span class="font-mono text-[10px] font-bold">${escapeHtml((p.nama_personel || '?').slice(0, 2).toUpperCase())}</span>`,
             kiri: `<span class="block font-semibold text-slate-900 truncate">${escapeHtml(p.nama_personel)}
-                   ${p.is_blacklisted ? '<span class="ml-1 text-[11px] font-bold text-red-600 bg-red-50 px-1.5 rounded">BLACKLIST</span>' : ''}</span>
+                   ${p.is_blacklisted ? '<span class="ml-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 rounded">BLACKLIST</span>' : ''}</span>
                    <span class="block text-xs text-slate-500">${escapeHtml(p.kode_personel || '-')} · NIK ${escapeHtml(p.nik)}</span>`,
-            kanan: `<span class="text-xs font-semibold text-slate-500">${escapeHtml(labelKode(p.kategori))}</span>`,
+            kanan: `<span class="text-[11px] font-semibold text-slate-500">${escapeHtml(labelKode(p.kategori))}</span>`,
         })).join(''));
         html += grupCari(`Kendaraan (${data.kendaraan.length})`, data.kendaraan.map(v => itemCari({
             url: '/master?tab=kendaraan', ikon: '<i class="fa-solid fa-truck text-slate-600"></i>',
             kiri: `<span class="block font-mono font-semibold text-slate-900">${escapeHtml(v.no_plat)}
-                   ${v.is_blacklisted ? '<span class="ml-1 text-[11px] font-bold text-red-600 bg-red-50 px-1.5 rounded">BLACKLIST</span>' : ''}</span>
+                   ${v.is_blacklisted ? '<span class="ml-1 text-[10px] font-bold text-red-600 bg-red-50 px-1.5 rounded">BLACKLIST</span>' : ''}</span>
                    <span class="block text-xs text-slate-500">STNK ${escapeHtml(v.no_stnk)}</span>`,
         })).join(''));
     }
     if (data && CARI_ADMIN) {
         html += grupCari(`Pengguna (${data.akun.length})`, data.akun.map(u => itemCari({
-            url: '/admin/users', ikon: `<span class="font-mono text-[11px] font-bold">${escapeHtml(u.nama.slice(0, 2).toUpperCase())}</span>`,
+            url: '/admin/users', ikon: `<span class="font-mono text-[10px] font-bold">${escapeHtml(u.nama.slice(0, 2).toUpperCase())}</span>`,
             kiri: `<span class="block font-semibold text-slate-900">${escapeHtml(u.nama)} <span class="font-mono text-xs text-slate-400">@${escapeHtml(u.username)}</span></span>
                    <span class="block text-xs text-slate-500">${escapeHtml(u.nama_level)} · ${escapeHtml(u.area)}</span>`,
-            kanan: u.is_active ? '' : '<span class="text-xs text-red-600 font-semibold">Nonaktif</span>',
+            kanan: u.is_active ? '' : '<span class="text-[11px] text-red-600 font-semibold">Nonaktif</span>',
         })).join(''), 'klik untuk buka Kelola Pengguna');
     }
     if (k.length >= 2 && !data) html += '<p class="py-6 text-center text-sm text-slate-400">Mencari...</p>';

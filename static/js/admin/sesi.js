@@ -29,7 +29,7 @@ async function muatSesi(opsi = {}) {
             <td class="table-cell"><div class="flex items-center gap-3">
                 <div class="relative w-9 h-9 rounded-lg bg-slate-100 text-slate-700 font-mono font-bold text-xs flex items-center justify-center flex-shrink-0">${escapeHtml(inisial(s.nama))}
                     <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${s.idle_menit < 1 ? 'bg-emerald-500' : 'bg-amber-400'}"></span></div>
-                <div><p class="font-semibold text-slate-900">${escapeHtml(s.nama)}${s.is_saya ? ' <span class="text-xs font-semibold text-blue-700">· Anda</span>' : ''}</p>
+                <div><p class="font-semibold text-slate-900">${escapeHtml(s.nama)}${s.is_saya ? ' <span class="text-[11px] font-semibold text-blue-700">· Anda</span>' : ''}</p>
                     <p class="text-xs font-mono text-slate-500">${escapeHtml(s.username)} ${badgeRole(s.role)}</p></div></div></td>
             <td class="table-cell text-xs text-slate-600 max-w-xs truncate" title="${escapeHtml(s.agen)}">${escapeHtml(ringkasBrowser(s.agen))}</td>
             <td class="table-cell font-mono text-xs">${escapeHtml(s.ip)}</td>

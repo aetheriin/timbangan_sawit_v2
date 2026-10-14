@@ -10,13 +10,6 @@ function perbaruiTombolValidasi() {
 
 window.addEventListener('tabChange', perbaruiTombolValidasi);
 
-// Di tab Security semua isian info bar sudah ada di form pendaftaran (plat, tiket, DO, customer, produk, supir),
-// jadi info bar disembunyikan supaya tidak dobel. Di tab lain info bar tetap jadi tempat mencari plat / tiket.
-function aturInfoBar(tab) {
-    document.querySelector('.info-bar')?.classList.toggle('hidden', tab === 'security');
-}
-window.addEventListener('tabChange', e => aturInfoBar(e.detail));
-
 // ===== INPUT PLAT =====
 // Tab / Enter -> cari (data-on-enter di template, lihat aksi.js).
 // Selain itu plat juga otomatis dirapikan & dicari saat mouse meninggalkan kotak atau fokus pindah
