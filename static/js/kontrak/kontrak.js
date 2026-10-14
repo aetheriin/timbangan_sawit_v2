@@ -52,9 +52,9 @@ function tampilkanDO() {
                     <span class="font-mono font-bold ${persen > 100 ? 'text-red-600' : 'text-slate-900'}">${persen == null ? '-' : persen + '%'}</span></div>
                 <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mt-1.5">
                     <div class="h-full ${warnaBar} rounded-full" style="width:${Math.min(persen || 0, 100)}%"></div></div>
-                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1.5">
+                <div class="flex items-center justify-between text-xs font-mono text-slate-400 mt-1.5">
                     <span>Realisasi: ${fmtKg(d.realisasi_kg || 0)} kg</span><span>Kuota: ${fmtKg(d.qty_kg)} kg</span></div>
-                ${sisa != null && sisa < 0 ? `<p class="text-[11px] text-red-600 mt-1">Lebih ${fmtKg(-sisa)} kg dari kuota</p>` : ''}
+                ${sisa != null && sisa < 0 ? `<p class="text-xs text-red-600 mt-1">Lebih ${fmtKg(-sisa)} kg dari kuota</p>` : ''}
             </div>
             <div class="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-slate-100">
                 ${badgeAktif(d.is_active)}

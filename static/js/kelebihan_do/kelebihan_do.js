@@ -36,8 +36,8 @@ async function muatKelebihan() {
                 ${r.catatan ? `<div class="text-xs text-slate-500">${escapeHtml(r.catatan)}</div>` : ''}
                 ${r.alasan_kembali && r.status === 'DIKEMBALIKAN' ? `<div class="text-xs text-red-600">Dikembalikan: ${escapeHtml(r.alasan_kembali)}</div>` : ''}</td>
             <td class="table-cell">${badge(labelKode(r.status), WARNA_STATUS_LEBIH[r.status] || WARNA_BADGE.abu)}
-                ${r.diajukan_oleh ? `<div class="text-[11px] text-slate-400">diajukan ${escapeHtml(r.diajukan_oleh)}</div>` : ''}
-                ${r.ditetapkan_oleh ? `<div class="text-[11px] text-slate-400">${r.status === 'DIKEMBALIKAN' ? 'dikembalikan' : 'ditetapkan'} ${escapeHtml(r.ditetapkan_oleh)}</div>` : ''}</td>
+                ${r.diajukan_oleh ? `<div class="text-xs text-slate-400">diajukan ${escapeHtml(r.diajukan_oleh)}</div>` : ''}
+                ${r.ditetapkan_oleh ? `<div class="text-xs text-slate-400">${r.status === 'DIKEMBALIKAN' ? 'dikembalikan' : 'ditetapkan'} ${escapeHtml(r.ditetapkan_oleh)}</div>` : ''}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3">
                 ${ajukan && ['MENUNGGU', 'DIKEMBALIKAN'].includes(r.status) ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaAjukanDO" data-arg="${r.id_kelebihan}">Isi DO Baru</button>` : ''}
                 ${tetapkan && r.status === 'DIAJUKAN' ? `<button type="button" class="link-aksi text-emerald-600" data-on-click="tetapkanKelebihan" data-arg="${r.id_kelebihan}">Tetapkan</button>

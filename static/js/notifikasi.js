@@ -15,7 +15,7 @@ async function muatNotifikasi() {
            class="block px-4 py-2 hover:bg-slate-50${n.dibaca ? ' text-slate-400' : ''}">
             <p class="font-medium${n.dibaca ? '' : ' text-slate-800'}">${n.dibaca ? '' : '<span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>'}${escapeHtml(n.judul)}</p>
             ${n.isi ? `<p class="text-xs">${escapeHtml(n.isi)}</p>` : ''}
-            <p class="text-[11px] text-slate-400">${escapeHtml(n.waktu)}${n.area ? ` · ${escapeHtml(n.area)}` : ''}</p>
+            <p class="text-xs text-slate-400">${escapeHtml(n.waktu)}${n.area ? ` · ${escapeHtml(n.area)}` : ''}</p>
         </a>`).join('') || '<p class="px-4 py-6 text-center text-slate-400">Belum ada notifikasi</p>';
 }
 

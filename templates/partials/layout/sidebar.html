@@ -7,7 +7,7 @@
             <div class="sidebar-logo"><i class="fa-solid fa-scale-balanced"></i></div>
             <div class="min-w-0">
                 <p class="font-bold text-slate-900 text-sm leading-tight truncate">Weighbridge</p>
-                <p class="text-[10px] font-semibold text-slate-500 tracking-wider uppercase truncate">
+                <p class="text-[11px] font-semibold text-slate-500 tracking-wider uppercase truncate">
                     {{ 'Admin Console' if current_user.is_admin else 'Mill Terminal' }}</p>
             </div>
         </div>
@@ -47,7 +47,7 @@
         <div class="avatar">{{ ((current_user.nama_lengkap or '?').split() | map('first') | join('') | upper)[:2] }}</div>
         <div class="min-w-0">
             <p class="text-xs font-bold text-slate-900 truncate">{{ current_user.nama_lengkap }}</p>
-            <p class="text-[10px] text-slate-500 truncate">{{ current_user.nama_level }}</p>
+            <p class="text-[11px] text-slate-500 truncate">{{ current_user.nama_level }}</p>
         </div>
         {# Mode terang / gelap (disimpan di browser ini, static/js/tema.js) #}
         <button type="button" data-on-click="gantiTema" class="sidebar-ikon-btn ml-auto" title="Mode gelap / terang">

@@ -62,7 +62,7 @@ function bukaPintasan() {
             <button type="button" class="sidebar-ikon-btn" data-on-click="tutupPintasan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="overflow-y-auto px-5 py-3 text-sm divide-y divide-slate-100">${umum.join('')}${menu.join('')}</div>
-        <p class="px-5 py-2.5 text-[11px] text-slate-500 bg-slate-50 border-t border-slate-100">Tekan G, lepas, lalu huruf dalam 1,5 detik. Tidak berlaku saat mengetik di kotak isian.</p>
+        <p class="px-5 py-2.5 text-xs text-slate-500 bg-slate-50 border-t border-slate-100">Tekan G, lepas, lalu huruf dalam 1,5 detik. Tidak berlaku saat mengetik di kotak isian.</p>
     </div>`;
     ov.addEventListener('click', e => { if (e.target === ov) tutupPintasan(); });
     document.body.appendChild(ov);

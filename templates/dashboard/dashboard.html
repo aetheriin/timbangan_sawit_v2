@@ -32,10 +32,10 @@
         <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
                 <h2 class="text-sm font-bold text-slate-900">Arus Penimbangan Hari Ini</h2>
-                <p class="text-xs text-slate-500">{{ 'Tiket yang dibuat hari ini per site' if area_list else 'Tiket yang dibuat hari ini di site Anda' }}</p>
+                <p class="text-xs text-slate-500">{{ 'Tiket yang dibuat hari ini, semua site atau per site' if is_pusat else 'Tiket yang dibuat hari ini di site Anda' }}</p>
             </div>
             {# HO: pilih site (juga menyaring Status Jembatan Timbang); akun site: hanya site sendiri #}
-            {% if area_list %}
+            {% if is_pusat %}
             <select id="pilihAreaArus" data-simpan="area_arus" class="input-field w-56 py-1.5" data-on-change="muatArusSekarang">
                 <option value="">Semua site</option>
                 {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
@@ -49,7 +49,7 @@
             <div class="lg:col-span-3">
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Arus per jam</p>
-                    <span class="flex items-center gap-3 text-[11px] text-slate-500">
+                    <span class="flex items-center gap-3 text-xs text-slate-500">
                         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-600"></span>Masuk</span>
                         <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>Selesai</span>
                     </span>

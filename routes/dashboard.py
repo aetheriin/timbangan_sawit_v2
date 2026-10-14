@@ -29,7 +29,7 @@ def dashboard_halaman():
         area_list = []
         area_saya = next((a["nama"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
     return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=boleh("DASHBOARD", "ubah"),
-                           area_list=area_list, area_saya=area_saya)
+                           is_pusat=id_area is None, area_list=area_list, area_saya=area_saya)
 
 
 @dashboard_bp.route("/api/dashboard/harga")
