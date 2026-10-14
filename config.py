@@ -22,4 +22,6 @@ def get_connection_string():
         f"DATABASE={DB_CONFIG['database']};"
         f"{auth}"
         f"TrustServerCertificate={DB_CONFIG['trust_server_certificate']};"
+        # Nama aplikasi yang terlihat di SQL Server (sp_who2, XEvent Profiler, sys.dm_exec_sessions.program_name)
+        "APP=CPOS;"
     )
