@@ -2,7 +2,7 @@ from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 
 INSPEKSI = ("SORTASI", "LAB")
-NAMA_TAHAP = {"SECURITY": "Security", "TIMBANG_1": "timbang masuk", "SORTASI": "sortasi", "LAB": "hasil lab (Approve)",
+NAMA_TAHAP = {"SECURITY": "Security", "TIMBANG_1": "timbang masuk", "SORTASI": "sortasi", "LAB": "hasil lab (Diterima)",
               "TIMBANG_2": "timbang keluar"}
 
 
@@ -79,13 +79,13 @@ def menunggu(id_alur, status_alur):
 
 
 def pilih_mill(id_comp_area, id_alur):
-    """Mill aktif pertama di area itu untuk alur ini (dipakai saat tiket dibuat). None bila belum diatur."""
+    """Pabrik aktif pertama di area itu untuk alur ini (dipakai saat tiket dibuat). None bila belum diatur."""
     return next((m for m in daftar_mill() if m["is_active"] and m["id_comp_area"] == id_comp_area
                  and m["id_alur"] == id_alur), None)
 
 
 def daftar_alur():
-    """Alur aktif untuk pilihan (Admin › Organisasi › Mill, Admin › Produk)."""
+    """Alur aktif untuk pilihan (Admin › Organisasi › Pabrik, Admin › Produk)."""
     return [{"id_alur": i, "kode": a["kode"], "nama": a["nama"], "tahap": a["tahap"]}
             for i, a in sorted(peta_alur().items()) if a["is_active"]]
 

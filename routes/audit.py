@@ -1,4 +1,4 @@
-"""Menu Face Recognition > Audit Log: aktivitas security & perubahan data personel."""
+"""Menu Pengenalan Wajah > Log Audit: aktivitas security & perubahan data personel."""
 import csv
 import io
 import json
@@ -49,7 +49,7 @@ def audit_export():
     buf = io.StringIO()
     tulis = csv.writer(buf, delimiter=';')
     tulis.writerow(["AKTIVITAS SECURITY"])
-    tulis.writerow(["Waktu", "User", "Role", "Aksi", "No. Tiket", "Detail", "IP"])
+    tulis.writerow(["Waktu", "Pengguna", "Level", "Aksi", "No. Tiket", "Detail", "IP"])
     for r in get_security_audit(hari, BATAS_EXPORT):
         tulis.writerow([r["created_at"], r["nama_user"], r["role"], r["action_type"], r["no_tiket"] or "",
                         json.dumps(r["details"], ensure_ascii=False), r["ip_address"] or ""])

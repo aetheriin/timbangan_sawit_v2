@@ -1,8 +1,8 @@
-<!-- MODAL: Tambah / Ubah User -->
+<!-- MODAL: Tambah / Ubah Pengguna -->
 <div id="modalUser" class="modal-overlay">
     <form id="formUser" class="modal-box" autocomplete="off">
         <div class="modal-header">
-            <h3 id="judulModalUser" class="font-bold">Tambah User</h3>
+            <h3 id="judulModalUser" class="font-bold">Tambah Pengguna</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-3">
@@ -24,7 +24,7 @@
                     </select>
                 </div>
                 <div>
-                    <label class="field-label" for="userDepartment">Department</label>
+                    <label class="field-label" for="userDepartment">Departemen</label>
                     <select id="userDepartment" name="id_department" required class="input-field">
                         {% for d in department_list %}<option value="{{ d.id_department }}">{{ d.nama }}</option>{% endfor %}
                     </select>
@@ -56,11 +56,11 @@
     </form>
 </div>
 
-<!-- MODAL: Reset Password -->
+<!-- MODAL: Atur Ulang Password -->
 <div id="modalResetPassword" class="modal-overlay">
     <form id="formResetPassword" class="modal-box" autocomplete="off">
         <div class="modal-header">
-            <h3 class="font-bold">Reset Password</h3>
+            <h3 class="font-bold">Atur Ulang Password</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalResetPassword" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-3">
@@ -76,7 +76,7 @@
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalResetPassword" class="btn-secondary">Batal</button>
-            <button type="submit" class="btn-primary">Reset Password</button>
+            <button type="submit" class="btn-primary">Atur Ulang Password</button>
         </div>
     </form>
 </div>

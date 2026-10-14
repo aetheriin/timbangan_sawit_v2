@@ -56,7 +56,7 @@ function setKeputusan(val) {
 
 async function submitLab(btn) {
     if (!noTiketLabAktif) { Notif.peringatan('Silakan pilih plat atau tiket terlebih dahulu'); return; }
-    if (!keputusanDipilih) { Notif.peringatan('Silakan pilih Approve atau Reject'); return; }
+    if (!keputusanDipilih) { Notif.peringatan('Silakan pilih Terima atau Tolak'); return; }
     const formData = new FormData();
     formData.append('no_tiket', noTiketLabAktif);
     formData.append('ffa', document.getElementById('labFfa').value);

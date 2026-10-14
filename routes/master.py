@@ -47,7 +47,7 @@ def kendaraan_simpan():
     teks_supir = (f.get("id_supir_utama") or "").strip()
     id_supir = int(teks_supir) if teks_supir.isdigit() else None
     if id_supir and id_supir not in {d["id_personel"] for d in db.daftar_driver_aktif()}:
-        return jsonify({"error": "Supir utama harus driver aktif yang tidak diblacklist"}), 400
+        return jsonify({"error": "Supir utama harus supir aktif yang tidak diblacklist"}), 400
     if db.plat_dipakai(no_plat, kecuali=id_kendaraan):
         return jsonify({"error": f"Plat {no_plat} sudah terdaftar"}), 400
     plat_stnk = db.stnk_dipakai(no_stnk, kecuali=id_kendaraan)

@@ -29,25 +29,25 @@ WAKTU_MULAI = time.time()
 
 # key -> (judul, ikon Font Awesome, keterangan). Urutan = urutan menu sidebar.
 HALAMAN = {
-    "users": ("Kelola User", "fa-users", "Tambah akun, ubah level / department / area, reset password, aktif / nonaktif"),
+    "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Company, area (site), department, dan mill"),
-    "sesi": ("Sesi Aktif", "fa-user-clock", "User yang sedang login, paksa keluar, buka kunci login"),
-    "void": ("Void Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area (site), departemen, dan pabrik"),
+    "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
+    "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
     "perangkat": ("Perangkat", "fa-plug", "Pos (token PC agen timbangan) dan jembatan timbang"),
-    "log": ("Log Keamanan", "fa-shield-halved", "Login, login gagal, akses ditolak, kiosk ditolak"),
+    "log": ("Log Keamanan", "fa-shield-halved", "Login, login gagal, akses ditolak, kios ditolak"),
     "audit": ("Audit Admin", "fa-clipboard-list", "Jejak semua perubahan yang dilakukan admin"),
-    "kesehatan": ("Kesehatan Sistem", "fa-heart-pulse", "Database, backup, disk, versi aplikasi"),
+    "kesehatan": ("Kesehatan Sistem", "fa-heart-pulse", "Database, cadangan data (backup), disk, versi aplikasi"),
 }
 
 POLA_USERNAME = re.compile(r"^[a-z0-9._]{3,50}$")
 # Pilihan "Halaman awal setelah login" (admin memilih nama menu, bukan mengetik alamat)
 HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "List Tiket"),
-                ("/weighbridge?tab=security", "Form › Security"), ("/weighbridge?tab=timbangan", "Form › Timbangan"),
-                ("/weighbridge?tab=sortasi", "Form › Sortasi"), ("/weighbridge?tab=lab", "Form › Laboratorium"),
-                ("/face-recognition", "Face Recognition"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
+                ("/weighbridge?tab=security", "Stasiun Timbang › Security"), ("/weighbridge?tab=timbangan", "Stasiun Timbang › Timbangan"),
+                ("/weighbridge?tab=sortasi", "Stasiun Timbang › Sortasi"), ("/weighbridge?tab=lab", "Stasiun Timbang › Laboratorium"),
+                ("/face-recognition", "Pengenalan Wajah"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
                 ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
                 ("/admin", "Admin (khusus level admin)")]
 POLA_KODE_KATEGORI = re.compile(r"^[A-Z0-9_]{2,20}$")
@@ -157,14 +157,14 @@ def users_tambah():
         nama, (level, id_department, id_area), pw = _teks("nama"), _akun_form(), _password_form()
         db.tambah_user(username, nama, level["id_level"], id_department, id_area, generate_password_hash(pw))
         _audit("USER_TAMBAH", username, f"level {level['kode']}")
-        return jsonify({"message": f"User {username} berhasil ditambahkan"})
+        return jsonify({"message": f"Pengguna {username} berhasil ditambahkan"})
     return _jalankan(aksi)
 
 
 def _user_atau_404(id_user):
     u = db.get_user(id_user)
     if not u:
-        raise ValueError("User tidak ditemukan")
+        raise ValueError("Pengguna tidak ditemukan")
     return u
 
 
@@ -184,7 +184,7 @@ def users_ubah(id_user):
         _audit("USER_UBAH", u["username"], f"level {u['role']} -> {level['kode']}" if ganti_level else "data diubah")
         if ganti_level:
             sesi_aktif.hapus_user(id_user, "ROLE_DIUBAH")
-        return jsonify({"message": f"User {u['username']} berhasil diperbarui" +
+        return jsonify({"message": f"Pengguna {u['username']} berhasil diperbarui" +
                         (" (sesi lamanya diakhiri, login ulang dengan level baru)" if ganti_level else "")})
     return _jalankan(aksi)
 
@@ -202,7 +202,7 @@ def users_reset_password(id_user):
         sesi_aktif.hapus_user(id_user, "RESET_PASSWORD")
         _audit("USER_RESET_PASSWORD", u["username"])
         log_keamanan("RESET_PASSWORD", f"username={u['username']}")
-        return jsonify({"message": f"Password pengguna {u['username']} berhasil direset. Pengguna wajib membuat password baru saat login berikutnya."})
+        return jsonify({"message": f"Password pengguna {u['username']} berhasil diatur ulang. Pengguna wajib membuat password baru saat login berikutnya."})
     return _jalankan(aksi)
 
 
@@ -219,7 +219,7 @@ def users_aktif(id_user):
         db.set_aktif_user(id_user, aktif)
         sesi_aktif.hapus_user(id_user, "NONAKTIF")
         _audit("USER_AKTIF" if aktif else "USER_NONAKTIF", u["username"])
-        return jsonify({"message": f"User {u['username']} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"Pengguna {u['username']} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
     return _jalankan(aksi)
 
 
@@ -385,7 +385,7 @@ def company_simpan():
         kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
         org.simpan_company(id_c, kode, nama)
         _audit("COMPANY_SIMPAN", kode, nama)
-        return jsonify({"message": f"Company {nama} berhasil disimpan"})
+        return jsonify({"message": f"Perusahaan {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -408,10 +408,10 @@ def department_simpan():
     def aksi():
         id_d, nama = _id_opsional("id_department"), _teks("nama")
         if org.kode_dipakai("department", "id_department", "nama", nama, kecuali=id_d):
-            raise ValueError(f"Department {nama} sudah ada")
+            raise ValueError(f"Departemen {nama} sudah ada")
         org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None)
         _audit("DEPARTMENT_SIMPAN", nama)
-        return jsonify({"message": f"Department {nama} berhasil disimpan"})
+        return jsonify({"message": f"Departemen {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -429,7 +429,7 @@ def mill_simpan():
             raise ValueError(f"Kode {kode} sudah dipakai di area ini")
         alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
         _audit("MILL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Mill {nama} berhasil disimpan"})
+        return jsonify({"message": f"Pabrik {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -448,7 +448,7 @@ def organisasi_aktif(jenis, id_baris):
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
             if dict(dipakai).get(id_baris):
-                raise ValueError(f"{jenis.capitalize()} masih digunakan. Pindahkan user / area terkait terlebih dahulu")
+                raise ValueError(f"{jenis.capitalize()} masih digunakan. Pindahkan pengguna / area terkait terlebih dahulu")
         fungsi[jenis](id_baris, aktif)
         _audit(f"{jenis.upper()}_{'AKTIF' if aktif else 'NONAKTIF'}", str(id_baris))
         return jsonify({"message": f"{jenis.capitalize()} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
@@ -536,7 +536,7 @@ def tiket_void():
             hapus_file_info([ba["file_info"]] if ba else [])
             raise
         _audit("TIKET_VOID", no_tiket, alasan + (f" · BA {ba['no']}" if ba else " · BA menyusul"))
-        return jsonify({"message": f"Tiket {no_tiket} berhasil dibatalkan (void)" + ("" if ba else ". Berita acara bisa dilampirkan menyusul.")})
+        return jsonify({"message": f"Tiket {no_tiket} berhasil dibatalkan" + ("" if ba else ". Berita acara bisa dilampirkan menyusul.")})
     return _jalankan(aksi)
 
 

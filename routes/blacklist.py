@@ -1,4 +1,4 @@
-"""Menu Face Recognition > Blacklist: riwayat & tambah. Permanen, tidak ada update / hapus."""
+"""Menu Pengenalan Wajah > Blacklist: riwayat & tambah. Permanen, tidak ada update / hapus."""
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user

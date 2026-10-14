@@ -48,7 +48,7 @@ function bukaPos(idPos) {
     if (p) isiForm(form, p);
     form.elements.id_pos.readOnly = modeUbahPos;
     form.elements.id_pos.classList.toggle('bg-slate-50', modeUbahPos);
-    document.getElementById('judulModalPos').textContent = p ? 'Ubah Pos Kiosk' : 'Tambah Pos Kiosk';
+    document.getElementById('judulModalPos').textContent = p ? 'Ubah Pos Kios' : 'Tambah Pos Kios';
     openModal('modalPos');
     (p ? form.elements.nama : form.elements.id_pos).focus();
 }
@@ -78,7 +78,7 @@ async function salinTokenKiosk() {
 
 async function gantiTokenPos(idPos) {
     const ok = await Dialog.konfirmasi({
-        judul: 'Ganti token?', pesan: `Token lama pos ${idPos} langsung tidak berlaku. Kiosk itu berhenti sampai .env-nya diisi token baru.`,
+        judul: 'Ganti token?', pesan: `Token lama pos ${idPos} langsung tidak berlaku. Kios itu berhenti sampai .env-nya diisi token baru.`,
         teksYa: 'Ganti Token', bahaya: true,
     });
     if (!ok) return;
@@ -90,7 +90,7 @@ function ubahAktifPos(idPos) {
     const p = daftarPos.find(x => x.id_pos === idPos);
     konfirmasiAktif({
         url: '/api/admin/perangkat/aktif', data: { id_pos: idPos }, aktif: !p.is_active, nama: `Pos ${idPos}`, jenis: 'pos kiosk',
-        pesanNonaktif: 'Kiosk di pos ini ditolak server sampai diaktifkan lagi.', setelahnya: muatPerangkat,
+        pesanNonaktif: 'Kios di pos ini ditolak server sampai diaktifkan lagi.', setelahnya: muatPerangkat,
     });
 }
 
@@ -120,7 +120,7 @@ function tampilkanJembatan(data) {
                 ${baris('Sambungan', j.mode === 'AGEN' ? `Agen ID ${j.id_jembatan} · ${escapeHtml(j.port)}` : escapeHtml(j.port))}
                 ${baris('Serial', `${Number(j.baudrate)}-${j.data_bits}-${escapeHtml(j.parity)}-${Number(j.stop_bits)}`)}
                 ${baris('Format data', escapeHtml(j.format_data))}
-                ${baris('Berat live', live)}
+                ${baris('Berat saat ini', live)}
             </div>
             <div class="flex flex-wrap items-center justify-end gap-3 mt-3">
                 ${j.is_active ? `<button type="button" class="btn-light btn-sm" data-on-click="bukaMentah" data-arg="${j.id_jembatan}"><i class="fa-solid fa-wave-square"></i> Data mentah</button>` : ''}

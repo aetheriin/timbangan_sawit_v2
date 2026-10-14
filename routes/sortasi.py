@@ -25,7 +25,7 @@ def sortasi_simpan():
     if trx is None:
         return jsonify({"error": "Tiket tidak ditemukan, sudah selesai, atau ditolak"}), 404
     if not _tahap_ada(trx, "SORTASI"):
-        return jsonify({"error": "Sortasi tidak ada di alur tiket ini (lihat Admin › Organisasi › Mill)"}), 400
+        return jsonify({"error": "Sortasi tidak ada di alur tiket ini (lihat Admin › Organisasi › Pabrik)"}), 400
     if trx.status_alur not in ('TIMBANG_1', 'TIMBANG_2'):
         return jsonify({"error": "Sortasi dilakukan setelah timbang pertama"}), 400
     v = {k: float(request.form.get(k) or 0) for k in ['mentah', 'busuk', 'tangkai', 'sampah', 'matang', 'brondolan']}

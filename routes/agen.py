@@ -1,5 +1,5 @@
 """API untuk agen_timbang.py di PC jembatan (mode AGEN): ambil pengaturan port, kirim data mentah indikator.
-Dilindungi token perangkat (Admin › Perangkat / Kiosk), sama seperti kiosk kamera."""
+Dilindungi token perangkat (Admin › Perangkat / Kios), sama seperti kiosk kamera."""
 import io
 import os
 import zipfile
@@ -26,7 +26,7 @@ def _jembatan_agen(id_jembatan):
         return None, (jsonify({"error": f"Jembatan id {id_jembatan} tidak ada / nonaktif"}), 404)
     if j["mode"] != "AGEN":
         return None, (jsonify({"error": f"Jembatan {j['kode']} memakai mode Lokal. Ubah sumber data ke "
-                                        "'Agen di PC jembatan' di Admin › Perangkat / Kiosk."}), 409)
+                                        "'Agen di PC jembatan' di Admin › Perangkat / Kios."}), 409)
     return j, None
 
 

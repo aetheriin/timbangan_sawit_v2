@@ -38,7 +38,7 @@ function tampilkanKendaraan() {
                 <button type="button" class="link-aksi ${k.is_active ? 'text-red-600' : 'text-emerald-600'}"
                     data-on-click="ubahAktifKendaraan" data-arg="${k.id_kendaraan}">${k.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
-        </tr>`).join('') || barisKosong(8, 'Belum ada kendaraan');
+        </tr>`).join('') || barisKosong(8, 'Belum ada kendaraan', aksiKosong('bukaKendaraan', 'Tambah Kendaraan'));
 }
 
 function filterStatusKendaraan(el) {

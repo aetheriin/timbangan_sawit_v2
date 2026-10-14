@@ -1,4 +1,4 @@
-"""Jembatan timbang per area (Admin › Perangkat / Kiosk) dan penimbangan per tiket (migrasi 011)."""
+"""Jembatan timbang per area (Admin › Perangkat / Kios) dan penimbangan per tiket (migrasi 011)."""
 from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 

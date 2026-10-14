@@ -1,11 +1,14 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="produk" class="hidden">
-    <div class="section-box">
-        {% call section_header('master-produk', 'Produk') %}
+    <div class="filter-bar">
+        <p class="text-sm text-slate-500">Alur menentukan tahap tiket (Sortasi untuk TBS, Laboratorium untuk produk PKS).</p>
+        <div class="flex-1"></div>
         {% if hak.produk.tambah %}
-        <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaProduk"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+        <button type="button" class="btn-primary" data-on-click="bukaProduk"><i class="fa-solid fa-plus mr-1"></i> Tambah Produk</button>
         {% endif %}
-        {% endcall %}
+    </div>
+    <div class="section-box">
+        {{ section_header('master-produk', 'Daftar Produk') }}
         <div id="body-master-produk" class="section-body overflow-x-auto">
             <table class="w-full text-left text-sm">
                 <thead class="table-header-row">

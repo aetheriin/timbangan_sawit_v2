@@ -42,7 +42,7 @@ function tutupCariLuar(e) { if (e.target.id === 'cariOverlay') tutupCari(); }
 // Menu dari sidebar & tombol aksi di header (hanya yang memang tampil untuk user ini)
 function menuCari() {
     return Array.from(document.querySelectorAll('.sidebar-link')).map(a => ({
-        judul: a.textContent.replace(/\bLive\b/, '').trim(), url: a.getAttribute('href'),
+        judul: a.textContent.replace(/\s+/g, ' ').trim(), url: a.getAttribute('href'),
         ikon: (a.querySelector('i')?.className || 'fa-solid fa-circle').replace('sidebar-link-ikon', '').trim(),
     }));
 }
@@ -129,7 +129,7 @@ function tampilkanCari(kata, data) {
             kiri: `<span class="block font-semibold text-slate-900">${escapeHtml(u.nama)} <span class="font-mono text-xs text-slate-400">@${escapeHtml(u.username)}</span></span>
                    <span class="block text-xs text-slate-500">${escapeHtml(u.nama_level)} · ${escapeHtml(u.area)}</span>`,
             kanan: u.is_active ? '' : '<span class="text-xs text-red-600 font-semibold">Nonaktif</span>',
-        })).join(''), 'klik untuk buka Kelola User');
+        })).join(''), 'klik untuk buka Kelola Pengguna');
     }
     if (k.length >= 2 && !data) html += '<p class="py-6 text-center text-sm text-slate-400">Mencari...</p>';
     const hasil = document.getElementById('cariHasil');

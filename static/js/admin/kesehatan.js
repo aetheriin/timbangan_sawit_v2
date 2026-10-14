@@ -40,15 +40,15 @@ async function muatKesehatan() {
               db.ok ? `${db.nama || ''} · respons ${db.latensi_ms} ms` : (db.error || 'Cek SQL Server / .env'),
               db.ok ? (db.latensi_ms > 500 ? 'peringatan' : 'ok') : 'gagal'),
         kartu('Ukuran Database', 'fa-hard-drive', db.ukuran_mb != null ? `${db.ukuran_mb} MB` : '-', 'Data + log SQL Server'),
-        kartu('Backup Terakhir', 'fa-clock-rotate-left', nilaiBackup, infoBackup, stBackup),
+        kartu('Cadangan Data Terakhir', 'fa-clock-rotate-left', nilaiBackup, infoBackup, stBackup),
         kartu('Disk Server', 'fa-server', `${disk.sisa_gb} GB sisa`, `dari ${disk.total_gb} GB · terpakai ${disk.terpakai_persen}%`,
               disk.terpakai_persen > 90 ? 'gagal' : disk.terpakai_persen > 80 ? 'peringatan' : 'ok'),
-        kartu('Folder Upload', 'fa-folder-open', `${d.upload.ukuran_mb} MB${d.upload.lebih ? '+' : ''}`, 'Foto wajah, surat blacklist, foto absensi'),
+        kartu('Folder Unggahan', 'fa-folder-open', `${d.upload.ukuran_mb} MB${d.upload.lebih ? '+' : ''}`, 'Foto wajah, surat blacklist, foto absensi'),
         kartu('Timbangan', 'fa-weight-scale', `${d.timbangan.jumlah_terhubung} / ${d.timbangan.jumlah} terhubung`, 'Koneksi serial tiap jembatan timbang',
               d.timbangan.terhubung ? 'ok' : 'peringatan'),
         kartu('Versi Aplikasi', 'fa-code-branch', d.aplikasi.versi, `Python ${d.aplikasi.python}`),
         kartu('Server Berjalan', 'fa-power-off', `${d.aplikasi.uptime_jam} jam`, `sejak ${d.aplikasi.berjalan_sejak}`),
-        kartu('Sesi Aktif', 'fa-users', String(d.aplikasi.sesi_aktif), 'User yang sedang login'),
+        kartu('Sesi Aktif', 'fa-users', String(d.aplikasi.sesi_aktif), 'Pengguna yang sedang login'),
     ].join('');
     document.getElementById('waktuCekKesehatan').textContent = `Dicek ${new Date().toLocaleTimeString('id-ID')}`;
 }

@@ -1,8 +1,8 @@
-<!-- MODAL: Company -->
+<!-- MODAL: Perusahaan -->
 <div id="modalOrg-company" class="modal-overlay">
     <form id="formOrg-company" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/company/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Company</h3>
+            <h3 class="font-bold" data-judul>Perusahaan</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-company" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">
@@ -28,7 +28,7 @@
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">
             <input type="hidden" name="id_comp_area">
-            <div class="col-span-3"><label class="field-label" for="orgAreaCompany">Company</label>
+            <div class="col-span-3"><label class="field-label" for="orgAreaCompany">Perusahaan</label>
                 <select id="orgAreaCompany" name="id_company" required class="input-field">
                     {% for c in company_list %}<option value="{{ c.id_company }}">{{ c.nama }}</option>{% endfor %}
                 </select></div>
@@ -46,11 +46,11 @@
     </form>
 </div>
 
-<!-- MODAL: Department -->
+<!-- MODAL: Departemen -->
 <div id="modalOrg-department" class="modal-overlay">
     <form id="formOrg-department" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/department/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Department</h3>
+            <h3 class="font-bold" data-judul>Departemen</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-department" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-3">
@@ -67,11 +67,11 @@
     </form>
 </div>
 
-<!-- MODAL: Mill -->
+<!-- MODAL: Pabrik -->
 <div id="modalOrg-mill" class="modal-overlay">
     <form id="formOrg-mill" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/mill/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Mill</h3>
+            <h3 class="font-bold" data-judul>Pabrik</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">

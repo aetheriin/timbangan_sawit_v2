@@ -1,4 +1,4 @@
-"""Menu Face Recognition > Absensi: scan wajah live + liveness, rekap harian/bulanan, jadwal kerja."""
+"""Menu Pengenalan Wajah > Absensi: scan wajah live + liveness, rekap harian/bulanan, jadwal kerja."""
 import os
 import uuid
 import shutil
@@ -39,7 +39,7 @@ def absensi_scan():
     wajib = pengaturan.nilai("TANTANGAN_ABSENSI", area_akun(current_user.id))
     tantangan = request.form.get("tantangan", "KEDIP") if wajib else TANPA_TANTANGAN
     if wajib and tantangan not in TANTANGAN_VALID:
-        return jsonify({"error": "Tantangan liveness tidak valid"}), 400
+        return jsonify({"error": "Tantangan uji wajah hidup tidak valid"}), 400
     try:
         paths = simpan_frames(files, maks=20)
     except ValueError as e:
@@ -47,7 +47,7 @@ def absensi_scan():
     try:
         with slot_proses_wajah():
             if not cek_liveness(paths, tantangan, wajib):      # gagal liveness tidak dicatat (bisa diulang)
-                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
+                return jsonify({"error": "Uji wajah hidup gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, _, tengah = embedding_frontal(paths)   # frame paling menghadap kamera, bukan frame tengah
         if not embeddings:
             return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi scan sambil menghadap kamera"}), 400

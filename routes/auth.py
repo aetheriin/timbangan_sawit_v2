@@ -101,7 +101,7 @@ PASSWORD_MIN = 8
 @login_required
 def ganti_password():
     """Hanya saat login dengan password kedaluwarsa (Admin > Pengaturan Site) / baru direset admin.
-    Ganti password sebelum kedaluwarsa lewat Admin (Kelola User > Reset Password)."""
+    Ganti password sebelum kedaluwarsa lewat Admin (Kelola Pengguna › Atur Ulang Password)."""
     alasan = session.get("_wajib_ganti_pw")
     if not alasan:
         return redirect(_halaman_awal(current_user))

@@ -1,6 +1,6 @@
 """Pembacaan berat dari indikator timbangan, satu pembaca per jembatan timbang.
 
-Pengaturan per jembatan dari Admin › Perangkat / Kiosk › Jembatan Timbang (tabel jembatan_timbang, migrasi 017):
+Pengaturan per jembatan dari Admin › Perangkat / Kios › Jembatan Timbang (tabel jembatan_timbang, migrasi 017):
   mode LOKAL : server membuka port sendiri. Port COMx / /dev/ttyUSB0 (indikator dicolok ke PC server) atau
                socket://192.168.1.50:4001 (alat serial-to-LAN).
   mode AGEN  : indikator dicolok ke PC jembatan; agen_timbang.py di PC itu mengirim data mentah ke server

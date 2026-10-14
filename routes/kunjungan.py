@@ -1,4 +1,4 @@
-"""Face Recognition › Kunjungan Tamu: scan wajah tamu, daftarkan tamu baru, catat masuk / keluar.
+"""Pengenalan Wajah › Kunjungan Tamu: scan wajah tamu, daftarkan tamu baru, catat masuk / keluar.
 
 Tamu adalah personel kategori TAMU tanpa akun login. Wajahnya dicocokkan dengan semua personel aktif,
 jadi tamu yang pernah datang (atau masuk blacklist) langsung dikenali."""
@@ -64,7 +64,7 @@ def kunjungan_cari_wajah():
     try:
         with slot_proses_wajah():
             if not cek_liveness(paths, request.form.get("tantangan", ""), wajib):
-                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
+                return jsonify({"error": "Uji wajah hidup gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, jumlah, _ = embedding_frontal(paths)       # frame paling menghadap kamera
     finally:
         for p in paths:
@@ -147,7 +147,7 @@ def kunjungan_masuk():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-    if p["is_blacklisted"]:             # blacklist = peringatan: tamu tetap dicatat, tercatat di Audit Log
+    if p["is_blacklisted"]:             # blacklist = peringatan: tamu tetap dicatat, tercatat di Log Audit
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
                              details={"keterangan": f"Tamu blacklist dicatat masuk: "
                                                     f"{format_nama_personel(p['kode_personel'], id_tamu, p['nama_personel'])}",

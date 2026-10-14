@@ -31,7 +31,7 @@ def timbang_reset():
     j = jembatan_dipilih(request)
     if j:
         reset_deteksi_stabil(j["id_jembatan"])
-    return jsonify({"message": "Baseline berhasil direset"}), 200
+    return jsonify({"message": "Titik nol timbangan berhasil diatur ulang"}), 200
 
 @timbangan_bp.route("/api/timbang/data/<no_tiket>")
 @login_required
@@ -121,7 +121,7 @@ def timbang_simpan():
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)
     if trx.status_alur != 'TIMBANG_2':
         menunggu = (alur.menunggu(trx.id_alur, trx.status_alur) if trx.id_alur
-                    else "sortasi" if trx.kategori == 'TBS' else "hasil lab (Approve)")
+                    else "sortasi" if trx.kategori == 'TBS' else "hasil lab (Diterima)")
         return jsonify({"error": f"Belum bisa timbang kedua, tiket masih menunggu {menunggu}"}), 400
 
     if data_lama.id_jembatan != jembatan["id_jembatan"]:

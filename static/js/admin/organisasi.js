@@ -1,11 +1,11 @@
 // ===== ADMIN > ORGANISASI: company, area (site), department, mill =====
 const ORG = {
-    company: { id: 'id_company', nama: 'Company', kolom: c => [mono(c.kode), escapeHtml(c.nama), Number(c.jumlah_area)] },
+    company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), Number(c.jumlah_area)] },
     area: { id: 'id_comp_area', nama: 'Area', kolom: a => [mono(a.kode), escapeHtml(a.nama), escapeHtml(a.company),
                                                           escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
-    department: { id: 'id_department', nama: 'Department', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
+    department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
-    mill: { id: 'id_mill', nama: 'Mill', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
+    mill: { id: 'id_mill', nama: 'Pabrik', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
     kategori: { id: 'kode', nama: 'Kategori Personel', kolom: k => [mono(k.kode), escapeHtml(k.nama),
                 k.prefix_kode ? mono(`${k.prefix_kode}-001`) : '<span class="text-slate-400">PRGBS-001</span>',
                 k.wajib_sim ? 'Ya' : '-', k.boleh_akun ? 'Ya' : '-'] },

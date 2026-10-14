@@ -82,7 +82,7 @@ def buat_tiket():
     if driver.kategori != 'DRIVER':
         return jsonify({"error": f"{nama_driver} terdaftar sebagai {driver.kategori}, bukan supir"}), 400
 
-    # Blacklist = PERINGATAN: tiket tetap boleh dibuat, tetapi selalu tercatat di Audit Log untuk HO
+    # Blacklist = PERINGATAN: tiket tetap boleh dibuat, tetapi selalu tercatat di Log Audit untuk HO
     kendaraan = get_kendaraan_by_plat(no_plat)
     if kendaraan and not kendaraan.is_active:
         return jsonify({"error": f"Kendaraan {no_plat} dinonaktifkan di Data Master > Kendaraan"}), 400
@@ -110,12 +110,12 @@ def buat_tiket():
     saran = f.get("id_driver_saran", "").strip()
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
-    # Mill (arah tahap: sortasi / lab) dari alur produk; penimbangan saja memakai alur TIMBANG_SAJA
+    # Pabrik (arah tahap: sortasi / lab) dari alur produk; penimbangan saja memakai alur TIMBANG_SAJA
     produk = next(p for p in get_semua_produk() if p.id_produk == int(id_produk))
     id_alur = alur.id_alur_kode("TIMBANG_SAJA") if jenis == "PENIMBANGAN_SAJA" else produk.id_alur
     mill = alur.pilih_mill(area_akun(current_user.id), id_alur)
     if mill is None:
-        return jsonify({"error": "Mill untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Mill)"}), 400
+        return jsonify({"error": "Pabrik untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Pabrik)"}), 400
 
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
@@ -138,7 +138,7 @@ def buat_tiket():
     verif.hapus(id_pos(), current_user.id)
     pesan = "Tiket berhasil dibuat & tervalidasi"
     if peringatan:
-        pesan += f". Perhatian: {' & '.join(peringatan)} masuk blacklist (tercatat di Audit Log)"
+        pesan += f". Perhatian: {' & '.join(peringatan)} masuk blacklist (tercatat di Log Audit)"
     return jsonify({"message": pesan, "no_tiket": no_tiket, "blacklist": bool(peringatan)}), 200
 
 # ===== DRIVER =====
@@ -198,7 +198,7 @@ def driver_tambah():
                                  details={"keterangan": f"Tambah supir: wajah cocok dengan {nama_lama} (blacklist)",
                                           "id_personel": lama.id_driver})
             return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama} (BLACKLIST). "
-                                     "Gunakan data supir tersebut lewat Update."}), 400
+                                     "Gunakan data supir tersebut lewat Ubah Supir."}), 400
         return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama}"}), 400
 
     driver_id, kode = insert_driver(nik, nama, no_sim, embedding_to_binary(embedding), foto_path, current_user.id)
@@ -243,7 +243,7 @@ def driver_update_identitas():
     if v and str(v["id_driver"]) == str(id_driver):
         verif.simpan_hasil_user(id_pos(), current_user.id, **_data_verif(d, is_updated=True))
     return jsonify({
-        "message": f"Data {nama} berhasil diperbarui dan tercatat di Audit Log",
+        "message": f"Data {nama} berhasil diperbarui dan tercatat di Log Audit",
         "driver": serialisasi_driver(d)
     }), 200
 
@@ -266,7 +266,7 @@ def scan_wajah_supir():
     try:
         with slot_proses_wajah():
             if not cek_liveness(filepaths, tantangan, wajib):
-                return jsonify({"error": "Verifikasi liveness gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
+                return jsonify({"error": "Uji wajah hidup gagal. Ikuti instruksi di layar, lalu ulangi scan."}), 400
             embeddings, _, _ = embedding_frontal(filepaths)       # frame paling menghadap kamera
         if not embeddings:
             return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi scan sambil menghadap kamera"}), 400
@@ -279,7 +279,7 @@ def scan_wajah_supir():
         nama = format_nama_personel(d.kode_personel, d.id_driver, d.nama_driver)
         if d.kategori != 'DRIVER':
             return jsonify({"error": f"{nama} terdaftar sebagai {d.kategori}, bukan supir", "id_driver": d.id_driver}), 400
-        # Blacklist = peringatan: tetap terverifikasi, tercatat di Audit Log
+        # Blacklist = peringatan: tetap terverifikasi, tercatat di Log Audit
         data = _data_verif(d)
         verif.simpan_hasil_user(id_pos(), current_user.id, **data)
         if d.is_blacklisted:

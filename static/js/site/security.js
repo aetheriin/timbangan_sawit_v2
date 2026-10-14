@@ -46,7 +46,12 @@ function kotakMerah(el, aktif) {
     el.classList.toggle('ring-red-600', aktif);
 }
 
+// Supir terakhir truk ini (pembanding untuk supir yang discan / dipilih di bagian Informasi Supir)
+let pengemudiTerakhir = null;
+
 function tampilkanPengemudiTerakhir(dr, utama = null) {
+    pengemudiTerakhir = dr || null;
+    tandaiPengemudiCocok(null);
     const info = document.getElementById('pengemudiTerakhirInfo');
     const foto = document.getElementById('pengemudiFotoBox');
     const kartu = document.getElementById('pengemudiKartu');
@@ -105,7 +110,7 @@ function perbaruiTombolSubmit() {
     document.getElementById('btnSubmitTiket').disabled = !siap;
 
     let hint = '';
-    if (statusForm === 'selesai') hint = 'Tiket sudah dibuat. Gunakan tombol Cetak QR Code di atas.';
+    if (statusForm === 'selesai') hint = 'Tiket sudah dibuat. Gunakan tombol Cetak QR di atas.';
     else if (statusForm === 'validasi' && !adaSupir) hint = 'Silakan pilih supir: Mulai Scan Wajah, Tambah Supir (supir baru), atau Ubah Supir.';
     else if (statusForm === 'validasi' && !siap) hint = 'Silakan scan wajah supir. Tombol Buat Tiket aktif setelah supir terverifikasi.';
     else if (siap) hint = supirTerverifikasi ? 'Supir terverifikasi. Klik Buat Tiket untuk menyimpan tiket.'
@@ -179,7 +184,7 @@ async function cariDO(noDo, diam = false) {
     const d = await ambilJson(`/api/do/${encodeURIComponent(noDo)}`);
     if (d.error) {                      // DO belum ada dari HO: isian yang sudah ada dibiarkan, diisi sendiri
         info.className = 'text-xs mt-1 text-amber-600';
-        info.textContent = `No DO ${noDo} belum ada dari HO / tidak aktif. Isi jenis transaksi, customer, dan produk sendiri.`;
+        info.textContent = `No. DO ${noDo} belum terdaftar di HO atau tidak aktif. Silakan isi jenis transaksi, customer, dan produk secara manual.`;
         sinkronInfoBarForm();
         return;
     }
@@ -231,7 +236,7 @@ window.addEventListener('platLookup', (e) => {
         : [d.driver_utama, d.driver].find(x => x && x.is_blacklisted) || null);
 });
 
-// ===== VALIDASI AWAL (buka section Informasi Driver) =====
+// ===== VALIDASI AWAL (buka section Informasi Supir) =====
 function mulaiValidasiAwal() {
     const wajib = ['formNoPlat', 'formNoTiket', 'formNoStnk', 'formJenisTransaksi', 'formSupplier', 'formProduk'];
     for (const id of wajib) {
@@ -431,7 +436,7 @@ function bukaModalUpdate() {
     openModal('modalUpdateData');
 }
 
-const MODE_UPDATE = { cari: 'Cari', edit: 'Edit', truk: 'Truk', kontrak: 'Kontrak' };
+const MODE_UPDATE = { cari: 'Cari', edit: 'Ubah', truk: 'Truk', kontrak: 'Kontrak' };
 
 function setModeUpdate(mode) {
     Object.entries(MODE_UPDATE).forEach(([m, nama]) => {
@@ -513,7 +518,7 @@ async function simpanEditIdentitas(btn) {
         || streamState['updateBlob'];
     if (!berubah) { Notif.info('Tidak ada perubahan yang perlu disimpan'); return; }
     const ok = await Dialog.konfirmasi({ judul: 'Simpan perubahan identitas?', teksYa: 'Simpan',
-        pesan: 'Perubahan identitas supir tercatat permanen di Audit Log dan supir ditandai "Pernah Diperbarui".' });
+        pesan: 'Perubahan identitas supir tercatat permanen di Log Audit dan supir ditandai "Pernah Diperbarui".' });
     if (!ok) return;
 
     const formData = new FormData();
@@ -542,7 +547,7 @@ async function submitCreateTiket(btn) {
     const kenaBlacklist = ['kendaraan', 'supir'].filter(j => blacklistForm[j]).map(j => blacklistForm[j].siapa);
     if (kenaBlacklist.length && !await Dialog.konfirmasi({
         judul: 'Masuk daftar blacklist', teksYa: 'Tetap buat tiket', teksBatal: 'Batal', bahaya: true,
-        pesan: `${kenaBlacklist.join(' dan ')} masuk daftar blacklist. Tetap buat tiket? Tercatat di Audit Log.` })) return;
+        pesan: `${kenaBlacklist.join(' dan ')} masuk daftar blacklist. Tetap buat tiket? Tercatat di Log Audit.` })) return;
 
     const formData = new FormData();
     ['no_tiket:formNoTiket', 'no_plat:formNoPlat', 'no_stnk:formNoStnk', 'no_do:formNoDo',
@@ -586,6 +591,20 @@ function isiDriver(dr) {
     document.getElementById('driverBadgeUpdate').classList.toggle('hidden', !dr.is_updated);
     kotakMerah(document.getElementById('fotoDriverBox'), !!dr.is_blacklisted);
     aturBlacklistSupir(dr);
+    tandaiPengemudiCocok(dr);
+}
+
+// Ringkasan perbandingan: supir sekarang sama (hijau) atau berbeda (kuning) dari supir terakhir truk ini.
+// Hanya keterangan; data supir utama truk tetap diubah lewat Ubah Supir.
+function tandaiPengemudiCocok(dr) {
+    const el = document.getElementById('pengemudiCocok');
+    const ada = dr && pengemudiTerakhir;
+    el.classList.toggle('hidden', !ada);
+    if (!ada) return;
+    const sama = String(dr.id_driver) === String(pengemudiTerakhir.id_driver);
+    el.className = `mt-2 text-xs font-semibold px-2 py-1 rounded-md ${sama ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`;
+    el.innerHTML = sama ? '<i class="fa-solid fa-circle-check mr-1"></i>Sama dengan supir terakhir truk ini'
+        : `<i class="fa-solid fa-triangle-exclamation mr-1"></i>Supir berbeda: ${escapeHtml(pengemudiTerakhir.nama)} → ${escapeHtml(dr.nama)}`;
 }
 
 // ===== CETAK QR =====

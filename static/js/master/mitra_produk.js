@@ -25,7 +25,7 @@ async function muatMitra() {
                 <button type="button" class="link-aksi ${s.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifMitra"
                     data-arg="${s.id_supplier}">${s.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
-        </tr>`).join('') || barisKosong(6, 'Belum ada supplier.');
+        </tr>`).join('') || barisKosong(6, 'Belum ada supplier', aksiKosong('bukaMitra', 'Tambah Supplier'));
     saringBaris('tabelMitra', document.getElementById('cariMitra').value);
 }
 
@@ -52,7 +52,7 @@ function ubahAktifMitra(id) {
     const s = daftarMitra.find(x => x.id_supplier === id);
     konfirmasiAktif({
         url: `/api/master/mitra/${id}/aktif`, aktif: !s.is_active, nama: s.nama_supplier, jenis: 'supplier',
-        pesanNonaktif: 'Tidak muncul lagi di pilihan Form pendaftaran tiket.', setelahnya: muatMitra,
+        pesanNonaktif: 'Tidak muncul lagi di pilihan formulir pendaftaran tiket.', setelahnya: muatMitra,
     });
 }
 
@@ -74,7 +74,7 @@ async function muatProduk() {
                 <button type="button" class="link-aksi ${p.is_active ? 'text-red-600' : 'text-emerald-600'}" data-on-click="ubahAktifProduk"
                     data-arg="${p.id_produk}">${p.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>` : ''}
             </td>
-        </tr>`).join('') || barisKosong(6, 'Belum ada produk');
+        </tr>`).join('') || barisKosong(6, 'Belum ada produk', aksiKosong('bukaProduk', 'Tambah Produk'));
 }
 
 function bukaProduk(id) {
@@ -96,6 +96,6 @@ function ubahAktifProduk(id) {
     const p = daftarProduk.find(x => x.id_produk === id);
     konfirmasiAktif({
         url: `/api/master/produk/${id}/aktif`, aktif: !p.is_active, nama: p.nama_produk, jenis: 'produk',
-        pesanNonaktif: 'Tidak muncul lagi di pilihan Form pendaftaran tiket.', setelahnya: muatProduk,
+        pesanNonaktif: 'Tidak muncul lagi di pilihan formulir pendaftaran tiket.', setelahnya: muatProduk,
     });
 }

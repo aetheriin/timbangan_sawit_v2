@@ -213,7 +213,7 @@ def pasang_blok_upload_publik(app):
 # ===== TOKEN PERANGKAT (kiosk kamera) =====
 def _token_valid():
     kiriman = request.headers.get("X-Kiosk-Token", "")
-    # 1) Token per pos dari Admin > Perangkat / Kiosk
+    # 1) Token per pos dari Admin > Perangkat / Kios
     if kiosk.token_cocok(id_pos(), kiriman):
         return True
     # 2) Token bersama di .env (cara lama)

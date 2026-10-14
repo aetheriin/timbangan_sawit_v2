@@ -13,15 +13,15 @@ CACHE_DETIK = 30
 
 # kunci: (label, grup, tipe, bawaan, min, maks, keterangan)
 DEFINISI = {
-    "WAJIB_SCAN_WAJAH": ("Wajib scan wajah supir", "Face Recognition", "bool", "true", None, None,
+    "WAJIB_SCAN_WAJAH": ("Wajib scan wajah supir", "Pengenalan Wajah", "bool", "true", None, None,
                          "Tiket hanya bisa dibuat setelah wajah supir terverifikasi"),
-    "AMBANG_WAJAH": ("Ambang kemiripan wajah", "Face Recognition", "float", "0.45", 0.30, 0.70,
+    "AMBANG_WAJAH": ("Ambang kemiripan wajah", "Pengenalan Wajah", "float", "0.45", 0.30, 0.70,
                      "Jarak maksimal wajah dianggap sama. Kecil = lebih ketat (0.40-0.50 disarankan)"),
-    "TANTANGAN_SECURITY": ("Tantangan wajah di Form Security", "Face Recognition", "bool", "true", None, None,
+    "TANTANGAN_SECURITY": ("Tantangan wajah di Form Security", "Pengenalan Wajah", "bool", "true", None, None,
                            "Aktif: supir mengikuti tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
-    "TANTANGAN_ABSENSI": ("Tantangan wajah saat absensi", "Face Recognition", "bool", "true", None, None,
+    "TANTANGAN_ABSENSI": ("Tantangan wajah saat absensi", "Pengenalan Wajah", "bool", "true", None, None,
                           "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
-    "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Face Recognition", "bool", "false", None, None,
+    "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Pengenalan Wajah", "bool", "false", None, None,
                        "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
     "TOLERANSI_KELEBIHAN_DO": ("Toleransi kelebihan DO (kg)", "Kelebihan DO", "int", "0", 0, 1000000,
                                "Kelebihan sampai angka ini masih diterima di DO yang sama (tanpa tiket baru & notifikasi). "

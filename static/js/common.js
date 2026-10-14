@@ -29,9 +29,9 @@ function formatNamaPersonel(kode, id, nama) {
 }
 
 const LABEL_KATEGORI = {
-    DRIVER: ['DRIVER', 'bg-blue-100 text-blue-700'],
+    DRIVER: ['SUPIR', 'bg-blue-100 text-blue-700'],
     SECURITY: ['SECURITY', 'bg-slate-900 text-white'],
-    EMPLOYEE: ['EMPLOYEE HO', 'bg-slate-200 text-slate-600'],
+    EMPLOYEE: ['KARYAWAN HO', 'bg-slate-200 text-slate-600'],
     TAMU: ['TAMU', 'bg-amber-100 text-amber-700'],
 };
 
@@ -67,10 +67,10 @@ function labelKode(kode) {
 const LABEL_STATUS_TIKET = {
     SECURITY_REGISTER: ['Registrasi Security', 'bg-amber-100 text-amber-700'],
     TIMBANG_1: ['Timbang 1', 'bg-blue-100 text-blue-700'],
-    TIMBANG_2: ['Timbang 2', 'bg-indigo-100 text-indigo-700'],
+    TIMBANG_2: ['Timbang 2', 'bg-blue-100 text-blue-700'],
     SELESAI: ['Selesai', 'bg-emerald-100 text-emerald-700'],
     REJECTED: ['Ditolak', 'bg-red-100 text-red-700'],
-    VOID: ['Void', 'bg-slate-200 text-slate-500'],
+    VOID: ['Dibatalkan', 'bg-slate-200 text-slate-500'],
 };
 
 function labelStatusTiket(status) {
@@ -98,8 +98,18 @@ function catatanBatas(tbody, jumlah, batas, kolom) {
         Menampilkan ${batas} data terbaru. Gunakan pencarian / filter untuk data lain.</td></tr>`);
 }
 
-function barisKosong(kolom, teks) {
-    return `<tr><td colspan="${kolom}" class="table-cell text-slate-400 text-center py-8">${escapeHtml(teks)}</td></tr>`;
+// Baris tabel kosong: ikon + teks, opsional tombol aksi { label, fungsi, arg } (mis. "Tambah Blacklist")
+function barisKosong(kolom, teks, aksi = null) {
+    const tombol = aksi ? `<button type="button" class="btn-primary btn-sm mt-3" data-on-click="${escapeHtml(aksi.fungsi)}"
+        ${aksi.arg != null ? `data-arg="${escapeHtml(aksi.arg)}"` : ''}><i class="fa-solid fa-plus"></i> ${escapeHtml(aksi.label)}</button>` : '';
+    return `<tr><td colspan="${kolom}" class="table-cell text-center py-10">
+        <i class="fa-regular fa-folder-open text-2xl text-slate-300"></i>
+        <p class="text-sm text-slate-500 mt-2">${escapeHtml(teks)}</p>${tombol}</td></tr>`;
+}
+
+// Tombol aksi untuk tabel kosong, hanya bila tombol tambahnya memang tampil di halaman (sesuai hak akses)
+function aksiKosong(fungsi, label) {
+    return document.querySelector(`button[data-on-click="${fungsi}"]`) ? { fungsi, label } : null;
 }
 
 // Filter chip: aktifkan chip yang diklik di dalam grupnya
@@ -118,8 +128,8 @@ function tiketPunyaTahap(t, kode) {
 // Berlaku juga untuk baris yang dirender belakangan (MutationObserver). Label yang tidak dikenal tetap berupa teks.
 const IKON_AKSI = {
     'Ubah': 'fa-pen', 'Edit': 'fa-pen', 'Hapus': 'fa-trash-can', 'Nonaktifkan': 'fa-toggle-off', 'Aktifkan': 'fa-toggle-on',
-    'Reset Password': 'fa-key', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
-    'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban',
+    'Atur Ulang Password': 'fa-key', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
+    'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban', 'Batalkan': 'fa-ban',
     'Lampirkan Surat': 'fa-paperclip', 'Lampirkan BA': 'fa-paperclip', 'Lampirkan': 'fa-paperclip', 'Lihat Surat': 'fa-file-lines',
     'Tetapkan': 'fa-circle-check', 'Kembalikan': 'fa-rotate-left', 'Isi DO Baru': 'fa-file-pen', 'Ganti Token': 'fa-key',
     'Data mentah': 'fa-wave-square', 'Buka Kunci': 'fa-lock-open',

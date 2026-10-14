@@ -5,7 +5,7 @@ PREFIX_KODE = "PRGBS-"      # format sementara (keputusan 4), tidak dikunci CHEC
 KATEGORI_VALID = ("DRIVER", "SECURITY", "EMPLOYEE", "TAMU")     # = isi awal tabel kategori_personel
 WAJIB_SIM = ("DRIVER",)
 
-# kolom audit -> label yang ditampilkan di menu Audit Log
+# kolom audit -> label yang ditampilkan di menu Log Audit
 KOLOM_AUDIT = (
     ("kode_personel", "kode_personel_lama", "kode_personel_baru"),
     ("nik", "nik_lama", "nik_baru"),

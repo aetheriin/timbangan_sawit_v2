@@ -1,17 +1,18 @@
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="mitra" class="hidden">
-    <div class="section-box">
-        {% call section_header('master-mitra', 'Customer & Pengangkutan') %}
-        <div class="flex items-center gap-2" data-henti-klik>
-            <div class="relative">
-                <input type="text" id="cariMitra" placeholder="Cari kode / nama" class="input-field py-1.5 pl-9 w-56" data-on-input="cariMitra" data-arg="$value">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-            </div>
-            {% if hak.mitra.tambah %}
-            <button type="button" class="btn-primary py-1.5" data-on-click="bukaMitra"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
-            {% endif %}
+    <div class="filter-bar">
+        <p class="text-sm text-slate-500">Satu supplier boleh berperan sebagai customer dan/atau pengangkutan.</p>
+        <div class="flex-1"></div>
+        <div class="relative">
+            <input type="text" id="cariMitra" placeholder="Cari kode / nama" class="input-field pl-9 w-64" data-on-input="cariMitra" data-arg="$value">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
         </div>
-        {% endcall %}
+        {% if hak.mitra.tambah %}
+        <button type="button" class="btn-primary" data-on-click="bukaMitra"><i class="fa-solid fa-plus mr-1"></i> Tambah Supplier</button>
+        {% endif %}
+    </div>
+    <div class="section-box">
+        {{ section_header('master-mitra', 'Daftar Supplier') }}
         <div id="body-master-mitra" class="section-body overflow-x-auto">
             <table class="w-full text-left text-sm">
                 <thead class="table-header-row">

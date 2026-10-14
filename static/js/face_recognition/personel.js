@@ -11,8 +11,8 @@ let fotoPersonel = null;
 let sumberFotoPersonel = 'UPLOAD';
 let idPersonelHapus = null;
 
-const LABEL_SUMBER_FOTO = { UPLOAD: 'Upload', KAMERA: 'Kamera' };
-// Data Master > Driver: hanya satu kategori (tanpa chip filter, kategori di modal terkunci)
+const LABEL_SUMBER_FOTO = { UPLOAD: 'Unggah', KAMERA: 'Kamera' };
+// Data Master > Supir: hanya satu kategori (tanpa chip filter, kategori di modal terkunci)
 const KATEGORI_TETAP = document.querySelector('[data-tab-content="personel"]')?.dataset.kategoriTetap || '';
 if (KATEGORI_TETAP) filterPersonelAktif = KATEGORI_TETAP;
 
@@ -54,10 +54,10 @@ async function muatPersonel() {
             <td class="table-cell">${LABEL_SUMBER_FOTO[p.foto_sumber] || '-'}</td>
             <td class="table-cell space-x-1">${p.is_blacklisted ? badge('BLACKLIST', WARNA_BADGE.merah) : badge('Aktif', WARNA_BADGE.hijau)}${badgeSim(p)}</td>
             <td class="table-cell text-right space-x-2 whitespace-nowrap">${tbody.dataset.bolehUbah === '0' ? '' : `
-                <button type="button" data-on-click="bukaEditPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-blue-600">Edit</button>
+                <button type="button" data-on-click="bukaEditPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-blue-600">Ubah</button>
                 ${p.is_blacklisted ? '' : `<button type="button" data-on-click="bukaHapusPersonel" data-arg="${Number(p.id_personel)}" class="link-aksi text-red-600">Hapus</button>`}`}
             </td>
-        </tr>`).join('') || barisKosong(8, 'Belum ada personel');
+        </tr>`).join('') || barisKosong(8, 'Belum ada personel', aksiKosong('bukaTambahPersonel', 'Tambah Personel'));
     catatanBatas(tbody, data.length, 200, 8);
 }
 
@@ -93,7 +93,7 @@ async function bukaTambahPersonel() {
     modePersonel = 'tambah';
     idPersonelEdit = null;
     resetFormPersonel();
-    document.getElementById('personelJudul').textContent = KATEGORI_TETAP === 'DRIVER' ? 'Tambah Driver' : 'Tambah Personel';
+    document.getElementById('personelJudul').textContent = KATEGORI_TETAP === 'DRIVER' ? 'Tambah Supir' : 'Tambah Personel';
     document.getElementById('personelSubjudul').textContent = '';
     document.getElementById('personelNoteUpdate').classList.add('hidden');
     document.getElementById('btnSimpanPersonel').textContent = 'Simpan';
@@ -123,7 +123,7 @@ async function bukaEditPersonel(id) {
     modePersonel = 'update';
     idPersonelEdit = id;
     resetFormPersonel();
-    document.getElementById('personelJudul').textContent = 'Update Personel';
+    document.getElementById('personelJudul').textContent = 'Ubah Personel';
     document.getElementById('personelSubjudul').textContent = formatNamaPersonel(p.kode_personel, p.id_personel, p.nama_personel);
     document.getElementById('personelNoteUpdate').classList.remove('hidden');
     document.getElementById('btnSimpanPersonel').textContent = 'Simpan Perubahan';
@@ -169,7 +169,7 @@ async function setSumberFoto(sumber) {
         try {
             await Kamera.mulai(document.getElementById('personelVideo'));
         } catch (err) {
-            Notif.gagal('Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan Upload Foto.');
+            Notif.gagal('Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan Unggah Foto.');
             setSumberFoto('UPLOAD');
         }
     } else {

@@ -1,4 +1,4 @@
-"""Kunjungan tamu (Face Recognition › Kunjungan Tamu). Tamu = personel kategori TAMU (tanpa akun);
+"""Kunjungan tamu (Pengenalan Wajah › Kunjungan Tamu). Tamu = personel kategori TAMU (tanpa akun);
 setiap kedatangan satu baris kunjungan: orang yang dituju, keperluan, waktu masuk / keluar."""
 from datetime import date, datetime, timedelta
 

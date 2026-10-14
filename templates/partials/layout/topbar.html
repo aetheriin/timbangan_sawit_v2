@@ -1,5 +1,5 @@
 {# Header putih: breadcrumb halaman, tombol cari (Ctrl+K, static/js/cari.js), aksi cepat, notifikasi, user. #}
-{% set JUDUL = {'dashboard': 'Dashboard', 'face': 'Face Recognition', 'kontrak': 'Kontrak & DO', 'master': 'Data Master',
+{% set JUDUL = {'dashboard': 'Dashboard', 'face': 'Pengenalan Wajah', 'kontrak': 'Kontrak & DO', 'master': 'Data Master',
                 'blacklist': 'Blacklist', 'tamu': 'Buku Tamu', 'kelebihan_do': 'Kelebihan DO'} %}
 {% if halaman == 'site' %}{% set judul_halaman = 'Stasiun Timbang' if view == 'form' else 'Daftar Tiket' %}
 {% elif admin_aktif %}{% set judul_halaman = judul %}
@@ -10,7 +10,7 @@
             <i class="fa-solid fa-bars"></i>
         </button>
         <nav class="flex items-center gap-2 text-sm min-w-0">
-            <span class="font-bold text-slate-900">Weighbridge</span>
+            <span class="font-bold text-slate-900">Jembatan Timbang</span>
             {% if current_user.is_admin %}<span class="text-slate-300">/</span><span class="font-semibold text-slate-500">Admin</span>{% endif %}
             {% if judul_halaman %}<span class="text-slate-300">/</span><span class="font-bold text-slate-900 truncate">{{ judul_halaman }}</span>{% endif %}
         </nav>
@@ -19,7 +19,7 @@
     {% if current_user.is_authenticated %}
     <button type="button" id="btnCari" data-on-click="bukaCari" class="topbar-cari" title="Cari (Ctrl+K)">
         <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-        <span class="flex-1 truncate">{{ 'Cari user atau menu…' if current_user.is_admin else 'Cari plat, tiket, DO, supir…' }}</span>
+        <span class="flex-1 truncate">{{ 'Cari pengguna atau menu…' if current_user.is_admin else 'Cari plat, tiket, DO, supir…' }}</span>
         <kbd class="topbar-kbd">Ctrl K</kbd>
     </button>
 

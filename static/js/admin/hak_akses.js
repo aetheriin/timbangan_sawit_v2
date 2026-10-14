@@ -18,7 +18,7 @@ async function muatLevel() {
                     <p class="text-xs text-slate-500 mt-0.5">Halaman awal: ${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</p>
                     ${lv.keterangan ? `<p class="text-xs text-slate-500 mt-1">${escapeHtml(lv.keterangan)}</p>` : ''}
                 </div>
-                <span class="text-xs font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex-shrink-0">${Number(lv.jumlah_user)} User</span>
+                <span class="text-xs font-mono font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded flex-shrink-0">${Number(lv.jumlah_user)} Pengguna</span>
             </div>
             <div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                 ${badgeAktif(lv.is_active)}
@@ -87,7 +87,7 @@ function ubahAktifLevel(id) {
     const lv = daftarLevel.find(x => x.id_level === id);
     konfirmasiAktif({
         url: `/api/admin/level/${id}/aktif`, aktif: !lv.is_active, nama: `Level ${lv.nama}`, jenis: 'level',
-        pesanNonaktif: 'User dengan level ini tidak bisa login dan sesinya langsung berakhir.', setelahnya: muatLevel,
+        pesanNonaktif: 'Pengguna dengan level ini tidak bisa login dan sesinya langsung berakhir.', setelahnya: muatLevel,
     });
 }
 

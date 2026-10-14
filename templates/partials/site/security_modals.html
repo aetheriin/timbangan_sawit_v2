@@ -9,7 +9,7 @@
             <div>
                 <label class="field-label" for="tambahKode">Kode Personel</label>
                 <input type="text" id="tambahKode" readonly class="input-field bg-slate-50 font-mono" placeholder="otomatis">
-                <p class="field-hint">Dibuat otomatis saat disimpan (urutan kategori Driver)</p>
+                <p class="field-hint">Dibuat otomatis saat disimpan (urutan kategori Supir)</p>
             </div>
             <div>
                 <label class="field-label">Nama Lengkap</label>
@@ -42,13 +42,13 @@
 <div id="modalUpdateData" class="modal-overlay">
     <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
         <div class="modal-header">
-            <h3 class="font-bold">Update Supir & Truk <span id="updJudulPlat" class="font-normal text-slate-300"></span></h3>
+            <h3 class="font-bold">Ubah Supir & Truk <span id="updJudulPlat" class="font-normal text-slate-300"></span></h3>
             <button data-on-click="tutupModalUpdate" title="Tutup"><i class="fa-solid fa-xmark"></i> <span class="text-xs">Tutup</span></button>
         </div>
 
         <div class="grid grid-cols-4">
             <button id="tabModeCari" data-on-click="setModeUpdate" data-arg="cari" class="modal-tab modal-tab-active">Ganti Supir</button>
-            <button id="tabModeEdit" data-on-click="setModeUpdate" data-arg="edit" class="modal-tab">Edit Data Supir</button>
+            <button id="tabModeEdit" data-on-click="setModeUpdate" data-arg="edit" class="modal-tab">Ubah Data Supir</button>
             <button id="tabModeTruk" data-on-click="setModeUpdate" data-arg="truk" class="modal-tab">Supir Truk</button>
             <button id="tabModeKontrak" data-on-click="setModeUpdate" data-arg="kontrak" class="modal-tab">Kontrak Truk</button>
         </div>
@@ -96,7 +96,7 @@
 
         <!-- MODE: SUPIR TRUK (truk sama, supir beda) -->
         <div id="panelModeTruk" class="hidden">
-            <p class="px-6 pt-4 text-xs text-slate-500">Daftar supir yang biasa membawa truk ini. Supir <b>utama</b> otomatis disarankan saat Create Ticket.</p>
+            <p class="px-6 pt-4 text-xs text-slate-500">Daftar supir yang biasa membawa truk ini. Supir <b>utama</b> otomatis disarankan saat pendaftaran tiket.</p>
             <table class="w-full text-left text-sm mt-2">
                 <thead class="table-header-row">
                     <tr><th class="table-cell">Nama</th><th class="table-cell">NIK</th><th class="table-cell">Status</th>
@@ -136,7 +136,7 @@
             </table>
             <div class="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="field-label">Supplier / Buyer</label>
+                    <label class="field-label">Customer</label>
                     <select id="kkSupplier" class="input-field">
                         <option value="">-- Pilih --</option>
                         {% for s in supplier_list %}
@@ -199,11 +199,11 @@
     </div>
 </div>
 
-<!-- MODAL: Cetak QR Code -->
+<!-- MODAL: Cetak QR -->
 <div id="modalCetakQR" class="modal-overlay">
     <div class="modal-box">
         <div class="modal-header">
-            <h3 class="font-bold">Cetak QR Code</h3>
+            <h3 class="font-bold">Cetak QR</h3>
             <button data-on-click="closeModal" data-arg="modalCetakQR"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-4">

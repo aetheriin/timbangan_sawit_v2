@@ -2,8 +2,8 @@
 <div class="filter-bar">
     <div class="seg flex-wrap">
         {% for kode, label in [('', 'Semua'), ('LOGIN', 'Login'), ('LOGIN_GAGAL', 'Login Gagal'), ('LOGIN_TERKUNCI', 'Terkunci'),
-                               ('AKSES_DITOLAK', 'Akses Ditolak'), ('KIOSK_DITOLAK', 'Kiosk Ditolak'), ('CSRF_GAGAL', 'CSRF Gagal'),
-                               ('SESI_IDLE_HABIS', 'Sesi Habis'), ('PAKSA_KELUAR', 'Paksa Keluar'), ('RESET_PASSWORD', 'Reset Password')] %}
+                               ('AKSES_DITOLAK', 'Akses Ditolak'), ('KIOSK_DITOLAK', 'Kios Ditolak'), ('CSRF_GAGAL', 'CSRF Gagal'),
+                               ('SESI_IDLE_HABIS', 'Sesi Habis'), ('PAKSA_KELUAR', 'Paksa Keluar'), ('RESET_PASSWORD', 'Atur Ulang Password')] %}
         <button type="button" class="chip{% if loop.first %} chip-active{% endif %}" data-jenis="{{ kode }}" data-on-click="filterLog" data-arg="$el">{{ label }}</button>
         {% endfor %}
     </div>
@@ -21,7 +21,7 @@
     <div id="body-log-keamanan" class="section-body overflow-x-auto">
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
-                <tr><th class="table-cell">Waktu</th><th class="table-cell">Kejadian</th><th class="table-cell">User</th>
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">Kejadian</th><th class="table-cell">Pengguna</th>
                     <th class="table-cell">IP</th><th class="table-cell">Detail</th></tr>
             </thead>
             <tbody data-per-halaman="20" id="tabelLog" class="divide-y divide-slate-100"></tbody>

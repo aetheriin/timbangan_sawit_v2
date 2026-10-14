@@ -9,7 +9,7 @@
 
         <div class="p-6 space-y-4">
             <div id="personelNoteUpdate" class="note-warning hidden">
-                Perubahan tercatat di Audit Log (Perubahan Data Personel)
+                Perubahan tercatat di Log Audit (Perubahan Data Personel)
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-5">
@@ -17,7 +17,7 @@
                 <div class="space-y-3">
                     <p class="text-sm font-semibold text-slate-700">Foto Wajah</p>
                     <div class="seg">
-                        <button type="button" id="segUpload" class="seg-item seg-item-active" data-on-click="setSumberFoto" data-arg="UPLOAD">Upload Foto</button>
+                        <button type="button" id="segUpload" class="seg-item seg-item-active" data-on-click="setSumberFoto" data-arg="UPLOAD">Unggah Foto</button>
                         <button type="button" id="segKamera" class="seg-item" data-on-click="setSumberFoto" data-arg="KAMERA">Kamera</button>
                     </div>
 
@@ -111,8 +111,8 @@
         </div>
         <div class="p-6 space-y-4">
             <div id="hapusTarget" class="border border-slate-200 bg-slate-50 rounded-lg p-3 text-sm"></div>
-            <p class="text-sm text-slate-700">Hapus personel ini? Wajahnya tidak lagi dikenali saat scan absensi maupun Create Ticket.</p>
-            <div class="note-warning">Riwayat absensi & tiket tetap tersimpan, dan penghapusan tercatat di Audit Log.</div>
+            <p class="text-sm text-slate-700">Hapus personel ini? Wajahnya tidak lagi dikenali saat scan absensi maupun pendaftaran tiket.</p>
+            <div class="note-warning">Riwayat absensi & tiket tetap tersimpan, dan penghapusan tercatat di Log Audit.</div>
             <div class="flex gap-3">
                 <button type="button" data-on-click="closeModal" data-arg="modalHapusPersonel" class="btn-secondary flex-1">Batal</button>
                 <button type="button" id="btnKonfirmasiHapus" data-on-click="konfirmasiHapusPersonel" class="btn-danger flex-1">Hapus</button>

@@ -58,7 +58,7 @@ async function muatBlacklist() {
                 ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
                 : (!r.id_dokumen && bolehTambah ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '')}</td>
         </tr>`;
-    }).join('') || barisKosong(5, 'Belum ada blacklist');
+    }).join('') || barisKosong(5, 'Belum ada blacklist', aksiKosong('bukaTambahBlacklist', 'Tambah Blacklist'));
     catatanBatas(tbody, data.length, 200, 5);
 }
 

@@ -236,7 +236,7 @@ def void_tiket(no_tiket, alasan, user_id, berita_acara=None):
         cursor.execute("""UPDATE transaksi SET status_alur = 'VOID', is_qr_active = 0
                           WHERE no_tiket = ? AND status_alur <> 'VOID'""", no_tiket)
         if cursor.rowcount == 0:
-            raise ValueError("Tiket tidak ditemukan atau sudah di-void")
+            raise ValueError("Tiket tidak ditemukan atau sudah dibatalkan")
         cursor.execute("DELETE FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'REJECT'", no_tiket)
         cursor.execute("""INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, id_dokumen, oleh)
                           VALUES (?, 'VOID', ?, ?, ?)""", no_tiket, alasan, _ba(cursor, no_tiket, berita_acara, user_id), user_id)
@@ -256,7 +256,7 @@ def lampirkan_ba_void(no_tiket, berita_acara, user_id):
         cursor.execute("SELECT id_dokumen FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'VOID'", no_tiket)
         row = cursor.fetchone()
         if row is None:
-            raise ValueError("Tiket ini belum di-void")
+            raise ValueError("Tiket ini belum dibatalkan")
         if row.id_dokumen:
             raise ValueError("Berita acara sudah dilampirkan")
         cursor.execute("UPDATE pembatalan_tiket SET id_dokumen = ? WHERE no_tiket = ?",

@@ -28,11 +28,11 @@ function tampilkanUser() {
             <td class="table-cell">${escapeHtml(u.created_at || '-')}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3">
                 <button type="button" class="link-aksi text-blue-600" data-on-click="bukaUbahUser" data-arg="${u.id_user}">Ubah</button>
-                <button type="button" class="link-aksi text-amber-700" data-on-click="bukaResetPassword" data-arg="${u.id_user}">Reset Password</button>
+                <button type="button" class="link-aksi text-amber-700" data-on-click="bukaResetPassword" data-arg="${u.id_user}">Atur Ulang Password</button>
                 ${u.is_saya ? '' : `<button type="button" class="link-aksi ${u.is_active ? 'text-red-600' : 'text-emerald-600'}"
                     data-on-click="ubahAktifUser" data-arg="${u.id_user}">${u.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
             </td>
-        </tr>`).join('') || barisKosong(9, 'Belum ada user');
+        </tr>`).join('') || barisKosong(9, 'Belum ada pengguna', aksiKosong('bukaTambahUser', 'Tambah Pengguna'));
     saringBaris('tabelUser', document.getElementById('cariUser').value);
 }
 
@@ -53,7 +53,7 @@ function cariDataUser(id) {
 function siapkanModalUser(ubah) {
     const form = document.getElementById('formUser');
     form.reset();
-    document.getElementById('judulModalUser').textContent = ubah ? 'Ubah User' : 'Tambah User';
+    document.getElementById('judulModalUser').textContent = ubah ? 'Ubah Pengguna' : 'Tambah Pengguna';
     document.getElementById('blokPasswordUser').classList.toggle('hidden', ubah);
     document.getElementById('noteRoleUser').classList.toggle('hidden', !ubah);
     form.elements.username.readOnly = ubah;
@@ -100,6 +100,6 @@ function ubahAktifUser(id) {
     const u = cariDataUser(id);
     konfirmasiAktif({
         url: `/api/admin/users/${id}/aktif`, aktif: !u.is_active, nama: u.username, jenis: 'user',
-        pesanNonaktif: 'User tidak bisa login dan sesinya yang sedang aktif langsung berakhir.', setelahnya: muatUser,
+        pesanNonaktif: 'Pengguna tidak bisa login dan sesinya yang sedang aktif langsung berakhir.', setelahnya: muatUser,
     });
 }

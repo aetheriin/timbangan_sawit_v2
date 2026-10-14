@@ -119,7 +119,7 @@ function tampilkanHasilAbsen(d) {
         </div>
         <dl class="divide-y divide-slate-100 text-sm">
             ${[['Waktu scan', d.waktu], [`Jadwal ${d.jenis === 'MASUK' ? 'masuk' : 'pulang'}`, jadwal],
-               ['Jarak wajah', `${d.jarak_wajah} (ambang ≤ ${d.ambang})`], ['Liveness', `✓ Lolos (${d.tantangan})`]]
+               ['Jarak wajah', `${d.jarak_wajah} (ambang ≤ ${d.ambang})`], ['Uji wajah hidup', `✓ Lolos (${d.tantangan})`]]
               .map(([k, v]) => `<div class="flex justify-between py-2"><dt class="text-slate-500">${k}</dt><dd class="font-semibold text-slate-800">${escapeHtml(v)}</dd></div>`).join('')}
         </dl>`;
 }

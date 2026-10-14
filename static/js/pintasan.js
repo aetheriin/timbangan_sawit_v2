@@ -7,8 +7,8 @@
 const PINTASAN_MENU = [
     ['d', '/dashboard', 'Dashboard'],
     ['l', 'view=list', 'List'],
-    ['f', 'view=form', 'Form / Stasiun Timbang'],
-    ['r', '/face-recognition', 'Face Recognition'],
+    ['f', 'view=form', 'Stasiun Timbang'],
+    ['r', '/face-recognition', 'Pengenalan Wajah'],
     ['b', '/blacklist', 'Blacklist'],
     ['t', '/tamu', 'Tamu'],
     ['k', '/kontrak', 'Kontrak & DO'],

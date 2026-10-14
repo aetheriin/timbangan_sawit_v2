@@ -864,9 +864,9 @@ INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
     ('LAB',              N'Laboratorium',     0, '/weighbridge?tab=lab');
 INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('DASHBOARD',        N'Dashboard',        '/dashboard',            'fa-chart-line',    10),
-    ('LIST',             N'List',             '/weighbridge?view=list', 'fa-list',         20),
-    ('FORM',             N'Form',             '/weighbridge?view=form', 'fa-file-pen',     30),
-    ('FACE_RECOGNITION', N'Face Recognition', '/face-recognition',     'fa-face-smile',    40),
+    ('LIST',             N'Daftar Tiket',     '/weighbridge?view=list', 'fa-list',         20),
+    ('FORM',             N'Stasiun Timbang',  '/weighbridge?view=form', 'fa-file-pen',     30),
+    ('FACE_RECOGNITION', N'Pengenalan Wajah', '/face-recognition',     'fa-face-smile',    40),
     ('KONTRAK_DO',       N'Kontrak & DO',     '/kontrak',              'fa-file-contract', 50),
     ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
     ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
@@ -874,14 +874,14 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
-FROM (VALUES ('FORM_SECURITY',    N'Form › Security',          'FORM', 1),
-             ('FORM_TIMBANGAN',   N'Form › Timbangan',         'FORM', 2),
-             ('FORM_SORTASI',     N'Form › Sortasi',           'FORM', 3),
-             ('FORM_LAB',         N'Form › Laboratorium',      'FORM', 4),
-             ('ABSENSI',          N'Face Recognition › Absensi', 'FACE_RECOGNITION', 1),
-             ('PERSONEL',         N'Face Recognition › Personel', 'FACE_RECOGNITION', 2),
-             ('AUDIT_LOG',        N'Face Recognition › Audit Log', 'FACE_RECOGNITION', 4),
-             ('MASTER_DRIVER',    N'Data Master › Driver',     'MASTER', 1),
+FROM (VALUES ('FORM_SECURITY',    N'Stasiun Timbang › Security',          'FORM', 1),
+             ('FORM_TIMBANGAN',   N'Stasiun Timbang › Timbangan',         'FORM', 2),
+             ('FORM_SORTASI',     N'Stasiun Timbang › Sortasi',           'FORM', 3),
+             ('FORM_LAB',         N'Stasiun Timbang › Laboratorium',      'FORM', 4),
+             ('ABSENSI',          N'Pengenalan Wajah › Absensi', 'FACE_RECOGNITION', 1),
+             ('PERSONEL',         N'Pengenalan Wajah › Personel', 'FACE_RECOGNITION', 2),
+             ('AUDIT_LOG',        N'Pengenalan Wajah › Log Audit', 'FACE_RECOGNITION', 4),
+             ('MASTER_DRIVER',    N'Data Master › Supir',     'MASTER', 1),
              ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2),
              ('MASTER_MITRA',     N'Data Master › Supplier',   'MASTER', 3),
              ('MASTER_PRODUK',    N'Data Master › Produk',     'MASTER', 4)) v (kode, nama, induk, urutan)

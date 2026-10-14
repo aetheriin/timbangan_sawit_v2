@@ -1,4 +1,4 @@
-"""Query tabel blacklist (menu Face Recognition > Blacklist). Blacklist permanen: hanya tambah."""
+"""Query tabel blacklist (menu Pengenalan Wajah > Blacklist). Blacklist permanen: hanya tambah."""
 from datetime import date, datetime
 from utils.db_utils import get_connection, _rows_to_dicts
 from utils.dokumen import buat_dokumen

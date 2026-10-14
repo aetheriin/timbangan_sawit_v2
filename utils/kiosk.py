@@ -1,4 +1,4 @@
-"""Perangkat kiosk kamera per pos (menu Admin > Perangkat / Kiosk).
+"""Perangkat kiosk kamera per pos (menu Admin > Perangkat / Kios).
 
 Token asli hanya ditampilkan sekali saat dibuat / diganti; yang disimpan hash SHA-256.
 Kiosk mengirim header X-Kiosk-Id (= id_pos) dan X-Kiosk-Token. KIOSK_TOKEN di .env tetap berlaku

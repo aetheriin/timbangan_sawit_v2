@@ -32,7 +32,7 @@ async function muatTiketVoid() {
                 ? `${escapeHtml(t.alasan_void || '')}<div class="text-slate-400">${escapeHtml(t.void_oleh || '')} · ${escapeHtml(t.void_at || '')}</div>${keteranganBa(t)}` : '-'}</td>
             <td class="table-cell text-right whitespace-nowrap">${t.status_alur === 'VOID'
                 ? (t.id_dokumen ? '' : `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaBaVoid" data-arg="${escapeHtml(t.no_tiket)}">Lampirkan BA</button>`)
-                : `<button type="button" class="link-aksi text-red-600" data-on-click="bukaVoid" data-arg="${escapeHtml(t.no_tiket)}">Void</button>`}</td>
+                : `<button type="button" class="link-aksi text-red-600" data-on-click="bukaVoid" data-arg="${escapeHtml(t.no_tiket)}">Batalkan</button>`}</td>
         </tr>`).join('') || barisKosong(8, 'Tidak ada tiket pada rentang ini');
     catatanBatas(tbody, data.length, 500, 8);
 }

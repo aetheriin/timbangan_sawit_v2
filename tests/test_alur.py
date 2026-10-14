@@ -28,7 +28,7 @@ class TestAlur(unittest.TestCase):
 
     def test_menunggu_dan_tahap(self):
         self.assertEqual(alur.menunggu(1, "TIMBANG_1"), "sortasi")
-        self.assertEqual(alur.menunggu(2, "TIMBANG_1"), "hasil lab (Approve)")
+        self.assertEqual(alur.menunggu(2, "TIMBANG_1"), "hasil lab (Diterima)")
         self.assertEqual(alur.menunggu(1, "SECURITY_REGISTER"), "timbang masuk")
         self.assertTrue(alur.punya_tahap(2, "LAB"))
         self.assertFalse(alur.punya_tahap(1, "LAB"))

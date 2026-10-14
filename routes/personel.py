@@ -1,4 +1,4 @@
-"""Menu Face Recognition > Personel & Data Master > Driver: daftar, tambah, update, hapus (soft delete)."""
+"""Menu Pengenalan Wajah > Personel & Data Master > Driver: daftar, tambah, update, hapus (soft delete)."""
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
@@ -71,7 +71,7 @@ def _cek_role_kategori(aksi, *kategori):
     """Hak PERSONEL = semua kategori; hak MASTER_DRIVER saja (Data Master > Driver) = hanya kategori Driver."""
     if boleh("PERSONEL", aksi) or all(k == "DRIVER" for k in kategori):
         return None
-    return jsonify({"error": "Level Anda hanya bisa mengelola personel kategori Driver"}), 403
+    return jsonify({"error": "Level Anda hanya bisa mengelola personel kategori Supir"}), 403
 
 
 def _validasi(data, exclude_id=None):
@@ -209,7 +209,7 @@ def personel_update(id_personel):
     update_personel(id_personel, data["kode"], data["nik"], data["nama"], data["no_sim"], data["kategori"],
                     current_user.id, embedding_binary, relatif, data["foto_sumber"] if relatif else None,
                     data["id_jenis_sim"], data["sim_berlaku"])
-    return jsonify({"message": f"Data {data['nama']} berhasil diperbarui dan tercatat di Audit Log",
+    return jsonify({"message": f"Data {data['nama']} berhasil diperbarui dan tercatat di Log Audit",
                     "personel": get_personel(id_personel)})
 
 

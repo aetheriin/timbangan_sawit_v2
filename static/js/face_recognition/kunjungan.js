@@ -142,7 +142,7 @@ function tampilkanTamu(p) {
             <p class="font-semibold text-slate-800">${escapeHtml(p.nama_tampil)} ${badgeKategori(p.kategori)}</p>
             <p class="text-xs text-slate-500">NIK ${escapeHtml(p.nik)}${p.jarak_wajah != null ? ` · kemiripan ${escapeHtml(p.jarak_wajah)}` : ''}</p>
             ${p.is_blacklisted ? `<p><span class="px-2 py-0.5 rounded bg-red-600 text-white text-xs font-bold">BLACKLIST</span></p>
-                <p id="tamuInfoBlacklist" class="text-xs text-red-700">Masuk daftar blacklist · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Audit Log.</p>` : ''}
+                <p id="tamuInfoBlacklist" class="text-xs text-red-700">Masuk daftar blacklist · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Log Audit.</p>` : ''}
             ${masalah ? `<p class="text-xs font-semibold text-red-600">${escapeHtml(masalah)}</p>` : ''}
         </div>`;
     if (p.is_blacklisted) {
@@ -150,7 +150,7 @@ function tampilkanTamu(p) {
             const el = document.getElementById('tamuInfoBlacklist');
             if (!el || bl.error || !bl.oleh) return;
             el.textContent = `${bl.no_surat_blacklist ? `No. surat ${bl.no_surat_blacklist} · ` : ''}ditetapkan ${bl.tgl_blacklist} oleh ` +
-                `${bl.oleh}${bl.area_oleh ? ` (${bl.area_oleh})` : ''} · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Audit Log.`;
+                `${bl.oleh}${bl.area_oleh ? ` (${bl.area_oleh})` : ''} · berlaku di semua area. Tamu tetap bisa dicatat, tercatat di Log Audit.`;
         });
     }
     const form = document.getElementById('formKunjungan');
@@ -174,7 +174,7 @@ document.getElementById('formKunjungan')?.addEventListener('submit', async e => 
     e.preventDefault();
     const form = e.target;
     if (tamuBlacklist && !await Dialog.konfirmasi({ judul: 'Tamu masuk daftar blacklist', teksYa: 'Tetap catat masuk',
-        bahaya: true, pesan: `${tamuBlacklist} masuk daftar blacklist. Tetap catat masuk? Tercatat di Audit Log.` })) return;
+        bahaya: true, pesan: `${tamuBlacklist} masuk daftar blacklist. Tetap catat masuk? Tercatat di Log Audit.` })) return;
     const fd = new FormData(form);
     if (fotoTamu) fd.append('foto', fotoTamu, 'kunjungan.jpg');
     const data = await denganTombol(form.querySelector('[type=submit]'), () => kirimForm('/api/kunjungan/masuk', fd));
