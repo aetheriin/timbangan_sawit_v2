@@ -524,6 +524,7 @@ window.KAMUS_EN = {
 "Kontrak Truk": "Truck Contract",
 "Kontrak truk ini diakhiri mulai hari ini dan tidak lagi mengisi otomatis form tiket.": "This truck's contract ends today and will no longer auto-fill the ticket form.",
 "Kontrak, DO & laporan semua site": "Contracts, DOs & reports for all sites",
+"Kontrak, DO & laporan site": "Contracts, DOs & site reports",
 "Kosong": "Empty",
 "Kosong (di bawah {0} kg)": "Empty (below {0} kg)",
 "Krani mengisi No. DO dari Ascend (termasuk yang dikembalikan)": "The clerk fills in the DO No. from Ascend (including returned ones)",
