@@ -18,6 +18,12 @@
     {% include "partials/site/list_tiket.html" %}
 {% endblock %}
 
+{% block modals %}
+    {% if boleh_koreksi %}{% include "partials/site/koreksi_modal.html" %}{% endif %}
+    {% if boleh_koreksi or boleh_periksa %}{% include "partials/layout/persetujuan_modal.html" %}{% endif %}
+{% endblock %}
+
 {% block extra_scripts %}
 <script defer src="{{ url_for('static', filename='js/site/list.js') }}"></script>
+{% if boleh_koreksi or boleh_periksa %}<script defer src="{{ url_for('static', filename='js/persetujuan.js') }}"></script>{% endif %}
 {% endblock %}

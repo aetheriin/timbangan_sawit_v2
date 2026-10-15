@@ -4,7 +4,7 @@ from datetime import date
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils import db_kontrak as db
+from utils import db_kontrak as db, kolom_wajib
 from utils.db_utils import get_semua_produk
 from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.area import company_user
@@ -125,6 +125,7 @@ def do_simpan():
     f = request.form
     try:
         id_do = _id("id_do", wajib=False)
+        kolom_wajib.cek("KONTRAK_DO", f)
         d = {"no_do": (f.get("no_do") or "").strip().upper(), "no_kontrak": (f.get("no_kontrak") or "").strip().upper(),
              "jenis_transaksi": (f.get("jenis_transaksi") or "").strip().upper(),
              "id_customer": _id("id_customer"), "id_produk": _id("id_produk"),

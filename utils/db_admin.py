@@ -82,9 +82,9 @@ def tambah_user(username, id_level, id_department, id_comp_area, password_hash, 
     try:
         cursor = conn.cursor()
         id_personel = _simpan_personel_akun(cursor, personel)
-        cursor.execute("""INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password, id_personel,
-                                            masa_berlaku_password)
-                          OUTPUT INSERTED.id_user VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        cursor.execute("""SET NOCOUNT ON; INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password,
+                                                           id_personel, masa_berlaku_password)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
                        username, personel["nama"], id_level, id_department, id_comp_area, password_hash, id_personel, masa_berlaku)
         id_user = cursor.fetchone()[0]
         catat_riwayat_password(cursor, id_user, password_hash)
@@ -205,8 +205,8 @@ def simpan_supplier(id_supplier, kode, nama, peran, alamat=None, daftar_company=
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
         else:
-            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier, alamat) OUTPUT INSERTED.id_supplier VALUES (?, ?, ?)",
-                           kode, nama, alamat)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO mitra (kode_supplier, nama_supplier, alamat) VALUES (?, ?, ?);
+                              SELECT CAST(SCOPE_IDENTITY() AS INT)""", kode, nama, alamat)
             id_supplier = cursor.fetchone()[0]
         cursor.execute("DELETE FROM mitra_peran WHERE id_supplier = ?", id_supplier)
         for p in peran:

@@ -20,9 +20,11 @@ from utils.db_utils import get_connection, _rows_to_dicts
 JENIS = {
     "BLACKLIST_TAMBAH": "Tambah blacklist",
     "BLACKLIST_HAPUS": "Hapus blacklist",
+    "KOREKSI_TIKET": "Koreksi tiket",
 }
-MENU_JENIS = {"BLACKLIST_TAMBAH": "BLACKLIST", "BLACKLIST_HAPUS": "BLACKLIST"}       # hak Setujui dicek di menu ini
-TAUTAN_MENU = {"BLACKLIST": "/blacklist?tab=persetujuan"}
+MENU_JENIS = {"BLACKLIST_TAMBAH": "BLACKLIST", "BLACKLIST_HAPUS": "BLACKLIST",       # hak Setujui dicek di menu ini
+              "KOREKSI_TIKET": "LIST"}
+TAUTAN_MENU = {"BLACKLIST": "/blacklist?tab=persetujuan", "LIST": "/weighbridge?view=list&bagian=koreksi"}
 _PELAKSANA, _SAAT_DITOLAK = {}, {}
 
 
@@ -235,7 +237,7 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
             "alasan": r["alasan"], "pengaju": r["pengaju"], "company": r["kode_company"], "site": r["site"],
             "waktu": r["created_at"].strftime("%Y-%m-%d %H:%M"), "bisa_setujui": bisa,
             "bisa_batal": r["status"] == "MENUNGGU" and r["diajukan_oleh"] == user.id,
-            "riwayat": riwayat.get(r["id_pengajuan"], []),
+            "riwayat": riwayat.get(r["id_pengajuan"], []), "rincian": r["data"].get("_rincian", []),
         })
     return hasil
 

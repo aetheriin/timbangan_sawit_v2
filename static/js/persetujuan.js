@@ -1,7 +1,10 @@
-// ===== TAB PERSETUJUAN (Blacklist): setujui / tolak pengajuan tambah & hapus blacklist =====
-// Penyetuju = jabatan dengan hak Setujui di menu Blacklist, PT yang sama. ?tab=persetujuan&id=<id> (dari
-// notifikasi): pengajuan itu disorot; bila tidak ada di daftar awal, daftar "Semua pengajuan" yang dibuka.
-let modePersetujuan = document.getElementById('daftarPengajuan')?.dataset.modeAwal || 'saya';
+// ===== DAFTAR PENGAJUAN: setujui / tolak (tab Persetujuan di Blacklist, bagian Pengajuan Koreksi di Daftar Tiket) =====
+// Penyetuju = jabatan dengan hak Setujui di menu itu (data-menu), PT yang sama. ?id=<id> (dari notifikasi): pengajuan
+// itu disorot; bila tidak ada di daftar awal, daftar "Semua pengajuan" yang dibuka.
+// data-muat-langsung: dimuat saat halaman dibuka (tanpa tab).
+const wadahPengajuan = document.getElementById('daftarPengajuan');
+const menuPersetujuan = wadahPengajuan?.dataset.menu || 'BLACKLIST';
+let modePersetujuan = wadahPengajuan?.dataset.modeAwal || 'saya';
 let persetujuanDimuat = false;
 let dataPengajuan = [];
 let putusan = null;              // { id, aksi: 'setujui' | 'tolak' }
@@ -11,14 +14,17 @@ const WARNA_STATUS = { MENUNGGU: WARNA_BADGE.oranye, DISETUJUI: WARNA_BADGE.hija
 const LABEL_STATUS = { MENUNGGU: 'Menunggu', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
 const LABEL_AKSI = { DIAJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
 
-window.addEventListener('tabChange', async e => {
-    if (e.detail !== 'persetujuan' || persetujuanDimuat) return;
+async function mulaiPengajuan() {
+    if (persetujuanDimuat) return;
     persetujuanDimuat = true;
     await muatPengajuan();
     if (idSorot && !dataPengajuan.some(p => p.id_pengajuan === idSorot)) {
         pilihModePersetujuan(document.querySelector('[data-mode="semua"]'));
     }
-});
+}
+
+window.addEventListener('tabChange', e => { if (e.detail === 'persetujuan') mulaiPengajuan(); });
+document.addEventListener('DOMContentLoaded', () => { if (wadahPengajuan?.dataset.muatLangsung) mulaiPengajuan(); });
 
 function pilihModePersetujuan(el) {
     aktifkanChip(el);
@@ -27,7 +33,7 @@ function pilihModePersetujuan(el) {
 }
 
 async function muatPengajuan() {
-    const data = await ambilJson(`/api/persetujuan?menu=BLACKLIST&mode=${modePersetujuan}`);
+    const data = await ambilJson(`/api/persetujuan?menu=${menuPersetujuan}&mode=${modePersetujuan}`);
     const wadah = document.getElementById('daftarPengajuan');
     if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
     dataPengajuan = data;
@@ -43,6 +49,8 @@ function kartuPengajuan(p) {
     const riwayat = p.riwayat.map(r => `<li><span class="font-mono text-slate-400">${escapeHtml(r.waktu)}</span> ·
         ${escapeHtml(LABEL_AKSI[r.aksi] || r.aksi)}${r.langkah ? ` (langkah ${r.langkah})` : ''} oleh ${escapeHtml(r.oleh)}${r.catatan ? ` — ${escapeHtml(r.catatan)}` : ''}</li>`).join('');
     const jenisBahaya = p.jenis === 'BLACKLIST_TAMBAH';
+    const rincian = (p.rincian || []).map(r => `<li><span class="text-slate-500">${escapeHtml(r.label)}:</span>
+        <span class="line-through text-red-600">${escapeHtml(r.lama || '-')}</span> → <span class="text-emerald-700 font-semibold">${escapeHtml(r.baru || '-')}</span></li>`).join('');
     return `<div id="pengajuan-${p.id_pengajuan}" class="card p-4 space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-1">
@@ -51,6 +59,7 @@ function kartuPengajuan(p) {
                     <span class="text-xs text-slate-400 font-mono">#${p.id_pengajuan}</span>
                 </div>
                 <p class="font-bold text-slate-900">${escapeHtml(p.judul)}</p>
+                ${rincian ? `<ul class="text-sm space-y-0.5">${rincian}</ul>` : ''}
                 ${p.alasan ? `<p class="text-sm text-slate-600">Alasan: ${escapeHtml(p.alasan)}</p>` : ''}
                 <p class="text-xs text-slate-500">Diajukan ${escapeHtml(p.pengaju)} · ${escapeHtml(p.company)} · ${escapeHtml(p.site)} · ${escapeHtml(p.waktu)}</p>
             </div>
@@ -91,6 +100,7 @@ document.getElementById('formPutusan').addEventListener('submit', async e => {
     closeModal('modalPutusan');
     muatPengajuan();
     if (typeof muatBlacklist === 'function' && blacklistDimuat) muatBlacklist();
+    if (typeof muatHistoryProduk === 'function') muatHistoryProduk();
     if (typeof muatNotifikasi === 'function') muatNotifikasi();
 });
 

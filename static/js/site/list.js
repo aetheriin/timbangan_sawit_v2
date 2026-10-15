@@ -87,6 +87,7 @@ async function muatHistoryProduk() {
     const tbody = document.getElementById('tabelHistoryProduk');
     if (data.error) { tbody.innerHTML = barisKosong(10, data.error); return; }
     const bolehPeriksa = tbody.dataset.bolehPeriksa === '1';
+    const bolehKoreksi = tbody.dataset.bolehKoreksi === '1';
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell">${duaBaris(escapeHtml(r.no_tiket), escapeHtml(r.created_at), true)}</td>
@@ -102,7 +103,9 @@ async function muatHistoryProduk() {
             <td class="table-cell text-right whitespace-nowrap space-x-3">${TIKET_SELESAI_LIST.includes(r.status_alur) ? '' :
                 `<a class="aksi-ikon" title="Cetak QR tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>`}${
                 bolehPeriksa && r.status_alur === 'SELESAI' && !r.diperiksa_pada
-                ? `<button type="button" class="link-aksi text-emerald-700" data-on-click="periksaTiket" data-arg="${escapeHtml(r.no_tiket)}">Periksa</button>` : ''}
+                ? `<button type="button" class="link-aksi text-emerald-700" data-on-click="periksaTiket" data-arg="${escapeHtml(r.no_tiket)}">Periksa</button>` : ''}${
+                bolehKoreksi && r.status_alur !== 'VOID'
+                ? `<button type="button" class="link-aksi text-amber-700" data-on-click="bukaKoreksi" data-arg="${escapeHtml(r.no_tiket)}">Ajukan Koreksi</button>` : ''}
             </td>
         </tr>`).join('') || barisKosong(10, 'Belum ada transaksi 7 hari terakhir');
     const total = data.reduce((a, r) => a + (Number(r.berat_netto) || 0), 0);
@@ -138,3 +141,44 @@ async function periksaTiket(noTiket) {
     if (!ok) return;
     if (tampilkanHasil(await kirimForm(`/api/tiket/${encodeURIComponent(noTiket)}/periksa`, {}))) muatHistoryProduk();
 }
+
+// ===== AJUKAN KOREKSI TIKET =====
+let noKoreksi = null;
+
+async function bukaKoreksi(noTiket) {
+    const data = await ambilJson(`/api/tiket/${encodeURIComponent(noTiket)}/koreksi`);
+    if (data.error) { Notif.gagal(data.error); return; }
+    noKoreksi = noTiket;
+    const t = data.tiket;
+    const isi = (id, daftar, pilih) => {
+        const sel = document.getElementById(id);
+        [...sel.options].filter(o => o.value !== '').forEach(o => o.remove());
+        daftar.forEach(o => sel.add(new Option(o.nama, o.id)));
+        sel.value = String(pilih);
+    };
+    document.getElementById('formKoreksi').reset();
+    isi('korCustomer', data.customer, t.id_supplier);
+    isi('korProduk', data.produk, t.id_produk);
+    isi('korSupir', data.supir, t.id_driver);
+    document.getElementById('korPlat').value = t.no_plat;
+    document.getElementById('noTiketKoreksi').textContent = noTiket;
+    openModal('modalKoreksi');
+    document.getElementById('korAlasan').focus();
+}
+
+document.getElementById('formKoreksi')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('[type=submit]');
+    const data = await denganTombol(btn, () => kirimForm(`/api/tiket/${encodeURIComponent(noKoreksi)}/koreksi`, new FormData(e.target)));
+    if (!tampilkanHasil(data)) return;
+    closeModal('modalKoreksi');
+    muatHistoryProduk();
+    if (typeof muatPengajuan === 'function') muatPengajuan();
+});
+
+// Dari notifikasi (?bagian=koreksi): langsung ke bagian Pengajuan Koreksi
+document.addEventListener('DOMContentLoaded', () => {
+    if (new URLSearchParams(location.search).get('bagian') === 'koreksi') {
+        setTimeout(() => document.getElementById('bagianKoreksi')?.scrollIntoView({ block: 'start' }), 600);
+    }
+});

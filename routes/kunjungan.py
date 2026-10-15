@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from utils import pengaturan
-from utils import db_kunjungan as db
+from utils import db_kunjungan as db, kolom_wajib
 from utils.audit_utils import catat_security_audit
 from utils.db_personel import get_personel, insert_personel, saran_kode_personel
 from utils.db_utils import cek_nik_ada
@@ -135,6 +135,7 @@ def kunjungan_masuk():
             raise ValueError(f"{p['nama_personel']} bukan tamu (kategori {p['kategori']})")
         if db.kunjungan_aktif(id_tamu):
             raise ValueError(f"{p['nama_personel']} masih tercatat di dalam. Silakan catat keluar terlebih dahulu.")
+        kolom_wajib.cek("TAMU", f)
         id_dituju = _id_pilihan("id_dituju", {d["id_personel"] for d in db.daftar_dituju()}, "orang yang dituju")
         id_keperluan = _id_pilihan("id_keperluan", {k["id_keperluan"] for k in db.daftar_keperluan()}, "keperluan")
         no_plat = None

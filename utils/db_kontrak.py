@@ -105,12 +105,12 @@ def simpan_do(id_do, d, angkutan, user_id):
                            d["no_do"], d["tanggal_do"], d["berlaku_sampai"], id_do)
             cursor.execute("DELETE FROM do_pengangkutan WHERE id_do = ?", id_do)
         else:
-            cursor.execute("""INSERT INTO kontrak (no_kontrak, jenis_transaksi, id_customer, id_produk, tanggal, qty_kg,
-                              harga_per_kg, keterangan, ppn, harga_termasuk_ppn, id_company, created_by) OUTPUT INSERTED.id_kontrak
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", *kontrak, user_id)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO kontrak (no_kontrak, jenis_transaksi, id_customer, id_produk, tanggal,
+                              qty_kg, harga_per_kg, keterangan, ppn, harga_termasuk_ppn, id_company, created_by)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""", *kontrak, user_id)
             id_kontrak = cursor.fetchone()[0]
-            cursor.execute("""INSERT INTO delivery_order (no_do, id_kontrak, tanggal_do, berlaku_sampai, created_by)
-                              OUTPUT INSERTED.id_do VALUES (?, ?, ?, ?, ?)""",
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO delivery_order (no_do, id_kontrak, tanggal_do, berlaku_sampai, created_by)
+                              VALUES (?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
                            d["no_do"], id_kontrak, d["tanggal_do"], d["berlaku_sampai"], user_id)
             id_do = cursor.fetchone()[0]
         for a in angkutan:
@@ -157,8 +157,8 @@ def id_pengangkutan_dari_nama(nama):
         else:
             cursor.execute("SELECT COUNT(*) FROM mitra WHERE kode_supplier LIKE 'ANG-%'")
             kode = f"ANG-{cursor.fetchone()[0] + 1:03d}"
-            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)",
-                           kode, nama)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO mitra (kode_supplier, nama_supplier) VALUES (?, ?);
+                              SELECT CAST(SCOPE_IDENTITY() AS INT)""", kode, nama)
             id_mitra = cursor.fetchone()[0]
         cursor.execute("""IF NOT EXISTS (SELECT 1 FROM mitra_peran WHERE id_supplier = ? AND peran = 'PENGANGKUTAN')
                           INSERT INTO mitra_peran (id_supplier, peran) VALUES (?, 'PENGANGKUTAN')""", id_mitra, id_mitra)

@@ -1,0 +1,28 @@
+<!-- MODAL: Ajukan koreksi tiket (berat tidak bisa dikoreksi) -->
+<div id="modalKoreksi" class="modal-overlay">
+    <form id="formKoreksi" class="modal-box max-w-lg" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Ajukan Koreksi Tiket <span id="noTiketKoreksi" class="font-mono font-normal text-slate-500"></span></h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalKoreksi" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p class="text-xs text-slate-500">Ubah hanya data yang salah. Berat tidak bisa dikoreksi; tiket yang beratnya salah dibatalkan (void) lalu ditimbang ulang.</p>
+            <div><label class="field-label" for="korCustomer">Customer</label>
+                <select id="korCustomer" name="id_supplier" class="input-field" data-cari></select></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="field-label" for="korProduk">Produk</label>
+                    <select id="korProduk" name="id_produk" class="input-field"></select></div>
+                <div><label class="field-label" for="korPlat">No. Plat</label>
+                    <input type="text" id="korPlat" name="no_plat" data-plat maxlength="15" class="input-field uppercase"></div>
+            </div>
+            <div><label class="field-label" for="korSupir">Supir</label>
+                <select id="korSupir" name="id_driver" class="input-field" data-cari></select></div>
+            <div><label class="field-label" for="korAlasan">Alasan Koreksi</label>
+                <textarea id="korAlasan" name="alasan" rows="2" required minlength="5" maxlength="500" class="input-field"></textarea></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalKoreksi" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Ajukan Koreksi</button>
+        </div>
+    </form>
+</div>

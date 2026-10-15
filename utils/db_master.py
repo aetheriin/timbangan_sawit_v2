@@ -165,8 +165,8 @@ def simpan_kendaraan(id_kendaraan, no_plat, no_stnk, id_supir_utama, user_id, id
     try:
         cursor = conn.cursor()
         if id_kendaraan is None:
-            cursor.execute("""INSERT INTO kendaraan (no_plat, no_stnk, id_jenis_kendaraan) OUTPUT INSERTED.id_kendaraan
-                              VALUES (?, ?, ?)""", no_plat, no_stnk, id_jenis)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO kendaraan (no_plat, no_stnk, id_jenis_kendaraan) VALUES (?, ?, ?);
+                              SELECT CAST(SCOPE_IDENTITY() AS INT)""", no_plat, no_stnk, id_jenis)
             id_kendaraan = cursor.fetchone()[0]
         else:
             cursor.execute("UPDATE kendaraan SET no_plat = ?, no_stnk = ?, id_jenis_kendaraan = ? WHERE id_kendaraan = ?",

@@ -256,7 +256,8 @@ def simpan_department(id_department, nama, keterangan, daftar_area_id):
     try:
         cursor = conn.cursor()
         if id_department is None:
-            cursor.execute("INSERT INTO department (nama, keterangan) OUTPUT INSERTED.id_department VALUES (?, ?)", nama, keterangan)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO department (nama, keterangan) VALUES (?, ?);
+                              SELECT CAST(SCOPE_IDENTITY() AS INT)""", nama, keterangan)
             id_department = cursor.fetchone()[0]
         else:
             cursor.execute("UPDATE department SET nama = ?, keterangan = ? WHERE id_department = ?", nama, keterangan, id_department)

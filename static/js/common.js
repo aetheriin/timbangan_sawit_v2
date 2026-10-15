@@ -85,6 +85,27 @@ try {
     });
 } catch (e) { /* data status rusak: pakai label bawaan */ }
 
+// Kolom wajib dari Admin › Pengaturan Site › Kolom Wajib: {id form: [nama kolom]} -> required + tanda * di label;
+// tulisan "(opsional)" di label dihapus. Server tetap memeriksa.
+document.addEventListener('DOMContentLoaded', () => {
+    let peta = {};
+    try { peta = JSON.parse(document.getElementById('dataStatusTiket')?.dataset.kolomWajib || '{}') || {}; } catch (e) { return; }
+    Object.entries(peta).forEach(([idForm, kolom]) => {
+        const form = document.getElementById(idForm);
+        if (!form) return;
+        kolom.forEach(nama => {
+            const el = form.elements[nama];
+            if (!el || el.required) return;
+            el.required = true;
+            const label = el.id && form.querySelector(`label[for="${el.id}"]`);
+            if (!label) return;
+            label.querySelectorAll('span').forEach(s => { if (/opsional/i.test(s.textContent)) s.remove(); });
+            label.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = n.textContent.replace(/\s*\(opsional\)/i, ''); });
+            label.insertAdjacentHTML('beforeend', ' <span class="text-red-600">*</span>');
+        });
+    });
+});
+
 function labelStatusTiket(status) {
     return (LABEL_STATUS_TIKET[status] || [labelKode(status)])[0];
 }
@@ -140,7 +161,7 @@ function tiketPunyaTahap(t, kode) {
 // Berlaku juga untuk baris yang dirender belakangan (MutationObserver). Label yang tidak dikenal tetap berupa teks.
 const IKON_AKSI = {
     'Ubah': 'fa-pen', 'Edit': 'fa-pen', 'Hapus': 'fa-trash-can', 'Nonaktifkan': 'fa-toggle-off', 'Aktifkan': 'fa-toggle-on',
-    'Atur Ulang Password': 'fa-key', 'Hak Akses': 'fa-user-shield', 'Periksa': 'fa-clipboard-check', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
+    'Atur Ulang Password': 'fa-key', 'Hak Akses': 'fa-user-shield', 'Periksa': 'fa-clipboard-check', 'Ajukan Koreksi': 'fa-pen-to-square', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
     'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban', 'Batalkan': 'fa-ban',
     'Lampirkan Surat': 'fa-paperclip', 'Lampirkan BA': 'fa-paperclip', 'Lampirkan': 'fa-paperclip', 'Lihat Surat': 'fa-file-lines',
     'Tetapkan': 'fa-circle-check', 'Kembalikan': 'fa-rotate-left', 'Isi DO Baru': 'fa-file-pen', 'Ganti Token': 'fa-key',

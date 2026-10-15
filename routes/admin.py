@@ -24,7 +24,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
-from utils import alur, log_aktivitas
+from utils import alur, log_aktivitas, kolom_wajib
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -37,7 +37,7 @@ HALAMAN = {
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
-    "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
+    "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, kunci login, dan kolom wajib"),
     "perangkat": ("Perangkat", "fa-plug", "Pos (token PC agen timbangan) dan jembatan timbang"),
     "log": ("Log Keamanan", "fa-shield-halved", "Login, login gagal, akses ditolak, kios ditolak"),
     "audit": ("Audit Admin", "fa-clipboard-list", "Jejak semua perubahan yang dilakukan admin"),
@@ -220,6 +220,7 @@ def users_tambah():
             raise ValueError("Username 3-50 karakter: huruf kecil, angka, titik, garis bawah")
         if db.username_dipakai(username):
             raise ValueError(f"Username {username} sudah dipakai")
+        kolom_wajib.cek("PENGGUNA", request.form)
         personel, (level, id_department, id_area), pw = _personel_form(), _akun_form(), _password_form()
         id_user = db.tambah_user(username, level["id_level"], id_department, id_area, generate_password_hash(pw),
                                  personel, _masa_berlaku_form())
@@ -241,6 +242,7 @@ def _user_atau_404(id_user):
 def users_ubah(id_user):
     def aksi():
         u = _user_atau_404(id_user)
+        kolom_wajib.cek("PENGGUNA", request.form)
         personel, (level, id_department, id_area) = _personel_form(u), _akun_form()
         ganti_level = u["id_level"] != level["id_level"]
         if u["is_admin"] and not level["is_admin"]:
@@ -462,6 +464,7 @@ def company_simpan():
     def aksi():
         id_c = _id_opsional("id_company")
         kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
+        kolom_wajib.cek("PERUSAHAAN", request.form)
         org.simpan_company(id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None)
         _audit("COMPANY_SIMPAN", kode, nama)
         return jsonify({"message": f"Perusahaan {nama} berhasil disimpan."})
@@ -1021,6 +1024,57 @@ def audit_admin_daftar():
     hari = min(max(int(request.args.get("hari") or 7), 1), 90)
     return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M:%S")}
                     for r in db.daftar_audit_admin(hari)])
+
+
+@admin_bp.route("/api/admin/kolom-wajib")
+@_admin
+def kolom_wajib_daftar():
+    aktif = kolom_wajib.wajib()
+    return jsonify([{"kode": kode, "nama": nama,
+                     "kolom": [{"kolom": k, "label": label, "wajib": k in aktif.get(kode, ())} for k, label in kolom.items()]}
+                    for kode, (nama, _, kolom) in kolom_wajib.DAFTAR.items()])
+
+
+@admin_bp.route("/api/admin/kolom-wajib", methods=["POST"])
+@_admin
+def kolom_wajib_simpan():
+    def aksi():
+        pilihan = {tuple(v.split("|", 1)) for v in request.form.getlist("wajib") if "|" in v}
+        kolom_wajib.simpan(pilihan)
+        _audit("KOLOM_WAJIB_SIMPAN", None, ", ".join(sorted(f"{f}.{k}" for f, k in pilihan)) or "tidak ada")
+        return jsonify({"message": "Kolom wajib berhasil disimpan. Berlaku saat formulir dibuka berikutnya."})
+    return _jalankan(aksi)
+
+
+# Nama tabel yang dicatat trigger log perubahan data (migrasi 034) untuk pilihan filter
+TABEL_LOG_DATA = {
+    "akun": "Pengguna", "company": "Perusahaan", "comp_area": "Area Perusahaan", "lokasi": "Mill", "department": "Departemen",
+    "level": "Jabatan", "mitra": "Supplier", "produk": "Produk", "standar_mutu": "Standar Mutu", "kendaraan": "Kendaraan",
+    "jenis_kendaraan": "Jenis Kendaraan", "kontrak": "Kontrak", "delivery_order": "DO", "jembatan_timbang": "Jembatan Timbang",
+    "mill": "Unit Timbang", "harga_harian": "Harga Harian", "pengaturan": "Pengaturan", "pengaturan_area": "Pengaturan Area",
+    "status_tiket": "Status Tiket", "kategori_personel": "Kategori Personel", "jenis_sim": "Jenis SIM",
+    "keperluan_kunjungan": "Keperluan Kunjungan", "transaksi": "Tiket",
+}
+
+
+@admin_bp.route("/api/admin/audit/data")
+@_admin
+def audit_data_daftar():
+    """Log perubahan data (kategori DATA & koreksi tiket): hanya kolom yang berubah, lama -> baru."""
+    hari = min(max(int(request.args.get("hari") or 7), 1), 90)
+    tabel = (request.args.get("tabel") or "").strip()
+    hasil = []
+    for r in log_aktivitas.daftar("DATA", hari, 500):
+        if tabel and r["tabel"] != tabel:
+            continue
+        lama, baru = r["nilai_lama"] or {}, r["nilai_baru"] or {}
+        kolom = sorted(set(lama) | set(baru), key=lambda k: list(baru or lama).index(k) if k in (baru or lama) else 999)
+        ubah = [{"kolom": k, "lama": lama.get(k), "baru": baru.get(k)} for k in kolom
+                if r["aksi"] != "DATA_UBAH" or lama.get(k) != baru.get(k)]
+        hasil.append({"id_log": r["id_log"], "waktu": r["waktu"].strftime("%Y-%m-%d %H:%M:%S"), "aksi": r["aksi"],
+                      "tabel": r["tabel"], "nama_tabel": TABEL_LOG_DATA.get(r["tabel"], r["tabel"]), "id_baris": r["id_baris"],
+                      "oleh": r["oleh"], "username": r["username"], "ip": r["ip"], "perubahan": ubah})
+    return jsonify({"tabel": TABEL_LOG_DATA, "data": hasil})
 
 
 @admin_bp.route("/api/admin/audit/verifikasi")

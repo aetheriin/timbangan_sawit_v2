@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils import db_master as db, db_admin, alur, log_aktivitas
+from utils import db_master as db, db_admin, alur, log_aktivitas, kolom_wajib
 from utils.plat_utils import normalisasi_plat
 from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
@@ -47,6 +47,10 @@ def kendaraan_simpan():
     teks_jenis = (f.get("id_jenis_kendaraan") or "").strip()
     if not teks_jenis.isdigit() or int(teks_jenis) not in {j["id_jenis_kendaraan"] for j in db.daftar_jenis_kendaraan()}:
         return jsonify({"error": "Pilih jenis kendaraan"}), 400
+    try:
+        kolom_wajib.cek("KENDARAAN", f)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     teks_supir = (f.get("id_supir_utama") or "").strip()
     id_supir = int(teks_supir) if teks_supir.isdigit() else None
     if id_supir and id_supir not in {d["id_personel"] for d in db.daftar_driver_aktif()}:
@@ -126,6 +130,7 @@ def mitra_simpan():
             raise ValueError("Pilih minimal satu peran: customer / pengangkutan")
         if db_admin.kode_supplier_dipakai(kode, kecuali=id_supplier):
             raise ValueError(f"Kode {kode} sudah dipakai")
+        kolom_wajib.cek("SUPPLIER", request.form)
         alamat = (request.form.get("alamat") or "").strip() or None
         if alamat and len(alamat) > 255:
             raise ValueError("Alamat maksimal 255 karakter")

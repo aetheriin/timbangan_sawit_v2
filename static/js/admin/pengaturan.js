@@ -1,7 +1,7 @@
 // ===== ADMIN > PENGATURAN SITE =====
 let daftarPengaturan = [];
 
-document.addEventListener('DOMContentLoaded', muatPengaturan);
+document.addEventListener('DOMContentLoaded', () => { muatPengaturan(); muatKolomWajib(); });
 
 function inputPengaturan(p) {
     if (p.tipe === 'bool') {
@@ -68,3 +68,22 @@ async function salinPengaturanCompany(btn) {
     if (!ok) return;
     tampilkanHasil(await denganTombol(btn, () => kirimForm('/api/admin/pengaturan/salin-company', { id_comp_area: areaPengaturan() })));
 }
+
+// ===== KOLOM WAJIB (RequiredDataField) =====
+async function muatKolomWajib() {
+    const data = await ambilJson('/api/admin/kolom-wajib');
+    const wadah = document.getElementById('daftarKolomWajib');
+    if (data.error) { wadah.innerHTML = `<p class="text-red-600">${escapeHtml(data.error)}</p>`; return; }
+    wadah.innerHTML = data.map(f => `
+        <div class="rounded-lg border border-slate-200 p-3">
+            <p class="font-semibold text-slate-800 mb-2">${escapeHtml(f.nama)}</p>
+            <div class="space-y-1.5">${f.kolom.map(k => `
+                <label class="flex items-center gap-2"><input type="checkbox" name="wajib" value="${f.kode}|${k.kolom}" class="w-4 h-4"${k.wajib ? ' checked' : ''}>
+                    ${escapeHtml(k.label)}</label>`).join('')}</div>
+        </div>`).join('');
+}
+
+document.getElementById('formKolomWajib').addEventListener('submit', e => {
+    e.preventDefault();
+    kirimFormAdmin(e.target, '/api/admin/kolom-wajib', { setelahnya: muatKolomWajib });
+});

@@ -14,12 +14,13 @@ from utils.db_utils import get_connection, _rows_to_dicts
 
 AKSI = ("tambah", "ubah", "hapus")
 # "setujui" = boleh menyetujui / menolak pengajuan di menu itu (mis. tambah & hapus blacklist); di Daftar Tiket =
-# memverifikasi (menandai sudah diperiksa) tiket selesai. Hanya untuk menu
+# memverifikasi (menandai sudah diperiksa) tiket selesai & menyetujui koreksi tiket (Ubah = mengajukan koreksi).
+# Hanya untuk menu
 # yang punya proses persetujuan (lihat AKSI_MENU); tidak termasuk "aksi apa pun" pada boleh(kode_menu).
 # Aksi yang benar-benar ada di tiap menu (dipakai @izin / boleh di kode). Matriks Hak Akses hanya menampilkan
 # centang untuk aksi ini; yang lain tidak berarti apa-apa. Menu baru yang belum terdaftar di sini = semua aksi.
 AKSI_MENU = {
-    "DASHBOARD": ("ubah",), "LIST": ("setujui",), "ABSENSI": (), "AUDIT_LOG": (),
+    "DASHBOARD": ("ubah",), "LIST": ("ubah", "setujui"), "ABSENSI": (), "AUDIT_LOG": (),
     "FORM_SECURITY": ("tambah", "ubah"), "FORM_TIMBANGAN": ("tambah",), "FORM_SORTASI": ("tambah",),
     "FORM_LAB": ("tambah", "ubah"),
     "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
@@ -301,8 +302,9 @@ def simpan_level(id_level, kode, nama, halaman_awal, keterangan, id_department):
     try:
         cursor = conn.cursor()
         if id_level is None:
-            cursor.execute("""INSERT INTO level (kode, nama, halaman_awal, keterangan, id_department) OUTPUT INSERTED.id_level
-                              VALUES (?, ?, ?, ?, ?)""", kode, nama, halaman_awal, keterangan, id_department)
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO level (kode, nama, halaman_awal, keterangan, id_department)
+                              VALUES (?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
+                           kode, nama, halaman_awal, keterangan, id_department)
             id_level = cursor.fetchone()[0]
         else:
             cursor.execute("""UPDATE level SET nama = ?, halaman_awal = ?, keterangan = ?, id_department = ?

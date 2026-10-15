@@ -64,7 +64,25 @@
                     <th class="table-cell text-right">Tara (kg)</th><th class="table-cell text-right">Netto (kg)</th>
                     <th class="table-cell">Lama di Dalam</th><th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
             </thead>
-            <tbody data-per-halaman="20" id="tabelHistoryProduk" data-boleh-periksa="{{ 1 if boleh_periksa else 0 }}" class="divide-y divide-slate-100"></tbody>
+            <tbody data-per-halaman="20" id="tabelHistoryProduk" data-boleh-periksa="{{ 1 if boleh_periksa else 0 }}" data-boleh-koreksi="{{ 1 if boleh_koreksi else 0 }}" class="divide-y divide-slate-100"></tbody>
         </table>
     </div>
 </div>
+
+{% if boleh_koreksi or boleh_periksa %}
+{# Pengajuan koreksi data tiket (customer / produk / supir / kendaraan). Disetujui pemegang hak Setujui di Daftar Tiket. #}
+<div id="bagianKoreksi" class="card mt-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div>
+            <h2 class="text-sm font-bold text-slate-900">Pengajuan Koreksi Tiket</h2>
+            <p class="text-xs text-slate-500">Koreksi customer, produk, supir, atau kendaraan berlaku setelah disetujui</p>
+        </div>
+        <div class="seg flex-wrap">
+            {% if boleh_periksa %}<button type="button" class="chip chip-active" data-mode="menunggu" data-on-click="pilihModePersetujuan" data-arg="$el">Perlu persetujuan saya <span id="jmlMenunggu" class="ml-1"></span></button>{% endif %}
+            <button type="button" class="chip{% if not boleh_periksa %} chip-active{% endif %}" data-mode="saya" data-on-click="pilihModePersetujuan" data-arg="$el">Pengajuan saya</button>
+            <button type="button" class="chip" data-mode="semua" data-on-click="pilihModePersetujuan" data-arg="$el">Semua pengajuan</button>
+        </div>
+    </div>
+    <div id="daftarPengajuan" class="space-y-3" data-menu="LIST" data-muat-langsung="1" data-mode-awal="{{ 'menunggu' if boleh_periksa else 'saya' }}"></div>
+</div>
+{% endif %}

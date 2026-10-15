@@ -1,12 +1,13 @@
 // ===== ADMIN > AUDIT ADMIN =====
 let hariAuditAdmin = 7;
 
-document.addEventListener('DOMContentLoaded', muatAuditAdmin);
+document.addEventListener('DOMContentLoaded', () => { muatAuditAdmin(); muatAuditData(); });
 
 function filterAuditAdmin(el) {
     aktifkanChip(el);
     hariAuditAdmin = Number(el.dataset.hari);
     muatAuditAdmin();
+    muatAuditData();
 }
 
 function warnaAksiAdmin(aksi) {
@@ -34,6 +35,41 @@ async function muatAuditAdmin() {
 
 function cariAuditAdmin(teks) {
     saringBaris('tabelAuditAdmin', teks);
+    saringBaris('tabelAuditData', teks);
+}
+
+// ===== Perubahan data (trigger database, migrasi 034) =====
+const LABEL_AKSI_DATA = { DATA_TAMBAH: ['Tambah', WARNA_BADGE.hijau], DATA_UBAH: ['Ubah', WARNA_BADGE.biru],
+                          DATA_HAPUS: ['Hapus', WARNA_BADGE.merah], KOREKSI_TIKET: ['Koreksi', WARNA_BADGE.oranye] };
+
+function nilaiLog(v) {
+    if (v === null || v === undefined || v === '') return '<span class="text-slate-400">kosong</span>';
+    if (v === true || v === false) return v ? 'Ya' : 'Tidak';
+    return escapeHtml(String(v).replace(/T(\d\d:\d\d:\d\d)(\.\d+)?$/, ' $1'));
+}
+
+async function muatAuditData() {
+    const sel = document.getElementById('filterTabelData');
+    const data = await ambilJson(`/api/admin/audit/data?hari=${hariAuditAdmin}&tabel=${encodeURIComponent(sel.value)}`);
+    const tbody = document.getElementById('tabelAuditData');
+    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (sel.options.length === 1) Object.entries(data.tabel).forEach(([k, v]) => sel.add(new Option(v, k)));
+    tbody.innerHTML = data.data.map(r => {
+        const [label, warna] = LABEL_AKSI_DATA[r.aksi] || [labelKode(r.aksi), WARNA_BADGE.abu];
+        const isi = r.aksi === 'DATA_UBAH' || r.aksi === 'KOREKSI_TIKET'
+            ? r.perubahan.map(p => `<div><span class="font-mono text-slate-500">${escapeHtml(p.kolom)}</span>: <span class="line-through text-red-600">${nilaiLog(p.lama)}</span> → <span class="text-emerald-700">${nilaiLog(p.baru)}</span></div>`).join('')
+            : r.perubahan.slice(0, 6).map(p => `<span class="font-mono text-slate-500">${escapeHtml(p.kolom)}</span>=${nilaiLog(r.aksi === 'DATA_HAPUS' ? p.lama : p.baru)}`).join(' · ');
+        return `<tr class="hover:bg-slate-50 align-top" data-cari="${escapeHtml(`${r.nama_tabel} ${r.id_baris} ${r.oleh || ''} ${JSON.stringify(r.perubahan)}`.toLowerCase())}">
+            <td class="table-cell whitespace-nowrap">${escapeHtml(r.waktu)}</td>
+            <td class="table-cell">${r.oleh ? `${escapeHtml(r.oleh)} <span class="text-xs text-slate-400 font-mono">${escapeHtml(r.username)}</span>`
+                                            : '<span class="text-amber-700 text-xs">Langsung di database</span>'}</td>
+            <td class="table-cell">${escapeHtml(r.nama_tabel)} <span class="font-mono text-xs text-slate-500">#${escapeHtml(r.id_baris)}</span></td>
+            <td class="table-cell">${badge(label, warna)}</td>
+            <td class="table-cell text-xs text-slate-700 space-y-0.5">${isi || '-'}</td>
+        </tr>`;
+    }).join('') || barisKosong(5, 'Belum ada perubahan data pada rentang ini');
+    catatanBatas(tbody, data.data.length, 500, 5);
+    saringBaris('tabelAuditData', document.getElementById('cariAuditAdmin').value);
 }
 
 // Rantai hash log_aktivitas: setiap baris membawa hash baris sebelumnya, jadi ubah / hapus langsung di DB ketahuan

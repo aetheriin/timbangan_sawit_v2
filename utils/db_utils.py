@@ -26,9 +26,25 @@ def get_connection():
         if has_request_context():
             g.db_koneksi = getattr(g, "db_koneksi", 0) + 1
             g.db_buka_ms = getattr(g, "db_buka_ms", 0) + (time.perf_counter() - mulai) * 1000
+            _isi_konteks(conn)
     except ImportError:
         pass
     return conn
+
+def _isi_konteks(conn):
+    """Pengguna & IP request ini untuk trigger log perubahan data (migrasi 034). Gagal -> dicatat tanpa pengguna."""
+    # Hanya user yang sudah dimuat flask-login (g._login_user): memanggil current_user di sini bisa berulang
+    # karena memuat user juga membuka koneksi.
+    from flask import g, request
+    user = g.get("_login_user")
+    id_user = getattr(user, "id", None) if getattr(user, "is_authenticated", False) else None
+    if id_user is None:
+        return
+    try:
+        conn.cursor().execute("EXEC sp_set_session_context N'id_user', ?; EXEC sp_set_session_context N'ip', ?",
+                              id_user, (request.remote_addr or "")[:45] or None)
+    except pyodbc.Error:
+        pass
 
 def cek_koneksi_db():
     """Dipakai /health: True bila database bisa dijangkau."""
@@ -78,8 +94,10 @@ def ganti_password_sendiri(user_id, password_hash):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""UPDATE akun SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
-                          updated_at = GETDATE() OUTPUT INSERTED.sesi_versi WHERE id_user = ?""", password_hash, user_id)
+        cursor.execute("""SET NOCOUNT ON; DECLARE @o TABLE (v INT);
+                          UPDATE akun SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
+                          updated_at = GETDATE() OUTPUT INSERTED.sesi_versi INTO @o WHERE id_user = ?; SELECT v FROM @o""",
+                       password_hash, user_id)
         versi = cursor.fetchone()[0]
         catat_riwayat_password(cursor, user_id, password_hash)
         conn.commit()
@@ -121,7 +139,9 @@ def naikkan_sesi_versi(user_id):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE akun SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi WHERE id_user = ?", user_id)
+        cursor.execute("""SET NOCOUNT ON; DECLARE @o TABLE (v INT);
+                          UPDATE akun SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi INTO @o WHERE id_user = ?;
+                          SELECT v FROM @o""", user_id)
         versi = cursor.fetchone()[0]
         conn.commit()
     finally:

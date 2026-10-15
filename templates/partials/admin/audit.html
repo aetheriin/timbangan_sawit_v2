@@ -28,3 +28,22 @@
         </table>
     </div>
 </div>
+
+<div class="section-box">
+    {% call section_header('audit-data', 'Perubahan Data (nilai lama → baru)') %}
+    <select id="filterTabelData" class="input-field w-56 py-1.5" data-henti-klik data-on-change="muatAuditData">
+        <option value="">Semua data</option>
+    </select>
+    {% endcall %}
+    <div id="body-audit-data" class="section-body overflow-x-auto">
+        <p class="px-4 pt-3 text-xs text-slate-500">Dicatat otomatis oleh database setiap kali data master, organisasi, pengguna, kontrak, atau pengaturan
+            berubah, termasuk yang diubah langsung di database (tanpa nama pengguna).</p>
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Waktu</th><th class="table-cell">Oleh</th><th class="table-cell">Data</th>
+                    <th class="table-cell">Aksi</th><th class="table-cell">Perubahan</th></tr>
+            </thead>
+            <tbody data-per-halaman="20" id="tabelAuditData" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
