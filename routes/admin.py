@@ -34,6 +34,7 @@ HALAMAN = {
     "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, lokasi, site (perusahaan + lokasi), departemen, dan pabrik"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
+    "persetujuan": ("Persetujuan", "fa-list-check", "Penyetuju tiap jenis pengajuan: 1-3 langkah, tiap langkah satu jabatan di PT yang sama"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
     "perangkat": ("Perangkat", "fa-plug", "Pos (token PC agen timbangan) dan jembatan timbang"),
@@ -325,6 +326,42 @@ def level_akses_simpan(id_level):
         jumlah = sum(any(v) for v in akses.values())
         _audit("HAK_AKSES_UBAH", lv["kode"], f"{jumlah} halaman boleh dibuka")
         return jsonify({"message": f"Hak akses {lv['nama']} berhasil disimpan dan berlaku di semua PC dalam ±30 detik"})
+    return _jalankan(aksi)
+
+
+# ===== PERSETUJUAN (penyetuju per jenis pengajuan) =====
+@admin_bp.route("/api/admin/persetujuan")
+@_admin
+def persetujuan_langkah():
+    from utils import persetujuan
+    langkah = persetujuan.semua_langkah()
+    return jsonify([{"jenis": j, "nama": n, "langkah": [r["id_level"] for r in langkah.get(j, [])]}
+                    for j, n in persetujuan.JENIS.items()])
+
+
+@admin_bp.route("/api/admin/persetujuan/simpan", methods=["POST"])
+@_admin
+def persetujuan_simpan():
+    from utils import persetujuan
+
+    def aksi():
+        jenis = (request.form.get("jenis") or "").strip()
+        if jenis not in persetujuan.JENIS:
+            raise ValueError("Jenis pengajuan tidak dikenal")
+        valid = {lv["id_level"] for lv in hak_akses.daftar_level() if lv["is_active"] and not lv["is_admin"]}
+        daftar = []
+        for i in (1, 2, 3):
+            teks = (request.form.get(f"langkah_{i}") or "").strip()
+            if not teks:
+                continue
+            if not teks.isdigit() or int(teks) not in valid:
+                raise ValueError(f"Pilih jabatan langkah {i} dari daftar")
+            daftar.append(int(teks))
+        persetujuan.simpan_langkah(jenis, daftar)
+        _audit("PERSETUJUAN_UBAH", jenis, f"{len(daftar)} langkah")
+        return jsonify({"message": f"Penyetuju {persetujuan.JENIS[jenis].lower()} berhasil disimpan "
+                                   f"({len(daftar)} langkah)" if daftar else
+                                   f"Penyetuju {persetujuan.JENIS[jenis].lower()} dikosongkan: pengajuan langsung berlaku"})
     return _jalankan(aksi)
 
 

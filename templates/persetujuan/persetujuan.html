@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
+{% block title %}Persetujuan · CPOS{% endblock %}
+
+{# Pengajuan yang perlu disetujui (tambah / hapus blacklist, dan jenis lain nanti). Notifikasi membuka ?id=<id>. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ judul_halaman('Persetujuan', 'Pengajuan yang menunggu persetujuan Anda, pengajuan Anda, dan riwayatnya', 'fa-list-check', 'biru') }}
+    {{ tab_header([('persetujuan', 'Persetujuan')], 'hidden') }}
+{% endblock %}
+
+{% block tab_content %}
+<div data-tab-content="persetujuan" class="hidden">
+    <div class="filter-bar">
+        <div class="seg flex-wrap">
+            <button type="button" class="chip chip-active" data-mode="menunggu" data-on-click="pilihModePersetujuan" data-arg="$el">Menunggu saya <span id="jmlMenunggu" class="ml-1"></span></button>
+            <button type="button" class="chip" data-mode="saya" data-on-click="pilihModePersetujuan" data-arg="$el">Pengajuan saya</button>
+            <button type="button" class="chip" data-mode="semua" data-on-click="pilihModePersetujuan" data-arg="$el">Semua</button>
+        </div>
+    </div>
+    <div id="daftarPengajuan" class="space-y-3"></div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<div id="modalPutusan" class="modal-overlay">
+    <form id="formPutusan" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulPutusan" class="font-bold">Setujui Pengajuan</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalPutusan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p id="ringkasPutusan" class="text-sm text-slate-700"></p>
+            <div><label class="field-label" for="catatanPutusan">Catatan</label>
+                <textarea id="catatanPutusan" name="catatan" rows="3" maxlength="500" class="input-field"></textarea>
+                <p id="hintPutusan" class="field-hint"></p></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalPutusan" class="btn-secondary">Batal</button>
+            <button type="submit" id="btnPutusan" class="btn-primary">Setujui</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/persetujuan.js') }}"></script>
+{% endblock %}

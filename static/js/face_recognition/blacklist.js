@@ -1,8 +1,10 @@
-// ===== TAB BLACKLIST: riwayat & tambah (permanen, tanpa update / hapus) =====
+// ===== TAB BLACKLIST: riwayat, ajukan tambah & ajukan hapus (lewat menu Persetujuan) =====
 let dataBlacklist = [];          // baris daftar terakhir (lampirkan surat menyusul)
 let idSuratBlacklist = null;
 let blacklistDimuat = false;
 let tipeFilterBlacklist = '';
+let statusFilterBlacklist = 'AKTIF';
+let idHapusBlacklist = null;
 let timerCariBlacklist = null;
 
 // state modal Tambah
@@ -29,36 +31,50 @@ function filterBlacklist(el) {
     muatBlacklist();
 }
 
+function filterStatusBlacklist(el) {
+    aktifkanChip(el);
+    statusFilterBlacklist = el.dataset.status;
+    muatBlacklist();
+}
+
 function cariBlacklistTunda() {
     clearTimeout(timerCariBlacklist);
     timerCariBlacklist = setTimeout(muatBlacklist, 300);
 }
 
 async function muatBlacklist() {
-    const params = new URLSearchParams({ tipe: tipeFilterBlacklist, cari: document.getElementById('cariBlacklist').value.trim() });
+    const params = new URLSearchParams({ tipe: tipeFilterBlacklist, status: statusFilterBlacklist, cari: document.getElementById('cariBlacklist').value.trim() });
     const data = await ambilJson(`/api/blacklist?${params}`);
     const tbody = document.getElementById('kartuBlacklist');
     if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
     dataBlacklist = data;
     const bolehTambah = tbody.dataset.bolehTambah === '1';
-    document.getElementById('totalBlacklist').innerHTML = `Total terblokir: <b class="text-red-600">${data.length}</b> · berlaku <b>permanen</b> di semua area`;
+    const bolehHapus = tbody.dataset.bolehHapus === '1';
+    const dicabut = statusFilterBlacklist === 'DICABUT';
+    document.getElementById('totalBlacklist').innerHTML = dicabut
+        ? `Blacklist yang sudah dicabut: <b>${data.length}</b>`
+        : `Total terblokir: <b class="text-red-600">${data.length}</b> · berlaku di semua area`;
     // Tabel ringkas (data bisa ratusan): target 2 baris, alasan maks 2 baris, aksi berupa ikon
     tbody.innerHTML = data.map(r => {
         const terkait = [r.no_plat_terkait, r.customer_terkait, r.pengangkutan_terkait].filter(Boolean).join(' · ');
         return `<tr class="hover:bg-slate-50 align-top">
             <td class="table-cell">
-                <div class="flex items-center gap-2"><span class="w-1.5 h-8 rounded-full bg-red-500 flex-shrink-0"></span>
+                <div class="flex items-center gap-2"><span class="w-1.5 h-8 rounded-full ${r.dicabut_at ? 'bg-slate-300' : 'bg-red-500'} flex-shrink-0"></span>
                 <div class="min-w-0"><p class="font-mono font-bold text-slate-900 whitespace-nowrap">${escapeHtml(namaTarget(r))}</p>
                 <p class="text-xs text-slate-500">${r.tipe_entitas === 'PERSONEL' ? 'Personel' : 'Kendaraan'}${terkait ? ` · ${escapeHtml(terkait)}` : ''}</p></div></div></td>
-            <td class="table-cell max-w-md"><p class="text-slate-700 line-clamp-2" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</p></td>
+            <td class="table-cell max-w-md"><p class="text-slate-700 line-clamp-2" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</p>
+                ${r.dicabut_at ? `<p class="text-xs text-emerald-700 mt-1">Dicabut ${escapeHtml(r.dicabut_at)} oleh ${escapeHtml(r.dicabut_oleh || '-')}${r.alasan_cabut ? ` · ${escapeHtml(r.alasan_cabut)}` : ''}</p>` : ''}</td>
             <td class="table-cell whitespace-nowrap">${r.no_surat_blacklist ? `<span class="font-mono text-xs">${escapeHtml(r.no_surat_blacklist)}</span>` : badge('Menyusul', WARNA_BADGE.oranye)}</td>
             <td class="table-cell whitespace-nowrap"><p class="font-mono text-xs text-slate-700">${escapeHtml(r.tgl_blacklist)}</p>
                 <p class="text-xs text-slate-500">${escapeHtml(r.oleh)}${r.area_oleh ? ` · ${escapeHtml(r.area_oleh)}` : ''}</p></td>
             <td class="table-cell text-right whitespace-nowrap">${r.file_surat_blacklist
                 ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
-                : (!r.id_dokumen && bolehTambah ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '')}</td>
+                : (!r.id_dokumen && bolehTambah && !r.dicabut_at ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '')}
+                ${r.dicabut_at ? '' : r.id_pengajuan_hapus
+                    ? `<a href="/persetujuan?id=${r.id_pengajuan_hapus}" class="ml-3">${badge('Menunggu persetujuan hapus', WARNA_BADGE.oranye)}</a>`
+                    : (bolehHapus ? `<button type="button" class="link-aksi text-red-600 ml-3" data-on-click="bukaHapusBlacklist" data-arg="${r.id_blacklist}">Ajukan Hapus</button>` : '')}</td>
         </tr>`;
-    }).join('') || barisKosong(5, 'Belum ada blacklist', aksiKosong('bukaTambahBlacklist', 'Tambah Blacklist'));
+    }).join('') || barisKosong(5, dicabut ? 'Belum ada blacklist yang dicabut' : 'Belum ada blacklist', dicabut ? '' : aksiKosong('bukaTambahBlacklist', 'Ajukan Blacklist'));
     catatanBatas(tbody, data.length, 200, 5);
 }
 
@@ -205,8 +221,8 @@ async function simpanBlacklist(btn) {
     if (!alasan) { Notif.peringatan('Alasan wajib diisi'); return; }
     if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
-    const ok = await Dialog.konfirmasi({ judul: 'Tetapkan blacklist permanen?', teksYa: 'Tetapkan Blacklist', bahaya: true,
-        pesan: `${nama} akan masuk blacklist secara PERMANEN dan tidak bisa dicabut.\nWajah / kendaraan ini ditolak di semua site.` });
+    const ok = await Dialog.konfirmasi({ judul: 'Ajukan blacklist?', teksYa: 'Ajukan Blacklist', bahaya: true,
+        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua site.` });
     if (!ok) return;
 
     const formData = new FormData();
@@ -256,3 +272,23 @@ async function simpanSuratBlacklist(btn) {
     closeModal('modalSuratBlacklist');
     muatBlacklist();
 }
+
+// ===== AJUKAN HAPUS (CABUT) =====
+function bukaHapusBlacklist(id) {
+    const r = dataBlacklist.find(x => x.id_blacklist === id);
+    if (!r) return;
+    idHapusBlacklist = id;
+    document.getElementById('formHapusBlacklist').reset();
+    document.getElementById('hapusBlTarget').textContent = namaTarget(r);
+    openModal('modalHapusBlacklist');
+    document.getElementById('hapusBlAlasan').focus();
+}
+
+document.getElementById('formHapusBlacklist')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const data = await denganTombol(document.getElementById('btnHapusBlacklist'),
+        () => kirimForm(`/api/blacklist/${idHapusBlacklist}/hapus`, { alasan: document.getElementById('hapusBlAlasan').value.trim() }), 'Mengirim...');
+    if (!tampilkanHasil(data)) return;
+    closeModal('modalHapusBlacklist');
+    muatBlacklist();
+});

@@ -1,4 +1,5 @@
-"""Query tabel blacklist (menu Pengenalan Wajah > Blacklist). Blacklist permanen: hanya tambah."""
+"""Query tabel blacklist (menu Blacklist). Tambah & hapus (cabut) lewat persetujuan (utils/persetujuan.py);
+baris tidak pernah dihapus, pencabutan dicatat di dicabut_at / dicabut_oleh / alasan_cabut (migrasi 027)."""
 from datetime import date, datetime
 from utils.db_utils import get_connection, _rows_to_dicts
 from utils.dokumen import buat_dokumen
@@ -15,14 +16,18 @@ def _format(r):
     return r
 
 
-def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
+def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF"):
     sql = """
         SELECT TOP (?) b.id_blacklist, b.tipe_entitas, dk.no_dokumen AS no_surat_blacklist, b.alasan_blacklist,
                df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
                b.id_dokumen, b.created_at, u.nama AS oleh, lv.kode AS role_oleh, ar.nama AS area_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
-               c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait
+               c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait,
+               b.dicabut_at, b.alasan_cabut, uc.nama AS dicabut_oleh,
+               (SELECT TOP 1 pg.id_pengajuan FROM pengajuan pg WHERE pg.jenis = 'BLACKLIST_HAPUS' AND pg.status = 'MENUNGGU'
+                AND pg.target = 'BLACKLIST:' + CAST(b.id_blacklist AS VARCHAR(20))) AS id_pengajuan_hapus
         FROM blacklist b
+        LEFT JOIN akun uc ON uc.id_user = b.dicabut_oleh
         LEFT JOIN mitra c ON b.id_customer_terkait = c.id_supplier
         LEFT JOIN mitra a ON b.id_pengangkutan_terkait = a.id_supplier
         JOIN akun u ON b.created_by = u.id_user
@@ -37,6 +42,10 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200):
     if tipe:
         sql += " AND b.tipe_entitas = ?"
         params.append(tipe)
+    if status == "AKTIF":
+        sql += " AND b.dicabut_at IS NULL"
+    elif status == "DICABUT":
+        sql += " AND b.dicabut_at IS NOT NULL"
     if cari:
         pola = f"%{cari}%"
         sql += """ AND (p.kode_personel LIKE ? OR p.nama_personel LIKE ? OR p.nik LIKE ?
@@ -193,7 +202,72 @@ def get_surat_blacklist(tipe, id_target):
                        LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                     WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
-                       WHERE b.{kolom} = ? ORDER BY b.created_at DESC, b.id_blacklist DESC""", id_target)
+                       WHERE b.{kolom} = ? AND b.dicabut_at IS NULL ORDER BY b.created_at DESC, b.id_blacklist DESC""", id_target)
     data = _rows_to_dicts(cursor)
     conn.close()
     return _format(data[0]) if data else None
+
+
+def nama_target(tipe, id_target):
+    """(nama tampilan, sudah_blacklist) target; ValueError bila tidak ada."""
+    if tipe == "PERSONEL":
+        rows = _query_satu("SELECT kode_personel, nama_personel, is_blacklisted FROM personel WHERE id_personel = ?", id_target)
+        if not rows:
+            raise ValueError("Target tidak ditemukan")
+        r = rows[0]
+        return (f"{r['kode_personel']} · {r['nama_personel']}" if r["kode_personel"] else r["nama_personel"]), bool(r["is_blacklisted"])
+    rows = _query_satu("SELECT no_plat, is_blacklisted FROM kendaraan WHERE id_kendaraan = ?", id_target)
+    if not rows:
+        raise ValueError("Target tidak ditemukan")
+    return rows[0]["no_plat"], bool(rows[0]["is_blacklisted"])
+
+
+def get_blacklist(id_blacklist):
+    rows = _query_satu("""SELECT b.id_blacklist, b.tipe_entitas, b.id_personel, b.id_kendaraan, b.dicabut_at,
+                                 COALESCE(p.nama_personel, k.no_plat) AS nama
+                          FROM blacklist b LEFT JOIN personel p ON p.id_personel = b.id_personel
+                          LEFT JOIN kendaraan k ON k.id_kendaraan = b.id_kendaraan WHERE b.id_blacklist = ?""", id_blacklist)
+    return rows[0] if rows else None
+
+
+def _query_satu(sql, *params):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql, *params)
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
+
+
+def cabut_blacklist(id_blacklist, alasan, user_id):
+    """Blacklist dicabut (hasil persetujuan). Baris tetap ada; target bebas bila tidak ada blacklist aktif lain.
+    Trigger blacklist permanen hanya mengizinkan lewat SESSION_CONTEXT cabut_blacklist = 1 (migrasi 027)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT tipe_entitas, id_personel, id_kendaraan, dicabut_at FROM blacklist WITH (UPDLOCK) WHERE id_blacklist = ?",
+                       id_blacklist)
+        r = cursor.fetchone()
+        if r is None:
+            raise ValueError("Blacklist tidak ditemukan")
+        if r.dicabut_at is not None:
+            raise ValueError("Blacklist ini sudah dicabut")
+        tabel, kolom, id_target = (("personel", "id_personel", r.id_personel) if r.tipe_entitas == "PERSONEL"
+                                   else ("kendaraan", "id_kendaraan", r.id_kendaraan))
+        cursor.execute("UPDATE blacklist SET dicabut_at = GETDATE(), dicabut_oleh = ?, alasan_cabut = ? WHERE id_blacklist = ?",
+                       user_id, (alasan or "")[:500] or None, id_blacklist)
+        cursor.execute(f"SELECT COUNT(*) FROM blacklist WHERE {kolom} = ? AND dicabut_at IS NULL", id_target)
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("EXEC sp_set_session_context N'cabut_blacklist', 1")
+            cursor.execute(f"UPDATE {tabel} SET is_blacklisted = 0 WHERE {kolom} = ?", id_target)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        try:
+            conn.cursor().execute("EXEC sp_set_session_context N'cabut_blacklist', NULL")
+        except Exception:       # noqa: BLE001 - koneksi sudah tertutup
+            pass
+        conn.close()

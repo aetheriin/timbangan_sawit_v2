@@ -79,7 +79,8 @@ def tantangan_wajah():
 @lihat_halaman("BLACKLIST")
 def halaman_blacklist():
     """Menu Blacklist (dulu tab Pengenalan Wajah). Berlaku di semua area; siapa yang boleh menetapkan: hak BLACKLIST."""
-    return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"))
+    return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"),
+                           boleh_hapus_blacklist=boleh("BLACKLIST", "hapus"))
 
 
 @main_bp.route("/tamu")

@@ -135,6 +135,12 @@ def area_per_company():
     return {k: tuple(v) for k, v in hasil.items()}
 
 
+@cache_ttl(60)
+def company_area():
+    """{id_comp_area: id_company}"""
+    return {r["id_comp_area"]: r["id_company"] for r in _query("SELECT id_comp_area, id_company FROM comp_area")}
+
+
 # ===== AREA (SITE) = company + lokasi =====
 def daftar_area():
     """label = "YBS · 600 (PKS Sei Mangkei)" untuk pilihan di form; kode site = kode lokasi."""
@@ -161,9 +167,12 @@ def simpan_area(id_area, id_company, id_lokasi, nama, alamat):
               id_company, id_lokasi, kode, nama, alamat)
         _salin_dari_area_pertama()
         area_per_company.hapus()
+        company_area.hapus()
     else:
         _ubah("UPDATE comp_area SET id_company = ?, id_lokasi = ?, kode = ?, nama = ?, alamat = ? WHERE id_comp_area = ?",
               id_company, id_lokasi, kode, nama, alamat, id_area)
+        area_per_company.hapus()
+        company_area.hapus()
     area_pusat.hapus()
 
 

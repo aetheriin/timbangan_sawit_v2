@@ -32,6 +32,7 @@ from routes.master import master_bp
 from routes.kunjungan import kunjungan_bp
 from routes.agen import agen_bp
 from routes.kelebihan_do import kelebihan_do_bp
+from routes.persetujuan import persetujuan_bp
 from routes.dashboard import dashboard_bp
 from routes.cari import cari_bp
 
@@ -76,7 +77,7 @@ def belum_login():
 
 for bp in (auth_bp, main_bp, security_bp, timbangan_bp, sortasi_bp, lab_bp, kendaraan_bp,
            personel_bp, blacklist_bp, absensi_bp, audit_bp, sistem_bp, admin_bp, kontrak_bp, dashboard_bp, master_bp, kunjungan_bp, agen_bp,
-           kelebihan_do_bp, cari_bp):
+           kelebihan_do_bp, cari_bp, persetujuan_bp):
     app.register_blueprint(bp)
 
 # Agen timbangan (tanpa sesi browser) dilindungi token perangkat, bukan CSRF

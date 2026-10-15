@@ -122,3 +122,24 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL: Ajukan hapus (cabut) blacklist; berlaku setelah disetujui (menu Persetujuan) -->
+<div id="modalHapusBlacklist" class="modal-overlay">
+    <form id="formHapusBlacklist" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Ajukan Hapus Blacklist</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalHapusBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p class="text-sm text-slate-700">Blacklist <b id="hapusBlTarget" class="font-mono"></b> dicabut setelah pengajuan ini disetujui.
+                Riwayat blacklist tetap tersimpan.</p>
+            <div><label class="field-label" for="hapusBlAlasan">Alasan</label>
+                <textarea id="hapusBlAlasan" name="alasan" rows="3" required maxlength="500" class="input-field"
+                          placeholder="Contoh: masa hukuman selesai, surat dari HRD No. ..."></textarea></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalHapusBlacklist" class="btn-secondary">Batal</button>
+            <button type="submit" id="btnHapusBlacklist" class="btn-danger">Ajukan Hapus</button>
+        </div>
+    </form>
+</div>

@@ -1,9 +1,11 @@
-"""Menu Pengenalan Wajah > Blacklist: riwayat & tambah. Permanen, tidak ada update / hapus."""
+"""Menu Blacklist: riwayat, ajukan tambah & ajukan hapus (cabut). Keduanya lewat persetujuan dinamis
+(Admin › Persetujuan); tanpa penyetuju yang diatur, langsung berlaku. Data blacklist tidak pernah dihapus."""
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from utils.db_blacklist import (TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel,
-                                get_surat_blacklist, lampirkan_surat)
+                                get_surat_blacklist, lampirkan_surat, nama_target, get_blacklist, cabut_blacklist)
+from utils import persetujuan
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
@@ -20,8 +22,10 @@ blacklist_bp = Blueprint('blacklist', __name__)
 @login_required
 def blacklist_riwayat():
     tipe = request.args.get("tipe", "").upper()
+    status = request.args.get("status", "AKTIF").upper()
     return jsonify(get_riwayat_blacklist(tipe if tipe in TIPE_VALID else None,
-                                         request.args.get("cari", "").strip() or None))
+                                         request.args.get("cari", "").strip() or None,
+                                         status=status if status in ("AKTIF", "DICABUT") else "AKTIF"))
 
 
 @blacklist_bp.route("/api/blacklist/info/<tipe>/<int:id_target>")
@@ -107,6 +111,12 @@ def blacklist_tambah():
         return jsonify({"error": str(e)}), 400
     if len(no_surat) > 100:
         return jsonify({"error": "No. surat maksimal 100 karakter"}), 400
+    try:
+        nama, sudah = nama_target(tipe, id_target)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if sudah:
+        return jsonify({"error": "Target sudah masuk blacklist"}), 400
     info = None
     if no_surat:
         try:
@@ -114,15 +124,60 @@ def blacklist_tambah():
         except ValueError as e:
             return jsonify({"error": f"Surat: {e}"}), 400
 
+    data = {"tipe": tipe, "id_target": id_target, "no_surat": no_surat or None, "alasan": alasan, "file_info": info,
+            "tgl": tgl.isoformat() if tgl else None, "terkait": terkait}
     try:
-        tambah_blacklist(tipe, id_target, no_surat or None, alasan, info, tgl, current_user.id, terkait)
+        status, penyetuju = persetujuan.ajukan("BLACKLIST_TAMBAH", f"{tipe}:{id_target}", f"Tambah blacklist {nama}",
+                                               alasan, data, current_user.id)
     except Exception as e:
         if info:
             hapus_file_info([info])
         if isinstance(e, ValueError):
             return jsonify({"error": str(e)}), 400
         raise
-    return jsonify({"message": "Blacklist berhasil ditetapkan (permanen)" + ("" if no_surat else ". Surat dapat dilampirkan menyusul.")})
+    if status == "MENUNGGU":
+        return jsonify({"message": f"Pengajuan blacklist {nama} berhasil dikirim dan menunggu persetujuan {penyetuju}. "
+                                   "Blacklist berlaku setelah disetujui.", "menunggu": True})
+    return jsonify({"message": "Blacklist berhasil ditetapkan" + ("" if no_surat else ". Surat dapat dilampirkan menyusul.")})
+
+
+@blacklist_bp.route("/api/blacklist/<int:id_blacklist>/hapus", methods=["POST"])
+@login_required
+@izin('BLACKLIST', 'hapus')
+def blacklist_hapus(id_blacklist):
+    """Ajukan pencabutan blacklist. Baris blacklist tetap tersimpan sebagai riwayat."""
+    alasan = (request.form.get("alasan") or "").strip()
+    if not alasan:
+        return jsonify({"error": "Alasan hapus blacklist wajib diisi"}), 400
+    b = get_blacklist(id_blacklist)
+    if not b or b["dicabut_at"]:
+        return jsonify({"error": "Blacklist tidak ditemukan atau sudah dicabut"}), 400
+    try:
+        status, penyetuju = persetujuan.ajukan("BLACKLIST_HAPUS", f"BLACKLIST:{id_blacklist}", f"Hapus blacklist {b['nama']}",
+                                               alasan[:500], {"id_blacklist": id_blacklist, "alasan": alasan[:500]}, current_user.id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if status == "MENUNGGU":
+        return jsonify({"message": f"Pengajuan hapus blacklist {b['nama']} berhasil dikirim dan menunggu persetujuan {penyetuju}."})
+    return jsonify({"message": f"Blacklist {b['nama']} berhasil dicabut."})
+
+
+# ===== Pelaksana persetujuan (dijalankan saat langkah terakhir disetujui) =====
+def _batal_tambah(data):
+    if data.get("file_info"):
+        hapus_file_info([data["file_info"]])
+
+
+@persetujuan.pelaksana("BLACKLIST_TAMBAH", saat_ditolak=_batal_tambah)
+def _jalankan_tambah(data, id_pengaju, id_penyetuju):
+    tgl = date.fromisoformat(data["tgl"]) if data.get("tgl") else None
+    tambah_blacklist(data["tipe"], data["id_target"], data.get("no_surat"), data["alasan"], data.get("file_info"), tgl,
+                     id_pengaju, data.get("terkait"))
+
+
+@persetujuan.pelaksana("BLACKLIST_HAPUS")
+def _jalankan_hapus(data, id_pengaju, id_penyetuju):
+    cabut_blacklist(data["id_blacklist"], data.get("alasan"), id_penyetuju)
 
 
 def _tanggal_surat(f):

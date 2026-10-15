@@ -21,7 +21,7 @@ AKSI_MENU = {
     "FORM_LAB": ("tambah", "ubah"),
     "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
     "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"),
-    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah",), "KUNJUNGAN": ("tambah", "ubah"),
+    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus"), "PERSETUJUAN": (), "KUNJUNGAN": ("tambah", "ubah"),
     "KELEBIHAN_DO": ("tambah", "ubah"),
 }
 

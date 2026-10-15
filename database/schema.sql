@@ -596,7 +596,11 @@ CREATE TABLE dbo.notifikasi (
     judul          NVARCHAR(150)  NOT NULL,
     isi            NVARCHAR(500)  NULL,
     tautan         VARCHAR(200)   NULL,
-    waktu          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE())
+    waktu          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE()),
+    -- Sasaran (migrasi 027): jabatan di PT tertentu, atau satu user. Keduanya NULL = per menu (kode_menu)
+    id_level       INT NULL CONSTRAINT FK_Notif_Level REFERENCES dbo.level (id_level),
+    id_company     INT NULL CONSTRAINT FK_Notif_Company REFERENCES dbo.company (id_company),
+    id_user        INT NULL CONSTRAINT FK_Notif_User REFERENCES dbo.akun (id_user)
 );
 CREATE INDEX IX_Notif_Waktu ON dbo.notifikasi (waktu DESC);
 CREATE TABLE dbo.notifikasi_baca (
@@ -654,6 +658,10 @@ CREATE TABLE dbo.blacklist (
     no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
     id_customer_terkait      INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.mitra (id_supplier),
     id_pengangkutan_terkait  INT NULL CONSTRAINT FK_Blacklist_Angkut REFERENCES dbo.mitra (id_supplier),
+    -- Dicabut lewat persetujuan (migrasi 027); baris tidak pernah dihapus
+    dicabut_at               DATETIME NULL,
+    dicabut_oleh             INT NULL CONSTRAINT FK_Blacklist_Pencabut REFERENCES dbo.akun (id_user),
+    alasan_cabut             NVARCHAR(500) NULL,
     CONSTRAINT CK_Blacklist_Tipe CHECK (tipe_entitas IN ('PERSONEL', 'KENDARAAN')),
     CONSTRAINT CK_Blacklist_Target CHECK (
         (tipe_entitas = 'PERSONEL'  AND id_personel IS NOT NULL AND id_kendaraan IS NULL) OR
@@ -829,14 +837,53 @@ CREATE INDEX IX_SesiLogin_User ON dbo.sesi_login (user_id, berakhir_at);
 CREATE INDEX IX_SesiLogin_Aktif ON dbo.sesi_login (berakhir_at, terakhir_aktif);
 GO
 
+/* =========================== PERSETUJUAN DINAMIS (migrasi 027) =========================== */
+CREATE TABLE dbo.persetujuan_langkah (
+    jenis     VARCHAR(40) NOT NULL,
+    urutan    TINYINT     NOT NULL CONSTRAINT CK_SetujuLangkah_Urutan CHECK (urutan BETWEEN 1 AND 3),
+    id_level  INT         NOT NULL CONSTRAINT FK_SetujuLangkah_Level REFERENCES dbo.level (id_level),
+    CONSTRAINT PK_PersetujuanLangkah PRIMARY KEY (jenis, urutan)
+);
+CREATE TABLE dbo.pengajuan (
+    id_pengajuan   INT IDENTITY(1,1) PRIMARY KEY,
+    jenis          VARCHAR(40)    NOT NULL,
+    status         VARCHAR(20)    NOT NULL CONSTRAINT DF_Pengajuan_Status DEFAULT ('MENUNGGU')
+                   CONSTRAINT CK_Pengajuan_Status CHECK (status IN ('MENUNGGU', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
+    langkah        TINYINT        NOT NULL CONSTRAINT DF_Pengajuan_Langkah DEFAULT (1),
+    total_langkah  TINYINT        NOT NULL,
+    id_company     INT            NOT NULL CONSTRAINT FK_Pengajuan_Company REFERENCES dbo.company (id_company),
+    id_comp_area   INT            NOT NULL CONSTRAINT FK_Pengajuan_Area REFERENCES dbo.comp_area (id_comp_area),
+    target         VARCHAR(50)    NOT NULL,
+    judul          NVARCHAR(200)  NOT NULL,
+    alasan         NVARCHAR(500)  NULL,
+    data           NVARCHAR(MAX)  NULL CONSTRAINT CK_Pengajuan_Json CHECK (data IS NULL OR ISJSON(data) = 1),
+    diajukan_oleh  INT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.akun (id_user),
+    created_at     DATETIME       NOT NULL CONSTRAINT DF_Pengajuan_Dibuat DEFAULT (GETDATE()),
+    selesai_at     DATETIME       NULL
+);
+CREATE INDEX IX_Pengajuan_Status ON dbo.pengajuan (status, jenis, id_company);
+CREATE TABLE dbo.pengajuan_riwayat (
+    id_riwayat    INT IDENTITY(1,1) PRIMARY KEY,
+    id_pengajuan  INT           NOT NULL CONSTRAINT FK_PengRiwayat_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
+    langkah       TINYINT       NOT NULL,
+    aksi          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (aksi IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
+    id_level      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.level (id_level),
+    id_user       INT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.akun (id_user),
+    catatan       NVARCHAR(500) NULL,
+    waktu         DATETIME      NOT NULL CONSTRAINT DF_PengRiwayat_Waktu DEFAULT (GETDATE())
+);
+GO
+
 /* =========================== TRIGGER: blacklist permanen =========================== */
 CREATE OR ALTER TRIGGER dbo.TR_Personel_BlacklistPermanen ON dbo.personel AFTER UPDATE AS
 BEGIN
     SET NOCOUNT ON;
-    IF UPDATE(is_blacklisted) AND EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.id_personel = i.id_personel
-                                          WHERE d.is_blacklisted = 1 AND i.is_blacklisted = 0)
+    -- Pencabutan hanya dari jalur persetujuan (SESSION_CONTEXT cabut_blacklist = 1, migrasi 027)
+    IF UPDATE(is_blacklisted) AND ISNULL(CAST(SESSION_CONTEXT(N'cabut_blacklist') AS INT), 0) <> 1
+       AND EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.id_personel = i.id_personel
+                   WHERE d.is_blacklisted = 1 AND i.is_blacklisted = 0)
     BEGIN
-        RAISERROR('Blacklist personel bersifat permanen dan tidak bisa dicabut.', 16, 1);
+        RAISERROR('Blacklist personel hanya bisa dicabut lewat persetujuan (menu Persetujuan).', 16, 1);
         ROLLBACK TRANSACTION;
     END
 END
@@ -844,10 +891,12 @@ GO
 CREATE OR ALTER TRIGGER dbo.TR_Kendaraan_BlacklistPermanen ON dbo.kendaraan AFTER UPDATE AS
 BEGIN
     SET NOCOUNT ON;
-    IF UPDATE(is_blacklisted) AND EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.id_kendaraan = i.id_kendaraan
-                                          WHERE d.is_blacklisted = 1 AND i.is_blacklisted = 0)
+    -- Pencabutan hanya dari jalur persetujuan (SESSION_CONTEXT cabut_blacklist = 1, migrasi 027)
+    IF UPDATE(is_blacklisted) AND ISNULL(CAST(SESSION_CONTEXT(N'cabut_blacklist') AS INT), 0) <> 1
+       AND EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.id_kendaraan = i.id_kendaraan
+                   WHERE d.is_blacklisted = 1 AND i.is_blacklisted = 0)
     BEGIN
-        RAISERROR('Blacklist kendaraan bersifat permanen dan tidak bisa dicabut.', 16, 1);
+        RAISERROR('Blacklist kendaraan hanya bisa dicabut lewat persetujuan (menu Persetujuan).', 16, 1);
         ROLLBACK TRANSACTION;
     END
 END
@@ -900,6 +949,7 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
     ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
     ('KELEBIHAN_DO',     N'Kelebihan DO',     '/kelebihan-do',         'fa-scale-unbalanced', 55),
+    ('PERSETUJUAN',      N'Persetujuan',      '/persetujuan',          'fa-list-check',    47),
     ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
