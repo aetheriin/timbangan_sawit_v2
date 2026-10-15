@@ -10,6 +10,7 @@ from utils.area import area_data, company_user
 from utils.db_admin import supplier_boleh
 from flask_login import login_required, current_user
 from utils.db_utils import (
+    periksa_tiket,
     get_semua_supplier, get_semua_produk, get_history_produk, cari_transaksi_aktif,
     cari_riwayat_driver_by_plat, generate_no_tiket,
     get_kendaraan_by_plat, get_supir_kendaraan, get_kontrak_kendaraan, catat_cetak_qr
@@ -19,7 +20,8 @@ from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
-from utils.hak_akses import boleh, halaman as lihat_halaman
+from utils.hak_akses import boleh, izin, halaman as lihat_halaman
+from utils import log_aktivitas
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
 from utils.db_kunjungan import daftar_keperluan, area_akun
@@ -53,7 +55,7 @@ def weighbridge():
     """List = daftar tiket aktif per tahap (tanpa info bar & tab). Form = info bar + tab Security..Lab."""
     if request.args.get("view") != "form":
         return render_template("site/list.html", halaman="site", view="list", produk_list=get_semua_produk(),
-                               tahap_awal=_tab_awal())
+                               tahap_awal=_tab_awal(), boleh_periksa=boleh("LIST", "setujui"))
     return render_template("site/weighbridge.html", halaman="site", view="form",
                            tab_awal=_tab_awal() or "security",
                            supplier_list=[s for s in get_semua_supplier()
@@ -67,7 +69,20 @@ def weighbridge():
 def history_produk():
     id_produk = request.args.get("id_produk", "")
     rows = get_history_produk(int(id_produk) if id_produk.isdigit() else None, id_area=area_data(current_user.id))
-    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M")} for r in rows])
+    return jsonify([{**r, "created_at": r["created_at"].strftime("%Y-%m-%d %H:%M"),
+                     "diperiksa_pada": r["diperiksa_pada"].strftime("%Y-%m-%d %H:%M") if r["diperiksa_pada"] else None}
+                    for r in rows])
+
+
+@main_bp.route("/api/tiket/<no_tiket>/periksa", methods=["POST"])
+@login_required
+@izin("LIST", "setujui")
+def tiket_periksa(no_tiket):
+    """Verifikasi tiket selesai (sudah diperiksa): pemeriksa & waktunya dicatat, tidak bisa diubah lagi."""
+    if not periksa_tiket(no_tiket, current_user.id, area_data(current_user.id)):
+        return jsonify({"error": "Tiket tidak ditemukan, belum selesai, atau sudah diperiksa."}), 400
+    log_aktivitas.catat("TIKET", "TIKET_DIPERIKSA", id_baris=no_tiket, user_id=current_user.id, ip=request.remote_addr)
+    return jsonify({"message": f"Tiket {no_tiket} berhasil ditandai sudah diperiksa."})
 
 
 @main_bp.route("/api/tantangan-wajah")

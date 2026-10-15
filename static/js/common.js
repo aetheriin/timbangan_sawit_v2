@@ -73,6 +73,18 @@ const LABEL_STATUS_TIKET = {
     VOID: ['Dibatalkan', 'bg-slate-200 text-slate-500'],
 };
 
+// Nama & warna status dari Admin › Organisasi › Status Tiket menimpa label bawaan di atas
+const KELAS_WARNA_STATUS = {
+    abu: 'bg-slate-200 text-slate-600', biru: 'bg-blue-100 text-blue-700', hijau: 'bg-emerald-100 text-emerald-700',
+    oranye: 'bg-amber-100 text-amber-700', merah: 'bg-red-100 text-red-700', ungu: 'bg-violet-100 text-violet-700',
+    kuning: 'bg-yellow-100 text-yellow-800', toska: 'bg-teal-100 text-teal-700',
+};
+try {
+    (JSON.parse(document.getElementById('dataStatusTiket')?.dataset.status || '[]') || []).forEach(s => {
+        LABEL_STATUS_TIKET[s.kode] = [s.nama, KELAS_WARNA_STATUS[s.warna] || KELAS_WARNA_STATUS.abu];
+    });
+} catch (e) { /* data status rusak: pakai label bawaan */ }
+
 function labelStatusTiket(status) {
     return (LABEL_STATUS_TIKET[status] || [labelKode(status)])[0];
 }
@@ -128,7 +140,7 @@ function tiketPunyaTahap(t, kode) {
 // Berlaku juga untuk baris yang dirender belakangan (MutationObserver). Label yang tidak dikenal tetap berupa teks.
 const IKON_AKSI = {
     'Ubah': 'fa-pen', 'Edit': 'fa-pen', 'Hapus': 'fa-trash-can', 'Nonaktifkan': 'fa-toggle-off', 'Aktifkan': 'fa-toggle-on',
-    'Atur Ulang Password': 'fa-key', 'Hak Akses': 'fa-user-shield', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
+    'Atur Ulang Password': 'fa-key', 'Hak Akses': 'fa-user-shield', 'Periksa': 'fa-clipboard-check', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
     'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban', 'Batalkan': 'fa-ban',
     'Lampirkan Surat': 'fa-paperclip', 'Lampirkan BA': 'fa-paperclip', 'Lampirkan': 'fa-paperclip', 'Lihat Surat': 'fa-file-lines',
     'Tetapkan': 'fa-circle-check', 'Kembalikan': 'fa-rotate-left', 'Isi DO Baru': 'fa-file-pen', 'Ganti Token': 'fa-key',

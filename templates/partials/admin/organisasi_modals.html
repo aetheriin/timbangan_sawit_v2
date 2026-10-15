@@ -126,3 +126,24 @@
         </div>
     </form>
 </div>
+
+<!-- MODAL: Status Tiket (nama & warna) -->
+<div id="modalOrg-status" class="modal-overlay">
+    <form id="formOrg-status" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Ubah Status Tiket <span id="kodeStatusOrg" class="font-mono font-normal text-slate-500"></span></h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-status" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="kode">
+            <div><label class="field-label" for="orgStatusNama">Nama</label>
+                <input type="text" id="orgStatusNama" name="nama" required maxlength="50" class="input-field"></div>
+            <div><p class="field-label">Warna</p>
+                <div id="orgStatusWarna" class="flex flex-wrap gap-3 text-sm"></div></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-status" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

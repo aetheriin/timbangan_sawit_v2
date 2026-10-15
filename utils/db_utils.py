@@ -653,7 +653,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         cursor.execute(f"""
             SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
                    t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
-                   t.status_alur, t.no_do, d.nama_personel AS supir,
+                   t.status_alur, t.no_do, d.nama_personel AS supir, t.diperiksa_pada, pr.nama AS pemeriksa,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
                    CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
                         DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
@@ -664,9 +664,25 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
             LEFT JOIN personel d ON d.id_personel = t.id_driver
+            LEFT JOIN akun pr ON pr.id_user = t.diperiksa_oleh
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
             ORDER BY t.created_at DESC""", *params)
         return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
+
+def periksa_tiket(no_tiket, user_id, id_area=None):
+    """Verifikasi tiket selesai (ERD WeightBridge.IsCheck / CheckDate). Hanya sekali; area mengikuti akses pengguna."""
+    filter_area, param_area = _filter_area(id_area)
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"""UPDATE t SET diperiksa_pada = GETDATE(), diperiksa_oleh = ?
+                           FROM transaksi t WHERE t.no_tiket = ? AND t.status_alur = 'SELESAI'
+                             AND t.diperiksa_pada IS NULL{filter_area}""", user_id, no_tiket, *param_area)
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+        return berhasil
     finally:
         conn.close()
 

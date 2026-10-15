@@ -8,6 +8,7 @@ from utils import db_kontrak as db
 from utils.db_utils import get_semua_produk
 from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.area import company_user
+from utils.db_organisasi import daftar_company
 from utils.db_admin import supplier_boleh
 
 kontrak_bp = Blueprint("kontrak", __name__)
@@ -25,7 +26,8 @@ def _json_do(d):
     return {**d, "tanggal_do": _tgl(d["tanggal_do"]), "berlaku_sampai": _tgl(d["berlaku_sampai"]),
             "tanggal_kontrak": _tgl(d["tanggal_kontrak"]), "created_at": _tgl(d["created_at"]),
             "qty_kg": _angka(d["qty_kg"]), "harga_per_kg": _angka(d["harga_per_kg"]), "realisasi_kg": _angka(d.get("realisasi_kg")),
-            "angkutan": [{**a, "qty_kg": _angka(a["qty_kg"])} for a in d["angkutan"]]}
+            "angkutan": [{**a, "qty_kg": _angka(a["qty_kg"]), "ongkos_per_kg": _angka(a.get("ongkos_per_kg"))} for a in d["angkutan"]],
+            "ppn": bool(d.get("ppn")), "harga_termasuk_ppn": bool(d.get("harga_termasuk_ppn"))}
 
 
 @kontrak_bp.route("/kontrak")
@@ -39,6 +41,7 @@ def kontrak_halaman():
                            boleh_ubah=boleh("KONTRAK_DO"),
                            customer_list=[m for m in mitra if m["peran"] == "CUSTOMER"],
                            angkutan_list=[m for m in mitra if m["peran"] == "PENGANGKUTAN"],
+                           company_list=_company_user(),
                            produk_list=get_semua_produk())
 
 
@@ -46,6 +49,12 @@ def kontrak_halaman():
 @login_required
 def do_daftar():
     return jsonify([_json_do(d) for d in db.daftar_do(request.args.get("cari", ""))])
+
+
+def _company_user():
+    """PT yang boleh dipilih sebagai pemilik kontrak: kantor pusat = semua PT aktif, selain itu PT sendiri."""
+    pt = company_user(current_user.id)
+    return [c for c in daftar_company() if c["is_active"] and (pt is None or c["id_company"] in pt)]
 
 
 def _tanggal(nama, wajib, label="Tanggal DO"):
@@ -64,7 +73,7 @@ def _id(nama, wajib=True):
     teks = (request.form.get(nama) or "").strip()
     if not teks.isdigit():
         if wajib:
-            raise ValueError(f"{nama.replace('id_', '').capitalize()} wajib dipilih")
+            raise ValueError("Perusahaan wajib dipilih" if nama == "id_company" else f"{nama.replace('id_', '').capitalize()} wajib dipilih")
         return None
     return int(teks)
 
@@ -86,7 +95,8 @@ def _angkutan_form(qty_kontrak):
     """Baris pengangkutan dari form (angkut_cara[], angkut_nama[], angkut_qty[])."""
     f = request.form
     hasil, kunci = [], set()
-    for cara, nama, qty in zip(f.getlist("angkut_cara"), f.getlist("angkut_nama"), f.getlist("angkut_qty")):
+    ongkos = f.getlist("angkut_ongkos") or [""] * len(f.getlist("angkut_cara"))
+    for cara, nama, qty, biaya in zip(f.getlist("angkut_cara"), f.getlist("angkut_nama"), f.getlist("angkut_qty"), ongkos):
         cara = (cara or "").strip().upper()
         if cara not in db.CARA_ANGKUT:
             raise ValueError("Cara angkut tidak dikenal")
@@ -98,7 +108,8 @@ def _angkutan_form(qty_kontrak):
         if (cara, id_angkut) in kunci:
             raise ValueError("Pengangkutan yang sama dipilih dua kali")
         kunci.add((cara, id_angkut))
-        hasil.append({"cara_angkut": cara, "id_pengangkutan": id_angkut, "qty_kg": _desimal(qty, "Alokasi qty")})
+        hasil.append({"cara_angkut": cara, "id_pengangkutan": id_angkut, "qty_kg": _desimal(qty, "Alokasi qty"),
+                      "ongkos_per_kg": _desimal(biaya, "Ongkos angkut")})
     if not hasil:
         raise ValueError("Tambahkan minimal satu pengangkutan")
     total = sum(a["qty_kg"] or 0 for a in hasil)
@@ -120,7 +131,13 @@ def do_simpan():
              "tanggal_kontrak": _tanggal("tanggal_kontrak", True, "Tanggal kontrak"),
              "qty_kg": _desimal(f.get("qty_kg"), "Qty kontrak"), "harga_per_kg": _desimal(f.get("harga_per_kg"), "Harga"),
              "tanggal_do": _tanggal("tanggal_do", True), "berlaku_sampai": _tanggal("berlaku_sampai", False),
-             "keterangan": (f.get("keterangan") or "").strip()[:200] or None}
+             "keterangan": (f.get("keterangan") or "").strip()[:200] or None,
+             "ppn": f.get("ppn") == "1", "harga_termasuk_ppn": f.get("harga_termasuk_ppn") == "1",
+             "id_company": _id("id_company")}
+        if d["id_company"] not in {c["id_company"] for c in _company_user()}:
+            raise ValueError("Pilih perusahaan pemilik kontrak dari daftar")
+        if not d["ppn"]:
+            d["harga_termasuk_ppn"] = False
         if not d["no_do"] or not d["no_kontrak"]:
             raise ValueError("No DO dan No Kontrak wajib diisi")
         if len(d["no_do"]) > 50 or len(d["no_kontrak"]) > 50:

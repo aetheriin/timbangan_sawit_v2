@@ -50,6 +50,8 @@
 {% include "partials/layout/notifikasi.html" %}
 {% if current_user.is_authenticated %}{% include "partials/layout/cari.html" %}{% endif %}
 
+{# Nama & warna status tiket dari Admin › Organisasi (data, bukan script yang dijalankan) #}
+<div id="dataStatusTiket" hidden data-status='{{ status_tiket() | tojson }}'></div>
 {# Semua script defer: diunduh paralel, dijalankan berurutan setelah HTML selesai dibaca #}
 <script defer src="{{ url_for('static', filename='js/common.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/aksi.js') }}"></script>

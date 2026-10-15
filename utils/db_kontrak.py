@@ -8,7 +8,8 @@ CARA_ANGKUT = ("PENGIRIM", "PENERIMA", "PIHAK_KETIGA")
 
 _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transaksi, k.id_customer,
                     c.nama_supplier AS nama_customer, k.id_produk, p.nama_produk, k.tanggal AS tanggal_kontrak,
-                    k.qty_kg, k.harga_per_kg, k.keterangan, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at,
+                    k.qty_kg, k.harga_per_kg, k.keterangan, k.ppn, k.harga_termasuk_ppn, k.id_company,
+                    co.kode AS kode_company, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at,
                     -- realisasi: total netto tiket DO ini (tanpa VOID)
                     (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
                      LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
@@ -16,7 +17,8 @@ _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transa
              FROM delivery_order o
              JOIN kontrak k ON k.id_kontrak = o.id_kontrak
              JOIN mitra c ON c.id_supplier = k.id_customer
-             JOIN produk p ON p.id_produk = k.id_produk"""
+             JOIN produk p ON p.id_produk = k.id_produk
+             LEFT JOIN company co ON co.id_company = k.id_company"""
 
 
 def _query(sql, *params):
@@ -47,7 +49,8 @@ def _lengkapi_angkut(daftar):
     ids = list(per_do)
     for i in range(0, len(ids), 1000):
         bagian = ids[i:i + 1000]
-        rows = _query(f"""SELECT a.id_do, a.cara_angkut, a.id_pengangkutan, s.nama_supplier AS nama_pengangkutan, a.qty_kg
+        rows = _query(f"""SELECT a.id_do, a.cara_angkut, a.id_pengangkutan, s.nama_supplier AS nama_pengangkutan, a.qty_kg,
+                                 a.ongkos_per_kg
                           FROM do_pengangkutan a LEFT JOIN mitra s ON s.id_supplier = a.id_pengangkutan
                           WHERE a.id_do IN ({','.join('?' * len(bagian))}) ORDER BY a.id_do_angkut""", *bagian)
         for r in rows:
@@ -85,7 +88,7 @@ def simpan_do(id_do, d, angkutan, user_id):
     """Kontrak + DO + daftar pengangkutan dalam satu transaksi DB.
     angkutan: [{"cara_angkut", "id_pengangkutan", "qty_kg"}] (minimal satu, tanpa duplikat)."""
     kontrak = (d["no_kontrak"], d["jenis_transaksi"], d["id_customer"], d["id_produk"], d["tanggal_kontrak"],
-               d["qty_kg"], d["harga_per_kg"], d["keterangan"])
+               d["qty_kg"], d["harga_per_kg"], d["keterangan"], int(d["ppn"]), int(d["harga_termasuk_ppn"]), d["id_company"])
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -95,23 +98,25 @@ def simpan_do(id_do, d, angkutan, user_id):
             if row is None:
                 raise ValueError("DO tidak ditemukan")
             cursor.execute("""UPDATE kontrak SET no_kontrak = ?, jenis_transaksi = ?, id_customer = ?, id_produk = ?,
-                              tanggal = ?, qty_kg = ?, harga_per_kg = ?, keterangan = ? WHERE id_kontrak = ?""",
+                              tanggal = ?, qty_kg = ?, harga_per_kg = ?, keterangan = ?, ppn = ?, harga_termasuk_ppn = ?,
+                              id_company = ? WHERE id_kontrak = ?""",
                            *kontrak, row.id_kontrak)
             cursor.execute("UPDATE delivery_order SET no_do = ?, tanggal_do = ?, berlaku_sampai = ? WHERE id_do = ?",
                            d["no_do"], d["tanggal_do"], d["berlaku_sampai"], id_do)
             cursor.execute("DELETE FROM do_pengangkutan WHERE id_do = ?", id_do)
         else:
             cursor.execute("""INSERT INTO kontrak (no_kontrak, jenis_transaksi, id_customer, id_produk, tanggal, qty_kg,
-                              harga_per_kg, keterangan, created_by) OUTPUT INSERTED.id_kontrak
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""", *kontrak, user_id)
+                              harga_per_kg, keterangan, ppn, harga_termasuk_ppn, id_company, created_by) OUTPUT INSERTED.id_kontrak
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", *kontrak, user_id)
             id_kontrak = cursor.fetchone()[0]
             cursor.execute("""INSERT INTO delivery_order (no_do, id_kontrak, tanggal_do, berlaku_sampai, created_by)
                               OUTPUT INSERTED.id_do VALUES (?, ?, ?, ?, ?)""",
                            d["no_do"], id_kontrak, d["tanggal_do"], d["berlaku_sampai"], user_id)
             id_do = cursor.fetchone()[0]
         for a in angkutan:
-            cursor.execute("INSERT INTO do_pengangkutan (id_do, cara_angkut, id_pengangkutan, qty_kg) VALUES (?, ?, ?, ?)",
-                           id_do, a["cara_angkut"], a["id_pengangkutan"], a["qty_kg"])
+            cursor.execute("""INSERT INTO do_pengangkutan (id_do, cara_angkut, id_pengangkutan, qty_kg, ongkos_per_kg)
+                              VALUES (?, ?, ?, ?, ?)""", id_do, a["cara_angkut"], a["id_pengangkutan"], a["qty_kg"],
+                           a.get("ongkos_per_kg"))
         conn.commit()
     finally:
         conn.close()

@@ -86,6 +86,7 @@ async function muatHistoryProduk() {
     const data = await ambilJson(`/api/list/history-produk?id_produk=${encodeURIComponent(idProduk)}`);
     const tbody = document.getElementById('tabelHistoryProduk');
     if (data.error) { tbody.innerHTML = barisKosong(10, data.error); return; }
+    const bolehPeriksa = tbody.dataset.bolehPeriksa === '1';
     tbody.innerHTML = data.map(r => `
         <tr class="hover:bg-slate-50">
             <td class="table-cell">${duaBaris(escapeHtml(r.no_tiket), escapeHtml(r.created_at), true)}</td>
@@ -96,9 +97,12 @@ async function muatHistoryProduk() {
             <td class="table-cell text-right font-mono text-slate-600">${angkaKg(r.berat_tara)}</td>
             <td class="table-cell text-right font-mono font-bold text-blue-700">${angkaKg(r.berat_netto)}</td>
             <td class="table-cell whitespace-nowrap text-xs">${labelLama(r.lama_menit)}</td>
-            <td class="table-cell">${badgeStatusTiket(r.status_alur)}</td>
-            <td class="table-cell text-right whitespace-nowrap">${TIKET_SELESAI_LIST.includes(r.status_alur) ? '' :
-                `<a class="aksi-ikon" title="Cetak QR tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>`}
+            <td class="table-cell">${badgeStatusTiket(r.status_alur)}${r.diperiksa_pada
+                ? `<span class="block text-[11px] text-emerald-700 mt-1" title="${escapeHtml(r.diperiksa_pada)}"><i class="fa-solid fa-check mr-1"></i>Diperiksa ${escapeHtml(r.pemeriksa || '')}</span>` : ''}</td>
+            <td class="table-cell text-right whitespace-nowrap space-x-3">${TIKET_SELESAI_LIST.includes(r.status_alur) ? '' :
+                `<a class="aksi-ikon" title="Cetak QR tiket" href="/cetak/tiket/${encodeURIComponent(r.no_tiket)}" target="_blank"><i class="fa-solid fa-print"></i></a>`}${
+                bolehPeriksa && r.status_alur === 'SELESAI' && !r.diperiksa_pada
+                ? `<button type="button" class="link-aksi text-emerald-700" data-on-click="periksaTiket" data-arg="${escapeHtml(r.no_tiket)}">Periksa</button>` : ''}
             </td>
         </tr>`).join('') || barisKosong(10, 'Belum ada transaksi 7 hari terakhir');
     const total = data.reduce((a, r) => a + (Number(r.berat_netto) || 0), 0);
@@ -125,4 +129,12 @@ function labelLama(menit) {
     const jam = Math.floor(menit / 60);
     const teks = jam ? `${jam} jam ${menit % 60} mnt` : `${menit} mnt`;
     return jam >= 4 ? `<span class="text-red-600 font-semibold">${teks}</span>` : teks;
+}
+
+// Verifikasi tiket selesai (hak Setujui di menu Daftar Tiket): pemeriksa & waktunya dicatat
+async function periksaTiket(noTiket) {
+    const ok = await Dialog.konfirmasi({ judul: `Tandai tiket ${noTiket} sudah diperiksa?`, teksYa: 'Ya, sudah diperiksa',
+        pesan: 'Nama Anda dan waktu pemeriksaan dicatat pada tiket ini dan tidak bisa dibatalkan.' });
+    if (!ok) return;
+    if (tampilkanHasil(await kirimForm(`/api/tiket/${encodeURIComponent(noTiket)}/periksa`, {}))) muatHistoryProduk();
 }

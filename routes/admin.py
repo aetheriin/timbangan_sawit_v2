@@ -453,7 +453,7 @@ def _id_opsional(nama):
 def organisasi_daftar():
     return jsonify({"company": org.daftar_company(), "lokasi": org.daftar_lokasi(), "area": org.daftar_area(),
                     "department": org.daftar_department(),
-                    "mill": alur.daftar_mill()})
+                    "mill": alur.daftar_mill(), "status": alur.daftar_status()})
 
 
 @admin_bp.route("/api/admin/organisasi/company/simpan", methods=["POST"])
@@ -536,6 +536,23 @@ def mill_simpan():
         alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
         _audit("MILL_SIMPAN", kode, nama)
         return jsonify({"message": f"Unit timbang {nama} berhasil disimpan."})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/organisasi/status/simpan", methods=["POST"])
+@_admin
+def status_simpan():
+    """Nama & warna status tiket (ERD Status: StatusName, StatusColor)."""
+    def aksi():
+        kode = (request.form.get("kode") or "").strip().upper()
+        if kode not in {s["kode"] for s in alur.daftar_status()}:
+            raise ValueError("Status tidak ditemukan.")
+        nama, warna = _teks("nama", maks=50), (request.form.get("warna") or "").strip()
+        if warna not in alur.WARNA_STATUS:
+            raise ValueError("Pilih warna dari daftar.")
+        alur.simpan_status(kode, nama, warna)
+        _audit("STATUS_TIKET_SIMPAN", kode, f"{nama} ({warna})")
+        return jsonify({"message": f"Status {nama} berhasil disimpan."})
     return _jalankan(aksi)
 
 

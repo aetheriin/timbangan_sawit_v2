@@ -41,7 +41,41 @@ async function muatOrganisasi() {
                 </td>
             </tr>`).join('') || barisKosong(n, `Belum ada ${cfg.nama.toLowerCase()}`);
     });
+    if (!data.error) tampilStatus(data.status || []);
 }
+
+// ===== STATUS TIKET: nama & warna badge di semua halaman =====
+const NAMA_WARNA = { abu: 'Abu-abu', biru: 'Biru', hijau: 'Hijau', oranye: 'Oranye', merah: 'Merah', ungu: 'Ungu', kuning: 'Kuning', toska: 'Toska' };
+let dataStatus = [];
+
+function tampilStatus(daftar) {
+    dataStatus = daftar;
+    document.getElementById('tabelOrg-status').innerHTML = daftar.map(st => `
+        <tr class="hover:bg-slate-50">
+            <td class="table-cell font-mono">${escapeHtml(st.kode)}</td>
+            <td class="table-cell">${escapeHtml(st.nama)}</td>
+            <td class="table-cell">${badge(st.nama, KELAS_WARNA_STATUS[st.warna] || KELAS_WARNA_STATUS.abu)}</td>
+            <td class="table-cell text-right"><button type="button" class="link-aksi text-blue-600" data-on-click="bukaStatus" data-arg="${escapeHtml(st.kode)}">Ubah</button></td>
+        </tr>`).join('') || barisKosong(4, 'Status tiket belum tersedia. Jalankan migrasi 033.');
+}
+
+function bukaStatus(kode) {
+    const st = dataStatus.find(x => x.kode === kode);
+    const form = document.getElementById('formOrg-status');
+    form.reset();
+    isiForm(form, { kode: st.kode, nama: st.nama });
+    document.getElementById('kodeStatusOrg').textContent = st.kode;
+    document.getElementById('orgStatusWarna').innerHTML = Object.entries(NAMA_WARNA).map(([k, nama]) => `
+        <label class="flex items-center gap-2"><input type="radio" name="warna" value="${k}"${k === st.warna ? ' checked' : ''}>
+            ${badge(nama, KELAS_WARNA_STATUS[k])}</label>`).join('');
+    openModal('modalOrg-status');
+    document.getElementById('orgStatusNama').focus();
+}
+
+document.getElementById('formOrg-status').addEventListener('submit', e => {
+    e.preventDefault();
+    kirimFormAdmin(e.target, '/api/admin/organisasi/status/simpan', { modal: 'modalOrg-status', setelahnya: muatOrganisasi });
+});
 
 // Pilihan di form diisi dari data terbaru setiap kali form dibuka, jadi perubahan nama langsung tampil tanpa
 // memuat ulang halaman. Yang nonaktif tidak ditawarkan, kecuali sedang dipakai baris yang diubah.

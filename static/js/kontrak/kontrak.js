@@ -43,8 +43,9 @@ function tampilkanDO() {
             </div>
             <div class="py-3 space-y-1.5 border-b border-slate-100">
                 ${baris2('Produk', `<b>${escapeHtml(d.nama_produk)}</b>`)}
-                ${baris2('No. Kontrak', escapeHtml(d.no_kontrak), true)}
-                ${baris2('Pengangkutan', d.angkutan.map(a => escapeHtml(a.label)).join('<br>') || '-')}
+                ${baris2('No. Kontrak', `${escapeHtml(d.no_kontrak)}${d.kode_company ? ` · ${escapeHtml(d.kode_company)}` : ''}`, true)}
+                ${d.harga_per_kg ? baris2('Harga', `Rp ${fmtKg(d.harga_per_kg)}/kg${d.ppn ? (d.harga_termasuk_ppn ? ' <span class="text-slate-500">(termasuk PPN)</span>' : ' <span class="text-slate-500">+ PPN</span>') : ''}`) : ''}
+                ${baris2('Pengangkutan', d.angkutan.map(a => escapeHtml(a.label) + (a.ongkos_per_kg ? ` <span class="text-slate-500">· Rp ${fmtKg(a.ongkos_per_kg)}/kg</span>` : '')).join('<br>') || '-')}
                 ${baris2('Tanggal DO', `${escapeHtml(d.tanggal_do)}${d.berlaku_sampai ? ` s/d ${escapeHtml(d.berlaku_sampai)}` : ''}`, true)}
             </div>
             <div class="pt-3 pb-3">
@@ -84,8 +85,12 @@ function bukaDO(id) {
     const hariIni = new Date().toISOString().slice(0, 10);
     form.reset();
     if (d) isiForm(form, { ...d, qty_kg: d.qty_kg ?? '', harga_per_kg: d.harga_per_kg ?? '', berlaku_sampai: d.berlaku_sampai || '',
-                           keterangan: d.keterangan || '' });
+                           keterangan: d.keterangan || '', id_company: d.id_company ?? '' });
     else isiForm(form, { id_do: '', tanggal_do: hariIni, tanggal_kontrak: hariIni });
+    const pt = form.elements.id_company;            // hanya satu PT yang boleh dipilih: langsung terisi
+    const opsiPt = [...pt.options].filter(o => o.value);
+    if (!pt.value && opsiPt.length === 1) pt.value = opsiPt[0].value;
+    aturPpnDO();
     document.getElementById('daftarAngkutDO').innerHTML = '';
     (d ? d.angkutan : [{ cara_angkut: 'PENGIRIM' }]).forEach(tambahBarisAngkut);
     labelCaraAngkut();
@@ -101,6 +106,7 @@ function tambahBarisAngkut(a) {
     baris.querySelector('[name=angkut_cara]').value = isi.cara_angkut;
     baris.querySelector('[name=angkut_nama]').value = isi.nama_pengangkutan || '';
     baris.querySelector('[name=angkut_qty]').value = isi.qty_kg ?? '';
+    baris.querySelector('[name=angkut_ongkos]').value = isi.ongkos_per_kg ?? '';
     document.getElementById('daftarAngkutDO').appendChild(baris);
     ubahCaraAngkut(baris.querySelector('[name=angkut_cara]'));
     labelCaraAngkut();
@@ -140,4 +146,12 @@ function ubahAktifDO(id) {
         url: `/api/kontrak/do/${id}/aktif`, aktif: !d.is_active, nama: `DO ${d.no_do}`, jenis: 'DO',
         pesanNonaktif: 'Kontrak & DO ini tidak bisa dipakai Security untuk tiket baru.', setelahnya: muatDO,
     });
+}
+
+// "Harga sudah termasuk PPN" hanya berlaku bila kontrak kena PPN
+function aturPpnDO() {
+    const form = document.getElementById('formDO');
+    const incl = form.elements.harga_termasuk_ppn;
+    incl.disabled = !form.elements.ppn.checked;
+    if (incl.disabled) incl.checked = false;
 }

@@ -46,6 +46,17 @@
                     <input type="number" id="doHarga" name="harga_per_kg" min="0.01" step="0.01" class="input-field" placeholder="opsional">
                 </div>
             </div>
+            <div>
+                <label class="field-label" for="doCompany">Perusahaan (pemilik kontrak)</label>
+                <select id="doCompany" name="id_company" required class="input-field">
+                    <option value="">-- Pilih --</option>
+                    {% for c in company_list %}<option value="{{ c.id_company }}">{{ c.kode }} · {{ c.nama }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-span-2 flex items-end gap-6 pb-2 text-sm">
+                <label class="flex items-center gap-2"><input type="checkbox" name="ppn" value="1" class="w-4 h-4" data-on-change="aturPpnDO"> Kena PPN</label>
+                <label class="flex items-center gap-2"><input type="checkbox" name="harga_termasuk_ppn" value="1" class="w-4 h-4"> Harga sudah termasuk PPN</label>
+            </div>
             <div class="col-span-3">
                 <label class="field-label" for="doKet">Keterangan (opsional)</label>
                 <input type="text" id="doKet" name="keterangan" maxlength="200" class="input-field">
@@ -83,14 +94,15 @@
 
 <template id="tplBarisAngkut">
     <div class="grid grid-cols-12 gap-2 items-center" data-baris-angkut>
-        <select name="angkut_cara" class="input-field col-span-4" data-on-change="ubahCaraAngkut" data-arg="$el">
+        <select name="angkut_cara" class="input-field col-span-3" data-on-change="ubahCaraAngkut" data-arg="$el">
             <option value="PENGIRIM">Kendaraan pengirim</option>
             <option value="PENERIMA">Kendaraan penerima</option>
             <option value="PIHAK_KETIGA">Pihak ketiga</option>
         </select>
         <input type="text" name="angkut_nama" maxlength="100" list="daftarAngkutan" placeholder="Nama perusahaan angkutan"
-               class="input-field col-span-4 invisible">
+               class="input-field col-span-3 invisible">
         <input type="number" name="angkut_qty" min="1" step="0.01" placeholder="Alokasi kg (opsional)" class="input-field col-span-3">
+        <input type="number" name="angkut_ongkos" min="0.01" step="0.01" placeholder="Ongkos/kg (opsional)" class="input-field col-span-2">
         <button type="button" class="text-red-600 col-span-1" title="Hapus" data-on-click="hapusBarisAngkut" data-arg="$el"><i class="fa-solid fa-trash"></i></button>
     </div>
 </template>

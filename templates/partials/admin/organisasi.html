@@ -20,3 +20,16 @@
     </div>
 </div>
 {% endfor %}
+
+<div class="section-box">
+    {{ section_header('org-status', 'Status Tiket (nama & warna)') }}
+    <div id="body-org-status" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell">Tampilan</th>
+                    <th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelOrg-status" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

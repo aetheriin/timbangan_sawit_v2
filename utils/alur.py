@@ -38,6 +38,31 @@ def daftar_mill():
     return rows
 
 
+# Warna status tiket (tabel status_tiket, migrasi 033), diatur di Admin › Organisasi
+WARNA_STATUS = ("abu", "biru", "hijau", "oranye", "merah", "ungu", "kuning", "toska")
+
+
+@cache_ttl(60)
+def daftar_status():
+    try:
+        return _query("SELECT kode, nama, warna FROM status_tiket ORDER BY urutan, kode")
+    except Exception:       # noqa: BLE001 - sebelum migrasi 033 memakai label bawaan di common.js
+        return []
+
+
+def simpan_status(kode, nama, warna):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE status_tiket SET nama = ?, warna = ? WHERE kode = ?", nama, warna, kode)
+        if cursor.rowcount == 0:
+            raise ValueError("Status tidak ditemukan.")
+        conn.commit()
+    finally:
+        conn.close()
+    daftar_status.hapus()
+
+
 def hapus_cache():
     peta_alur.hapus()
     daftar_mill.hapus()

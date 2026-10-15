@@ -419,6 +419,20 @@ CREATE INDEX IX_KK_Kendaraan_Supplier ON dbo.kontrak_kendaraan (id_kendaraan, id
 GO
 
 -- Kontrak & DO (migrasi 013, diisi HO): 1 kontrak = 1 produk = 1 DO; 1 DO boleh beberapa pengangkut
+-- Jenis tiket + is_bayar (WeightBridgeType.isPayment, migrasi 033): disiapkan untuk tahap keuangan, belum ditampilkan
+CREATE TABLE dbo.jenis_transaksi (
+    kode      VARCHAR(20)  NOT NULL PRIMARY KEY,
+    nama      NVARCHAR(50) NOT NULL,
+    is_bayar  BIT NOT NULL CONSTRAINT DF_JenisTrx_Bayar DEFAULT (0),
+    is_active BIT NOT NULL CONSTRAINT DF_JenisTrx_Aktif DEFAULT (1)
+);
+-- Nama & warna status tiket (Status: StatusName, StatusColor, migrasi 033), diatur di Admin › Organisasi
+CREATE TABLE dbo.status_tiket (
+    kode   VARCHAR(30)  NOT NULL PRIMARY KEY,
+    nama   NVARCHAR(50) NOT NULL,
+    warna  VARCHAR(10)  NOT NULL CONSTRAINT DF_StatusTiket_Warna DEFAULT ('abu'),
+    urutan TINYINT NOT NULL CONSTRAINT DF_StatusTiket_Urutan DEFAULT (0)
+);
 CREATE TABLE dbo.kontrak (
     id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
     no_kontrak       VARCHAR(50) NOT NULL CONSTRAINT UX_Kontrak_No UNIQUE,
@@ -432,6 +446,10 @@ CREATE TABLE dbo.kontrak (
     is_active        BIT NOT NULL CONSTRAINT DF_Kontrak_Aktif DEFAULT (1),
     created_by       INT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.akun (id_user),
     created_at       DATETIME NOT NULL CONSTRAINT DF_Kontrak_Created DEFAULT (GETDATE()),
+    -- migrasi 033: PPN & PT pemilik kontrak
+    ppn                BIT NOT NULL CONSTRAINT DF_Kontrak_Ppn DEFAULT (0),
+    harga_termasuk_ppn BIT NOT NULL CONSTRAINT DF_Kontrak_InclPpn DEFAULT (0),
+    id_company         INT NULL CONSTRAINT FK_Kontrak_Company REFERENCES dbo.company (id_company),
     CONSTRAINT CK_Kontrak_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Kontrak_Qty CHECK (qty_kg IS NULL OR qty_kg > 0)
 );
@@ -455,6 +473,7 @@ CREATE TABLE dbo.do_pengangkutan (
     cara_angkut      VARCHAR(15) NOT NULL,
     id_pengangkutan  INT NULL CONSTRAINT FK_DoAngkut_Supplier REFERENCES dbo.mitra (id_supplier),
     qty_kg           DECIMAL(14, 2) NULL,               -- alokasi (opsional), total <= kontrak.qty_kg
+    ongkos_per_kg    DECIMAL(14, 2) NULL,               -- ongkos angkut (migrasi 033)
     CONSTRAINT CK_DoAngkut_Cara CHECK (cara_angkut IN ('PENGIRIM', 'PENERIMA', 'PIHAK_KETIGA')),
     CONSTRAINT CK_DoAngkut_PihakKetiga CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
                                               OR (cara_angkut <> 'PIHAK_KETIGA' AND id_pengangkutan IS NULL)),
@@ -529,6 +548,8 @@ CREATE TABLE dbo.transaksi (
     no_tiket_induk     VARCHAR(50) NULL CONSTRAINT FK_Trx_Induk REFERENCES dbo.transaksi (no_tiket),   -- tiket split kelebihan DO (migrasi 022)
     berat_split_kg     DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
+    diperiksa_pada     DATETIME NULL,                               -- verifikasi tiket selesai (migrasi 033)
+    diperiksa_oleh     INT NULL CONSTRAINT FK_Trx_Pemeriksa REFERENCES dbo.akun (id_user),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
                                         OR (cara_angkut IN ('PENGIRIM', 'PENERIMA') AND id_pengangkutan IS NULL)),
@@ -1053,6 +1074,13 @@ CROSS JOIN (VALUES (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17
                    (4, 'Kamis', '08:00', '17:00', 0), (5, 'Jumat', '08:00', '17:00', 0), (6, 'Sabtu', '08:00', '12:00', 0),
                    (7, 'Minggu', NULL, NULL, 1)) v (hari, nama, masuk, pulang, libur);
 -- Jenis kendaraan (migrasi 014)
+INSERT INTO dbo.jenis_transaksi (kode, nama, is_bayar) VALUES
+    ('PEMBELIAN', N'Pembelian', 1), ('PENJUALAN', N'Penjualan', 1), ('PENIMBANGAN_SAJA', N'Penimbangan Saja', 0);
+INSERT INTO dbo.status_tiket (kode, nama, warna, urutan) VALUES
+    ('SECURITY_REGISTER', N'Registrasi Security', 'oranye', 1), ('SCAN_WAJAH', N'Scan Wajah', 'oranye', 2),
+    ('TIMBANG_1', N'Timbang 1', 'biru', 3), ('INSPEKSI_PROSES', N'Inspeksi', 'ungu', 4),
+    ('TIMBANG_2', N'Timbang 2', 'biru', 5), ('SELESAI', N'Selesai', 'hijau', 6),
+    ('REJECTED', N'Ditolak', 'merah', 7), ('VOID', N'Dibatalkan', 'abu', 8);
 INSERT INTO dbo.jenis_kendaraan (kode, nama) VALUES
     ('TRUK', N'Truk'), ('DUMP_TRUK', N'Dump Truk'), ('TANGKI', N'Truk Tangki'), ('PICKUP', N'Pick-up'), ('LAINNYA', N'Lainnya');
 -- Alur tahap & mill per area (migrasi 012)
