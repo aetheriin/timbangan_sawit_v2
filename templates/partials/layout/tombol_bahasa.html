@@ -1,0 +1,7 @@
+{# Tombol ID / EN: bahasa aktif ditebalkan; klik = ganti bahasa (static/js/i18n.js) #}
+{% set en = request.cookies.get('bahasa') == 'en' %}
+<button type="button" data-ganti-bahasa data-tanpa-terjemah translate="no" title="Bahasa / Language"
+        class="inline-flex items-center rounded-md border border-slate-200 bg-white text-[10px] font-bold leading-none overflow-hidden {{ kelas|default('') }}">
+    <span class="px-1.5 py-1 {{ 'bg-slate-800 text-white' if not en else 'text-slate-400' }}">ID</span>
+    <span class="px-1.5 py-1 {{ 'bg-slate-800 text-white' if en else 'text-slate-400' }}">EN</span>
+</button>

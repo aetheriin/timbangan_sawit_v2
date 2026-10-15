@@ -343,13 +343,15 @@ async function toggleRekamWajah(konteks) {
     const canvas = document.getElementById(`${konteks}Canvas`);
     const preview = document.getElementById(`${konteks}FotoPreview`);
 
-    if (btn.textContent.trim() === 'Rekam Wajah') {
+    // Status tombol disimpan di data-tahap, bukan dibaca dari tulisannya (tulisan bisa diterjemahkan browser)
+    if (btn.dataset.tahap !== 'ambil') {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         streamState[konteks] = stream;
         video.srcObject = stream;
         video.classList.remove('hidden');
         preview.classList.add('hidden');
         btn.textContent = 'Ambil Foto';
+        btn.dataset.tahap = 'ambil';
     } else {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -364,6 +366,7 @@ async function toggleRekamWajah(konteks) {
         streamState[konteks].getTracks().forEach(t => t.stop());
         video.classList.add('hidden');
         btn.textContent = 'Rekam Wajah';
+        btn.dataset.tahap = 'rekam';
     }
 }
 
@@ -456,6 +459,7 @@ function resetFotoUpdate() {
     preview.classList.remove('hidden');
     preview.innerHTML = '<i class="fa-solid fa-camera text-slate-300 text-2xl"></i>';
     document.getElementById('btnRekamUpdate').textContent = 'Rekam Wajah';
+    document.getElementById('btnRekamUpdate').dataset.tahap = 'rekam';
 }
 
 function tutupModalUpdate() {

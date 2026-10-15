@@ -146,10 +146,22 @@ function ikonkanAksi(akar) {
         el.classList.replace('link-aksi', 'aksi-tombol');
     });
 }
+// ===== AMAN DARI TERJEMAHAN BROWSER (Chrome Translate) =====
+// Kode (No. Tiket, plat, NIK, angka: huruf .font-mono), panel kamera, dan panel indikator timbangan tidak ikut
+// diterjemahkan: teksnya data / diperbarui terus oleh kode, dan terjemahan otomatis bisa membuatnya kacau.
+const PILIH_JANGAN_TERJEMAH = '.font-mono, .indikator-panel, .kode-plat';
+function janganTerjemah(akar) {
+    if (akar.matches && akar.matches(PILIH_JANGAN_TERJEMAH)) akar.setAttribute('translate', 'no');
+    akar.querySelectorAll(PILIH_JANGAN_TERJEMAH).forEach(el => el.setAttribute('translate', 'no'));
+    akar.querySelectorAll('video').forEach(v => v.parentElement.setAttribute('translate', 'no'));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     ikonkanAksi(document);
-    new MutationObserver(daftar => daftar.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) ikonkanAksi(n); })))
-        .observe(document.body, { childList: true, subtree: true });
+    janganTerjemah(document);
+    new MutationObserver(daftar => daftar.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1) { ikonkanAksi(n); janganTerjemah(n); }
+    }))).observe(document.body, { childList: true, subtree: true });
 });
 
 // ===== PILIHAN TERSIMPAN PER USER (filter, tab, jumlah baris) =====

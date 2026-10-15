@@ -50,7 +50,8 @@
             <p class="text-[11px] text-slate-500 truncate">{{ current_user.nama_level }}</p>
         </div>
         {# Mode terang / gelap (disimpan di browser ini, static/js/tema.js) #}
-        <button type="button" data-on-click="gantiTema" class="sidebar-ikon-btn ml-auto" title="Mode gelap / terang">
+        {% with kelas='ml-auto shrink-0' %}{% include "partials/layout/tombol_bahasa.html" %}{% endwith %}
+        <button type="button" data-on-click="gantiTema" class="sidebar-ikon-btn shrink-0" title="Mode gelap / terang">
             <i class="fa-solid fa-moon tema-ikon-gelap"></i><i class="fa-solid fa-sun tema-ikon-terang"></i>
         </button>
     </div>
