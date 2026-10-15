@@ -4,6 +4,8 @@ from datetime import datetime
 import qrcode
 import qrcode.image.svg
 from flask import Blueprint, request, jsonify, render_template, Response, abort
+from utils.area_filter import area_cocok
+from utils.db_organisasi import daftar_area
 from utils.area import area_data
 from flask_login import login_required, current_user
 from utils.db_utils import (
@@ -79,8 +81,11 @@ def tantangan_wajah():
 @lihat_halaman("BLACKLIST")
 def halaman_blacklist():
     """Menu Blacklist (dulu tab Pengenalan Wajah). Berlaku di semua area; siapa yang boleh menetapkan: hak BLACKLIST."""
+    id_area = area_data(current_user.id)
+    pusat = id_area is None or isinstance(id_area, tuple)       # kantor pusat bisa memilih site di Log Validasi
     return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"),
-                           boleh_hapus_blacklist=boleh("BLACKLIST", "hapus"))
+                           boleh_hapus_blacklist=boleh("BLACKLIST", "hapus"), is_pusat=pusat,
+                           area_list=[a for a in daftar_area() if a["is_active"] and area_cocok(id_area, a["id_comp_area"])] if pusat else [])
 
 
 @main_bp.route("/tamu")
@@ -114,6 +119,13 @@ def api_plat_lookup():
     blacklist = ((get_surat_blacklist("KENDARAAN", kendaraan.id_kendaraan) or {"no_surat_blacklist": None})
                  if kendaraan and kendaraan.is_blacklisted else None)
 
+    if blacklist:      # truk diblacklist HO: hanya PERINGATAN (tiket tetap bisa dibuat), tercatat di Log Validasi (ada / belum ada tiket)
+        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
+                             details={"keterangan": f"Plat {no_plat} terdeteksi blacklist (peringatan)",
+                                      "no_plat": no_plat, "no_surat": blacklist["no_surat_blacklist"],
+                                      "id_kendaraan": kendaraan.id_kendaraan, "sumber": "PLAT", "tindakan": "PERINGATAN"},
+                             ip_address=request.remote_addr)
+
     row = cari_transaksi_aktif(no_plat=no_plat)
     if row:
         return jsonify({**serialisasi_tiket(row), "kendaraan_blacklist": blacklist}), 200
@@ -122,11 +134,6 @@ def api_plat_lookup():
     riwayat = cari_riwayat_driver_by_plat(no_plat)
     driver_info = serialisasi_driver(riwayat)
 
-    if blacklist:      # truk diblacklist HO: hanya PERINGATAN (tiket tetap bisa dibuat), tercatat untuk HO
-        catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
-                             details={"keterangan": f"Plat {no_plat} terdeteksi blacklist (peringatan)",
-                                      "no_plat": no_plat, "no_surat": blacklist["no_surat_blacklist"]},
-                             ip_address=request.remote_addr)
 
     # Data dari menu Update: supir terdaftar & kontrak aktif truk ini
     supir_terdaftar = get_supir_kendaraan(kendaraan.id_kendaraan) if kendaraan else []

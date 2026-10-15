@@ -50,7 +50,7 @@ def _catat_jika_blacklist(hasil):
     if hasil.get("tidak_mirip_blacklist") is False:
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
                              details={"keterangan": f"Pendaftaran personel: {hasil.get('pesan')}",
-                                      "id_personel": hasil.get("id_mirip")},
+                                      "id_personel": hasil.get("id_mirip"), "sumber": "PENDAFTARAN", "tindakan": "DITOLAK"},
                              ip_address=request.remote_addr)
 
 

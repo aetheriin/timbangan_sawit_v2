@@ -1,0 +1,54 @@
+{% from "partials/layout/_macros.html" import tombol_ekspor %}
+{# Log Validasi Blacklist: setiap kali orang / kendaraan blacklist terdeteksi (utils/blacklist_deteksi.py) #}
+<div data-tab-content="log" class="hidden">
+    <div class="filter-bar">
+        <label class="field-label mb-0" for="logTanggal">Tanggal</label>
+        <input type="date" id="logTanggal" class="input-field w-44" data-on-change="muatLogBlacklist">
+        {% if is_pusat %}
+        <select id="logArea" class="input-field w-72" data-on-change="muatLogBlacklist" data-tanpa-cari>
+            <option value="">Semua site</option>
+            {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <div class="flex-1"></div>
+        <button type="button" class="btn-secondary btn-sm" data-on-click="muatLogBlacklist"><i class="fa-solid fa-rotate"></i> Muat ulang</button>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div class="stat-card"><p class="stat-label">Deteksi</p><p id="logJmlDeteksi" class="text-3xl font-bold font-mono text-slate-900 mt-1">-</p></div>
+        <div class="stat-card"><p class="stat-label">Orang / kendaraan berbeda</p><p id="logJmlTarget" class="text-3xl font-bold font-mono text-slate-900 mt-1">-</p></div>
+        <div class="stat-card"><p class="stat-label">Ditolak</p><p id="logJmlDitolak" class="text-3xl font-bold font-mono text-red-600 mt-1">-</p></div>
+        <div class="stat-card"><p class="stat-label">Diloloskan petugas</p><p id="logJmlLolos" class="text-3xl font-bold font-mono text-amber-600 mt-1">-</p></div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-4 mb-4">
+        <div class="xl:col-span-2 section-box">
+            <div class="px-4 py-3 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">Terdeteksi</div>
+            <div id="logTarget" class="divide-y divide-slate-100 max-h-[32rem] overflow-y-auto"></div>
+        </div>
+        <div class="xl:col-span-3 section-box">
+            <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2">
+                <span id="logJudulTarget" class="text-sm font-bold text-slate-900">Pilih orang / kendaraan</span>
+                <span id="logKunjungan" class="text-xs text-slate-500"></span>
+            </div>
+            <div id="logTimeline" class="p-4 text-sm text-slate-400">Klik salah satu di sebelah kiri untuk melihat jam datang dan setiap percobaan scan.</div>
+        </div>
+    </div>
+
+    <div class="card p-0 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between gap-2">
+            <h2 class="text-sm font-bold text-slate-900">Semua kejadian</h2>
+            {{ tombol_ekspor('tabelLogBlacklist', 'Log Validasi Blacklist') }}
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Jam</th><th class="table-cell">Target</th><th class="table-cell">Sumber</th>
+                        <th class="table-cell">Tindakan</th><th class="table-cell">Kemiripan</th><th class="table-cell">Site</th>
+                        <th class="table-cell">Petugas</th><th class="table-cell">Keterangan</th></tr>
+                </thead>
+                <tbody data-per-halaman="20" id="tabelLogBlacklist" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -8,11 +8,12 @@
 
 {% block tab_header %}
     {{ judul_halaman('Pengawasan & Blacklist', 'Kendaraan dan personel yang diblacklist berlaku di semua area', 'fa-ban', 'merah') }}
-    {{ tab_header([('blacklist', 'Blacklist')], 'hidden') }}
+    {{ tab_header([('blacklist', 'Daftar Blacklist'), ('log', 'Log Validasi')]) }}
 {% endblock %}
 
 {% block tab_content %}
     {% include "partials/face_recognition/blacklist_tab.html" %}
+    {% include "partials/face_recognition/blacklist_log_tab.html" %}
 {% endblock %}
 
 {% block modals %}
@@ -22,4 +23,5 @@
 {% block extra_scripts %}
 <script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/blacklist_log.js') }}"></script>
 {% endblock %}

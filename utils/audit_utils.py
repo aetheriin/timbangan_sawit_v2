@@ -9,6 +9,9 @@ def catat_security_audit(user_id, action_type, no_tiket=None, details=None, ip_a
         return
     log_aktivitas.catat("SECURITY", action_type, tabel="transaksi" if no_tiket else None, id_baris=no_tiket,
                         baru=details or None, user_id=user_id, ip=ip_address)
+    if action_type == "TRY_SCAN_BLACKLIST":            # juga ke Log Validasi Blacklist (per kejadian)
+        from utils import blacklist_deteksi
+        blacklist_deteksi.catat(details, user_id, no_tiket)
 
 
 def get_security_audit(hari=1, batas=300):

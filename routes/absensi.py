@@ -71,7 +71,8 @@ def absensi_scan():
             insert_absensi(id_personel, None, "DITOLAK_BLACKLIST", None, None, jarak, tantangan, foto_path, perangkat, ip, sekarang)
             catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST",
                                  details={"keterangan": f"Scan absensi {nama} ditolak (blacklist)",
-                                          "id_personel": id_personel},
+                                          "id_personel": id_personel, "sumber": "ABSENSI", "tindakan": "DITOLAK",
+                                          "jarak": jarak},
                                  ip_address=ip)
             return jsonify({"status": "DITOLAK_BLACKLIST", "error": f"{nama} masuk daftar BLACKLIST. Absensi ditolak."}), 403
 

@@ -80,7 +80,7 @@ def kunjungan_cari_wajah():
     if p["is_blacklisted"]:
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
                              details={"keterangan": f"Kunjungan tamu: wajah cocok dengan {format_nama_personel(p['kode_personel'], id_personel, p['nama_personel'])} (blacklist)",
-                                      "id_personel": id_personel})
+                                      "id_personel": id_personel, "sumber": "TAMU", "tindakan": "PERINGATAN", "jarak": jarak})
     return jsonify({"dikenali": True, **_info_personel(p, jarak)})
 
 
@@ -151,7 +151,7 @@ def kunjungan_masuk():
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
                              details={"keterangan": f"Tamu blacklist dicatat masuk: "
                                                     f"{format_nama_personel(p['kode_personel'], id_tamu, p['nama_personel'])}",
-                                      "id_personel": id_tamu})
+                                      "id_personel": id_tamu, "sumber": "TAMU_MASUK", "tindakan": "DILOLOSKAN"})
     foto = None
     if request.files.get("foto"):
         try:

@@ -133,7 +133,9 @@ def buat_tiket():
     if peringatan:
         catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", no_tiket, ip_address=ip,
                              details={"keterangan": f"Tiket dibuat walau {' & '.join(peringatan)} masuk blacklist",
-                                      "no_plat": no_plat, "id_personel": driver.id_driver})
+                                      "no_plat": no_plat, "sumber": "TIKET", "tindakan": "DILOLOSKAN",
+                                      "id_personel": driver.id_driver if driver.is_blacklisted else None,
+                                      "id_kendaraan": kendaraan.id_kendaraan if kendaraan and kendaraan.is_blacklisted else None})
 
     verif.hapus(id_pos(), current_user.id)
     pesan = "Tiket berhasil dibuat & tervalidasi"
@@ -198,7 +200,7 @@ def driver_tambah():
         if lama.is_blacklisted:
             catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
                                  details={"keterangan": f"Tambah supir: wajah cocok dengan {nama_lama} (blacklist)",
-                                          "id_personel": lama.id_driver})
+                                          "id_personel": lama.id_driver, "sumber": "TAMBAH_SUPIR", "tindakan": "DITOLAK"})
             return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama} (BLACKLIST). "
                                      "Gunakan data supir tersebut lewat Ubah Supir."}), 400
         return jsonify({"error": f"Wajah sudah terdaftar sebagai {nama_lama}"}), 400
@@ -275,7 +277,7 @@ def scan_wajah_supir():
         if not embeddings:
             return jsonify({"error": "Wajah tidak terdeteksi. Silakan ulangi scan sambil menghadap kamera"}), 400
 
-        id_cocok, _, _ = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
+        id_cocok, _, jarak = cari_terdekat_konsisten(embeddings, pengaturan.nilai("AMBANG_WAJAH", area))
         if id_cocok is None:
             return jsonify({"error": "Supir tidak dikenali. Silakan tambahkan sebagai data baru"}), 404
 
@@ -288,7 +290,8 @@ def scan_wajah_supir():
         verif.simpan_hasil_user(id_pos(), current_user.id, **data)
         if d.is_blacklisted:
             catat_security_audit(current_user.id, "TRY_SCAN_BLACKLIST", ip_address=request.remote_addr,
-                                 details={"keterangan": f"Scan wajah: {nama} blacklist", "id_personel": d.id_driver})
+                                 details={"keterangan": f"Scan wajah: {nama} blacklist", "id_personel": d.id_driver,
+                                          "sumber": "SCAN_WAJAH", "tindakan": "PERINGATAN", "jarak": jarak})
         return jsonify({"terverifikasi": True, "message": f"Verifikasi berhasil: {nama}", **data})
     finally:
         for path in filepaths:

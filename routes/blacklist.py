@@ -5,14 +5,16 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from utils.db_blacklist import (TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel,
                                 get_surat_blacklist, lampirkan_surat, nama_target, get_blacklist, cabut_blacklist)
-from utils import persetujuan
+from utils import persetujuan, blacklist_deteksi
+from utils.area import area_data
+from utils.area_filter import area_cocok
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
 from utils.db_kunjungan import area_akun
 from utils.upload_utils import simpan_upload, hapus_file
-from utils.hak_akses import izin
+from utils.hak_akses import izin, halaman as lihat_halaman
 from utils.dokumen import simpan_file, hapus_file_info
 
 blacklist_bp = Blueprint('blacklist', __name__)
@@ -160,6 +162,23 @@ def blacklist_hapus(id_blacklist):
     if status == "MENUNGGU":
         return jsonify({"message": f"Pengajuan hapus blacklist {b['nama']} berhasil dikirim dan menunggu persetujuan {penyetuju}."})
     return jsonify({"message": f"Blacklist {b['nama']} berhasil dicabut."})
+
+
+# ===== LOG VALIDASI BLACKLIST =====
+@blacklist_bp.route("/api/blacklist/deteksi")
+@login_required
+@lihat_halaman("BLACKLIST")
+def blacklist_deteksi_hari():
+    """Kejadian blacklist terdeteksi satu hari. Site: area user; kantor pusat bisa memilih ?area=<id>."""
+    try:
+        tanggal = date.fromisoformat(request.args.get("tanggal") or date.today().isoformat())
+    except ValueError:
+        return jsonify({"error": "Tanggal tidak valid"}), 400
+    id_area = area_data(current_user.id)
+    dipilih = request.args.get("area", type=int)
+    if dipilih and (id_area is None or isinstance(id_area, tuple)) and area_cocok(id_area, dipilih):
+        id_area = dipilih
+    return jsonify(blacklist_deteksi.log_hari(tanggal, id_area))
 
 
 # ===== Pelaksana persetujuan (dijalankan saat langkah terakhir disetujui) =====

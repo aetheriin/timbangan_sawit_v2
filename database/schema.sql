@@ -837,6 +837,27 @@ CREATE INDEX IX_SesiLogin_User ON dbo.sesi_login (user_id, berakhir_at);
 CREATE INDEX IX_SesiLogin_Aktif ON dbo.sesi_login (berakhir_at, terakhir_aktif);
 GO
 
+/* =========================== LOG VALIDASI BLACKLIST (migrasi 028) =========================== */
+CREATE TABLE dbo.blacklist_deteksi (
+    id_deteksi    BIGINT IDENTITY(1,1) PRIMARY KEY,
+    waktu         DATETIME      NOT NULL CONSTRAINT DF_BlDeteksi_Waktu DEFAULT (GETDATE()),
+    id_comp_area  INT           NULL CONSTRAINT FK_BlDeteksi_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_personel   INT           NULL CONSTRAINT FK_BlDeteksi_Personel REFERENCES dbo.personel (id_personel),
+    id_kendaraan  INT           NULL CONSTRAINT FK_BlDeteksi_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
+    no_plat       VARCHAR(15)   NULL,
+    sumber        VARCHAR(20)   NOT NULL,      -- SCAN_WAJAH, ABSENSI, TAMU, TAMU_MASUK, TIKET, TAMBAH_SUPIR, PENDAFTARAN, PLAT
+    tindakan      VARCHAR(20)   NOT NULL CONSTRAINT CK_BlDeteksi_Tindakan CHECK (tindakan IN ('DITOLAK', 'PERINGATAN', 'DILOLOSKAN')),
+    jarak_wajah   FLOAT         NULL,
+    keterangan    NVARCHAR(300) NULL,
+    no_tiket      VARCHAR(50)   NULL,
+    id_user       INT           NULL CONSTRAINT FK_BlDeteksi_User REFERENCES dbo.akun (id_user),
+    CONSTRAINT CK_BlDeteksi_Target CHECK (id_personel IS NOT NULL OR id_kendaraan IS NOT NULL)
+);
+CREATE INDEX IX_BlDeteksi_Area_Waktu ON dbo.blacklist_deteksi (id_comp_area, waktu DESC);
+CREATE INDEX IX_BlDeteksi_Personel ON dbo.blacklist_deteksi (id_personel, waktu) WHERE id_personel IS NOT NULL;
+CREATE INDEX IX_BlDeteksi_Kendaraan ON dbo.blacklist_deteksi (id_kendaraan, waktu) WHERE id_kendaraan IS NOT NULL;
+GO
+
 /* =========================== PERSETUJUAN DINAMIS (migrasi 027) =========================== */
 CREATE TABLE dbo.persetujuan_langkah (
     jenis     VARCHAR(40) NOT NULL,
