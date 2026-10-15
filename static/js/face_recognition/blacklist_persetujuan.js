@@ -1,6 +1,8 @@
-// ===== PERSETUJUAN: setujui / tolak pengajuan (tambah & hapus blacklist, dst.) =====
-// ?id=<id> (dari notifikasi): pengajuan itu disorot; bila bukan giliran saya, daftar "Semua" yang dibuka.
-let modePersetujuan = 'menunggu';
+// ===== TAB PERSETUJUAN (Blacklist): setujui / tolak pengajuan tambah & hapus blacklist =====
+// Penyetuju = jabatan dengan hak Setujui di menu Blacklist, PT yang sama. ?tab=persetujuan&id=<id> (dari
+// notifikasi): pengajuan itu disorot; bila tidak ada di daftar awal, daftar "Semua pengajuan" yang dibuka.
+let modePersetujuan = document.getElementById('daftarPengajuan')?.dataset.modeAwal || 'saya';
+let persetujuanDimuat = false;
 let dataPengajuan = [];
 let putusan = null;              // { id, aksi: 'setujui' | 'tolak' }
 const idSorot = Number(new URLSearchParams(location.search).get('id')) || null;
@@ -9,7 +11,9 @@ const WARNA_STATUS = { MENUNGGU: WARNA_BADGE.oranye, DISETUJUI: WARNA_BADGE.hija
 const LABEL_STATUS = { MENUNGGU: 'Menunggu', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
 const LABEL_AKSI = { DIAJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
 
-document.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('tabChange', async e => {
+    if (e.detail !== 'persetujuan' || persetujuanDimuat) return;
+    persetujuanDimuat = true;
     await muatPengajuan();
     if (idSorot && !dataPengajuan.some(p => p.id_pengajuan === idSorot)) {
         pilihModePersetujuan(document.querySelector('[data-mode="semua"]'));
@@ -23,11 +27,12 @@ function pilihModePersetujuan(el) {
 }
 
 async function muatPengajuan() {
-    const data = await ambilJson(`/api/persetujuan?mode=${modePersetujuan}`);
+    const data = await ambilJson(`/api/persetujuan?menu=BLACKLIST&mode=${modePersetujuan}`);
     const wadah = document.getElementById('daftarPengajuan');
     if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
     dataPengajuan = data;
-    if (modePersetujuan === 'menunggu') document.getElementById('jmlMenunggu').textContent = data.length ? `(${data.length})` : '';
+    const jml = document.getElementById('jmlMenunggu');
+    if (modePersetujuan === 'menunggu' && jml) jml.textContent = data.length ? `(${data.length})` : '';
     wadah.innerHTML = data.map(kartuPengajuan).join('') || `<div class="card p-8 text-center text-sm text-slate-400">
         ${modePersetujuan === 'menunggu' ? 'Tidak ada pengajuan yang menunggu persetujuan Anda' : 'Belum ada pengajuan'}</div>`;
     const sorot = idSorot && document.getElementById(`pengajuan-${idSorot}`);
@@ -35,15 +40,6 @@ async function muatPengajuan() {
 }
 
 function kartuPengajuan(p) {
-    // Rantai langkah: ✓ sudah disetujui, ● giliran sekarang, ○ belum
-    const rantai = p.rantai.map((jab, i) => {
-        const ke = i + 1;
-        const selesai = p.status === 'DISETUJUI' || ke < p.langkah;
-        const sekarang = p.status === 'MENUNGGU' && ke === p.langkah;
-        const kelas = selesai ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            : sekarang ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-slate-400 border-slate-200';
-        return `<span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${kelas}">${selesai ? '✓' : sekarang ? '●' : '○'} ${ke} · ${escapeHtml(jab)}</span>`;
-    }).join('<span class="text-slate-300">›</span>');
     const riwayat = p.riwayat.map(r => `<li><span class="font-mono text-slate-400">${escapeHtml(r.waktu)}</span> ·
         ${escapeHtml(LABEL_AKSI[r.aksi] || r.aksi)}${r.langkah ? ` (langkah ${r.langkah})` : ''} oleh ${escapeHtml(r.oleh)}${r.catatan ? ` — ${escapeHtml(r.catatan)}` : ''}</li>`).join('');
     const jenisBahaya = p.jenis === 'BLACKLIST_TAMBAH';
@@ -56,7 +52,7 @@ function kartuPengajuan(p) {
                 </div>
                 <p class="font-bold text-slate-900">${escapeHtml(p.judul)}</p>
                 ${p.alasan ? `<p class="text-sm text-slate-600">Alasan: ${escapeHtml(p.alasan)}</p>` : ''}
-                <p class="text-xs text-slate-500">Diajukan ${escapeHtml(p.pengaju)} · ${escapeHtml(p.company)} ${escapeHtml(p.site)} · ${escapeHtml(p.waktu)}</p>
+                <p class="text-xs text-slate-500">Diajukan ${escapeHtml(p.pengaju)} · ${escapeHtml(p.company)} · ${escapeHtml(p.site)} · ${escapeHtml(p.waktu)}</p>
             </div>
             <div class="flex gap-2 flex-shrink-0">
                 ${p.bisa_batal ? `<button type="button" class="btn-secondary btn-sm" data-on-click="batalkanPengajuan" data-arg="${p.id_pengajuan}">Batalkan</button>` : ''}
@@ -64,7 +60,6 @@ function kartuPengajuan(p) {
                     <button type="button" class="btn-primary btn-sm" data-on-click="bukaPutusan" data-arg="${p.id_pengajuan}|setujui">Setujui</button>` : ''}
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-1.5">${rantai}</div>
         ${riwayat ? `<details class="text-xs text-slate-600"><summary class="cursor-pointer text-slate-500">Riwayat</summary><ul class="mt-1 space-y-0.5">${riwayat}</ul></details>` : ''}
     </div>`;
 }
@@ -77,7 +72,7 @@ function bukaPutusan(id, aksi) {
     document.getElementById('formPutusan').reset();
     document.getElementById('judulPutusan').textContent = tolak ? 'Tolak Pengajuan' : 'Setujui Pengajuan';
     document.getElementById('ringkasPutusan').textContent = `${p.nama_jenis}: ${p.judul}` +
-        (!tolak && p.langkah === p.total_langkah ? '. Ini langkah terakhir, jadi pengajuan langsung berlaku setelah disetujui.' : '');
+        (tolak ? '' : '. Setelah disetujui, langsung berlaku.');
     document.getElementById('catatanPutusan').required = tolak;
     document.getElementById('hintPutusan').textContent = tolak ? 'Alasan penolakan wajib diisi dan dikirim ke yang mengajukan.' : 'Opsional.';
     const btn = document.getElementById('btnPutusan');
@@ -95,6 +90,7 @@ document.getElementById('formPutusan').addEventListener('submit', async e => {
     if (!tampilkanHasil(data)) return;
     closeModal('modalPutusan');
     muatPengajuan();
+    if (typeof muatBlacklist === 'function' && blacklistDimuat) muatBlacklist();
     if (typeof muatNotifikasi === 'function') muatNotifikasi();
 });
 

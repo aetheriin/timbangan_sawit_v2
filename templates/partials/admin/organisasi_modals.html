@@ -11,6 +11,11 @@
                 <input type="text" id="orgCompKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
             <div class="col-span-2"><label class="field-label" for="orgCompNama">Nama</label>
                 <input type="text" id="orgCompNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div class="col-span-3"><label class="field-label" for="orgCompAlamat">Alamat</label>
+                <input type="text" id="orgCompAlamat" name="alamat" maxlength="255" class="input-field"></div>
+            <div class="col-span-3"><p class="field-label">Lokasi</p>
+                <div id="orgCompLokasi" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"></div>
+                <p class="field-hint">Centang lokasi yang dimiliki perusahaan ini. Daftar lokasi diatur di tabel Lokasi.</p></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-company" class="btn-secondary">Batal</button>
@@ -36,40 +41,10 @@
                 <select id="orgLokJenis" name="jenis" required class="input-field">
                     {% for k, v in jenis_lokasi.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
                 </select>
-                <p class="field-hint">Kantor pusat: pengguna yang ditempatkan di lokasi ini mengelola semua perusahaan dan site.</p></div>
+                <p class="field-hint">Kantor pusat: pengguna yang ditempatkan di lokasi ini mengelola semua perusahaan.</p></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-lokasi" class="btn-secondary">Batal</button>
-            <button type="submit" class="btn-primary">Simpan</button>
-        </div>
-    </form>
-</div>
-
-<!-- MODAL: Site (perusahaan + lokasi) -->
-<div id="modalOrg-area" class="modal-overlay">
-    <form id="formOrg-area" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/area/simpan">
-        <div class="modal-header">
-            <h3 class="font-bold" data-judul>Site</h3>
-            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="p-6 grid grid-cols-2 gap-3">
-            <input type="hidden" name="id_comp_area">
-            <div><label class="field-label" for="orgAreaCompany">Perusahaan</label>
-                <select id="orgAreaCompany" name="id_company" required class="input-field">
-                    {% for c in company_list %}<option value="{{ c.id_company }}">{{ c.nama }}</option>{% endfor %}
-                </select></div>
-            <div><label class="field-label" for="orgAreaLokasi">Lokasi</label>
-                <select id="orgAreaLokasi" name="id_lokasi" required class="input-field">
-                    {% for l in lokasi_list %}<option value="{{ l.id_lokasi }}">{{ l.kode }} ({{ l.nama }})</option>{% endfor %}
-                </select></div>
-            <div class="col-span-2"><label class="field-label" for="orgAreaNama">Nama Site</label>
-                <input type="text" id="orgAreaNama" name="nama" required maxlength="100" placeholder="PKS Sei Mangkei" class="input-field">
-                <p class="field-hint">Kode site mengikuti kode lokasi. Satu perusahaan hanya punya satu site per lokasi.</p></div>
-            <div class="col-span-2"><label class="field-label" for="orgAreaAlamat">Alamat</label>
-                <input type="text" id="orgAreaAlamat" name="alamat" maxlength="255" class="input-field"></div>
-        </div>
-        <div class="px-6 pb-6 flex justify-end gap-2">
-            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" class="btn-secondary">Batal</button>
             <button type="submit" class="btn-primary">Simpan</button>
         </div>
     </form>
@@ -105,7 +80,7 @@
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">
             <input type="hidden" name="id_mill">
-            <div class="col-span-3"><label class="field-label" for="orgMillArea">Area</label>
+            <div class="col-span-3"><label class="field-label" for="orgMillArea">Perusahaan · Lokasi</label>
                 <select id="orgMillArea" name="id_comp_area" required class="input-field">
                     {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
                 </select></div>

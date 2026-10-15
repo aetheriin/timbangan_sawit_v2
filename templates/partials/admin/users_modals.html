@@ -18,20 +18,30 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="field-label" for="userLevel">Jabatan</label>
-                    <select id="userLevel" name="id_level" required class="input-field">
-                        {% for lv in level_list %}<option value="{{ lv.id_level }}">{{ lv.department or 'Tanpa departemen' }} › {{ lv.nama }}</option>{% endfor %}
+                    <label class="field-label" for="userDept">Departemen</label>
+                    <select id="userDept" required class="input-field" data-on-change="aturJabatanUser">
+                        {% for d in department_list %}<option value="{{ d.id_department }}">{{ d.nama }}</option>{% endfor %}
                     </select>
-                    <p class="field-hint">Departemen ikut jabatan (Admin › Level &amp; Hak Akses).</p>
                 </div>
                 <div>
-                    <label class="field-label" for="userArea">Site</label>
-                    <select id="userArea" name="id_comp_area" required class="input-field" data-on-change="aturPtKelola">
-                        {% for a in area_list %}<option value="{{ a.id_comp_area }}" data-pusat="{{ 1 if a.is_pusat else 0 }}">{{ a.label }}</option>{% endfor %}
+                    <label class="field-label" for="userLevel">Jabatan</label>
+                    <select id="userLevel" name="id_level" required class="input-field"></select>
+                </div>
+                <div>
+                    <label class="field-label" for="userCompany">Perusahaan</label>
+                    <select id="userCompany" required class="input-field" data-on-change="aturLokasiUser">
+                        {% for c in company_list %}<option value="{{ c.id_company }}">{{ c.nama }}</option>{% endfor %}
                     </select>
                 </div>
+                <div>
+                    <label class="field-label" for="userArea">Lokasi</label>
+                    <select id="userArea" name="id_comp_area" required class="input-field" data-on-change="aturPtKelola"></select>
+                </div>
             </div>
-            {# Hanya untuk user di site kantor pusat: PT yang dikelola. Tidak dicentang semua = semua PT. #}
+            {# Sumber pilihan Jabatan & Lokasi (disaring sesuai Departemen & Perusahaan oleh users.js) #}
+            <template id="sumberJabatan">{% for lv in level_list %}<option value="{{ lv.id_level }}" data-dept="{{ lv.id_department or '' }}">{{ lv.nama }}</option>{% endfor %}</template>
+            <template id="sumberLokasi">{% for a in area_list %}<option value="{{ a.id_comp_area }}" data-company="{{ a.id_company }}" data-pusat="{{ 1 if a.is_pusat else 0 }}">{{ a.kode }} {{ a.nama }}</option>{% endfor %}</template>
+            {# Hanya untuk user di lokasi kantor pusat: PT yang dikelola. Tidak dicentang semua = semua PT. #}
             <div id="blokPtKelola" class="hidden rounded-lg border border-slate-200 p-3">
                 <p class="field-label mb-1">PT yang dikelola</p>
                 <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">

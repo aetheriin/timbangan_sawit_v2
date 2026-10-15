@@ -13,6 +13,8 @@ from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 
 AKSI = ("tambah", "ubah", "hapus")
+# "setujui" = boleh menyetujui / menolak pengajuan di menu itu (mis. tambah & hapus blacklist). Hanya untuk menu
+# yang punya proses persetujuan (lihat AKSI_MENU); tidak termasuk "aksi apa pun" pada boleh(kode_menu).
 # Aksi yang benar-benar ada di tiap menu (dipakai @izin / boleh di kode). Matriks Hak Akses hanya menampilkan
 # centang untuk aksi ini; yang lain tidak berarti apa-apa. Menu baru yang belum terdaftar di sini = semua aksi.
 AKSI_MENU = {
@@ -21,7 +23,7 @@ AKSI_MENU = {
     "FORM_LAB": ("tambah", "ubah"),
     "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
     "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"),
-    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus"), "PERSETUJUAN": (), "KUNJUNGAN": ("tambah", "ubah"),
+    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus", "setujui"), "KUNJUNGAN": ("tambah", "ubah"),
     "KELEBIHAN_DO": ("tambah", "ubah"),
 }
 
@@ -41,16 +43,16 @@ def peta_akses():
     """{id_level: {kode_menu: {"lihat": bool, "tambah": bool, "ubah": bool, "hapus": bool}}}
     Sebelum migrasi 026 (tanpa bisa_lihat) semua menu dianggap boleh dilihat, seperti perilaku lama."""
     try:
-        rows = _query("""SELECT la.id_level, m.kode, la.bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus
+        rows = _query("""SELECT la.id_level, m.kode, la.bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus, la.bisa_setujui
                          FROM level_akses la JOIN menu m ON m.id_menu = la.id_menu WHERE m.is_active = 1""")
-    except pyodbc.Error:
-        rows = _query("""SELECT la.id_level, m.kode, 1 AS bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus
+    except pyodbc.Error:        # sebelum migrasi 026 / 029
+        rows = _query("""SELECT la.id_level, m.kode, 1 AS bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus, 0 AS bisa_setujui
                          FROM level_akses la JOIN menu m ON m.id_menu = la.id_menu WHERE m.is_active = 1""")
     peta = {}
     for r in rows:
         peta.setdefault(r["id_level"], {})[r["kode"]] = {
             "lihat": bool(r["bisa_lihat"]), "tambah": bool(r["bisa_tambah"]), "ubah": bool(r["bisa_ubah"]),
-            "hapus": bool(r["bisa_hapus"])}
+            "hapus": bool(r["bisa_hapus"]), "setujui": bool(r["bisa_setujui"])}
     return peta
 
 
@@ -75,6 +77,12 @@ def hapus_cache():
     peta_akses.hapus()
     menu_sidebar.hapus()
     anak_menu.hapus()
+
+
+def jabatan_dengan(kode_menu, aksi):
+    """id jabatan (non-admin, aktif) yang punya aksi di menu itu, mis. jabatan_dengan('BLACKLIST', 'setujui')."""
+    aktif = {lv["id_level"] for lv in daftar_level() if lv["is_active"] and not lv["is_admin"]}
+    return sorted(i for i, hak in peta_akses().items() if i in aktif and hak.get(kode_menu, {}).get(aksi))
 
 
 def boleh(kode_menu, *aksi, user=None):
@@ -195,20 +203,21 @@ def daftar_menu_akses():
 
 def akses_level(id_level):
     return {r["id_menu"]: r for r in _query(
-        "SELECT id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus FROM level_akses WHERE id_level = ?", id_level)}
+        "SELECT id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus, bisa_setujui FROM level_akses WHERE id_level = ?",
+        id_level)}
 
 
 def simpan_akses_level(id_level, akses):
-    """akses = {id_menu: (lihat, tambah, ubah, hapus)}. Aksi apa pun berarti halaman itu juga boleh dilihat.
+    """akses = {id_menu: (lihat, tambah, ubah, hapus, setujui)}. Aksi apa pun berarti halaman itu juga boleh dilihat.
     Menu tanpa centang dihapus barisnya."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM level_akses WHERE id_level = ?", id_level)
-        for id_menu, (lh, t, u, h) in akses.items():
-            if lh or t or u or h:
-                cursor.execute("""INSERT INTO level_akses (id_level, id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus)
-                                  VALUES (?, ?, 1, ?, ?, ?)""", id_level, id_menu, int(t), int(u), int(h))
+        for id_menu, (lh, t, u, h, s) in akses.items():
+            if lh or t or u or h or s:
+                cursor.execute("""INSERT INTO level_akses (id_level, id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus, bisa_setujui)
+                                  VALUES (?, ?, 1, ?, ?, ?, ?)""", id_level, id_menu, int(t), int(u), int(h), int(s))
         conn.commit()
     finally:
         conn.close()

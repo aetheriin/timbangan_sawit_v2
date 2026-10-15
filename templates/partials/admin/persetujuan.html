@@ -1,9 +1,0 @@
-{# Penyetuju per jenis pengajuan: 1-3 langkah, tiap langkah satu jabatan. Penyetuju harus di PT yang sama dengan
-   pengajuan (user kantor pusat: PT yang dikelolanya). Tanpa langkah = pengajuan langsung berlaku. #}
-<div class="rounded-lg border border-blue-200 bg-blue-50 text-blue-900 text-sm px-4 py-3 mb-4">Penyetuju dipilih per <b>jabatan</b>. Pengajuan dari sebuah PT hanya masuk ke pemegang jabatan itu di PT yang sama
-    (misalnya KTU YBS untuk pengajuan dari YBS), atau ke user kantor pusat yang mengelola PT itu. Yang mengajukan tidak bisa menyetujui pengajuannya sendiri.</div>
-<div id="daftarPersetujuan" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
-<template id="opsiJabatan">
-    <option value="">Tidak ada langkah ini</option>
-    {% for lv in level_list if not lv.is_admin %}<option value="{{ lv.id_level }}">{{ lv.department or 'Tanpa departemen' }} › {{ lv.nama }}</option>{% endfor %}
-</template>

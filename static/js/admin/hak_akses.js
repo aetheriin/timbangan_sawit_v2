@@ -71,7 +71,7 @@ async function pilihLevel(id) {
     tampilLevel();
     const data = await ambilJson(`/api/admin/level/${id}/akses`);
     const tbody = document.getElementById('tabelAkses');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
     const admin = !!data.level.is_admin;
     document.getElementById('judulMatriks').textContent = `· ${data.level.nama}`;
     document.getElementById('infoAdmin').classList.toggle('hidden', !admin);
@@ -79,14 +79,14 @@ async function pilihLevel(id) {
     let induk = null;
     tbody.innerHTML = data.menu.map(m => {
         const judul = m.induk && m.induk !== induk
-            ? `<tr class="bg-slate-50"><td colspan="5" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
+            ? `<tr class="bg-slate-50"><td colspan="6" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
         induk = m.induk;
         const kotak = (aksi, ada) => ada
             ? `<td class="table-cell text-center"><input type="checkbox" name="${m.id_menu}_${aksi}" value="1" data-menu="${m.id_menu}"
                 data-aksi="${aksi}" data-nama="${escapeHtml(m.nama)}" class="w-4 h-4"${m[aksi] ? ' checked' : ''}${admin ? ' disabled' : ''}></td>`
             : '<td class="table-cell text-center text-slate-300">–</td>';
         return `${judul}<tr class="hover:bg-slate-50"><td class="table-cell">${escapeHtml(m.nama.split(' › ').pop())}</td>
-                ${kotak('lihat', true)}${kotak('tambah', m.aksi.includes('tambah'))}${kotak('ubah', m.aksi.includes('ubah'))}${kotak('hapus', m.aksi.includes('hapus'))}</tr>`;
+                ${kotak('lihat', true)}${kotak('tambah', m.aksi.includes('tambah'))}${kotak('ubah', m.aksi.includes('ubah'))}${kotak('hapus', m.aksi.includes('hapus'))}${kotak('setujui', m.aksi.includes('setujui'))}</tr>`;
     }).join('');
     ringkasAkses();
 }
@@ -102,7 +102,7 @@ document.getElementById('tabelAkses').addEventListener('change', e => {
 });
 
 function ringkasAkses() {
-    const label = { tambah: 'tambah', ubah: 'ubah', hapus: 'hapus' };
+    const label = { tambah: 'tambah', ubah: 'ubah', hapus: 'hapus', setujui: 'setujui' };
     const chip = [...document.querySelectorAll('#tabelAkses input[data-aksi="lihat"]:checked')].map(c => {
         const aksi = [...document.querySelectorAll(`#tabelAkses input[data-menu="${c.dataset.menu}"]:checked`)]
             .map(x => label[x.dataset.aksi]).filter(Boolean);

@@ -31,10 +31,9 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Pilih departemen, lalu jabatan, lalu halaman yang boleh dibuka dan aksinya"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, lokasi, site (perusahaan + lokasi), departemen, dan pabrik"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan beserta lokasinya, master lokasi, departemen, dan pabrik"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
-    "persetujuan": ("Persetujuan", "fa-list-check", "Penyetuju tiap jenis pengajuan: 1-3 langkah, tiap langkah satu jabatan di PT yang sama"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
     "pengaturan": ("Pengaturan Site", "fa-sliders", "Scan wajah, sesi login, dan kunci login"),
     "perangkat": ("Perangkat", "fa-plug", "Pos (token PC agen timbangan) dan jembatan timbang"),
@@ -306,7 +305,7 @@ def level_akses_lihat(id_level):
         lv = _level_atau_404(id_level)
         akses = hak_akses.akses_level(id_level)
         return jsonify({"level": lv, "menu": [{**m, **{k: bool(akses.get(m["id_menu"], {}).get(f"bisa_{k}"))
-                                                       for k in ("lihat", *hak_akses.AKSI)}}
+                                                       for k in ("lihat", *hak_akses.AKSI, "setujui")}}
                                               for m in hak_akses.daftar_menu_akses()]})
     return _jalankan(aksi)
 
@@ -320,48 +319,13 @@ def level_akses_simpan(id_level):
             raise ValueError("Level admin hanya untuk area Admin, tidak punya aksi operasional")
         # Aksi yang tidak ada di menu itu (mis. hapus di Dashboard) tidak disimpan walau dikirim
         akses = {m["id_menu"]: (request.form.get(f"{m['id_menu']}_lihat") == "1",
-                                *(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1" for k in hak_akses.AKSI))
+                                *(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1"
+                                  for k in (*hak_akses.AKSI, "setujui")))
                  for m in hak_akses.daftar_menu_akses()}
         hak_akses.simpan_akses_level(id_level, akses)
         jumlah = sum(any(v) for v in akses.values())
         _audit("HAK_AKSES_UBAH", lv["kode"], f"{jumlah} halaman boleh dibuka")
         return jsonify({"message": f"Hak akses {lv['nama']} berhasil disimpan dan berlaku di semua PC dalam ±30 detik"})
-    return _jalankan(aksi)
-
-
-# ===== PERSETUJUAN (penyetuju per jenis pengajuan) =====
-@admin_bp.route("/api/admin/persetujuan")
-@_admin
-def persetujuan_langkah():
-    from utils import persetujuan
-    langkah = persetujuan.semua_langkah()
-    return jsonify([{"jenis": j, "nama": n, "langkah": [r["id_level"] for r in langkah.get(j, [])]}
-                    for j, n in persetujuan.JENIS.items()])
-
-
-@admin_bp.route("/api/admin/persetujuan/simpan", methods=["POST"])
-@_admin
-def persetujuan_simpan():
-    from utils import persetujuan
-
-    def aksi():
-        jenis = (request.form.get("jenis") or "").strip()
-        if jenis not in persetujuan.JENIS:
-            raise ValueError("Jenis pengajuan tidak dikenal")
-        valid = {lv["id_level"] for lv in hak_akses.daftar_level() if lv["is_active"] and not lv["is_admin"]}
-        daftar = []
-        for i in (1, 2, 3):
-            teks = (request.form.get(f"langkah_{i}") or "").strip()
-            if not teks:
-                continue
-            if not teks.isdigit() or int(teks) not in valid:
-                raise ValueError(f"Pilih jabatan langkah {i} dari daftar")
-            daftar.append(int(teks))
-        persetujuan.simpan_langkah(jenis, daftar)
-        _audit("PERSETUJUAN_UBAH", jenis, f"{len(daftar)} langkah")
-        return jsonify({"message": f"Penyetuju {persetujuan.JENIS[jenis].lower()} berhasil disimpan "
-                                   f"({len(daftar)} langkah)" if daftar else
-                                   f"Penyetuju {persetujuan.JENIS[jenis].lower()} dikosongkan: pengajuan langsung berlaku"})
     return _jalankan(aksi)
 
 
@@ -397,7 +361,11 @@ def company_simpan():
     def aksi():
         id_c = _id_opsional("id_company")
         kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
-        org.simpan_company(id_c, kode, nama)
+        valid = {l["id_lokasi"] for l in org.daftar_lokasi() if l["is_active"]}
+        lokasi = {int(v) for v in request.form.getlist("lokasi") if v.isdigit()}
+        if lokasi - valid:
+            raise ValueError("Pilih lokasi dari daftar")
+        org.simpan_company(id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None, lokasi)
         _audit("COMPANY_SIMPAN", kode, nama)
         return jsonify({"message": f"Perusahaan {nama} berhasil disimpan"})
     return _jalankan(aksi)
@@ -417,21 +385,6 @@ def lokasi_simpan():
         org.simpan_lokasi(id_l, kode, nama, jenis, is_pusat)
         _audit("LOKASI_SIMPAN", kode, f"{nama}{' (kantor pusat)' if is_pusat else ''}")
         return jsonify({"message": f"Lokasi {kode} ({nama}) berhasil disimpan"})
-    return _jalankan(aksi)
-
-
-@admin_bp.route("/api/admin/organisasi/area/simpan", methods=["POST"])
-@_admin
-def area_simpan():
-    """Site = company + lokasi. Kode site mengikuti kode lokasi; alamat per site."""
-    def aksi():
-        id_a = _id_opsional("id_comp_area")
-        id_c = _id_form("id_company", {c["id_company"] for c in org.daftar_company() if c["is_active"]}, "company")
-        id_l = _id_form("id_lokasi", {l["id_lokasi"] for l in org.daftar_lokasi() if l["is_active"]}, "lokasi")
-        nama = _teks("nama")
-        org.simpan_area(id_a, id_c, id_l, nama, _teks("alamat", wajib=False, maks=255) or None)
-        _audit("AREA_SIMPAN", str(id_l), nama)
-        return jsonify({"message": f"Site {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -469,7 +422,7 @@ def mill_simpan():
 @admin_bp.route("/api/admin/organisasi/<jenis>/<int:id_baris>/aktif", methods=["POST"])
 @_admin
 def organisasi_aktif(jenis, id_baris):
-    fungsi = {"company": org.set_aktif_company, "lokasi": org.set_aktif_lokasi, "area": org.set_aktif_area,
+    fungsi = {"company": org.set_aktif_company, "lokasi": org.set_aktif_lokasi,
               "department": org.set_aktif_department, "mill": alur.set_aktif_mill}
     if jenis not in fungsi:
         abort(404)
@@ -479,7 +432,6 @@ def organisasi_aktif(jenis, id_baris):
         if not aktif and jenis != "mill":
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
                        "lokasi": [(l["id_lokasi"], l["jumlah_site"]) for l in org.daftar_lokasi()],
-                       "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
             if dict(dipakai).get(id_baris):
                 raise ValueError(f"{jenis.capitalize()} masih digunakan. Pindahkan pengguna / area terkait terlebih dahulu")

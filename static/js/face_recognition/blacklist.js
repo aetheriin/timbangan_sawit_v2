@@ -71,7 +71,7 @@ async function muatBlacklist() {
                 ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
                 : (!r.id_dokumen && bolehTambah && !r.dicabut_at ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '')}
                 ${r.dicabut_at ? '' : r.id_pengajuan_hapus
-                    ? `<a href="/persetujuan?id=${r.id_pengajuan_hapus}" class="ml-3">${badge('Menunggu persetujuan hapus', WARNA_BADGE.oranye)}</a>`
+                    ? `<a href="/blacklist?tab=persetujuan&id=${r.id_pengajuan_hapus}" class="ml-3">${badge('Menunggu persetujuan hapus', WARNA_BADGE.oranye)}</a>`
                     : (bolehHapus ? `<button type="button" class="link-aksi text-red-600 ml-3" data-on-click="bukaHapusBlacklist" data-arg="${r.id_blacklist}">Ajukan Hapus</button>` : '')}</td>
         </tr>`;
     }).join('') || barisKosong(5, dicabut ? 'Belum ada blacklist yang dicabut' : 'Belum ada blacklist', dicabut ? '' : aksiKosong('bukaTambahBlacklist', 'Ajukan Blacklist'));
@@ -222,7 +222,7 @@ async function simpanBlacklist(btn) {
     if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
     const ok = await Dialog.konfirmasi({ judul: 'Ajukan blacklist?', teksYa: 'Ajukan Blacklist', bahaya: true,
-        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua site.` });
+        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua lokasi.` });
     if (!ok) return;
 
     const formData = new FormData();

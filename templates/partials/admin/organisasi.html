@@ -1,7 +1,6 @@
 {% from "partials/layout/_macros.html" import section_header %}
-{% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Jumlah Site']),
-                             ('lokasi', 'Lokasi (sama untuk semua perusahaan)', ['Kode', 'Nama', 'Jenis', 'Jumlah Site']),
-                             ('area', 'Site (perusahaan + lokasi)', ['Perusahaan', 'Lokasi', 'Nama Site', 'Alamat', 'Pengguna Aktif']),
+{% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Alamat', 'Lokasi']),
+                             ('lokasi', 'Lokasi', ['Kode', 'Nama', 'Jenis', 'Dipakai Perusahaan']),
                              ('department', 'Departemen', ['Nama', 'Keterangan', 'Pengguna Aktif']),
                              ('mill', 'Pabrik (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur'])] %}
 <div class="section-box">

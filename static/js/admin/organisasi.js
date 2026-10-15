@@ -1,11 +1,10 @@
-// ===== ADMIN > ORGANISASI: company, lokasi, site (company + lokasi), department, mill =====
+// ===== ADMIN > ORGANISASI: perusahaan (alamat & lokasi yang dimiliki), lokasi, departemen, pabrik =====
 const ORG = {
-    company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), Number(c.jumlah_area)] },
+    company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), escapeHtml(c.alamat || '-'),
+               escapeHtml(c.label_lokasi || '-')] },
     lokasi: { id: 'id_lokasi', nama: 'Lokasi', kolom: l => [mono(l.kode), escapeHtml(l.nama),
              l.is_pusat ? '<span class="badge-status bg-amber-100 text-amber-800">Kantor pusat</span>' : escapeHtml(JENIS_LOKASI[l.jenis] || l.jenis),
-             Number(l.jumlah_site)] },
-    area: { id: 'id_comp_area', nama: 'Site', kolom: a => [escapeHtml(a.company), `${mono(a.kode)} (${escapeHtml(a.lokasi || '-')})`,
-                                                          escapeHtml(a.nama), escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
+             `${Number(l.jumlah_site)} perusahaan`] },
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Pabrik', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
@@ -20,6 +19,7 @@ document.addEventListener('DOMContentLoaded', muatOrganisasi);
 
 async function muatOrganisasi() {
     const data = await ambilJson('/api/admin/organisasi');
+    if (!data.error) dataOrg.area = data.area;           // pasangan perusahaan + lokasi (pilihan di form Pabrik)
     Object.keys(ORG).forEach(jenis => {
         const tbody = document.getElementById(`tabelOrg-${jenis}`);
         const n = Number(tbody.dataset.kolom);
@@ -40,7 +40,7 @@ async function muatOrganisasi() {
     if (!data.error) isiPilihanOrganisasi();
 }
 
-// Pilihan Perusahaan & Lokasi (form Site) dan Site (form Pabrik) diisi ulang dari data terbaru setiap kali data dimuat,
+// Pilihan Perusahaan · Lokasi di form Pabrik diisi ulang dari data terbaru setiap kali data dimuat,
 // jadi nama yang baru diubah langsung tampil di form tanpa memuat ulang halaman. Yang nonaktif tidak ditawarkan.
 // Pilihan kosong "-- Pilih ... --" (pilih_cari.js) dipertahankan.
 function isiPilihanOrganisasi() {
@@ -52,8 +52,6 @@ function isiPilihanOrganisasi() {
         daftar.filter(r => r.is_active).forEach(r => sel.add(new Option(label(r), r[id])));
         sel.value = pilihan;
     };
-    isi('orgAreaCompany', dataOrg.company, 'id_company', c => c.nama);
-    isi('orgAreaLokasi', dataOrg.lokasi, 'id_lokasi', l => `${l.kode} (${l.nama})`);
     isi('orgMillArea', dataOrg.area, 'id_comp_area', a => a.label);
 }
 
@@ -63,6 +61,7 @@ function bukaOrganisasi(jenis, id) {
     const r = id ? dataOrg[jenis].find(x => x[cfg.id] === id) : null;
     form.reset();
     isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
+    if (jenis === 'company') isiLokasiPerusahaan(r ? r.lokasi : []);
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]), select').focus();
@@ -82,4 +81,13 @@ function ubahAktifOrganisasi(jenis, id) {
         url: `/api/admin/organisasi/${jenis}/${id}/aktif`, aktif: !r.is_active, nama: r.nama, jenis: cfg.nama.toLowerCase(),
         pesanNonaktif: jenis === 'mill' ? 'Tiket baru tidak lagi memakai mill ini.' : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.', setelahnya: muatOrganisasi,
     });
+}
+
+// Centang lokasi milik perusahaan: lokasi aktif + yang sedang dimiliki walau lokasinya sudah dinonaktifkan
+function isiLokasiPerusahaan(dimiliki) {
+    const daftar = dataOrg.lokasi.filter(l => l.is_active || dimiliki.includes(l.id_lokasi));
+    document.getElementById('orgCompLokasi').innerHTML = daftar.map(l => `
+        <label class="flex items-center gap-2"><input type="checkbox" name="lokasi" value="${l.id_lokasi}"${dimiliki.includes(l.id_lokasi) ? ' checked' : ''}>
+            <span class="font-mono">${escapeHtml(l.kode)}</span> ${escapeHtml(l.nama)}${l.is_pusat ? ' <span class="text-xs text-amber-700">(kantor pusat)</span>' : ''}</label>`).join('')
+        || '<p class="text-slate-400">Belum ada lokasi. Tambahkan di tabel Lokasi.</p>';
 }

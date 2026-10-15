@@ -1,18 +1,18 @@
-"""Halaman Persetujuan: pengajuan yang menunggu saya, pengajuan saya, dan riwayat (utils/persetujuan.py)."""
-from flask import Blueprint, jsonify, render_template, request
+"""API persetujuan (utils/persetujuan.py). Antrean ditampilkan sebagai tab di halaman menunya (mis. Blacklist ›
+Persetujuan); alamat lama /persetujuan dialihkan ke sana."""
+from flask import Blueprint, jsonify, redirect, request
 from flask_login import current_user, login_required
 
 from utils import persetujuan
-from utils.hak_akses import halaman as lihat_halaman
 
 persetujuan_bp = Blueprint("persetujuan", __name__)
 
 
 @persetujuan_bp.route("/persetujuan")
 @login_required
-@lihat_halaman("PERSETUJUAN")
-def halaman():
-    return render_template("persetujuan/persetujuan.html", halaman="persetujuan")
+def halaman_lama():
+    id_p = request.args.get("id", type=int)
+    return redirect("/blacklist?tab=persetujuan" + (f"&id={id_p}" if id_p else ""))
 
 
 @persetujuan_bp.route("/api/persetujuan")
@@ -21,7 +21,8 @@ def daftar():
     mode = request.args.get("mode", "menunggu")
     if mode not in ("menunggu", "saya", "semua"):
         mode = "menunggu"
-    return jsonify(persetujuan.daftar(current_user, mode))
+    menu = (request.args.get("menu") or "").upper() or None
+    return jsonify(persetujuan.daftar(current_user, mode, menu=menu))
 
 
 def _jalankan(fn):

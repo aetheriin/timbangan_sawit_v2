@@ -87,7 +87,7 @@
 
             <div class="note-warning">
                 <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-                Blacklist bersifat <b>PERMANEN</b>, tidak bisa diubah atau dihapus. Wajah & kendaraan terkait ditolak di semua site.
+                Blacklist berlaku setelah disetujui dan berlaku di semua lokasi. Pencabutan hanya lewat pengajuan hapus yang disetujui; riwayatnya tetap tersimpan.
             </div>
 
             <div class="flex justify-end gap-3">
@@ -140,6 +140,26 @@
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalHapusBlacklist" class="btn-secondary">Batal</button>
             <button type="submit" id="btnHapusBlacklist" class="btn-danger">Ajukan Hapus</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Setujui / tolak pengajuan blacklist -->
+<div id="modalPutusan" class="modal-overlay">
+    <form id="formPutusan" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulPutusan" class="font-bold">Setujui Pengajuan</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalPutusan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p id="ringkasPutusan" class="text-sm text-slate-700"></p>
+            <div><label class="field-label" for="catatanPutusan">Catatan</label>
+                <textarea id="catatanPutusan" name="catatan" rows="3" maxlength="500" class="input-field"></textarea>
+                <p id="hintPutusan" class="field-hint"></p></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalPutusan" class="btn-secondary">Batal</button>
+            <button type="submit" id="btnPutusan" class="btn-primary">Setujui</button>
         </div>
     </form>
 </div>

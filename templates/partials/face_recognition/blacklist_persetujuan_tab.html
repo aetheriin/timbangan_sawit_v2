@@ -1,0 +1,13 @@
+{# Pengajuan tambah / hapus blacklist. Yang bisa menyetujui: jabatan dengan hak Setujui di menu Blacklist
+   (Admin › Level & Hak Akses), di PT yang sama. #}
+{% set bisa_setujui = boleh('BLACKLIST', 'setujui') %}
+<div data-tab-content="persetujuan" class="hidden">
+    <div class="filter-bar">
+        <div class="seg flex-wrap">
+            {% if bisa_setujui %}<button type="button" class="chip chip-active" data-mode="menunggu" data-on-click="pilihModePersetujuan" data-arg="$el">Perlu persetujuan saya <span id="jmlMenunggu" class="ml-1"></span></button>{% endif %}
+            <button type="button" class="chip{% if not bisa_setujui %} chip-active{% endif %}" data-mode="saya" data-on-click="pilihModePersetujuan" data-arg="$el">Pengajuan saya</button>
+            <button type="button" class="chip" data-mode="semua" data-on-click="pilihModePersetujuan" data-arg="$el">Semua pengajuan</button>
+        </div>
+    </div>
+    <div id="daftarPengajuan" class="space-y-3" data-mode-awal="{{ 'menunggu' if bisa_setujui else 'saya' }}"></div>
+</div>

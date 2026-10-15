@@ -1,7 +1,6 @@
 {# Header putih: breadcrumb halaman, tombol cari (Ctrl+K, static/js/cari.js), aksi cepat, notifikasi, user. #}
 {% set JUDUL = {'dashboard': 'Dashboard', 'face': 'Pengenalan Wajah', 'kontrak': 'Kontrak & DO', 'master': 'Data Master',
-                'blacklist': 'Blacklist', 'tamu': 'Buku Tamu', 'kelebihan_do': 'Kelebihan DO',
-                'persetujuan': 'Persetujuan'} %}
+                'blacklist': 'Blacklist', 'tamu': 'Buku Tamu', 'kelebihan_do': 'Kelebihan DO'} %}
 {% if halaman == 'site' %}{% set judul_halaman = 'Stasiun Timbang' if view == 'form' else 'Daftar Tiket' %}
 {% elif admin_aktif %}{% set judul_halaman = judul %}
 {% else %}{% set judul_halaman = JUDUL.get(halaman, '') %}{% endif %}

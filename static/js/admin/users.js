@@ -62,7 +62,25 @@ function siapkanModalUser(ubah) {
     return form;
 }
 
-// PT yang dikelola hanya untuk site kantor pusat
+// Jabatan mengikuti departemen, lokasi mengikuti perusahaan (sumber: <template> di users_modals.html)
+function isiDariSumber(idSelect, idSumber, atribut, nilai, pilih) {
+    const sel = document.getElementById(idSelect);
+    [...sel.options].filter(o => o.value !== '').forEach(o => o.remove());
+    [...document.getElementById(idSumber).content.querySelectorAll('option')]
+        .filter(o => o.dataset[atribut] === String(nilai)).forEach(o => sel.add(o.cloneNode(true)));
+    sel.value = pilih != null ? String(pilih) : '';
+}
+
+function aturJabatanUser(pilih) {
+    isiDariSumber('userLevel', 'sumberJabatan', 'dept', document.getElementById('userDept').value, typeof pilih === 'number' ? pilih : null);
+}
+
+function aturLokasiUser(pilih) {
+    isiDariSumber('userArea', 'sumberLokasi', 'company', document.getElementById('userCompany').value, typeof pilih === 'number' ? pilih : null);
+    aturPtKelola();
+}
+
+// PT yang dikelola hanya untuk lokasi kantor pusat
 function aturPtKelola() {
     const sel = document.getElementById('userArea');
     const opsi = sel.options[sel.selectedIndex];
@@ -71,7 +89,8 @@ function aturPtKelola() {
 
 function bukaTambahUser() {
     siapkanModalUser(false).elements.id_user.value = '';
-    aturPtKelola();
+    aturJabatanUser();
+    aturLokasiUser();
     openModal('modalUser');
     document.getElementById('userNama').focus();
 }
@@ -79,7 +98,13 @@ function bukaTambahUser() {
 function bukaUbahUser(id) {
     const u = cariDataUser(id);
     const form = siapkanModalUser(true);
-    isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username, id_level: u.id_level, id_comp_area: u.id_comp_area });
+    isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username });
+    const lv = document.querySelector(`#sumberJabatan`).content.querySelector(`option[value="${u.id_level}"]`);
+    const ar = document.querySelector(`#sumberLokasi`).content.querySelector(`option[value="${u.id_comp_area}"]`);
+    document.getElementById('userDept').value = lv ? lv.dataset.dept : '';
+    document.getElementById('userCompany').value = ar ? ar.dataset.company : '';
+    aturJabatanUser(u.id_level);
+    aturLokasiUser(u.id_comp_area);
     form.querySelectorAll('[name=pt_kelola]').forEach(c => { c.checked = u.pt_kelola.includes(Number(c.value)); });
     aturPtKelola();
     openModal('modalUser');

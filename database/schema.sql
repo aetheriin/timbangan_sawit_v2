@@ -27,6 +27,7 @@ CREATE TABLE dbo.company (
     id_company  INT IDENTITY(1,1) PRIMARY KEY,
     kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Company_Kode UNIQUE,
     nama        NVARCHAR(100) NOT NULL,
+    alamat      NVARCHAR(255) NULL,                -- migrasi 029
     is_active   BIT NOT NULL CONSTRAINT DF_Company_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Company_Created DEFAULT (GETDATE())
 );
@@ -42,7 +43,8 @@ CREATE TABLE dbo.lokasi (
     is_active   BIT NOT NULL CONSTRAINT DF_Lokasi_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Lokasi_Dibuat DEFAULT (GETDATE())
 );
--- Site = company + lokasi; kode site = kode lokasi (boleh sama antar company), unik per (company, lokasi)
+-- Lokasi yang dimiliki perusahaan (dicentang di form Perusahaan); kode & nama ikut lokasi, unik per (company, lokasi).
+-- Dipakai akun, jembatan, pos, pabrik, jadwal, dan tiket sebagai "perusahaan · lokasi".
 CREATE TABLE dbo.comp_area (
     id_comp_area INT IDENTITY(1,1) PRIMARY KEY,
     id_company   INT NOT NULL CONSTRAINT FK_Area_Company REFERENCES dbo.company (id_company),
@@ -88,6 +90,7 @@ CREATE TABLE dbo.level_akses (
     bisa_ubah    BIT NOT NULL CONSTRAINT DF_LevelAkses_Ubah DEFAULT (0),
     bisa_hapus   BIT NOT NULL CONSTRAINT DF_LevelAkses_Hapus DEFAULT (0),
     bisa_lihat   BIT NOT NULL CONSTRAINT DF_LevelAkses_Lihat DEFAULT (1),     -- halaman / tab boleh dibuka (migrasi 026)
+    bisa_setujui BIT NOT NULL CONSTRAINT DF_LevelAkses_Setujui DEFAULT (0),   -- menyetujui pengajuan di menu itu (migrasi 029)
     CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
 );
 GO
@@ -858,13 +861,7 @@ CREATE INDEX IX_BlDeteksi_Personel ON dbo.blacklist_deteksi (id_personel, waktu)
 CREATE INDEX IX_BlDeteksi_Kendaraan ON dbo.blacklist_deteksi (id_kendaraan, waktu) WHERE id_kendaraan IS NOT NULL;
 GO
 
-/* =========================== PERSETUJUAN DINAMIS (migrasi 027) =========================== */
-CREATE TABLE dbo.persetujuan_langkah (
-    jenis     VARCHAR(40) NOT NULL,
-    urutan    TINYINT     NOT NULL CONSTRAINT CK_SetujuLangkah_Urutan CHECK (urutan BETWEEN 1 AND 3),
-    id_level  INT         NOT NULL CONSTRAINT FK_SetujuLangkah_Level REFERENCES dbo.level (id_level),
-    CONSTRAINT PK_PersetujuanLangkah PRIMARY KEY (jenis, urutan)
-);
+/* =========================== PERSETUJUAN (migrasi 027; penyetuju = hak Setujui, migrasi 029) =========================== */
 CREATE TABLE dbo.pengajuan (
     id_pengajuan   INT IDENTITY(1,1) PRIMARY KEY,
     jenis          VARCHAR(40)    NOT NULL,
@@ -970,7 +967,6 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
     ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
     ('KELEBIHAN_DO',     N'Kelebihan DO',     '/kelebihan-do',         'fa-scale-unbalanced', 55),
-    ('PERSETUJUAN',      N'Persetujuan',      '/persetujuan',          'fa-list-check',    47),
     ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
@@ -1044,6 +1040,9 @@ INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hap
 SELECT l.id_level, m.id_menu, 1, 1, 0
 FROM dbo.level l CROSS JOIN dbo.menu m
 WHERE l.kode = 'SECURITY' AND m.kode = 'KUNJUNGAN';
+-- Head Office menyetujui pengajuan blacklist (atur di Admin › Level & Hak Akses, kolom Setujui)
+UPDATE a SET bisa_setujui = 1 FROM dbo.level_akses a JOIN dbo.level l ON l.id_level = a.id_level
+JOIN dbo.menu m ON m.id_menu = a.id_menu WHERE l.kode = 'HO' AND m.kode = 'BLACKLIST';
 -- Semua jabatan non-admin awalnya boleh melihat semua halaman (atur di Admin › Level & Hak Akses)
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_lihat)
 SELECT l.id_level, m.id_menu, 1 FROM dbo.level l CROSS JOIN dbo.menu m

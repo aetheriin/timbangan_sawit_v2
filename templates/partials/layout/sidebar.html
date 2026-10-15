@@ -31,7 +31,7 @@
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
-                                  'kelebihan_do': 'KELEBIHAN_DO', 'persetujuan': 'PERSETUJUAN'}.get(halaman) %}{% endif %}
+                                  'kelebihan_do': 'KELEBIHAN_DO'}.get(halaman) %}{% endif %}
         {% for m in menu_sidebar() if boleh_lihat(m.kode) %}
         <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
            class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">

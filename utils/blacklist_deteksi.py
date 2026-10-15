@@ -4,8 +4,8 @@ Dipanggil otomatis dari catat_security_audit(..., "TRY_SCAN_BLACKLIST", details=
   sumber (SCAN_WAJAH, ABSENSI, TAMU, TAMU_MASUK, TIKET, TAMBAH_SUPIR, PENDAFTARAN, PLAT), tindakan (DITOLAK /
   PERINGATAN / DILOLOSKAN), id_personel, id_kendaraan, no_plat, jarak, keterangan.
 - Kejadian sama (target, sumber, petugas) dalam 60 detik tidak dicatat ulang (mis. plat diketik berulang).
-- Deteksi pertama hari itu untuk target di site tersebut mengirim notifikasi ke jabatan penyetuju langkah 1
-  blacklist (mis. KTU) di PT site itu; bila belum diatur, ke jabatan yang punya hak menu Blacklist di site itu.
+- Deteksi pertama hari itu untuk target di lokasi tersebut mengirim notifikasi ke jabatan yang punya hak Setujui di
+  menu Blacklist (Admin › Level & Hak Akses) di PT itu; bila belum ada, ke jabatan yang punya hak menu Blacklist.
 Gagal mencatat tidak pernah menggagalkan proses utama."""
 import logging
 from datetime import date, datetime, timedelta
@@ -71,18 +71,17 @@ def _catat(d, user_id, no_tiket):
 def _notifikasi(kolom, nilai, id_area, sumber):
     from utils import notifikasi
     from utils.db_organisasi import company_area
-    from utils.persetujuan import semua_langkah
+    from utils.hak_akses import jabatan_dengan
     rows = _query("SELECT nama_personel AS nama FROM personel WHERE id_personel = ?" if kolom == "id_personel"
                   else "SELECT no_plat AS nama FROM kendaraan WHERE id_kendaraan = ?", nilai)
     nama = rows[0]["nama"] if rows else "-"
     kode = f"{'P' if kolom == 'id_personel' else 'K'}{nilai}"
     judul, isi = f"Blacklist terdeteksi: {nama}", f"{sumber} · pertama kali hari ini"
     tautan = f"/blacklist?tab=log&target={kode}"
-    langkah = semua_langkah().get("BLACKLIST_TAMBAH", [])
-    if langkah:
-        notifikasi.buat("BLACKLIST", judul, isi, tautan, id_area, id_level=langkah[0]["id_level"],
-                        id_company=company_area().get(id_area))
-    else:
+    penerima = jabatan_dengan("BLACKLIST", "setujui")
+    for id_level in penerima:
+        notifikasi.buat("BLACKLIST", judul, isi, tautan, id_area, id_level=id_level, id_company=company_area().get(id_area))
+    if not penerima:            # belum ada jabatan dengan hak Setujui: ke semua yang punya hak di menu Blacklist
         notifikasi.buat("BLACKLIST", judul, isi, tautan, id_area)
 
 
