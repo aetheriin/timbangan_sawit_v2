@@ -4,7 +4,6 @@ from datetime import date
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils import pengaturan
 from utils.area import area_data
 from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga, arus_hari_ini
 from utils.db_jembatan import daftar_jembatan
@@ -22,12 +21,11 @@ def dashboard_halaman():
     """HO (area pusat) bisa memilih site untuk Arus Penimbangan & Status Jembatan; akun site hanya site-nya."""
     id_area = area_data(current_user.id)
     if id_area is None:
-        pusat = str(pengaturan.nilai("AREA_PUSAT") or "")
-        area_list = [a for a in daftar_area() if a["is_active"] and str(a["id_comp_area"]) != pusat]   # kantor pusat bukan site
+        area_list = [a for a in daftar_area() if a["is_active"] and not a["is_pusat"]]   # kantor pusat bukan site timbang
         area_saya = None
     else:
         area_list = []
-        area_saya = next((a["nama"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
+        area_saya = next((a["label"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
     return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=boleh("DASHBOARD", "ubah"),
                            is_pusat=id_area is None, area_list=area_list, area_saya=area_saya)
 

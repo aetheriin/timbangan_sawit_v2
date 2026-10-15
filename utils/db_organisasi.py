@@ -1,4 +1,7 @@
-"""Admin › Organisasi: company, area (site), department. Dipakai akun dan perangkat kiosk."""
+"""Admin › Organisasi: company, lokasi, area (site = company + lokasi), department. Dipakai akun dan perangkat kiosk."""
+import pyodbc
+
+from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts
 
 
@@ -42,21 +45,83 @@ def set_aktif_company(id_company, aktif):
     _ubah("UPDATE company SET is_active = ? WHERE id_company = ?", 1 if aktif else 0, id_company)
 
 
-# ===== AREA (SITE) =====
+# ===== LOKASI (migrasi 025) =====
+# Master lokasi yang sama untuk semua PT: 300 (HEAD OFFICE), 600 (PKS), ... is_pusat = kantor pusat.
+JENIS_LOKASI = {"KANTOR_PUSAT": "Kantor pusat", "PKS": "PKS", "REFINERY": "Refinery", "TANGKI": "Tangki timbun",
+                "LAB": "Laboratorium", "KEBUN": "Kebun", "GUDANG": "Gudang", "LAINNYA": "Lainnya"}
+
+
+def daftar_lokasi():
+    return _query("""SELECT l.id_lokasi, l.kode, l.nama, l.jenis, l.is_pusat, l.is_active,
+                            (SELECT COUNT(*) FROM comp_area a WHERE a.id_lokasi = l.id_lokasi) AS jumlah_site
+                     FROM lokasi l ORDER BY l.is_active DESC, l.kode""")
+
+
+def simpan_lokasi(id_lokasi, kode, nama, jenis, is_pusat):
+    """Kode site ikut kode lokasi, jadi saat kode lokasi diubah, kode semua site di lokasi itu ikut berubah."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if id_lokasi is None:
+            cursor.execute("INSERT INTO lokasi (kode, nama, jenis, is_pusat) VALUES (?, ?, ?, ?)",
+                           kode, nama, jenis, int(is_pusat))
+        else:
+            cursor.execute("UPDATE lokasi SET kode = ?, nama = ?, jenis = ?, is_pusat = ? WHERE id_lokasi = ?",
+                           kode, nama, jenis, int(is_pusat), id_lokasi)
+            if cursor.rowcount == 0:
+                raise ValueError("Data tidak ditemukan")
+            cursor.execute("UPDATE comp_area SET kode = ? WHERE id_lokasi = ?", kode, id_lokasi)
+        conn.commit()
+    finally:
+        conn.close()
+    area_pusat.hapus()
+
+
+def set_aktif_lokasi(id_lokasi, aktif):
+    _ubah("UPDATE lokasi SET is_active = ? WHERE id_lokasi = ?", 1 if aktif else 0, id_lokasi)
+
+
+@cache_ttl(60)
+def area_pusat():
+    """id site yang berada di lokasi kantor pusat: akun di site ini melihat & mengelola semua PT.
+    Sebelum migrasi 025 memakai pengaturan lama AREA_PUSAT."""
+    try:
+        return frozenset(r["id_comp_area"] for r in _query(
+            "SELECT a.id_comp_area FROM comp_area a JOIN lokasi l ON l.id_lokasi = a.id_lokasi WHERE l.is_pusat = 1"))
+    except pyodbc.Error:
+        rows = _query("SELECT nilai FROM pengaturan WHERE kunci = 'AREA_PUSAT'")
+        return frozenset(int(r["nilai"]) for r in rows if str(r["nilai"]).isdigit())
+
+
+# ===== AREA (SITE) = company + lokasi =====
 def daftar_area():
+    """label = "YBS · 600 (PKS Sei Mangkei)" untuk pilihan di form; kode site = kode lokasi."""
     return _query("""SELECT a.id_comp_area, a.kode, a.nama, a.alamat, a.is_active, a.id_company, c.nama AS company,
+                            c.kode AS kode_company, a.id_lokasi, l.nama AS lokasi, ISNULL(l.is_pusat, 0) AS is_pusat,
+                            c.kode + ' · ' + a.kode + ' (' + a.nama + ')' AS label,
                             (SELECT COUNT(*) FROM akun u WHERE u.id_comp_area = a.id_comp_area AND u.is_active = 1) AS jumlah_user
                      FROM comp_area a JOIN company c ON c.id_company = a.id_company
-                     ORDER BY a.is_active DESC, c.nama, a.nama""")
+                     LEFT JOIN lokasi l ON l.id_lokasi = a.id_lokasi
+                     ORDER BY a.is_active DESC, c.nama, a.kode""")
 
 
-def simpan_area(id_area, id_company, kode, nama, alamat):
+def simpan_area(id_area, id_company, id_lokasi, nama, alamat):
+    """Kode site diambil dari kode lokasi. Satu company hanya punya satu site per lokasi."""
+    lokasi = _query("SELECT kode FROM lokasi WHERE id_lokasi = ?", id_lokasi)
+    if not lokasi:
+        raise ValueError("Lokasi tidak ditemukan")
+    dobel = _query("SELECT id_comp_area FROM comp_area WHERE id_company = ? AND id_lokasi = ?", id_company, id_lokasi)
+    if any(r["id_comp_area"] != id_area for r in dobel):
+        raise ValueError(f"Perusahaan ini sudah punya site di lokasi {lokasi[0]['kode']}")
+    kode = lokasi[0]["kode"]
     if id_area is None:
-        _ubah("INSERT INTO comp_area (id_company, kode, nama, alamat) VALUES (?, ?, ?, ?)", id_company, kode, nama, alamat)
+        _ubah("INSERT INTO comp_area (id_company, id_lokasi, kode, nama, alamat) VALUES (?, ?, ?, ?, ?)",
+              id_company, id_lokasi, kode, nama, alamat)
         _salin_dari_area_pertama()
     else:
-        _ubah("UPDATE comp_area SET id_company = ?, kode = ?, nama = ?, alamat = ? WHERE id_comp_area = ?",
-              id_company, kode, nama, alamat, id_area)
+        _ubah("UPDATE comp_area SET id_company = ?, id_lokasi = ?, kode = ?, nama = ?, alamat = ? WHERE id_comp_area = ?",
+              id_company, id_lokasi, kode, nama, alamat, id_area)
+    area_pusat.hapus()
 
 
 def _salin_dari_area_pertama():

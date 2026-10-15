@@ -30,15 +30,30 @@ CREATE TABLE dbo.company (
     is_active   BIT NOT NULL CONSTRAINT DF_Company_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Company_Created DEFAULT (GETDATE())
 );
+-- Lokasi (migrasi 025): master yang sama untuk semua PT, mis. 300 (HEAD OFFICE), 600 (PKS). is_pusat = kantor pusat
+CREATE TABLE dbo.lokasi (
+    id_lokasi   INT IDENTITY(1,1) PRIMARY KEY,
+    kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Lokasi_Kode UNIQUE,
+    nama        NVARCHAR(100) NOT NULL,
+    jenis       VARCHAR(20)   NOT NULL CONSTRAINT DF_Lokasi_Jenis DEFAULT ('LAINNYA')
+                CONSTRAINT CK_Lokasi_Jenis CHECK (jenis IN ('KANTOR_PUSAT', 'PKS', 'REFINERY', 'TANGKI', 'LAB',
+                                                            'KEBUN', 'GUDANG', 'LAINNYA')),
+    is_pusat    BIT NOT NULL CONSTRAINT DF_Lokasi_Pusat DEFAULT (0),
+    is_active   BIT NOT NULL CONSTRAINT DF_Lokasi_Aktif DEFAULT (1),
+    created_at  DATETIME NOT NULL CONSTRAINT DF_Lokasi_Dibuat DEFAULT (GETDATE())
+);
+-- Site = company + lokasi; kode site = kode lokasi (boleh sama antar company), unik per (company, lokasi)
 CREATE TABLE dbo.comp_area (
     id_comp_area INT IDENTITY(1,1) PRIMARY KEY,
     id_company   INT NOT NULL CONSTRAINT FK_Area_Company REFERENCES dbo.company (id_company),
-    kode         VARCHAR(10)   NOT NULL CONSTRAINT UX_Area_Kode UNIQUE,
+    kode         VARCHAR(10)   NOT NULL,
     nama         NVARCHAR(100) NOT NULL,
     alamat       NVARCHAR(255) NULL,
     is_active    BIT NOT NULL CONSTRAINT DF_Area_Aktif DEFAULT (1),
-    created_at   DATETIME NOT NULL CONSTRAINT DF_Area_Created DEFAULT (GETDATE())
+    created_at   DATETIME NOT NULL CONSTRAINT DF_Area_Created DEFAULT (GETDATE()),
+    id_lokasi    INT NULL CONSTRAINT FK_Area_Lokasi REFERENCES dbo.lokasi (id_lokasi)
 );
+CREATE UNIQUE INDEX UX_Area_CompanyLokasi ON dbo.comp_area (id_company, id_lokasi) WHERE id_lokasi IS NOT NULL;
 CREATE TABLE dbo.department (
     id_department INT IDENTITY(1,1) PRIMARY KEY,
     nama          NVARCHAR(100) NOT NULL CONSTRAINT UX_Department_Nama UNIQUE,
@@ -852,8 +867,10 @@ INSERT INTO dbo.keperluan_kunjungan (nama) VALUES
 GO
 -- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
 INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)');
-INSERT INTO dbo.comp_area (id_company, kode, nama)
-SELECT id_company, 'SITE1', N'Site Utama (ubah di Admin › Organisasi)' FROM dbo.company WHERE kode = 'PT';
+INSERT INTO dbo.lokasi (kode, nama, jenis, is_pusat) VALUES ('300', N'HEAD OFFICE', 'KANTOR_PUSAT', 1), ('600', N'PKS', 'PKS', 0);
+INSERT INTO dbo.comp_area (id_company, id_lokasi, kode, nama)
+SELECT c.id_company, l.id_lokasi, l.kode, N'Site Utama (ubah di Admin › Organisasi)'
+FROM dbo.company c JOIN dbo.lokasi l ON l.kode = '600' WHERE c.kode = 'PT';
 INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'QC / Lab'), (N'Head Office');
 INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
     ('ADMIN',            N'Super Admin',      1, '/admin'),

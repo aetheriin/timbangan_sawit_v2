@@ -1,13 +1,18 @@
-// ===== ADMIN > ORGANISASI: company, area (site), department, mill =====
+// ===== ADMIN > ORGANISASI: company, lokasi, site (company + lokasi), department, mill =====
 const ORG = {
     company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), Number(c.jumlah_area)] },
-    area: { id: 'id_comp_area', nama: 'Area', kolom: a => [mono(a.kode), escapeHtml(a.nama), escapeHtml(a.company),
-                                                          escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
+    lokasi: { id: 'id_lokasi', nama: 'Lokasi', kolom: l => [mono(l.kode), escapeHtml(l.nama),
+             l.is_pusat ? '<span class="badge-status bg-amber-100 text-amber-800">Kantor pusat</span>' : escapeHtml(JENIS_LOKASI[l.jenis] || l.jenis),
+             Number(l.jumlah_site)] },
+    area: { id: 'id_comp_area', nama: 'Site', kolom: a => [escapeHtml(a.company), `${mono(a.kode)} (${escapeHtml(a.lokasi || '-')})`,
+                                                          escapeHtml(a.nama), escapeHtml(a.alamat || '-'), Number(a.jumlah_user)] },
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Pabrik', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
 };
-let dataOrg = { company: [], area: [], department: [], mill: [] };
+let dataOrg = { company: [], lokasi: [], area: [], department: [], mill: [] };
+const JENIS_LOKASI = { KANTOR_PUSAT: 'Kantor pusat', PKS: 'PKS', REFINERY: 'Refinery', TANGKI: 'Tangki timbun',
+                       LAB: 'Laboratorium', KEBUN: 'Kebun', GUDANG: 'Gudang', LAINNYA: 'Lainnya' };
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 
@@ -35,7 +40,7 @@ async function muatOrganisasi() {
     if (!data.error) isiPilihanOrganisasi();
 }
 
-// Pilihan Perusahaan (form Area) & Area (form Pabrik) diisi ulang dari data terbaru setiap kali data dimuat,
+// Pilihan Perusahaan & Lokasi (form Site) dan Site (form Pabrik) diisi ulang dari data terbaru setiap kali data dimuat,
 // jadi nama yang baru diubah langsung tampil di form tanpa memuat ulang halaman. Yang nonaktif tidak ditawarkan.
 // Pilihan kosong "-- Pilih ... --" (pilih_cari.js) dipertahankan.
 function isiPilihanOrganisasi() {
@@ -48,7 +53,8 @@ function isiPilihanOrganisasi() {
         sel.value = pilihan;
     };
     isi('orgAreaCompany', dataOrg.company, 'id_company', c => c.nama);
-    isi('orgMillArea', dataOrg.area, 'id_comp_area', a => a.nama);
+    isi('orgAreaLokasi', dataOrg.lokasi, 'id_lokasi', l => `${l.kode} (${l.nama})`);
+    isi('orgMillArea', dataOrg.area, 'id_comp_area', a => a.label);
 }
 
 function bukaOrganisasi(jenis, id) {

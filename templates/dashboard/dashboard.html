@@ -38,7 +38,7 @@
             {% if is_pusat %}
             <select id="pilihAreaArus" data-simpan="area_arus" class="input-field w-56 py-1.5" data-on-change="muatArusSekarang">
                 <option value="">Semua site</option>
-                {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
             </select>
             {% else %}
             <span class="kpi-tanggal"><i class="fa-solid fa-location-dot mr-1"></i>{{ area_saya }}</span>

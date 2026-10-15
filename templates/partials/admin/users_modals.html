@@ -32,7 +32,7 @@
                 <div>
                     <label class="field-label" for="userArea">Area</label>
                     <select id="userArea" name="id_comp_area" required class="input-field">
-                        {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                        {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
                     </select>
                 </div>
             </div>

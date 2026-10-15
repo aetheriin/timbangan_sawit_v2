@@ -17,7 +17,7 @@
             <div>
                 <label class="field-label" for="posArea">Area</label>
                 <select id="posArea" name="id_comp_area" required class="input-field">
-                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
                 </select>
             </div>
             <div>
@@ -66,7 +66,7 @@
                 <input type="text" id="jtNama" name="nama" required maxlength="100" class="input-field" placeholder="Jembatan Timbang 2"></div>
             <div><label class="field-label" for="jtArea">Area</label>
                 <select id="jtArea" name="id_comp_area" required class="input-field">
-                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.nama }}</option>{% endfor %}
+                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
                 </select></div>
 
             <p class="col-span-4 text-xs font-semibold text-slate-500 uppercase mt-2">Sambungan</p>

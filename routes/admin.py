@@ -31,7 +31,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Level (pengganti role), halaman awal, dan aksi yang boleh per menu"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area (site), departemen, dan pabrik"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, lokasi, site (perusahaan + lokasi), departemen, dan pabrik"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
@@ -103,6 +103,8 @@ def admin_halaman(halaman):
                            area_list=[a for a in org.daftar_area() if a["is_active"]],
                            format_timbangan=FORMAT_TIMBANGAN,
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
+                           lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
+                           jenis_lokasi=org.JENIS_LOKASI,
                            alur_list=alur.daftar_alur(),
                            password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
@@ -331,7 +333,8 @@ def _id_opsional(nama):
 @admin_bp.route("/api/admin/organisasi")
 @_admin
 def organisasi_daftar():
-    return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department(),
+    return jsonify({"company": org.daftar_company(), "lokasi": org.daftar_lokasi(), "area": org.daftar_area(),
+                    "department": org.daftar_department(),
                     "mill": alur.daftar_mill()})
 
 
@@ -347,16 +350,35 @@ def company_simpan():
     return _jalankan(aksi)
 
 
+@admin_bp.route("/api/admin/organisasi/lokasi/simpan", methods=["POST"])
+@_admin
+def lokasi_simpan():
+    """Master lokasi untuk semua PT; kode sama dipakai semua PT (600 = PKS di YBS maupun SUN)."""
+    def aksi():
+        id_l = _id_opsional("id_lokasi")
+        kode, nama = _kode_org("lokasi", "id_lokasi", id_l), _teks("nama")
+        jenis = (request.form.get("jenis") or "LAINNYA").strip().upper()
+        if jenis not in org.JENIS_LOKASI:
+            raise ValueError("Jenis lokasi tidak valid")
+        is_pusat = jenis == "KANTOR_PUSAT"
+        org.simpan_lokasi(id_l, kode, nama, jenis, is_pusat)
+        _audit("LOKASI_SIMPAN", kode, f"{nama}{' (kantor pusat)' if is_pusat else ''}")
+        return jsonify({"message": f"Lokasi {kode} ({nama}) berhasil disimpan"})
+    return _jalankan(aksi)
+
+
 @admin_bp.route("/api/admin/organisasi/area/simpan", methods=["POST"])
 @_admin
 def area_simpan():
+    """Site = company + lokasi. Kode site mengikuti kode lokasi; alamat per site."""
     def aksi():
         id_a = _id_opsional("id_comp_area")
         id_c = _id_form("id_company", {c["id_company"] for c in org.daftar_company() if c["is_active"]}, "company")
-        kode, nama = _kode_org("comp_area", "id_comp_area", id_a), _teks("nama")
-        org.simpan_area(id_a, id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None)
-        _audit("AREA_SIMPAN", kode, nama)
-        return jsonify({"message": f"Area {nama} berhasil disimpan"})
+        id_l = _id_form("id_lokasi", {l["id_lokasi"] for l in org.daftar_lokasi() if l["is_active"]}, "lokasi")
+        nama = _teks("nama")
+        org.simpan_area(id_a, id_c, id_l, nama, _teks("alamat", wajib=False, maks=255) or None)
+        _audit("AREA_SIMPAN", str(id_l), nama)
+        return jsonify({"message": f"Site {nama} berhasil disimpan"})
     return _jalankan(aksi)
 
 
@@ -394,8 +416,8 @@ def mill_simpan():
 @admin_bp.route("/api/admin/organisasi/<jenis>/<int:id_baris>/aktif", methods=["POST"])
 @_admin
 def organisasi_aktif(jenis, id_baris):
-    fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "department": org.set_aktif_department,
-              "mill": alur.set_aktif_mill}
+    fungsi = {"company": org.set_aktif_company, "lokasi": org.set_aktif_lokasi, "area": org.set_aktif_area,
+              "department": org.set_aktif_department, "mill": alur.set_aktif_mill}
     if jenis not in fungsi:
         abort(404)
 
@@ -403,6 +425,7 @@ def organisasi_aktif(jenis, id_baris):
         aktif = _aktif_dari_form()
         if not aktif and jenis != "mill":
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
+                       "lokasi": [(l["id_lokasi"], l["jumlah_site"]) for l in org.daftar_lokasi()],
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
             if dict(dipakai).get(id_baris):

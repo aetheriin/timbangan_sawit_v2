@@ -26,9 +26,6 @@ DEFINISI = {
     "TOLERANSI_KELEBIHAN_DO": ("Toleransi kelebihan DO (kg)", "Kelebihan DO", "int", "0", 0, 1000000,
                                "Kelebihan sampai angka ini masih diterima di DO yang sama (tanpa tiket baru & notifikasi). "
                                "Di atasnya seluruh kelebihan menjadi tiket baru -S1"),
-    "AREA_PUSAT": ("Area kantor pusat (melihat semua area)", "Area", "area", "0", None, None,
-                   "Akun di area ini melihat data semua site (List, history, Kelebihan DO, notifikasi). "
-                   "Akun di area lain hanya melihat site-nya sendiri"),
     "SESI_IDLE_MENIT": ("Logout otomatis bila tidak aktif (menit)", "Sesi Login", "int", "120", 5, 720,
                         "Peringatan muncul 2 menit sebelumnya"),
     "SATU_PERANGKAT": ("1 user 1 perangkat", "Sesi Login", "bool", "true", None, None,
