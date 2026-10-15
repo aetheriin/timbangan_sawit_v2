@@ -1,33 +1,41 @@
-{% from "partials/layout/_macros.html" import section_header %}
-{# Level = pengganti role. Semua level non-admin melihat semua menu; yang diatur di sini hanya aksi tambah / ubah / hapus. #}
-<div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
-    <div class="xl:col-span-2">
-        <div class="flex items-center justify-between gap-2 mb-3">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Daftar level (jabatan)</p>
-            <button type="button" class="btn-primary btn-sm" data-on-click="bukaLevel"><i class="fa-solid fa-plus"></i> Tambah Level</button>
+{# Level & Hak Akses: pilih departemen -> jabatan -> centang halaman (Lihat) dan aksinya. Jabatan = tabel level. #}
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+    <div class="xl:col-span-3 section-box">
+        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">1 · Departemen</p>
+            <a href="{{ url_for('admin.admin_halaman', halaman='organisasi') }}" class="text-xs text-blue-600 hover:underline" title="Tambah / ubah departemen di Admin › Organisasi">Kelola</a>
         </div>
-        {# Satu kartu per level; klik kartu = tampilkan matriks hak aksesnya di kanan #}
-        <div id="tabelLevel" class="space-y-3"></div>
+        <div id="daftarDepartemen" class="divide-y divide-slate-100"></div>
     </div>
 
     <div class="xl:col-span-3 section-box">
-        {% call section_header('matriks-akses', 'Hak Akses') %}
-        <span id="judulMatriks" class="text-sm text-slate-500" data-henti-klik>Pilih level di sebelah kiri</span>
-        {% endcall %}
-        <form id="formAkses" class="section-body">
-            <div id="infoAdmin" class="note-warning m-4 hidden">Level admin hanya membuka menu Admin dan tidak punya aksi operasional.</div>
+        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">2 · Jabatan</p>
+            <button type="button" class="btn-primary btn-sm" data-on-click="bukaLevel"><i class="fa-solid fa-plus"></i> Jabatan</button>
+        </div>
+        <div id="tabelLevel" class="divide-y divide-slate-100"></div>
+    </div>
+
+    <form id="formAkses" class="xl:col-span-6 section-box">
+        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">3 · Hak Akses <span id="judulMatriks" class="normal-case font-semibold text-slate-800 tracking-normal"></span></p>
+            <button type="submit" id="btnSimpanAkses" class="btn-primary btn-sm" disabled>Simpan</button>
+        </div>
+        <div id="infoAdmin" class="note-warning m-4 hidden">Jabatan admin hanya membuka menu Admin dan tidak punya aksi operasional.</div>
+        <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
                 <thead class="table-header-row">
-                    <tr><th class="table-cell">Menu</th>
+                    <tr><th class="table-cell">Halaman</th><th class="table-cell text-center">Lihat</th>
                         <th class="table-cell text-center">Tambah</th><th class="table-cell text-center">Ubah</th><th class="table-cell text-center">Hapus</th></tr>
                 </thead>
                 <tbody id="tabelAkses" class="divide-y divide-slate-100">
-                    <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Pilih level dulu</td></tr>
+                    <tr><td colspan="5" class="table-cell text-center text-slate-400 py-6">Pilih jabatan</td></tr>
                 </tbody>
             </table>
-            <div class="flex justify-end gap-2 p-4">
-                <button type="submit" id="btnSimpanAkses" class="btn-primary" disabled>Simpan Hak Akses</button>
-            </div>
-        </form>
-    </div>
+        </div>
+        <div class="px-4 py-3 border-t border-slate-100 space-y-2">
+            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Halaman yang bisa diakses</p>
+            <div id="ringkasAkses" class="flex flex-wrap gap-1.5 text-xs text-slate-400">-</div>
+        </div>
+    </form>
 </div>

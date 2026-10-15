@@ -27,12 +27,12 @@
         {% endfor %}
     {% else %}
         <div class="sidebar-section">Menu</div>
-        {# Menu dari tabel menu (Admin › Hak Akses: urutan, nama, ikon). Semua level non-admin melihat semua menu. #}
+        {# Menu dari tabel menu; hanya yang boleh dilihat jabatan user (Admin › Level & Hak Akses, kolom Lihat). #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
                                   'kelebihan_do': 'KELEBIHAN_DO'}.get(halaman) %}{% endif %}
-        {% for m in menu_sidebar() %}
+        {% for m in menu_sidebar() if boleh_lihat(m.kode) %}
         <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
            class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">
             <i class="fa-solid {{ m.ikon or 'fa-circle' }} sidebar-link-ikon"></i><span class="truncate">{{ m.nama }}</span>

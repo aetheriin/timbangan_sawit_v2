@@ -1,8 +1,8 @@
-<!-- MODAL: Tambah / Ubah Level -->
+<!-- MODAL: Tambah / Ubah Jabatan (tabel level) -->
 <div id="modalLevel" class="modal-overlay">
     <form id="formLevel" class="modal-box" autocomplete="off">
         <div class="modal-header">
-            <h3 id="judulModalLevel" class="font-bold">Tambah Level</h3>
+            <h3 id="judulModalLevel" class="font-bold">Tambah Jabatan</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalLevel" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-3">
@@ -19,11 +19,18 @@
                 </div>
             </div>
             <div>
+                <label class="field-label" for="levelDept">Departemen</label>
+                <select id="levelDept" name="id_department" required class="input-field">
+                    {% for d in department_list %}<option value="{{ d.id_department }}">{{ d.nama }}</option>{% endfor %}
+                </select>
+                <p class="field-hint">Departemen semua pengguna jabatan ini ikut berubah.</p>
+            </div>
+            <div>
                 <label class="field-label" for="levelAwal">Halaman Awal Setelah Login</label>
                 <select id="levelAwal" name="halaman_awal" required class="input-field">
                     {% for url, label in halaman_awal_list or [] %}<option value="{{ url }}">{{ label }}</option>{% endfor %}
                 </select>
-                <p class="field-hint">Halaman yang langsung terbuka setelah user dengan level ini login</p>
+                <p class="field-hint">Halaman yang langsung terbuka setelah pengguna dengan jabatan ini login</p>
             </div>
             <div>
                 <label class="field-label" for="levelKet">Keterangan</label>

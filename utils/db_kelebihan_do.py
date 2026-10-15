@@ -3,6 +3,7 @@
 Saat tiket selesai ditimbang, kelebihannya menjadi tiket baru '<no tiket>-S1' (truk & supir sama, tanpa timbang ulang,
 netto di transaksi.berat_split_kg) dan dicatat di kelebihan_do + notifikasi ke level yang punya hak menu KELEBIHAN_DO.
 Krani mengisi No. DO baru (dari Ascend) -> KTU / HO menetapkan atau mengembalikan."""
+from utils.area_filter import area_cocok, sql_area
 from utils.db_utils import get_connection, _rows_to_dicts
 from utils import log_aktivitas, notifikasi, pengaturan
 
@@ -74,8 +75,9 @@ def daftar(status=None, batas=300, id_area=None):
     syarat, args = [], []
     if status:
         syarat.append("x.status = ?"); args.append(status)
-    if id_area:
-        syarat.append("x.id_comp_area = ?"); args.append(id_area)
+    sql_a, args_a = sql_area("x.id_comp_area", id_area)
+    if sql_a:
+        syarat.append(sql_a[5:]); args.extend(args_a)
     sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.no_do, x.kuota_kg, x.realisasi_kg,
                      x.netto_tiket_kg, x.kelebihan_kg, x.no_do_baru, x.status, x.catatan, x.alasan_kembali, x.created_at,
                      x.diajukan_at, x.ditetapkan_at, ua.nama AS diajukan_oleh, ut.nama AS ditetapkan_oleh,
@@ -114,7 +116,7 @@ def _ubah(id_kelebihan, status_boleh, set_sql, args, aksi, user_id, notif=None, 
         cursor.execute("SELECT status, no_tiket, no_tiket_split, id_comp_area FROM kelebihan_do WITH (UPDLOCK) "
                        "WHERE id_kelebihan = ?", id_kelebihan)
         r = cursor.fetchone()
-        if r is None or (id_area and r.id_comp_area != id_area):      # site lain tidak bisa mengubah
+        if r is None or not area_cocok(id_area, r.id_comp_area):      # site lain tidak bisa mengubah
             raise ValueError("Data kelebihan DO tidak ditemukan")
         if r.status not in status_boleh:
             raise ValueError(f"Status sekarang {r.status}, aksi ini tidak bisa dilakukan")

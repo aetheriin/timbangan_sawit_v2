@@ -22,7 +22,7 @@ function tampilkanUser() {
             <td class="table-cell">${escapeHtml(u.nama)}</td>
             <td class="table-cell">${badgeRole(u.role, u.nama_level)}</td>
             <td class="table-cell">${escapeHtml(u.department)}</td>
-            <td class="table-cell">${escapeHtml(u.area)}</td>
+            <td class="table-cell">${escapeHtml(u.area)}${u.di_pusat ? `<span class="block text-[11px] text-slate-500">${u.pt_kelola.length ? `Mengelola ${u.pt_kelola.length} PT` : 'Mengelola semua PT'}</span>` : ''}</td>
             <td class="table-cell">${badgeAktif(u.is_active)}</td>
             <td class="table-cell">${escapeHtml(u.last_login || 'Belum pernah')}</td>
             <td class="table-cell">${escapeHtml(u.created_at || '-')}</td>
@@ -62,16 +62,26 @@ function siapkanModalUser(ubah) {
     return form;
 }
 
+// PT yang dikelola hanya untuk site kantor pusat
+function aturPtKelola() {
+    const sel = document.getElementById('userArea');
+    const opsi = sel.options[sel.selectedIndex];
+    document.getElementById('blokPtKelola').classList.toggle('hidden', !(opsi && opsi.dataset.pusat === '1'));
+}
+
 function bukaTambahUser() {
     siapkanModalUser(false).elements.id_user.value = '';
+    aturPtKelola();
     openModal('modalUser');
     document.getElementById('userNama').focus();
 }
 
 function bukaUbahUser(id) {
     const u = cariDataUser(id);
-    isiForm(siapkanModalUser(true), { id_user: u.id_user, nama: u.nama, username: u.username, id_level: u.id_level,
-                                      id_department: u.id_department, id_comp_area: u.id_comp_area });
+    const form = siapkanModalUser(true);
+    isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username, id_level: u.id_level, id_comp_area: u.id_comp_area });
+    form.querySelectorAll('[name=pt_kelola]').forEach(c => { c.checked = u.pt_kelola.includes(Number(c.value)); });
+    aturPtKelola();
     openModal('modalUser');
 }
 

@@ -5,11 +5,12 @@ from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
 from utils.area import area_data
+from utils.area_filter import area_cocok
 from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga, arus_hari_ini
 from utils.db_jembatan import daftar_jembatan
 from utils.db_organisasi import daftar_area
 from utils.serial_reader import baca_status
-from utils.hak_akses import izin, boleh
+from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 
 dashboard_bp = Blueprint("dashboard", __name__)
 BATAS = {"harga_cpo": (0, 1_000_000), "harga_kernel": (0, 1_000_000), "oer_cpo": (0, 100), "biaya_olah": (0, 1_000_000)}
@@ -17,17 +18,18 @@ BATAS = {"harga_cpo": (0, 1_000_000), "harga_kernel": (0, 1_000_000), "oer_cpo":
 
 @dashboard_bp.route("/dashboard")
 @login_required
+@lihat_halaman("DASHBOARD")
 def dashboard_halaman():
     """HO (area pusat) bisa memilih site untuk Arus Penimbangan & Status Jembatan; akun site hanya site-nya."""
     id_area = area_data(current_user.id)
-    if id_area is None:
-        area_list = [a for a in daftar_area() if a["is_active"] and not a["is_pusat"]]   # kantor pusat bukan site timbang
+    if id_area is None or isinstance(id_area, tuple):      # kantor pusat: semua site, atau site PT yang dikelola
+        area_list = [a for a in daftar_area() if a["is_active"] and not a["is_pusat"] and area_cocok(id_area, a["id_comp_area"])]
         area_saya = None
     else:
         area_list = []
         area_saya = next((a["label"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
     return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=boleh("DASHBOARD", "ubah"),
-                           is_pusat=id_area is None, area_list=area_list, area_saya=area_saya)
+                           is_pusat=id_area is None or isinstance(id_area, tuple), area_list=area_list, area_saya=area_saya)
 
 
 @dashboard_bp.route("/api/dashboard/harga")
@@ -68,11 +70,12 @@ def dashboard_arus():
     """Arus penimbangan hari ini + status jembatan timbang.
     Akun site: selalu area sendiri. HO (area pusat): ?area=<id> untuk satu site, kosong = semua site."""
     id_area = area_data(current_user.id)
-    if id_area is None:
-        id_area = request.args.get("area", type=int) or None
+    if id_area is None or isinstance(id_area, tuple):      # kantor pusat memilih satu site (dalam PT yang dikelola)
+        dipilih = request.args.get("area", type=int)
+        id_area = dipilih if dipilih and area_cocok(id_area, dipilih) else id_area
     ringkas, distribusi, per_jam, posisi = arus_hari_ini(id_area)
     try:
-        jembatan = [j for j in daftar_jembatan() if j["is_active"] and (id_area is None or j["id_comp_area"] == id_area)]
+        jembatan = [j for j in daftar_jembatan() if j["is_active"] and area_cocok(id_area, j["id_comp_area"])]
     except Exception:       # noqa: BLE001 - tabel jembatan belum ada
         jembatan = []
     status = []

@@ -4,7 +4,7 @@ from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
 from utils import db_kelebihan_do as db, notifikasi, pengaturan
-from utils.hak_akses import izin, boleh
+from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.area import area_data
 
 kelebihan_do_bp = Blueprint("kelebihan_do", __name__)
@@ -12,6 +12,7 @@ kelebihan_do_bp = Blueprint("kelebihan_do", __name__)
 
 @kelebihan_do_bp.route("/kelebihan-do")
 @login_required
+@lihat_halaman("KELEBIHAN_DO")
 def halaman():
     return render_template("kelebihan_do/kelebihan_do.html", halaman="kelebihan_do",
                            boleh_ajukan=boleh(db.MENU, "tambah"), boleh_tetapkan=boleh(db.MENU, "ubah"),

@@ -16,7 +16,7 @@ from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
-from utils.hak_akses import boleh
+from utils.hak_akses import boleh, halaman as lihat_halaman
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
 from utils.db_kunjungan import daftar_keperluan, area_akun
@@ -45,6 +45,7 @@ def _tab_awal():
 
 @main_bp.route("/weighbridge")
 @login_required
+@lihat_halaman(lambda r: "FORM" if r.args.get("view") == "form" else "LIST")
 def weighbridge():
     """List = daftar tiket aktif per tahap (tanpa info bar & tab). Form = info bar + tab Security..Lab."""
     if request.args.get("view") != "form":
@@ -75,6 +76,7 @@ def tantangan_wajah():
 
 @main_bp.route("/blacklist")
 @login_required
+@lihat_halaman("BLACKLIST")
 def halaman_blacklist():
     """Menu Blacklist (dulu tab Pengenalan Wajah). Berlaku di semua area; siapa yang boleh menetapkan: hak BLACKLIST."""
     return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"))
@@ -82,6 +84,7 @@ def halaman_blacklist():
 
 @main_bp.route("/tamu")
 @login_required
+@lihat_halaman("KUNJUNGAN")
 def halaman_tamu():
     """Menu Tamu: scan wajah, daftar tamu baru, catat masuk / keluar (hak KUNJUNGAN)."""
     return render_template("face_recognition/tamu.html", halaman="tamu", keperluan_list=daftar_keperluan(),
@@ -90,6 +93,7 @@ def halaman_tamu():
 
 @main_bp.route("/face-recognition")
 @login_required
+@lihat_halaman("FACE_RECOGNITION")
 def face_recognition():
     """Satu halaman, tab Absensi | Personel | Log Audit (tanpa info bar). Blacklist & Tamu menu sendiri."""
     return render_template("face_recognition/face_recognition.html", halaman="face", boleh_ubah=boleh("PERSONEL"),

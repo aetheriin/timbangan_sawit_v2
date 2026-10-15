@@ -93,6 +93,48 @@ def area_pusat():
         return frozenset(int(r["nilai"]) for r in rows if str(r["nilai"]).isdigit())
 
 
+@cache_ttl(30)
+def pt_kelola(id_user):
+    """id company yang dikelola user kantor pusat (tabel akun_company, migrasi 026). Kosong = semua PT."""
+    try:
+        return frozenset(r["id_company"] for r in _query("SELECT id_company FROM akun_company WHERE id_user = ?", id_user))
+    except pyodbc.Error:
+        return frozenset()
+
+
+def pt_kelola_semua():
+    """{id_user: [id_company, ...]} untuk tabel Kelola Pengguna."""
+    hasil = {}
+    try:
+        for r in _query("SELECT id_user, id_company FROM akun_company"):
+            hasil.setdefault(r["id_user"], []).append(r["id_company"])
+    except pyodbc.Error:
+        pass
+    return hasil
+
+
+def simpan_pt_kelola(id_user, daftar_company):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM akun_company WHERE id_user = ?", id_user)
+        for id_c in sorted(set(daftar_company)):
+            cursor.execute("INSERT INTO akun_company (id_user, id_company) VALUES (?, ?)", id_user, id_c)
+        conn.commit()
+    finally:
+        conn.close()
+    pt_kelola.hapus()
+
+
+@cache_ttl(60)
+def area_per_company():
+    """{id_company: (id_comp_area, ...)} termasuk site nonaktif (data lama tetap terlihat)."""
+    hasil = {}
+    for r in _query("SELECT id_comp_area, id_company FROM comp_area"):
+        hasil.setdefault(r["id_company"], []).append(r["id_comp_area"])
+    return {k: tuple(v) for k, v in hasil.items()}
+
+
 # ===== AREA (SITE) = company + lokasi =====
 def daftar_area():
     """label = "YBS · 600 (PKS Sei Mangkei)" untuk pilihan di form; kode site = kode lokasi."""
@@ -118,6 +160,7 @@ def simpan_area(id_area, id_company, id_lokasi, nama, alamat):
         _ubah("INSERT INTO comp_area (id_company, id_lokasi, kode, nama, alamat) VALUES (?, ?, ?, ?, ?)",
               id_company, id_lokasi, kode, nama, alamat)
         _salin_dari_area_pertama()
+        area_per_company.hapus()
     else:
         _ubah("UPDATE comp_area SET id_company = ?, id_lokasi = ?, kode = ?, nama = ?, alamat = ? WHERE id_comp_area = ?",
               id_company, id_lokasi, kode, nama, alamat, id_area)

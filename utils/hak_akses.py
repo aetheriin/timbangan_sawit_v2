@@ -1,10 +1,12 @@
-"""Hak akses dari database (Admin › Hak Akses): level -> menu -> aksi (tambah / ubah / hapus).
+"""Hak akses dari database (Admin › Level & Hak Akses): jabatan (tabel level) -> menu -> lihat / tambah / ubah / hapus.
 
-Semua level non-admin MELIHAT semua menu; yang dibatasi hanya aksinya. Level is_admin hanya area Admin.
-Dibaca dari cache memori 30 detik (tidak menambah query per request); disimpan ulang -> hapus_cache()."""
+Jabatan milik satu departemen (level.id_department, migrasi 026). Lihat = halaman / tab boleh dibuka; menu induk
+(Stasiun Timbang, Pengenalan Wajah, Data Master) terlihat bila salah satu tab-nya boleh dilihat. Level is_admin hanya
+area Admin. Dibaca dari cache memori 30 detik (tidak menambah query per request); disimpan ulang -> hapus_cache()."""
 from functools import wraps
 
-from flask import jsonify, request
+import pyodbc
+from flask import abort, jsonify, redirect, request
 from flask_login import current_user
 
 from utils.cache import cache_ttl
@@ -36,12 +38,29 @@ def _query(sql, *params):
 
 @cache_ttl(30)
 def peta_akses():
-    """{id_level: {kode_menu: {"tambah": bool, "ubah": bool, "hapus": bool}}}"""
+    """{id_level: {kode_menu: {"lihat": bool, "tambah": bool, "ubah": bool, "hapus": bool}}}
+    Sebelum migrasi 026 (tanpa bisa_lihat) semua menu dianggap boleh dilihat, seperti perilaku lama."""
+    try:
+        rows = _query("""SELECT la.id_level, m.kode, la.bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus
+                         FROM level_akses la JOIN menu m ON m.id_menu = la.id_menu WHERE m.is_active = 1""")
+    except pyodbc.Error:
+        rows = _query("""SELECT la.id_level, m.kode, 1 AS bisa_lihat, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus
+                         FROM level_akses la JOIN menu m ON m.id_menu = la.id_menu WHERE m.is_active = 1""")
     peta = {}
-    for r in _query("""SELECT la.id_level, m.kode, la.bisa_tambah, la.bisa_ubah, la.bisa_hapus
-                       FROM level_akses la JOIN menu m ON m.id_menu = la.id_menu WHERE m.is_active = 1"""):
+    for r in rows:
         peta.setdefault(r["id_level"], {})[r["kode"]] = {
-            "tambah": bool(r["bisa_tambah"]), "ubah": bool(r["bisa_ubah"]), "hapus": bool(r["bisa_hapus"])}
+            "lihat": bool(r["bisa_lihat"]), "tambah": bool(r["bisa_tambah"]), "ubah": bool(r["bisa_ubah"]),
+            "hapus": bool(r["bisa_hapus"])}
+    return peta
+
+
+@cache_ttl(30)
+def anak_menu():
+    """{kode_induk: [kode_anak, ...]} untuk menu yang punya tab (bagian halaman)."""
+    peta = {}
+    for r in _query("""SELECT p.kode AS induk, m.kode FROM menu m JOIN menu p ON p.id_menu = m.id_parent
+                       WHERE m.is_active = 1 ORDER BY m.urutan"""):
+        peta.setdefault(r["induk"], []).append(r["kode"])
     return peta
 
 
@@ -55,6 +74,7 @@ def menu_sidebar():
 def hapus_cache():
     peta_akses.hapus()
     menu_sidebar.hapus()
+    anak_menu.hapus()
 
 
 def boleh(kode_menu, *aksi, user=None):
@@ -64,6 +84,56 @@ def boleh(kode_menu, *aksi, user=None):
         return False
     hak = peta_akses().get(user.id_level, {}).get(kode_menu, {})
     return any(hak.get(a) for a in (aksi or AKSI))
+
+
+def boleh_lihat(kode_menu, user=None):
+    """Halaman / tab boleh dibuka. Menu induk terlihat bila dirinya atau salah satu tab-nya boleh dilihat."""
+    user = user or current_user
+    if not getattr(user, "is_authenticated", False) or getattr(user, "is_admin", False):
+        return False
+    hak = peta_akses().get(user.id_level, {})
+    return any(hak.get(k, {}).get("lihat") for k in (kode_menu, *anak_menu().get(kode_menu, ())))
+
+
+def tab_lihat(tabs):
+    """[(key, label, kode_menu), ...] -> [(key, label), ...] yang boleh dilihat user (untuk tab_header)."""
+    return [(key, label) for key, label, kode in tabs if boleh_lihat(kode)]
+
+
+def halaman(kode_menu):
+    """Halaman yang hanya terbuka bila jabatan boleh melihatnya; selain itu ke halaman awal jabatan (atau 403)."""
+    def dekorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            kode = kode_menu(request) if callable(kode_menu) else kode_menu
+            if current_user.is_authenticated and not current_user.is_admin and not boleh_lihat(kode):
+                from utils.keamanan import log_keamanan
+                log_keamanan("AKSES_DITOLAK", f"level {current_user.role} ke halaman {kode} ({request.path})")
+                awal = halaman_awal_user()
+                if awal and awal.split("?")[0] != request.path:
+                    return redirect(awal)
+                abort(403)
+            return f(*args, **kwargs)
+        return wrapped
+    return dekorator
+
+
+def kode_halaman(url):
+    """Kode menu untuk sebuah alamat halaman, mis. '/weighbridge?view=form' -> FORM, '/weighbridge?tab=x' -> LIST."""
+    path, _, query = (url or "").partition("?")
+    if path == "/weighbridge":
+        return "FORM" if "view=form" in query else "LIST"
+    return next((m["kode"] for m in menu_sidebar() if (m["url"] or "").split("?")[0] == path), None)
+
+
+def halaman_awal_user(user=None):
+    """Halaman awal jabatan bila boleh dilihat, selain itu menu pertama di sidebar yang boleh dilihat."""
+    user = user or current_user
+    lv = get_level(user.id_level) if getattr(user, "id_level", None) else None
+    awal = lv["halaman_awal"] if lv else None
+    if awal and boleh_lihat(kode_halaman(awal), user):
+        return awal
+    return next((m["url"] for m in menu_sidebar() if boleh_lihat(m["kode"], user)), None)
 
 
 def izin(kode_menu, *aksi):
@@ -100,9 +170,18 @@ def admin_required(f):
 
 # ===== Admin › Hak Akses =====
 def daftar_level():
-    return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
-                            (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
-                     FROM level l ORDER BY l.is_admin DESC, l.nama""")
+    """Jabatan beserta departemennya (sebelum migrasi 026: tanpa departemen)."""
+    try:
+        return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
+                                l.id_department, d.nama AS department,
+                                (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
+                         FROM level l LEFT JOIN department d ON d.id_department = l.id_department
+                         ORDER BY l.is_admin DESC, d.nama, l.nama""")
+    except pyodbc.Error:
+        return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
+                                NULL AS id_department, NULL AS department,
+                                (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
+                         FROM level l ORDER BY l.is_admin DESC, l.nama""")
 
 
 def daftar_menu_akses():
@@ -116,19 +195,20 @@ def daftar_menu_akses():
 
 def akses_level(id_level):
     return {r["id_menu"]: r for r in _query(
-        "SELECT id_menu, bisa_tambah, bisa_ubah, bisa_hapus FROM level_akses WHERE id_level = ?", id_level)}
+        "SELECT id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus FROM level_akses WHERE id_level = ?", id_level)}
 
 
 def simpan_akses_level(id_level, akses):
-    """akses = {id_menu: (tambah, ubah, hapus)}; menu tanpa centang dihapus barisnya."""
+    """akses = {id_menu: (lihat, tambah, ubah, hapus)}. Aksi apa pun berarti halaman itu juga boleh dilihat.
+    Menu tanpa centang dihapus barisnya."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM level_akses WHERE id_level = ?", id_level)
-        for id_menu, (t, u, h) in akses.items():
-            if t or u or h:
-                cursor.execute("""INSERT INTO level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
-                                  VALUES (?, ?, ?, ?, ?)""", id_level, id_menu, int(t), int(u), int(h))
+        for id_menu, (lh, t, u, h) in akses.items():
+            if lh or t or u or h:
+                cursor.execute("""INSERT INTO level_akses (id_level, id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus)
+                                  VALUES (?, ?, 1, ?, ?, ?)""", id_level, id_menu, int(t), int(u), int(h))
         conn.commit()
     finally:
         conn.close()
@@ -145,17 +225,19 @@ def kode_level_dipakai(kode, kecuali=None):
     return any(r["id_level"] != kecuali for r in _query("SELECT id_level FROM level WHERE kode = ?", kode))
 
 
-def simpan_level(id_level, kode, nama, halaman_awal, keterangan):
+def simpan_level(id_level, kode, nama, halaman_awal, keterangan, id_department):
+    """Departemen jabatan diubah -> departemen semua pengguna jabatan itu ikut berubah."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         if id_level is None:
-            cursor.execute("""INSERT INTO level (kode, nama, halaman_awal, keterangan) OUTPUT INSERTED.id_level
-                              VALUES (?, ?, ?, ?)""", kode, nama, halaman_awal, keterangan)
+            cursor.execute("""INSERT INTO level (kode, nama, halaman_awal, keterangan, id_department) OUTPUT INSERTED.id_level
+                              VALUES (?, ?, ?, ?, ?)""", kode, nama, halaman_awal, keterangan, id_department)
             id_level = cursor.fetchone()[0]
         else:
-            cursor.execute("UPDATE level SET nama = ?, halaman_awal = ?, keterangan = ? WHERE id_level = ?",
-                           nama, halaman_awal, keterangan, id_level)
+            cursor.execute("""UPDATE level SET nama = ?, halaman_awal = ?, keterangan = ?, id_department = ?
+                              WHERE id_level = ?""", nama, halaman_awal, keterangan, id_department, id_level)
+            cursor.execute("UPDATE akun SET id_department = ? WHERE id_level = ?", id_department, id_level)
         conn.commit()
         return id_level
     finally:

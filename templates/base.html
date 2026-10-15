@@ -34,8 +34,8 @@
         {% endblock %}
 
         {% block tab_header %}
-            {{ tab_header([('security', 'Security'), ('timbangan', 'Timbangan'),
-                           ('sortasi', 'Sortasi'), ('lab', 'Laboratorium')]) }}
+            {{ tab_header(tab_lihat([('security', 'Security', 'FORM_SECURITY'), ('timbangan', 'Timbangan', 'FORM_TIMBANGAN'),
+                                     ('sortasi', 'Sortasi', 'FORM_SORTASI'), ('lab', 'Laboratorium', 'FORM_LAB')])) }}
         {% endblock %}
 
         <div id="tabBody" class="tab-body">

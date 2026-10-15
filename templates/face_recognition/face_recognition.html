@@ -8,7 +8,7 @@
 
 {% block tab_header %}
     {{ judul_halaman('Pengenalan Wajah', 'Absensi karyawan, data personel & wajah, serta audit verifikasi', 'fa-face-smile') }}
-    {{ tab_header([('absensi', 'Absensi'), ('personel', 'Personel'), ('audit', 'Log Audit')]) }}
+    {{ tab_header(tab_lihat([('absensi', 'Absensi', 'ABSENSI'), ('personel', 'Personel', 'PERSONEL'), ('audit', 'Log Audit', 'AUDIT_LOG')])) }}
 {% endblock %}
 
 {% block tab_content %}

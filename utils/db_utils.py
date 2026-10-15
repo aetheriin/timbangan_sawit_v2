@@ -790,7 +790,8 @@ AREA_TIKET = ("COALESCE((SELECT m.id_comp_area FROM mill m WHERE m.id_mill = t.i
 
 
 def _filter_area(id_area):
-    return (f" AND {AREA_TIKET} = ?", [id_area]) if id_area else ("", [])
+    from utils.area_filter import sql_area
+    return sql_area(AREA_TIKET, id_area)
 
 
 def get_history_umum(tabel, limit=10, id_area=None):

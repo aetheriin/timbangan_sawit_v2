@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 
 from utils import db_kontrak as db
 from utils.db_utils import get_semua_produk
-from utils.hak_akses import izin, boleh
+from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 
 kontrak_bp = Blueprint("kontrak", __name__)
 
@@ -28,6 +28,7 @@ def _json_do(d):
 
 @kontrak_bp.route("/kontrak")
 @login_required
+@lihat_halaman("KONTRAK_DO")
 def kontrak_halaman():
     """Semua level bisa melihat; tambah / ubah sesuai Admin › Hak Akses (dicek juga di API)."""
     mitra = db.daftar_mitra()

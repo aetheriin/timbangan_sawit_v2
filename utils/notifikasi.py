@@ -29,7 +29,9 @@ def _menu_user(user):
 
 def _filter_area(id_area):
     """Notifikasi tanpa area = untuk semua; selain itu hanya area user (id_area None = kantor pusat, semua)."""
-    return (" AND (n.id_comp_area IS NULL OR n.id_comp_area = ?)", [id_area]) if id_area else ("", [])
+    from utils.area_filter import sql_area
+    sql, args = sql_area("n.id_comp_area", id_area)
+    return (f" AND (n.id_comp_area IS NULL{sql.replace(' AND ', ' OR ', 1)})", args) if sql else ("", [])
 
 
 def daftar(user, batas=30, id_area=None):

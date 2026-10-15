@@ -67,7 +67,9 @@ CREATE TABLE dbo.level (
     is_admin      BIT NOT NULL CONSTRAINT DF_Level_Admin DEFAULT (0),
     halaman_awal  VARCHAR(100)  NOT NULL CONSTRAINT DF_Level_Awal DEFAULT ('/weighbridge'),
     keterangan    NVARCHAR(255) NULL,
-    is_active     BIT NOT NULL CONSTRAINT DF_Level_Aktif DEFAULT (1)
+    is_active     BIT NOT NULL CONSTRAINT DF_Level_Aktif DEFAULT (1),
+    -- Jabatan milik satu departemen (migrasi 026); departemen pengguna ikut jabatannya
+    id_department INT NULL CONSTRAINT FK_Level_Department REFERENCES dbo.department (id_department)
 );
 CREATE TABLE dbo.menu (
     id_menu    INT IDENTITY(1,1) PRIMARY KEY,
@@ -85,6 +87,7 @@ CREATE TABLE dbo.level_akses (
     bisa_tambah  BIT NOT NULL CONSTRAINT DF_LevelAkses_Tambah DEFAULT (0),
     bisa_ubah    BIT NOT NULL CONSTRAINT DF_LevelAkses_Ubah DEFAULT (0),
     bisa_hapus   BIT NOT NULL CONSTRAINT DF_LevelAkses_Hapus DEFAULT (0),
+    bisa_lihat   BIT NOT NULL CONSTRAINT DF_LevelAkses_Lihat DEFAULT (1),     -- halaman / tab boleh dibuka (migrasi 026)
     CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
 );
 GO
@@ -137,6 +140,12 @@ CREATE TABLE dbo.akun (
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_Users_Personel ON dbo.akun (id_personel) WHERE id_personel IS NOT NULL;
+-- PT yang dikelola user kantor pusat (migrasi 026). Kosong = semua PT
+CREATE TABLE dbo.akun_company (
+    id_user     INT NOT NULL CONSTRAINT FK_AkunCompany_Akun REFERENCES dbo.akun (id_user),
+    id_company  INT NOT NULL CONSTRAINT FK_AkunCompany_Company REFERENCES dbo.company (id_company),
+    CONSTRAINT PK_AkunCompany PRIMARY KEY (id_user, id_company)
+);
 GO
 
 /* SIM, wajah, kunjungan tamu (migrasi 009) */
@@ -879,6 +888,9 @@ INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
     ('OPERATOR_TIMBANG', N'Operator Timbang', 0, '/weighbridge?tab=timbangan'),
     ('SORTASI',          N'Sortasi',          0, '/weighbridge?tab=sortasi'),
     ('LAB',              N'Laboratorium',     0, '/weighbridge?tab=lab');
+UPDATE l SET id_department = d.id_department
+FROM dbo.level l JOIN dbo.department d ON d.nama = CASE l.kode WHEN 'HO' THEN N'Head Office' WHEN 'SECURITY' THEN N'Security'
+    WHEN 'OPERATOR_TIMBANG' THEN N'Timbangan' WHEN 'SORTASI' THEN N'QC / Lab' WHEN 'LAB' THEN N'QC / Lab' ELSE N'Umum' END;
 INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('DASHBOARD',        N'Dashboard',        '/dashboard',            'fa-chart-line',    10),
     ('LIST',             N'Daftar Tiket',     '/weighbridge?view=list', 'fa-list',         20),
@@ -961,6 +973,10 @@ INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hap
 SELECT l.id_level, m.id_menu, 1, 1, 0
 FROM dbo.level l CROSS JOIN dbo.menu m
 WHERE l.kode = 'SECURITY' AND m.kode = 'KUNJUNGAN';
+-- Semua jabatan non-admin awalnya boleh melihat semua halaman (atur di Admin › Level & Hak Akses)
+INSERT INTO dbo.level_akses (id_level, id_menu, bisa_lihat)
+SELECT l.id_level, m.id_menu, 1 FROM dbo.level l CROSS JOIN dbo.menu m
+WHERE l.is_admin = 0 AND NOT EXISTS (SELECT 1 FROM dbo.level_akses a WHERE a.id_level = l.id_level AND a.id_menu = m.id_menu);
 GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
 INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area)

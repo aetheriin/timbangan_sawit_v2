@@ -8,7 +8,8 @@
 
 {% block tab_header %}
     {{ judul_halaman('Data Master', 'Supir, kendaraan, supplier, dan produk', 'fa-database') }}
-    {{ tab_header([('personel', 'Supir'), ('kendaraan', 'Kendaraan'), ('mitra', 'Supplier'), ('produk', 'Produk')]) }}
+    {{ tab_header(tab_lihat([('personel', 'Supir', 'MASTER_DRIVER'), ('kendaraan', 'Kendaraan', 'MASTER_KENDARAAN'),
+                            ('mitra', 'Supplier', 'MASTER_MITRA'), ('produk', 'Produk', 'MASTER_PRODUK')])) }}
 {% endblock %}
 
 {% block tab_content %}
