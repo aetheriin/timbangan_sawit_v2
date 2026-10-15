@@ -23,6 +23,9 @@ DEFINISI = {
                           "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
     "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Pengenalan Wajah", "bool", "false", None, None,
                        "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
+    "TOLERANSI_TARA_PERSEN": ("Toleransi tara vs berat kosong (%)", "Timbangan", "int", "15", 0, 100,
+                              "Tara yang berbeda lebih dari persen ini dari berat kosong jenis kendaraan (Data Master › "
+                              "Kendaraan) memunculkan peringatan. 0 = tidak dicek"),
     "TOLERANSI_KELEBIHAN_DO": ("Toleransi kelebihan DO (kg)", "Kelebihan DO", "int", "0", 0, 1000000,
                                "Kelebihan sampai angka ini masih diterima di DO yang sama (tanpa tiket baru & notifikasi). "
                                "Di atasnya seluruh kelebihan menjadi tiket baru -S1"),

@@ -31,4 +31,23 @@
             </table>
         </div>
     </div>
+
+    <div class="section-box">
+        {% call section_header('jenis-kendaraan', 'Jenis Kendaraan & Kapasitas') %}
+        {% if boleh_kendaraan %}
+        <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaJenisKendaraan"><i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+        {% endif %}
+        {% endcall %}
+        <div id="body-jenis-kendaraan" class="section-body overflow-x-auto">
+            <p class="px-4 pt-3 text-xs text-slate-500">Berat kosong & muatan maksimal dipakai untuk peringatan di timbangan (tara janggal / kelebihan muatan). Kosong = tidak dicek.</p>
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell">Kode</th><th class="table-cell">Nama</th><th class="table-cell text-right">Berat Kosong (kg)</th>
+                        <th class="table-cell text-right">Muatan Maks. (kg)</th><th class="table-cell text-right">Kursi</th>
+                        <th class="table-cell text-right">Kendaraan Aktif</th><th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+                </thead>
+                <tbody id="tabelJenisKendaraan" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
 </div>

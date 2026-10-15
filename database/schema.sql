@@ -287,7 +287,14 @@ CREATE TABLE dbo.mitra (
     kode_supplier  VARCHAR(20)  NOT NULL CONSTRAINT UX_Supplier_Kode UNIQUE,
     nama_supplier  VARCHAR(100) NOT NULL,
     is_active      BIT NOT NULL CONSTRAINT DF_Supplier_Aktif DEFAULT (1),
-    created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE())
+    created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE()),
+    alamat         NVARCHAR(255) NULL                                  -- migrasi 032
+);
+-- Supplier hanya berlaku di PT tertentu (migrasi 032); tanpa baris = semua PT
+CREATE TABLE dbo.mitra_company (
+    id_supplier INT NOT NULL CONSTRAINT FK_MitraCompany_Mitra REFERENCES dbo.mitra (id_supplier),
+    id_company  INT NOT NULL CONSTRAINT FK_MitraCompany_Company REFERENCES dbo.company (id_company),
+    CONSTRAINT PK_MitraCompany PRIMARY KEY (id_supplier, id_company)
 );
 GO
 -- Peran mitra (migrasi 013, nama tabel migrasi 016): satu mitra boleh customer sekaligus pengangkutan
@@ -355,7 +362,11 @@ CREATE TABLE dbo.jenis_kendaraan (
     id_jenis_kendaraan  INT IDENTITY(1,1) PRIMARY KEY,
     kode                VARCHAR(20)  NOT NULL CONSTRAINT UX_JenisKendaraan_Kode UNIQUE,
     nama                NVARCHAR(50) NOT NULL,
-    is_active           BIT NOT NULL CONSTRAINT DF_JenisKendaraan_Aktif DEFAULT (1)
+    is_active           BIT NOT NULL CONSTRAINT DF_JenisKendaraan_Aktif DEFAULT (1),
+    -- Kapasitas (migrasi 032): peringatan di timbangan; kosong = tidak dicek
+    berat_kosong_kg     DECIMAL(10, 2) NULL,
+    muatan_maks_kg      DECIMAL(10, 2) NULL,
+    kursi               INT NULL
 );
 GO
 -- STNK wajib & unik (migrasi 014)

@@ -56,6 +56,7 @@ async function simpanHasilTimbangan(btn) {
     if (!noTiketAktif) { Notif.peringatan('Silakan pilih plat atau tiket pada kolom di atas'); return; }
     const data = await denganTombol(btn, () => kirimForm('/api/timbang/simpan', { no_tiket: noTiketAktif }));
     if (tampilkanHasil(data)) muatDataTimbanganTersimpan(noTiketAktif);
+    (data.peringatan || []).forEach(p => Notif.peringatan(p));      // kapasitas jenis kendaraan (tidak menahan)
     const lebih = data.kelebihan_do;
     if (lebih) {          // DO melewati kuota: kelebihan jadi tiket baru (truk sama), KTU / HO sudah dinotifikasi
         const angka = v => Number(v).toLocaleString('id-ID');

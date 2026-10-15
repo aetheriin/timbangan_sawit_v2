@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
-from utils.area import area_data
+from utils.area import area_data, company_user
+from utils.db_admin import supplier_boleh
 from flask_login import login_required, current_user
 from utils.face_utils import (embedding_frontal, extract_embedding, extract_embedding_tunggal, embedding_to_binary,
                               cek_liveness, TANPA_TANTANGAN)
@@ -62,7 +63,8 @@ def buat_tiket():
     jenis, id_supplier, id_produk = f.get("jenis_transaksi", "").strip(), f.get("id_supplier", ""), f.get("id_produk", "")
     if jenis not in JENIS_TRANSAKSI:
         return jsonify({"error": "Pilih jenis transaksi"}), 400
-    if not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier() if s.is_customer}:
+    if (not id_supplier.isdigit() or int(id_supplier) not in {s.id_supplier for s in get_semua_supplier() if s.is_customer}
+            or not supplier_boleh(int(id_supplier), company_user(current_user.id))):
         return jsonify({"error": "Pilih customer dari daftar"}), 400
     # Pengangkutan tidak diisi Security: ikut pengangkut pertama di DO (data HO / Ascend), tanpa DO = kendaraan pengirim
     angkut_do = do["angkutan"][0] if do and do.get("angkutan") else None

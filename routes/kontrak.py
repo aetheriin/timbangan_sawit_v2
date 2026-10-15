@@ -7,6 +7,8 @@ from flask_login import login_required, current_user
 from utils import db_kontrak as db
 from utils.db_utils import get_semua_produk
 from utils.hak_akses import izin, boleh, halaman as lihat_halaman
+from utils.area import company_user
+from utils.db_admin import supplier_boleh
 
 kontrak_bp = Blueprint("kontrak", __name__)
 
@@ -31,7 +33,8 @@ def _json_do(d):
 @lihat_halaman("KONTRAK_DO")
 def kontrak_halaman():
     """Semua level bisa melihat; tambah / ubah sesuai Admin › Hak Akses (dicek juga di API)."""
-    mitra = db.daftar_mitra()
+    pt = company_user(current_user.id)
+    mitra = [m for m in db.daftar_mitra() if supplier_boleh(m["id_supplier"], pt)]
     return render_template("kontrak/kontrak.html", halaman="kontrak", jenis_list=db.JENIS_VALID,
                            boleh_ubah=boleh("KONTRAK_DO"),
                            customer_list=[m for m in mitra if m["peran"] == "CUSTOMER"],
@@ -126,7 +129,8 @@ def do_simpan():
             raise ValueError("Jenis transaksi tidak dikenal")
         if d["berlaku_sampai"] and d["berlaku_sampai"] < d["tanggal_do"]:
             raise ValueError("Berlaku sampai tidak boleh sebelum tanggal DO")
-        if d["id_customer"] not in {m["id_supplier"] for m in db.daftar_mitra() if m["peran"] == "CUSTOMER"}:
+        if (d["id_customer"] not in {m["id_supplier"] for m in db.daftar_mitra() if m["peran"] == "CUSTOMER"}
+                or not supplier_boleh(d["id_customer"], company_user(current_user.id))):
             raise ValueError("Pilih customer dari daftar (mitra berperan customer)")
         if d["id_produk"] not in {p.id_produk for p in get_semua_produk()}:
             raise ValueError("Pilih produk dari daftar")

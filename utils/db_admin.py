@@ -1,4 +1,7 @@
 """Query menu Admin: user, master supplier & produk, jadwal kerja, audit admin, kesehatan database."""
+import pyodbc
+
+from utils.cache import cache_ttl
 from utils.db_utils import get_connection, _rows_to_dicts, get_semua_supplier, get_semua_produk, get_user_by_id
 from utils.db_absensi import get_jadwal_kerja
 
@@ -155,15 +158,35 @@ def cabut_sesi(id_user):
 
 # ===== MASTER SUPPLIER & PRODUK =====
 def daftar_supplier():
-    rows = _query("""SELECT s.id_supplier, s.kode_supplier, s.nama_supplier, s.is_active, s.created_at,
+    rows = _query("""SELECT s.id_supplier, s.kode_supplier, s.nama_supplier, s.alamat, s.is_active, s.created_at,
                             pc.peran AS peran_customer, pa.peran AS peran_angkutan
                      FROM mitra s
                      LEFT JOIN mitra_peran pc ON pc.id_supplier = s.id_supplier AND pc.peran = 'CUSTOMER'
                      LEFT JOIN mitra_peran pa ON pa.id_supplier = s.id_supplier AND pa.peran = 'PENGANGKUTAN'
                      ORDER BY s.is_active DESC, s.nama_supplier""")
+    pt = company_supplier()
     for r in rows:
-        r.update(is_customer=bool(r.pop("peran_customer")), is_angkutan=bool(r.pop("peran_angkutan")))
+        r.update(is_customer=bool(r.pop("peran_customer")), is_angkutan=bool(r.pop("peran_angkutan")),
+                 company=list(pt.get(r["id_supplier"], ())))
     return rows
+
+
+@cache_ttl(300)
+def company_supplier():
+    """{id_supplier: (id_company, ...)} (tabel mitra_company, migrasi 032). Supplier yang tidak ada di sini = semua PT."""
+    hasil = {}
+    try:
+        for r in _query("SELECT id_supplier, id_company FROM mitra_company ORDER BY id_company"):
+            hasil.setdefault(r["id_supplier"], []).append(r["id_company"])
+    except pyodbc.Error:
+        pass
+    return {k: tuple(v) for k, v in hasil.items()}
+
+
+def supplier_boleh(id_supplier, pt_user):
+    """Supplier berlaku untuk PT user. pt_user = None (kantor pusat: semua PT) atau frozenset id company."""
+    pt = company_supplier().get(id_supplier)
+    return not pt or pt_user is None or bool(set(pt) & set(pt_user))
 
 
 def kode_supplier_dipakai(kode, kecuali=None):
@@ -171,25 +194,34 @@ def kode_supplier_dipakai(kode, kecuali=None):
     return any(r["id_supplier"] != kecuali for r in rows)
 
 
-def simpan_supplier(id_supplier, kode, nama, peran):
-    """peran: daftar dari PERAN_SUPPLIER (minimal satu)."""
+def simpan_supplier(id_supplier, kode, nama, peran, alamat=None, daftar_company=()):
+    """peran: daftar dari PERAN_SUPPLIER (minimal satu). daftar_company kosong = berlaku di semua PT."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         if id_supplier:
-            cursor.execute("UPDATE mitra SET kode_supplier = ?, nama_supplier = ? WHERE id_supplier = ?", kode, nama, id_supplier)
+            cursor.execute("UPDATE mitra SET kode_supplier = ?, nama_supplier = ?, alamat = ? WHERE id_supplier = ?",
+                           kode, nama, alamat, id_supplier)
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
         else:
-            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier) OUTPUT INSERTED.id_supplier VALUES (?, ?)", kode, nama)
+            cursor.execute("INSERT INTO mitra (kode_supplier, nama_supplier, alamat) OUTPUT INSERTED.id_supplier VALUES (?, ?, ?)",
+                           kode, nama, alamat)
             id_supplier = cursor.fetchone()[0]
         cursor.execute("DELETE FROM mitra_peran WHERE id_supplier = ?", id_supplier)
         for p in peran:
             cursor.execute("INSERT INTO mitra_peran (id_supplier, peran) VALUES (?, ?)", id_supplier, p)
+        cursor.execute("DELETE FROM mitra_company WHERE id_supplier = ?", id_supplier)
+        for id_c in sorted(set(daftar_company)):
+            cursor.execute("INSERT INTO mitra_company (id_supplier, id_company) VALUES (?, ?)", id_supplier, id_c)
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
     get_semua_supplier.hapus()
+    company_supplier.hapus()
 
 
 def set_aktif_supplier(id_supplier, aktif):

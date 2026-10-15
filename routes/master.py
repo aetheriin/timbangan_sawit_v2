@@ -6,6 +6,7 @@ from utils import db_master as db, db_admin, alur, log_aktivitas
 from utils.plat_utils import normalisasi_plat
 from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
+from utils.db_organisasi import daftar_company
 
 master_bp = Blueprint("master", __name__)
 
@@ -19,6 +20,7 @@ def master_halaman():
                            driver_list=db.daftar_driver_aktif(), jenis_sim_list=daftar_jenis_sim(),
                            kategori_list=list(daftar_kategori().values()), boleh_kode=boleh("PERSONEL", "ubah"),
                            jenis_kendaraan_list=db.daftar_jenis_kendaraan(),
+                           company_list=[c for c in daftar_company() if c["is_active"]],
                            alur_list=alur.daftar_alur(), kategori_produk=db_admin.KATEGORI_PRODUK)
 
 
@@ -124,7 +126,14 @@ def mitra_simpan():
             raise ValueError("Pilih minimal satu peran: customer / pengangkutan")
         if db_admin.kode_supplier_dipakai(kode, kecuali=id_supplier):
             raise ValueError(f"Kode {kode} sudah dipakai")
-        db_admin.simpan_supplier(id_supplier, kode, nama, peran)
+        alamat = (request.form.get("alamat") or "").strip() or None
+        if alamat and len(alamat) > 255:
+            raise ValueError("Alamat maksimal 255 karakter")
+        semua = {c["id_company"] for c in daftar_company()}
+        pt = {int(v) for v in request.form.getlist("company") if v.isdigit()}
+        if pt - semua:
+            raise ValueError("Pilih perusahaan dari daftar")
+        db_admin.simpan_supplier(id_supplier, kode, nama, peran, alamat, pt)
         _catat("MITRA_UBAH" if id_supplier else "MITRA_TAMBAH", kode, nama)
         return jsonify({"message": f"Supplier {nama} berhasil disimpan."})
     return _jalankan(aksi)
@@ -176,3 +185,55 @@ def produk_aktif(id_produk):
     db_admin.set_aktif_produk(id_produk, aktif)
     _catat("PRODUK_AKTIF" if aktif else "PRODUK_NONAKTIF", id_produk)
     return jsonify({"message": "Produk berhasil " + ("diaktifkan" if aktif else "dinonaktifkan")})
+
+
+# ===== JENIS KENDARAAN (kapasitas, migrasi 032) =====
+@master_bp.route("/api/master/jenis-kendaraan")
+@login_required
+def jenis_kendaraan_daftar():
+    return jsonify(db.daftar_jenis_kendaraan(semua=True))
+
+
+def _angka_opsional(nama, label, maks):
+    teks = (request.form.get(nama) or "").strip().replace(",", ".")
+    if not teks:
+        return None
+    try:
+        nilai = float(teks)
+    except ValueError:
+        raise ValueError(f"{label} harus berupa angka")
+    if nilai < 0 or nilai > maks:
+        raise ValueError(f"{label} 0 sampai {maks:,.0f}".replace(",", "."))
+    return nilai
+
+
+@master_bp.route("/api/master/jenis-kendaraan/simpan", methods=["POST"])
+@login_required
+@izin('MASTER_KENDARAAN', 'tambah', 'ubah')
+def jenis_kendaraan_simpan():
+    def aksi():
+        teks_id = (request.form.get("id_jenis_kendaraan") or "").strip()
+        id_jenis = int(teks_id) if teks_id.isdigit() else None
+        if not boleh("MASTER_KENDARAAN", "ubah" if id_jenis else "tambah"):
+            return jsonify({"error": "Level Anda tidak memiliki akses untuk tindakan ini"}), 403
+        kode = _teks("kode", "Kode", maks=20).upper().replace(" ", "_")
+        nama = _teks("nama", "Nama", maks=50)
+        berat_kosong = _angka_opsional("berat_kosong_kg", "Berat kosong", 100000)
+        muatan = _angka_opsional("muatan_maks_kg", "Muatan maksimal", 200000)
+        kursi = _angka_opsional("kursi", "Jumlah kursi", 99)
+        db.simpan_jenis_kendaraan(id_jenis, kode, nama, berat_kosong, muatan, int(kursi) if kursi is not None else None)
+        _catat("JENIS_KENDARAAN_UBAH" if id_jenis else "JENIS_KENDARAAN_TAMBAH", kode, nama)
+        return jsonify({"message": f"Jenis kendaraan {nama} berhasil disimpan."})
+    return _jalankan(aksi)
+
+
+@master_bp.route("/api/master/jenis-kendaraan/<int:id_jenis>/aktif", methods=["POST"])
+@login_required
+@izin('MASTER_KENDARAAN', 'ubah')
+def jenis_kendaraan_aktif(id_jenis):
+    def aksi():
+        aktif = request.form.get("aktif") in ("1", "true")
+        db.set_aktif_jenis_kendaraan(id_jenis, aktif)
+        _catat("JENIS_KENDARAAN_AKTIF" if aktif else "JENIS_KENDARAAN_NONAKTIF", id_jenis)
+        return jsonify({"message": "Jenis kendaraan berhasil " + ("diaktifkan." if aktif else "dinonaktifkan.")})
+    return _jalankan(aksi)

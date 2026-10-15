@@ -11,7 +11,8 @@ from utils.db_utils import (
 from utils.serializers import serialisasi_tiket
 from utils.hak_akses import izin
 from utils.db_jembatan import jembatan_dipilih
-from utils import alur, db_kelebihan_do
+from utils import alur, db_kelebihan_do, log_aktivitas
+from utils.db_master import cek_kapasitas
 
 timbangan_bp = Blueprint('timbangan', __name__)
 
@@ -113,10 +114,11 @@ def timbang_simpan():
         catat_timeline(no_tiket, 'TIMBANG_MASUK', current_user.id)
         if jenis == 'PENIMBANGAN_SAJA':
             return jsonify({"message": f"Penimbangan selesai. Netto: {berat} kg",
-                            "kelebihan_do": _cek_kelebihan(no_tiket)}), 200
+                            "kelebihan_do": _cek_kelebihan(no_tiket), "peringatan": _cek_kapasitas(no_tiket)}), 200
         label = "Tara" if jenis == 'PENJUALAN' else "Bruto"
         return jsonify({"message": f"{label} berhasil disimpan di {jembatan['kode']}: {berat} kg. "
-                                   f"Timbang keluar juga harus di {jembatan['kode']}."}), 200
+                                   f"Timbang keluar juga harus di {jembatan['kode']}.",
+                        "peringatan": _cek_kapasitas(no_tiket)}), 200
 
     # Timbang kedua hanya setelah inspeksi: sortasi (TBS) atau lab APPROVE (produk PKS)
     if trx.status_alur != 'TIMBANG_2':
@@ -137,7 +139,20 @@ def timbang_simpan():
     pesan = f"Selesai! Netto: {netto} kg"
     if hasil.total_potongan_kg is not None:
         pesan += f", potongan sortasi: {hasil.total_potongan_kg} kg, netto akhir: {_netto_akhir(hasil)} kg"
-    return jsonify({"message": pesan, "kelebihan_do": _cek_kelebihan(no_tiket)}), 200
+    return jsonify({"message": pesan, "kelebihan_do": _cek_kelebihan(no_tiket), "peringatan": _cek_kapasitas(no_tiket)}), 200
+
+
+def _cek_kapasitas(no_tiket):
+    """Peringatan tara / muatan dari kapasitas jenis kendaraan (Data Master › Kendaraan). Tidak menahan penimbangan."""
+    try:
+        peringatan = cek_kapasitas(no_tiket)
+    except Exception:       # noqa: BLE001
+        logging.getLogger("weighbridge").exception("Gagal cek kapasitas %s", no_tiket)
+        return []
+    for teks in peringatan:
+        log_aktivitas.catat("TIMBANGAN", "PERINGATAN_KAPASITAS", id_baris=no_tiket, baru={"pesan": teks},
+                            user_id=current_user.id, ip=request.remote_addr)
+    return peringatan
 
 
 def _cek_kelebihan(no_tiket):

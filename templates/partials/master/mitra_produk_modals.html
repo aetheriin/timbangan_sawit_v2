@@ -16,11 +16,22 @@
                 <input type="text" id="mitraNama" name="nama_supplier" required maxlength="100" class="input-field">
             </div>
             <div>
+                <label class="field-label" for="mitraAlamat">Alamat <span class="text-slate-400 font-normal">(opsional)</span></label>
+                <input type="text" id="mitraAlamat" name="alamat" maxlength="255" class="input-field">
+            </div>
+            <div>
                 <span class="field-label">Peran (boleh keduanya)</span>
                 <div class="flex gap-5 text-sm">
                     <label class="flex items-center gap-2"><input type="checkbox" name="is_customer" value="1"> Customer</label>
                     <label class="flex items-center gap-2"><input type="checkbox" name="is_angkutan" value="1"> Pengangkutan</label>
                 </div>
+            </div>
+            <div>
+                <span class="field-label">Berlaku di Perusahaan</span>
+                <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                    {% for c in company_list %}<label class="flex items-center gap-2"><input type="checkbox" name="company" value="{{ c.id_company }}"> {{ c.kode }}</label>{% endfor %}
+                </div>
+                <p class="field-hint">Kosongkan semua centang bila supplier ini berlaku di semua perusahaan.</p>
             </div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">

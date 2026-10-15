@@ -6,7 +6,8 @@ import qrcode.image.svg
 from flask import Blueprint, request, jsonify, render_template, Response, abort
 from utils.area_filter import area_cocok
 from utils.db_organisasi import daftar_area
-from utils.area import area_data
+from utils.area import area_data, company_user
+from utils.db_admin import supplier_boleh
 from flask_login import login_required, current_user
 from utils.db_utils import (
     get_semua_supplier, get_semua_produk, get_history_produk, cari_transaksi_aktif,
@@ -55,7 +56,8 @@ def weighbridge():
                                tahap_awal=_tab_awal())
     return render_template("site/weighbridge.html", halaman="site", view="form",
                            tab_awal=_tab_awal() or "security",
-                           supplier_list=[s for s in get_semua_supplier() if s.is_customer],
+                           supplier_list=[s for s in get_semua_supplier()
+                                          if s.is_customer and supplier_boleh(s.id_supplier, company_user(current_user.id))],
                            produk_list=get_semua_produk(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)),
                            jembatan_list=_jembatan_aktif(), jembatan_dipilih=_jembatan_pc())

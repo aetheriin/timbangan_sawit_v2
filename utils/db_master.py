@@ -44,14 +44,90 @@ def get_kendaraan(id_kendaraan):
         conn.close()
 
 
-def daftar_jenis_kendaraan():
+def daftar_jenis_kendaraan(semua=False):
+    """Jenis kendaraan + kapasitas (migrasi 032). Bawaan hanya yang aktif (pilihan form)."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_jenis_kendaraan, kode, nama FROM jenis_kendaraan WHERE is_active = 1 ORDER BY id_jenis_kendaraan")
-        return _rows_to_dicts(cursor)
+        cursor.execute(f"""SELECT j.id_jenis_kendaraan, j.kode, j.nama, j.is_active, j.berat_kosong_kg, j.muatan_maks_kg, j.kursi,
+                                  (SELECT COUNT(*) FROM kendaraan k WHERE k.id_jenis_kendaraan = j.id_jenis_kendaraan
+                                     AND k.is_active = 1) AS jumlah_kendaraan
+                           FROM jenis_kendaraan j {'' if semua else 'WHERE j.is_active = 1'}
+                           ORDER BY j.is_active DESC, j.id_jenis_kendaraan""")
+        rows = _rows_to_dicts(cursor)
     finally:
         conn.close()
+    for r in rows:
+        for k in ("berat_kosong_kg", "muatan_maks_kg"):
+            r[k] = float(r[k]) if r[k] is not None else None
+    return rows
+
+
+def simpan_jenis_kendaraan(id_jenis, kode, nama, berat_kosong, muatan_maks, kursi):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_jenis_kendaraan FROM jenis_kendaraan WHERE kode = ? AND id_jenis_kendaraan <> ?", kode, id_jenis or 0)
+        if cursor.fetchone():
+            raise ValueError(f"Kode {kode} sudah dipakai.")
+        if id_jenis:
+            cursor.execute("""UPDATE jenis_kendaraan SET kode = ?, nama = ?, berat_kosong_kg = ?, muatan_maks_kg = ?, kursi = ?
+                              WHERE id_jenis_kendaraan = ?""", kode, nama, berat_kosong, muatan_maks, kursi, id_jenis)
+            if cursor.rowcount == 0:
+                raise ValueError("Jenis kendaraan tidak ditemukan.")
+        else:
+            cursor.execute("""INSERT INTO jenis_kendaraan (kode, nama, berat_kosong_kg, muatan_maks_kg, kursi)
+                              VALUES (?, ?, ?, ?, ?)""", kode, nama, berat_kosong, muatan_maks, kursi)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_aktif_jenis_kendaraan(id_jenis, aktif):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE jenis_kendaraan SET is_active = ? WHERE id_jenis_kendaraan = ?", 1 if aktif else 0, id_jenis)
+        if cursor.rowcount == 0:
+            raise ValueError("Jenis kendaraan tidak ditemukan.")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def cek_kapasitas(no_tiket):
+    """Peringatan kapasitas kendaraan tiket ini (tidak menahan penimbangan):
+    - tara berbeda lebih dari TOLERANSI_TARA_PERSEN dari berat kosong jenis kendaraannya (truk tidak benar-benar kosong
+      / jenis kendaraan salah), - netto melebihi muatan maksimal jenis kendaraannya."""
+    from utils import pengaturan
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""SELECT k.no_plat, j.nama, j.berat_kosong_kg, j.muatan_maks_kg, v.berat_bruto, v.berat_tara, v.berat_netto
+                          FROM transaksi t JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
+                          JOIN jenis_kendaraan j ON j.id_jenis_kendaraan = k.id_jenis_kendaraan
+                          JOIN v_timbangan v ON v.no_tiket = t.no_tiket
+                          WHERE t.no_tiket = ?""", no_tiket)
+        r = cursor.fetchone()
+    finally:
+        conn.close()
+    if not r:
+        return []
+    angka = lambda v: f"{float(v):,.0f}".replace(",", ".")
+    hasil = []
+    toleransi = pengaturan.nilai("TOLERANSI_TARA_PERSEN")
+    # Truk kosong = timbangan yang lebih ringan bila sudah dua kali; sebelum itu hanya tara (timbang masuk penjualan)
+    kosong = (min(float(r.berat_bruto), float(r.berat_tara)) if r.berat_bruto is not None and r.berat_tara is not None
+              else float(r.berat_tara) if r.berat_tara is not None else None)
+    if r.berat_kosong_kg and kosong is not None and toleransi:
+        selisih = abs(kosong - float(r.berat_kosong_kg)) / float(r.berat_kosong_kg) * 100
+        if selisih > toleransi:
+            hasil.append(f"Tara {r.no_plat} {angka(kosong)} kg, berbeda {selisih:.0f}% dari berat kosong "
+                         f"{r.nama} ({angka(r.berat_kosong_kg)} kg). Pastikan truk benar-benar kosong.")
+    if r.muatan_maks_kg and r.berat_netto is not None and float(r.berat_netto) > float(r.muatan_maks_kg):
+        hasil.append(f"Muatan {r.no_plat} {angka(r.berat_netto)} kg melebihi muatan maksimal {r.nama} "
+                     f"({angka(r.muatan_maks_kg)} kg).")
+    return hasil
 
 
 def stnk_dipakai(no_stnk, kecuali=None):
