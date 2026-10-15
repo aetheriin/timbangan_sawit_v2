@@ -31,7 +31,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Pilih departemen, lalu jabatan, lalu halaman yang boleh dibuka dan aksinya"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan beserta lokasinya, master lokasi, departemen, dan pabrik"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, dan unit timbang"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
@@ -104,7 +104,6 @@ def admin_halaman(halaman):
                            format_timbangan=FORMAT_TIMBANGAN,
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
-                           jenis_lokasi=org.JENIS_LOKASI,
                            alur_list=alur.daftar_alur(),
                            password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
@@ -135,7 +134,9 @@ def _akun_form():
     id_department = level[id_level]["id_department"]
     if id_department is None:
         raise ValueError("Jabatan ini belum punya departemen. Atur di Admin › Level & Hak Akses")
-    id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "site")
+    id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
+    if not org.department_di_area(id_department, id_area):
+        raise ValueError("Departemen jabatan ini tidak tersedia di area yang dipilih. Atur di Admin › Organisasi › Departemen")
     return level[id_level], id_department, id_area
 
 
@@ -361,30 +362,45 @@ def company_simpan():
     def aksi():
         id_c = _id_opsional("id_company")
         kode, nama = _kode_org("company", "id_company", id_c), _teks("nama")
-        valid = {l["id_lokasi"] for l in org.daftar_lokasi() if l["is_active"]}
-        lokasi = {int(v) for v in request.form.getlist("lokasi") if v.isdigit()}
-        if lokasi - valid:
-            raise ValueError("Pilih lokasi dari daftar")
-        org.simpan_company(id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None, lokasi)
+        org.simpan_company(id_c, kode, nama, _teks("alamat", wajib=False, maks=255) or None)
         _audit("COMPANY_SIMPAN", kode, nama)
-        return jsonify({"message": f"Perusahaan {nama} berhasil disimpan"})
+        return jsonify({"message": f"Perusahaan {nama} berhasil disimpan."})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/organisasi/area/simpan", methods=["POST"])
+@_admin
+def area_simpan():
+    """Area Perusahaan (CompanyArea): perusahaan + Mill (tipe) + nama sendiri, mis. YBS · REFINERY."""
+    def aksi():
+        id_a = _id_opsional("id_comp_area")
+        lama = next((a for a in org.daftar_area() if a["id_comp_area"] == id_a), None) if id_a else None
+        id_c = _id_form("id_company", {c["id_company"] for c in org.daftar_company()
+                                       if c["is_active"] or (lama and c["id_company"] == lama["id_company"])}, "perusahaan")
+        id_l = _id_form("id_lokasi", {l["id_lokasi"] for l in org.daftar_lokasi()
+                                      if l["is_active"] or (lama and l["id_lokasi"] == lama["id_lokasi"])}, "Mill")
+        nama = _teks("nama").upper()
+        if org.nama_area_dipakai(id_c, nama, kecuali=id_a):
+            raise ValueError(f"Area {nama} sudah ada di perusahaan ini.")
+        if lama and lama["jumlah_user"] and (lama["id_company"] != id_c):
+            raise ValueError(f"Area ini masih dipakai {lama['jumlah_user']} pengguna aktif, perusahaannya tidak bisa diganti.")
+        org.simpan_area(id_a, id_c, id_l, nama, _teks("keterangan", wajib=False, maks=255) or None)
+        _audit("AREA_SIMPAN", nama, str(id_c))
+        return jsonify({"message": f"Area {nama} berhasil disimpan."})
     return _jalankan(aksi)
 
 
 @admin_bp.route("/api/admin/organisasi/lokasi/simpan", methods=["POST"])
 @_admin
 def lokasi_simpan():
-    """Master lokasi untuk semua PT; kode sama dipakai semua PT (600 = PKS di YBS maupun SUN)."""
+    """Mill = tipe area untuk semua PT; kode sama dipakai semua PT (600 = PKS di YBS maupun SUN)."""
     def aksi():
         id_l = _id_opsional("id_lokasi")
-        kode, nama = _kode_org("lokasi", "id_lokasi", id_l), _teks("nama")
-        jenis = (request.form.get("jenis") or "LAINNYA").strip().upper()
-        if jenis not in org.JENIS_LOKASI:
-            raise ValueError("Jenis lokasi tidak valid")
-        is_pusat = jenis == "KANTOR_PUSAT"
-        org.simpan_lokasi(id_l, kode, nama, jenis, is_pusat)
+        kode, nama = _kode_org("lokasi", "id_lokasi", id_l), _teks("nama").upper()
+        is_pusat = request.form.get("is_pusat") == "1"
+        org.simpan_lokasi(id_l, kode, nama, _teks("keterangan", wajib=False, maks=255) or None, is_pusat)
         _audit("LOKASI_SIMPAN", kode, f"{nama}{' (kantor pusat)' if is_pusat else ''}")
-        return jsonify({"message": f"Lokasi {kode} ({nama}) berhasil disimpan"})
+        return jsonify({"message": f"Mill {kode} ({nama}) berhasil disimpan."})
     return _jalankan(aksi)
 
 
@@ -394,10 +410,14 @@ def department_simpan():
     def aksi():
         id_d, nama = _id_opsional("id_department"), _teks("nama")
         if org.kode_dipakai("department", "id_department", "nama", nama, kecuali=id_d):
-            raise ValueError(f"Departemen {nama} sudah ada")
-        org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None)
+            raise ValueError(f"Departemen {nama} sudah ada.")
+        semua = {a["id_comp_area"] for a in org.daftar_area()}
+        area = {int(v) for v in request.form.getlist("area") if v.isdigit()}
+        if area - semua:
+            raise ValueError("Pilih area dari daftar.")
+        org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None, area)
         _audit("DEPARTMENT_SIMPAN", nama)
-        return jsonify({"message": f"Departemen {nama} berhasil disimpan"})
+        return jsonify({"message": f"Departemen {nama} berhasil disimpan."})
     return _jalankan(aksi)
 
 
@@ -415,29 +435,32 @@ def mill_simpan():
             raise ValueError(f"Kode {kode} sudah dipakai di area ini")
         alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
         _audit("MILL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Pabrik {nama} berhasil disimpan"})
+        return jsonify({"message": f"Unit timbang {nama} berhasil disimpan."})
     return _jalankan(aksi)
 
 
 @admin_bp.route("/api/admin/organisasi/<jenis>/<int:id_baris>/aktif", methods=["POST"])
 @_admin
 def organisasi_aktif(jenis, id_baris):
-    fungsi = {"company": org.set_aktif_company, "lokasi": org.set_aktif_lokasi,
+    fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "lokasi": org.set_aktif_lokasi,
               "department": org.set_aktif_department, "mill": alur.set_aktif_mill}
     if jenis not in fungsi:
         abort(404)
+    label = {"company": "Perusahaan", "area": "Area", "lokasi": "Mill", "department": "Departemen",
+             "mill": "Unit timbang"}[jenis]
 
     def aksi():
         aktif = _aktif_dari_form()
         if not aktif and jenis != "mill":
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
-                       "lokasi": [(l["id_lokasi"], l["jumlah_site"]) for l in org.daftar_lokasi()],
+                       "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
+                       "lokasi": [(l["id_lokasi"], l["jumlah_area"]) for l in org.daftar_lokasi()],
                        "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
             if dict(dipakai).get(id_baris):
-                raise ValueError(f"{jenis.capitalize()} masih digunakan. Pindahkan pengguna / area terkait terlebih dahulu")
+                raise ValueError(f"{label} masih digunakan. Pindahkan pengguna / area terkait terlebih dahulu.")
         fungsi[jenis](id_baris, aktif)
         _audit(f"{jenis.upper()}_{'AKTIF' if aktif else 'NONAKTIF'}", str(id_baris))
-        return jsonify({"message": f"{jenis.capitalize()} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+        return jsonify({"message": f"{label} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}."})
     return _jalankan(aksi)
 
 

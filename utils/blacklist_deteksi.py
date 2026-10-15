@@ -103,7 +103,7 @@ def log_hari(tanggal, id_area):
     awal = datetime.combine(tanggal, datetime.min.time())
     rows = _query(f"""SELECT d.id_deteksi, d.waktu, d.id_comp_area, d.id_personel, d.id_kendaraan, d.no_plat, d.sumber,
                              d.tindakan, d.jarak_wajah, d.keterangan, d.no_tiket, u.nama AS petugas,
-                             ar.kode + ' (' + ar.nama + ')' AS site, c.kode AS company,
+                             c.kode + ' · ' + ar.nama AS site, c.kode AS company,
                              p.kode_personel, p.nama_personel, p.kategori, k.no_plat AS plat_kendaraan
                       FROM blacklist_deteksi d
                       LEFT JOIN akun u ON u.id_user = d.id_user

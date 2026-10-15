@@ -6,7 +6,7 @@
         <input type="date" id="logTanggal" class="input-field w-44" data-on-change="muatLogBlacklist">
         {% if is_pusat %}
         <select id="logArea" class="input-field w-72" data-on-change="muatLogBlacklist" data-tanpa-cari>
-            <option value="">Semua lokasi</option>
+            <option value="">Semua area</option>
             {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
         </select>
         {% endif %}
@@ -44,7 +44,7 @@
             <table class="w-full text-left text-sm">
                 <thead class="table-header-row">
                     <tr><th class="table-cell">Jam</th><th class="table-cell">Target</th><th class="table-cell">Sumber</th>
-                        <th class="table-cell">Tindakan</th><th class="table-cell">Kemiripan</th><th class="table-cell">Lokasi</th>
+                        <th class="table-cell">Tindakan</th><th class="table-cell">Kemiripan</th><th class="table-cell">Area</th>
                         <th class="table-cell">Petugas</th><th class="table-cell">Keterangan</th></tr>
                 </thead>
                 <tbody data-per-halaman="20" id="tabelLogBlacklist" class="divide-y divide-slate-100"></tbody>

@@ -31,20 +31,18 @@ CREATE TABLE dbo.company (
     is_active   BIT NOT NULL CONSTRAINT DF_Company_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Company_Created DEFAULT (GETDATE())
 );
--- Lokasi (migrasi 025): master yang sama untuk semua PT, mis. 300 (HEAD OFFICE), 600 (PKS). is_pusat = kantor pusat
+-- Mill = tipe area (tabel lokasi, migrasi 025 & 030), sama untuk semua PT: 300 HO, 600 PKS, DOWNSTREAM, TANGKI. is_pusat = kantor pusat
 CREATE TABLE dbo.lokasi (
     id_lokasi   INT IDENTITY(1,1) PRIMARY KEY,
     kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Lokasi_Kode UNIQUE,
     nama        NVARCHAR(100) NOT NULL,
-    jenis       VARCHAR(20)   NOT NULL CONSTRAINT DF_Lokasi_Jenis DEFAULT ('LAINNYA')
-                CONSTRAINT CK_Lokasi_Jenis CHECK (jenis IN ('KANTOR_PUSAT', 'PKS', 'REFINERY', 'TANGKI', 'LAB',
-                                                            'KEBUN', 'GUDANG', 'LAINNYA')),
+    keterangan  NVARCHAR(255) NULL,                -- migrasi 030
     is_pusat    BIT NOT NULL CONSTRAINT DF_Lokasi_Pusat DEFAULT (0),
     is_active   BIT NOT NULL CONSTRAINT DF_Lokasi_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Lokasi_Dibuat DEFAULT (GETDATE())
 );
--- Lokasi yang dimiliki perusahaan (dicentang di form Perusahaan); kode & nama ikut lokasi, unik per (company, lokasi).
--- Dipakai akun, jembatan, pos, pabrik, jadwal, dan tiket sebagai "perusahaan · lokasi".
+-- Area Perusahaan (CompanyArea, migrasi 030): nama sendiri per perusahaan (OFFICE, REFINERY, LOADING RAMP) + Mill (tipe).
+-- Kode ikut kode Mill. Dipakai akun, jembatan, pos, unit timbang, jadwal, dan tiket sebagai "perusahaan · area".
 CREATE TABLE dbo.comp_area (
     id_comp_area INT IDENTITY(1,1) PRIMARY KEY,
     id_company   INT NOT NULL CONSTRAINT FK_Area_Company REFERENCES dbo.company (id_company),
@@ -53,14 +51,21 @@ CREATE TABLE dbo.comp_area (
     alamat       NVARCHAR(255) NULL,
     is_active    BIT NOT NULL CONSTRAINT DF_Area_Aktif DEFAULT (1),
     created_at   DATETIME NOT NULL CONSTRAINT DF_Area_Created DEFAULT (GETDATE()),
-    id_lokasi    INT NULL CONSTRAINT FK_Area_Lokasi REFERENCES dbo.lokasi (id_lokasi)
+    id_lokasi    INT NULL CONSTRAINT FK_Area_Lokasi REFERENCES dbo.lokasi (id_lokasi),
+    keterangan   NVARCHAR(255) NULL                 -- migrasi 030
 );
-CREATE UNIQUE INDEX UX_Area_CompanyLokasi ON dbo.comp_area (id_company, id_lokasi) WHERE id_lokasi IS NOT NULL;
+CREATE UNIQUE INDEX UX_Area_CompanyNama ON dbo.comp_area (id_company, nama);
 CREATE TABLE dbo.department (
     id_department INT IDENTITY(1,1) PRIMARY KEY,
     nama          NVARCHAR(100) NOT NULL CONSTRAINT UX_Department_Nama UNIQUE,
     keterangan    NVARCHAR(255) NULL,
     is_active     BIT NOT NULL CONSTRAINT DF_Department_Aktif DEFAULT (1)
+);
+-- Departemen yang tersedia di area tertentu (DepartmentDetails, migrasi 030); tanpa baris = semua area
+CREATE TABLE dbo.department_area (
+    id_department INT NOT NULL CONSTRAINT FK_DeptArea_Dept REFERENCES dbo.department (id_department),
+    id_comp_area  INT NOT NULL CONSTRAINT FK_DeptArea_Area REFERENCES dbo.comp_area (id_comp_area),
+    CONSTRAINT PK_DepartmentArea PRIMARY KEY (id_department, id_comp_area)
 );
 CREATE TABLE dbo.level (
     id_level      INT IDENTITY(1,1) PRIMARY KEY,
@@ -942,11 +947,12 @@ INSERT INTO dbo.keperluan_kunjungan (nama) VALUES
     (N'Rapat / Bertemu'), (N'Pengiriman Barang'), (N'Perbaikan / Servis'), (N'Audit / Inspeksi'), (N'Lainnya');
 GO
 -- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
-INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)');
-INSERT INTO dbo.lokasi (kode, nama, jenis, is_pusat) VALUES ('300', N'HEAD OFFICE', 'KANTOR_PUSAT', 1), ('600', N'PKS', 'PKS', 0);
+INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)'), ('HO', N'HEAD OFFICE');
+INSERT INTO dbo.lokasi (kode, nama, is_pusat) VALUES ('300', N'HO', 1), ('600', N'PKS', 0);
 INSERT INTO dbo.comp_area (id_company, id_lokasi, kode, nama)
-SELECT c.id_company, l.id_lokasi, l.kode, N'Site Utama (ubah di Admin › Organisasi)'
-FROM dbo.company c JOIN dbo.lokasi l ON l.kode = '600' WHERE c.kode = 'PT';
+SELECT c.id_company, l.id_lokasi, l.kode, v.nama
+FROM (VALUES ('PT', '600', N'PKS'), ('HO', '300', N'HEAD OFFICE')) v (company, lokasi, nama)
+JOIN dbo.company c ON c.kode = v.company JOIN dbo.lokasi l ON l.kode = v.lokasi;
 INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'QC / Lab'), (N'Head Office');
 INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
     ('ADMIN',            N'Super Admin',      1, '/admin'),

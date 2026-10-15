@@ -1,8 +1,9 @@
 {% from "partials/layout/_macros.html" import section_header %}
-{% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Alamat', 'Lokasi']),
-                             ('lokasi', 'Lokasi', ['Kode', 'Nama', 'Jenis', 'Dipakai Perusahaan']),
-                             ('department', 'Departemen', ['Nama', 'Keterangan', 'Pengguna Aktif']),
-                             ('mill', 'Pabrik (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur'])] %}
+{% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Alamat', 'Area']),
+                             ('area', 'Area Perusahaan', ['Perusahaan', 'Kode', 'Nama Area', 'Mill', 'Keterangan', 'Pengguna Aktif']),
+                             ('lokasi', 'Mill (tipe area, sama untuk semua perusahaan)', ['Kode', 'Nama', 'Keterangan', 'Dipakai Area']),
+                             ('department', 'Departemen', ['Nama', 'Keterangan', 'Tersedia di Area', 'Pengguna Aktif']),
+                             ('mill', 'Unit Timbang (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur'])] %}
 <div class="section-box">
     {% call section_header('org-' ~ key, judul) %}
     <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaOrganisasi" data-arg="{{ key }}">

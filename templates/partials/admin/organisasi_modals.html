@@ -13,9 +13,6 @@
                 <input type="text" id="orgCompNama" name="nama" required maxlength="100" class="input-field"></div>
             <div class="col-span-3"><label class="field-label" for="orgCompAlamat">Alamat</label>
                 <input type="text" id="orgCompAlamat" name="alamat" maxlength="255" class="input-field"></div>
-            <div class="col-span-3"><p class="field-label">Lokasi</p>
-                <div id="orgCompLokasi" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"></div>
-                <p class="field-hint">Centang lokasi yang dimiliki perusahaan ini. Daftar lokasi diatur di tabel Lokasi.</p></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-company" class="btn-secondary">Batal</button>
@@ -24,11 +21,37 @@
     </form>
 </div>
 
-<!-- MODAL: Lokasi (master untuk semua perusahaan, mis. 600 = PKS) -->
+<!-- MODAL: Area Perusahaan (CompanyArea), mis. YBS · REFINERY bertipe Mill DOWNSTREAM -->
+<div id="modalOrg-area" class="modal-overlay">
+    <form id="formOrg-area" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/area/simpan">
+        <div class="modal-header">
+            <h3 class="font-bold" data-judul>Area Perusahaan</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <input type="hidden" name="id_comp_area">
+            <div><label class="field-label" for="orgAreaCompany">Perusahaan</label>
+                <select id="orgAreaCompany" name="id_company" required class="input-field"></select></div>
+            <div><label class="field-label" for="orgAreaMill">Mill (tipe area)</label>
+                <select id="orgAreaMill" name="id_lokasi" required class="input-field"></select></div>
+            <div class="col-span-2"><label class="field-label" for="orgAreaNama">Nama Area</label>
+                <input type="text" id="orgAreaNama" name="nama" required maxlength="100" placeholder="REFINERY" class="input-field uppercase"></div>
+            <div class="col-span-2"><label class="field-label" for="orgAreaKet">Keterangan</label>
+                <input type="text" id="orgAreaKet" name="keterangan" maxlength="255" class="input-field">
+                <p class="field-hint">Kode area mengikuti kode Mill yang dipilih.</p></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-area" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Mill = tipe area untuk semua perusahaan (mis. 300 HO, 600 PKS) -->
 <div id="modalOrg-lokasi" class="modal-overlay">
     <form id="formOrg-lokasi" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/lokasi/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Lokasi</h3>
+            <h3 class="font-bold" data-judul>Mill</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-lokasi" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">
@@ -36,12 +59,13 @@
             <div><label class="field-label" for="orgLokKode">Kode</label>
                 <input type="text" id="orgLokKode" name="kode" required maxlength="10" placeholder="600" class="input-field uppercase font-mono"></div>
             <div class="col-span-2"><label class="field-label" for="orgLokNama">Nama</label>
-                <input type="text" id="orgLokNama" name="nama" required maxlength="100" placeholder="PKS" class="input-field"></div>
-            <div class="col-span-3"><label class="field-label" for="orgLokJenis">Jenis</label>
-                <select id="orgLokJenis" name="jenis" required class="input-field">
-                    {% for k, v in jenis_lokasi.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
-                </select>
-                <p class="field-hint">Kantor pusat: pengguna yang ditempatkan di lokasi ini mengelola semua perusahaan.</p></div>
+                <input type="text" id="orgLokNama" name="nama" required maxlength="100" placeholder="PKS" class="input-field uppercase"></div>
+            <div class="col-span-3"><label class="field-label" for="orgLokKet">Keterangan</label>
+                <input type="text" id="orgLokKet" name="keterangan" maxlength="255" class="input-field"></div>
+            <label class="col-span-3 flex items-start gap-2 text-sm">
+                <input type="checkbox" name="is_pusat" value="1" class="w-4 h-4 mt-0.5">
+                <span>Kantor pusat <span class="block text-xs text-slate-500">Pengguna di area bertipe ini mengelola semua perusahaan.</span></span>
+            </label>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-lokasi" class="btn-secondary">Batal</button>
@@ -63,6 +87,9 @@
                 <input type="text" id="orgDeptNama" name="nama" required maxlength="100" class="input-field"></div>
             <div><label class="field-label" for="orgDeptKet">Keterangan</label>
                 <input type="text" id="orgDeptKet" name="keterangan" maxlength="255" class="input-field"></div>
+            <div><p class="field-label">Tersedia di Area</p>
+                <div id="orgDeptArea" class="max-h-56 overflow-y-auto rounded-lg border border-slate-200 p-3 space-y-3 text-sm"></div>
+                <p class="field-hint">Kosongkan semua centang bila departemen ini ada di semua area.</p></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-department" class="btn-secondary">Batal</button>
@@ -71,16 +98,16 @@
     </form>
 </div>
 
-<!-- MODAL: Pabrik -->
+<!-- MODAL: Unit Timbang (tabel mill: alur tahap per area) -->
 <div id="modalOrg-mill" class="modal-overlay">
     <form id="formOrg-mill" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/mill/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Pabrik</h3>
+            <h3 class="font-bold" data-judul>Unit Timbang</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 grid grid-cols-3 gap-3">
             <input type="hidden" name="id_mill">
-            <div class="col-span-3"><label class="field-label" for="orgMillArea">Perusahaan · Lokasi</label>
+            <div class="col-span-3"><label class="field-label" for="orgMillArea">Area</label>
                 <select id="orgMillArea" name="id_comp_area" required class="input-field">
                     {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
                 </select></div>

@@ -62,25 +62,36 @@ function siapkanModalUser(ubah) {
     return form;
 }
 
-// Jabatan mengikuti departemen, lokasi mengikuti perusahaan (sumber: <template> di users_modals.html)
-function isiDariSumber(idSelect, idSumber, atribut, nilai, pilih) {
+// Area mengikuti perusahaan, departemen mengikuti area, jabatan mengikuti departemen
+// (sumber: <template> di users_modals.html)
+function isiDariSumber(idSelect, idSumber, cocok, pilih) {
     const sel = document.getElementById(idSelect);
     [...sel.options].filter(o => o.value !== '').forEach(o => o.remove());
-    [...document.getElementById(idSumber).content.querySelectorAll('option')]
-        .filter(o => o.dataset[atribut] === String(nilai)).forEach(o => sel.add(o.cloneNode(true)));
-    sel.value = pilih != null ? String(pilih) : '';
+    [...document.getElementById(idSumber).content.querySelectorAll('option')].filter(cocok).forEach(o => sel.add(o.cloneNode(true)));
+    sel.value = pilih != null && [...sel.options].some(o => o.value === String(pilih)) ? String(pilih) : '';
 }
 
-function aturJabatanUser(pilih) {
-    isiDariSumber('userLevel', 'sumberJabatan', 'dept', document.getElementById('userDept').value, typeof pilih === 'number' ? pilih : null);
+function aturAreaUser(pilih) {
+    const company = document.getElementById('userCompany').value;
+    isiDariSumber('userArea', 'sumberArea', o => o.dataset.company === company, typeof pilih === 'number' ? pilih : null);
+    aturDeptUser();
 }
 
-function aturLokasiUser(pilih) {
-    isiDariSumber('userArea', 'sumberLokasi', 'company', document.getElementById('userCompany').value, typeof pilih === 'number' ? pilih : null);
+function aturDeptUser(pilih) {
+    const area = document.getElementById('userArea').value;
+    const dept = typeof pilih === 'number' ? pilih : Number(document.getElementById('userDept').value) || null;
+    isiDariSumber('userDept', 'sumberDept', o => !o.dataset.area || (area && o.dataset.area.split(',').includes(area)), dept);
+    aturJabatanUser();
     aturPtKelola();
 }
 
-// PT yang dikelola hanya untuk lokasi kantor pusat
+function aturJabatanUser(pilih) {
+    const dept = document.getElementById('userDept').value;
+    const jabatan = typeof pilih === 'number' ? pilih : Number(document.getElementById('userLevel').value) || null;
+    isiDariSumber('userLevel', 'sumberJabatan', o => o.dataset.dept === dept, jabatan);
+}
+
+// PT yang dikelola hanya untuk area kantor pusat
 function aturPtKelola() {
     const sel = document.getElementById('userArea');
     const opsi = sel.options[sel.selectedIndex];
@@ -89,8 +100,7 @@ function aturPtKelola() {
 
 function bukaTambahUser() {
     siapkanModalUser(false).elements.id_user.value = '';
-    aturJabatanUser();
-    aturLokasiUser();
+    aturAreaUser();
     openModal('modalUser');
     document.getElementById('userNama').focus();
 }
@@ -99,12 +109,12 @@ function bukaUbahUser(id) {
     const u = cariDataUser(id);
     const form = siapkanModalUser(true);
     isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username });
-    const lv = document.querySelector(`#sumberJabatan`).content.querySelector(`option[value="${u.id_level}"]`);
-    const ar = document.querySelector(`#sumberLokasi`).content.querySelector(`option[value="${u.id_comp_area}"]`);
-    document.getElementById('userDept').value = lv ? lv.dataset.dept : '';
+    const lv = document.querySelector('#sumberJabatan').content.querySelector(`option[value="${u.id_level}"]`);
+    const ar = document.querySelector('#sumberArea').content.querySelector(`option[value="${u.id_comp_area}"]`);
     document.getElementById('userCompany').value = ar ? ar.dataset.company : '';
+    aturAreaUser(u.id_comp_area);
+    aturDeptUser(lv ? Number(lv.dataset.dept) : null);
     aturJabatanUser(u.id_level);
-    aturLokasiUser(u.id_comp_area);
     form.querySelectorAll('[name=pt_kelola]').forEach(c => { c.checked = u.pt_kelola.includes(Number(c.value)); });
     aturPtKelola();
     openModal('modalUser');

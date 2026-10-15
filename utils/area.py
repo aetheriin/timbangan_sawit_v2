@@ -1,5 +1,5 @@
-"""Data per area: akun di site hanya melihat site-nya; akun di site kantor pusat (Admin › Organisasi › Lokasi,
-jenis "Kantor pusat") melihat dan mengelola semua PT, atau hanya PT yang dipilih di Kelola Pengguna."""
+"""Data per area: akun di area biasa hanya melihat areanya; akun di area bertipe Mill kantor pusat (Admin › Organisasi ›
+Mill, centang "Kantor pusat") melihat dan mengelola semua PT, atau hanya PT yang dipilih di Kelola Pengguna."""
 from utils.db_kunjungan import area_akun
 from utils.db_organisasi import area_pusat, area_per_company, company_area, pt_kelola
 

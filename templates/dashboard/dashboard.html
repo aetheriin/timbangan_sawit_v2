@@ -32,12 +32,12 @@
         <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
                 <h2 class="text-sm font-bold text-slate-900">Arus Penimbangan Hari Ini</h2>
-                <p class="text-xs text-slate-500">{{ 'Tiket yang dibuat hari ini, semua lokasi atau per lokasi' if is_pusat else 'Tiket yang dibuat hari ini di lokasi Anda' }}</p>
+                <p class="text-xs text-slate-500">{{ 'Tiket yang dibuat hari ini, semua area atau per area' if is_pusat else 'Tiket yang dibuat hari ini di area Anda' }}</p>
             </div>
             {# HO: pilih site (juga menyaring Status Jembatan Timbang); akun site: hanya site sendiri #}
             {% if is_pusat %}
             <select id="pilihAreaArus" data-simpan="area_arus" class="input-field w-56 py-1.5" data-on-change="muatArusSekarang">
-                <option value="">Semua lokasi</option>
+                <option value="">Semua area</option>
                 {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
             </select>
             {% else %}

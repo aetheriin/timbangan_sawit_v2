@@ -28,10 +28,11 @@ def peta_alur():
 
 @cache_ttl(60)
 def daftar_mill():
-    rows = _query("""SELECT m.id_mill, m.id_comp_area, ar.nama AS area, m.kode, m.nama, m.id_alur, a.kode AS kode_alur,
-                            a.nama AS nama_alur, m.is_active
+    rows = _query("""SELECT m.id_mill, m.id_comp_area, c.kode + ' · ' + ar.nama AS area, m.kode, m.nama, m.id_alur,
+                            a.kode AS kode_alur, a.nama AS nama_alur, m.is_active
                      FROM mill m JOIN alur a ON a.id_alur = m.id_alur JOIN comp_area ar ON ar.id_comp_area = m.id_comp_area
-                     ORDER BY m.is_active DESC, ar.nama, m.kode""")
+                     JOIN company c ON c.id_company = ar.id_company
+                     ORDER BY m.is_active DESC, c.kode, ar.nama, m.kode""")
     for r in rows:
         r["is_active"] = bool(r["is_active"])
     return rows

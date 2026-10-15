@@ -222,7 +222,7 @@ async function simpanBlacklist(btn) {
     if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
     const ok = await Dialog.konfirmasi({ judul: 'Ajukan blacklist?', teksYa: 'Ajukan Blacklist', bahaya: true,
-        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua lokasi.` });
+        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua area.` });
     if (!ok) return;
 
     const formData = new FormData();

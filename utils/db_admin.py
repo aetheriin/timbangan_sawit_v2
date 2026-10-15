@@ -30,7 +30,7 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
 
 # ===== USER (level, department, area dari tabel; hak akses di utils/hak_akses.py) =====
 _SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
-                         u.id_department, d.nama AS department, u.id_comp_area, co.kode + ' · ' + a.kode + ' ' + a.nama AS area,
+                         u.id_department, d.nama AS department, u.id_comp_area, co.kode + ' · ' + a.nama AS area,
                          u.is_active, u.last_login, u.created_at
                   FROM akun u JOIN level lv ON lv.id_level = u.id_level
                   JOIN department d ON d.id_department = u.id_department

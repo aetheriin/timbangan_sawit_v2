@@ -211,7 +211,7 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
             syarat.append("p.status = 'MENUNGGU'")
     rows = _query(f"""SELECT TOP ({int(batas)}) p.id_pengajuan, p.jenis, p.status, p.langkah, p.total_langkah, p.judul, p.alasan,
                              p.data, p.id_company, p.diajukan_oleh, p.created_at, p.selesai_at, u.nama AS pengaju,
-                             c.kode AS kode_company, ar.kode + ' ' + ar.nama AS site
+                             c.kode AS kode_company, ar.nama AS site
                       FROM pengajuan p JOIN akun u ON u.id_user = p.diajukan_oleh
                       JOIN company c ON c.id_company = p.id_company
                       JOIN comp_area ar ON ar.id_comp_area = p.id_comp_area
