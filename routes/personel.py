@@ -80,6 +80,8 @@ def _validasi(data, exclude_id=None):
                               wajib_sim=[k for k, v in kategori.items() if v["wajib_sim"]])
     if error:
         return error
+    if not kategori[data["kategori"]]["wajib_sim"]:     # SIM hanya untuk kategori wajib SIM (Supir)
+        data.update(no_sim=None, id_jenis_sim=None, sim_berlaku=None)
     if data["no_sim"]:              # SIM diisi -> jenis & masa berlaku wajib, nomor tidak dipakai orang lain
         if data["id_jenis_sim"] not in {j["id_jenis_sim"] for j in daftar_jenis_sim()}:
             return "Pilih jenis SIM"

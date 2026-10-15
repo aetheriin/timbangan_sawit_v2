@@ -2,8 +2,7 @@
 {% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Jumlah Area']),
                              ('area', 'Area (Site)', ['Kode', 'Nama', 'Perusahaan', 'Alamat', 'Pengguna Aktif']),
                              ('department', 'Departemen', ['Nama', 'Keterangan', 'Pengguna Aktif']),
-                             ('mill', 'Pabrik (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur']),
-                             ('kategori', 'Kategori Personel', ['Kode', 'Nama', 'Prefix Kode', 'Wajib SIM', 'Boleh Akun'])] %}
+                             ('mill', 'Pabrik (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur'])] %}
 <div class="section-box">
     {% call section_header('org-' ~ key, judul) %}
     <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaOrganisasi" data-arg="{{ key }}">

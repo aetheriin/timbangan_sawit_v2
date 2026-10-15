@@ -16,7 +16,7 @@ from utils.db_utils import (
 )
 from utils.serializers import serialisasi_driver
 from utils.audit_utils import catat_security_audit
-from utils.personel_utils import format_nama_personel
+from utils.personel_utils import format_nama_personel, nik_valid
 from utils.face_cache import slot_proses_wajah, cari_terdekat_konsisten
 from utils.hak_akses import izin
 from utils.db_personel import sim_dipakai
@@ -173,6 +173,8 @@ def driver_tambah():
 
     if not all([nik, nama, no_sim, file]):
         return jsonify({"error": "Semua kolom wajib diisi, termasuk foto wajah"}), 400
+    if not nik_valid(nik):
+        return jsonify({"error": "NIK harus 16 digit angka"}), 400
     if cek_nik_ada(nik):
         return jsonify({"error": f"NIK '{nik}' sudah terdaftar"}), 400
     if sim_dipakai(no_sim):
@@ -219,6 +221,8 @@ def driver_update_identitas():
 
     if not all([id_driver, nik, nama, no_sim]) or not id_driver.isdigit():
         return jsonify({"error": "Semua kolom wajib diisi"}), 400
+    if not nik_valid(nik):
+        return jsonify({"error": "NIK harus 16 digit angka"}), 400
     if cek_nik_ada(nik, exclude_id=int(id_driver)):
         return jsonify({"error": f"NIK '{nik}' sudah dipakai supir lain"}), 400
     if sim_dipakai(no_sim, int(id_driver)):

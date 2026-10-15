@@ -217,6 +217,7 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
 
 
 # ===== MASTER KATEGORI & JENIS SIM =====
+# Kategori personel tetap (Supir, Karyawan, Security, Tamu): terikat aturan program, tidak diatur dari Admin.
 def daftar_kategori(semua=False):
     """{kode: {kode, nama, wajib_sim, boleh_akun, prefix_kode, is_active}}; bawaan hanya yang aktif.
     Sebelum migrasi 020 (tanpa prefix_kode) tetap jalan dengan prefix kosong."""
@@ -230,31 +231,6 @@ def daftar_kategori(semua=False):
         return {r["kode"]: {**r, "wajib_sim": bool(r["wajib_sim"]), "boleh_akun": bool(r["boleh_akun"]),
                             "is_active": bool(r["is_active"])}
                 for r in _rows_to_dicts(cursor) if semua or r["is_active"]}
-    finally:
-        conn.close()
-
-
-def simpan_kategori(kode_lama, kode, nama, prefix_kode, wajib_sim, boleh_akun):
-    """kode_lama None = tambah. Kode kategori tidak bisa diubah setelah dibuat (dipakai personel)."""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        if kode_lama is None:
-            cursor.execute("""INSERT INTO kategori_personel (kode, nama, wajib_sim, boleh_akun, prefix_kode)
-                              VALUES (?, ?, ?, ?, ?)""", kode, nama, int(wajib_sim), int(boleh_akun), prefix_kode)
-        else:
-            cursor.execute("""UPDATE kategori_personel SET nama = ?, wajib_sim = ?, boleh_akun = ?, prefix_kode = ?
-                              WHERE kode = ?""", nama, int(wajib_sim), int(boleh_akun), prefix_kode, kode_lama)
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def set_aktif_kategori(kode, aktif):
-    conn = get_connection()
-    try:
-        conn.cursor().execute("UPDATE kategori_personel SET is_active = ? WHERE kode = ?", int(aktif), kode)
-        conn.commit()
     finally:
         conn.close()
 

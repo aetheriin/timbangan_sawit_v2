@@ -6,11 +6,8 @@ const ORG = {
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                                                                         Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Pabrik', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
-    kategori: { id: 'kode', nama: 'Kategori Personel', kolom: k => [mono(k.kode), escapeHtml(k.nama),
-                k.prefix_kode ? mono(`${k.prefix_kode}-001`) : '<span class="text-slate-400">PRGBS-001</span>',
-                k.wajib_sim ? 'Ya' : '-', k.boleh_akun ? 'Ya' : '-'] },
 };
-let dataOrg = { company: [], area: [], department: [], mill: [], kategori: [] };
+let dataOrg = { company: [], area: [], department: [], mill: [] };
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 
@@ -35,6 +32,23 @@ async function muatOrganisasi() {
                 </td>
             </tr>`).join('') || barisKosong(n, `Belum ada ${cfg.nama.toLowerCase()}`);
     });
+    if (!data.error) isiPilihanOrganisasi();
+}
+
+// Pilihan Perusahaan (form Area) & Area (form Pabrik) diisi ulang dari data terbaru setiap kali data dimuat,
+// jadi nama yang baru diubah langsung tampil di form tanpa memuat ulang halaman. Yang nonaktif tidak ditawarkan.
+// Pilihan kosong "-- Pilih ... --" (pilih_cari.js) dipertahankan.
+function isiPilihanOrganisasi() {
+    const isi = (idSelect, daftar, id, label) => {
+        const sel = document.getElementById(idSelect);
+        if (!sel) return;
+        const pilihan = sel.value;
+        [...sel.options].filter(o => o.value !== '').forEach(o => o.remove());
+        daftar.filter(r => r.is_active).forEach(r => sel.add(new Option(label(r), r[id])));
+        sel.value = pilihan;
+    };
+    isi('orgAreaCompany', dataOrg.company, 'id_company', c => c.nama);
+    isi('orgMillArea', dataOrg.area, 'id_comp_area', a => a.nama);
 }
 
 function bukaOrganisasi(jenis, id) {
@@ -42,9 +56,7 @@ function bukaOrganisasi(jenis, id) {
     const form = document.getElementById(`formOrg-${jenis}`);
     const r = id ? dataOrg[jenis].find(x => x[cfg.id] === id) : null;
     form.reset();
-    isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '', prefix_kode: r.prefix_kode || '', kode_lama: r.kode }
-                    : { [cfg.id]: '', kode_lama: '' });
-    if (form.elements.kode_lama) form.elements.kode.readOnly = !!r;      // kode kategori tetap setelah dibuat
+    isiForm(form, r ? { ...r, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]), select').focus();

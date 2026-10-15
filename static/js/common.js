@@ -209,6 +209,15 @@ document.addEventListener('input', e => {
     el.setSelectionRange(posisi, posisi);
 });
 document.addEventListener('focusout', e => { if (e.target.matches && e.target.matches('input[data-plat]')) rapikanKotakPlat(e.target); });
+
+// ===== NIK (semua kotak <input data-nik>) =====
+// Hanya angka, maksimal 16 (NIK KTP). Teks tempelan dengan spasi / titik ikut dibersihkan. Server tetap memvalidasi.
+document.addEventListener('input', e => {
+    const el = e.target;
+    if (!el.matches || !el.matches('input[data-nik]')) return;
+    const bersih = el.value.replace(/\D/g, '').slice(0, 16);
+    if (bersih !== el.value) el.value = bersih;
+});
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input[data-plat]').forEach(el => el.addEventListener('mouseleave', () => {
         if (document.activeElement === el) rapikanKotakPlat(el);

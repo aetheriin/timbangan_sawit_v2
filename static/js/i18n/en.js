@@ -19,6 +19,7 @@ window.KAMUS_EN = {
 "1. Bruto": "1. Gross",
 "1. Informasi Kendaraan Produk": "1. Vehicle & Product Information",
 "1000 bila indikator kirim ton": "1000 if the indicator sends tonnes",
+"16 digit NIK": "16-digit NIK",
 "2. Informasi Supir": "2. Driver Information",
 "2. Tara": "2. Tare",
 "3-50 karakter: huruf kecil, angka, titik, garis bawah": "3-50 characters: lowercase letters, numbers, dot, underscore",

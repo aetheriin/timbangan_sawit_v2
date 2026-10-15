@@ -22,7 +22,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
-from utils import alur, log_aktivitas, db_personel
+from utils import alur, log_aktivitas
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -50,8 +50,6 @@ HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "List Ti
                 ("/face-recognition", "Pengenalan Wajah"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
                 ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
                 ("/admin", "Admin (khusus level admin)")]
-POLA_KODE_KATEGORI = re.compile(r"^[A-Z0-9_]{2,20}$")
-POLA_PREFIX = re.compile(r"^[A-Z0-9]{1,10}$")
 POLA_JAM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 PASSWORD_MIN = 8
 
@@ -334,47 +332,7 @@ def _id_opsional(nama):
 @_admin
 def organisasi_daftar():
     return jsonify({"company": org.daftar_company(), "area": org.daftar_area(), "department": org.daftar_department(),
-                    "mill": alur.daftar_mill(), "kategori": list(db_personel.daftar_kategori(semua=True).values())})
-
-
-@admin_bp.route("/api/admin/organisasi/kategori/simpan", methods=["POST"])
-@_admin
-def kategori_simpan():
-    """Kategori personel: kode (tetap), nama, prefix kode personel (DRV -> DRV-001), wajib SIM, boleh akun."""
-    def aksi():
-        kode_lama = (request.form.get("kode_lama") or "").strip().upper() or None
-        semua = db_personel.daftar_kategori(semua=True)
-        kode = kode_lama or _teks("kode", maks=20).upper()
-        if not POLA_KODE_KATEGORI.match(kode):
-            raise ValueError("Kode 2-20 karakter: huruf besar, angka, atau _")
-        if kode_lama is None and kode in semua:
-            raise ValueError(f"Kategori {kode} sudah ada")
-        if kode_lama is not None and kode_lama not in semua:
-            raise ValueError("Kategori tidak ditemukan")
-        prefix = _teks("prefix_kode", wajib=False, maks=10).upper() or None
-        if prefix and not POLA_PREFIX.match(prefix):
-            raise ValueError("Prefix 1-10 huruf besar / angka")
-        if prefix and any(k["prefix_kode"] == prefix and k["kode"] != kode for k in semua.values()):
-            raise ValueError(f"Prefix {prefix} sudah dipakai kategori lain")
-        nama = _teks("nama", maks=50)
-        db_personel.simpan_kategori(kode_lama, kode, nama, prefix, bool(request.form.get("wajib_sim")),
-                                    bool(request.form.get("boleh_akun")))
-        _audit("KATEGORI_PERSONEL_SIMPAN", kode, f"{nama} prefix {prefix or '-'}")
-        return jsonify({"message": f"Kategori {nama} berhasil disimpan"})
-    return _jalankan(aksi)
-
-
-@admin_bp.route("/api/admin/organisasi/kategori/<kode>/aktif", methods=["POST"])
-@_admin
-def kategori_aktif(kode):
-    def aksi():
-        aktif = _aktif_dari_form()
-        if kode not in db_personel.daftar_kategori(semua=True):
-            raise ValueError("Kategori tidak ditemukan")
-        db_personel.set_aktif_kategori(kode, aktif)
-        _audit(f"KATEGORI_PERSONEL_{'AKTIF' if aktif else 'NONAKTIF'}", kode)
-        return jsonify({"message": f"Kategori {kode} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
-    return _jalankan(aksi)
+                    "mill": alur.daftar_mill()})
 
 
 @admin_bp.route("/api/admin/organisasi/company/simpan", methods=["POST"])

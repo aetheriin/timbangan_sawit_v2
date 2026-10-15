@@ -30,11 +30,16 @@ def kode_berikutnya(daftar_kode, prefix=PREFIX_KODE):
     return f"{prefix}{(max(nomor) if nomor else 0) + 1:03d}"
 
 
+def nik_valid(nik):
+    """NIK KTP: tepat 16 angka."""
+    return bool(nik) and nik.isdigit() and len(nik) == 16
+
+
 def validasi_personel(nik, nama, kategori, no_sim, kategori_valid=KATEGORI_VALID, wajib_sim=WAJIB_SIM):
     """Kembalikan pesan error, atau None kalau data valid. kategori_valid / wajib_sim dari tabel kategori_personel."""
     if not nik or not nama:
         return "NIK dan nama wajib diisi"
-    if not nik.isdigit() or len(nik) != 16:
+    if not nik_valid(nik):
         return "NIK harus 16 digit angka"
     if kategori not in kategori_valid:
         return "Kategori tidak valid"

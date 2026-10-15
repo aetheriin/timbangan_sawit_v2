@@ -17,7 +17,7 @@
             </div>
             <div>
                 <label class="field-label">NIK</label>
-                <input type="text" id="tambahNik" placeholder="Masukkan NIK" class="input-field">
+                <input type="text" id="tambahNik" placeholder="16 digit NIK" data-nik maxlength="16" inputmode="numeric" class="input-field">
             </div>
             <div>
                 <label class="field-label">SIM</label>
@@ -58,7 +58,7 @@
             <p class="text-xs text-slate-500">Dipakai kalau yang datang bukan supir saran. Data supir lain tidak diubah, hanya tiket ini yang memakainya.</p>
             <div>
                 <label class="field-label">NIK supir yang datang hari ini</label>
-                <input type="text" id="cariNik" placeholder="Ketik NIK lalu Tab" class="input-field"
+                <input type="text" id="cariNik" placeholder="Ketik NIK lalu Tab" data-nik maxlength="16" inputmode="numeric" class="input-field"
                     data-on-enter="cariSupirByNik" data-arg="$el">
             </div>
             <div id="hasilCariNik" class="hidden border border-slate-200 rounded-lg p-4 space-y-1 text-sm">
@@ -79,7 +79,7 @@
             </div>
             <p id="editTanpaDriver" class="hidden text-sm text-red-500">Belum ada supir terpilih. Pilih atau scan supir dulu.</p>
             <div><label class="field-label">Nama Lengkap</label><input type="text" id="updateNama" class="input-field"></div>
-            <div><label class="field-label">NIK</label><input type="text" id="updateNik" class="input-field"></div>
+            <div><label class="field-label">NIK</label><input type="text" id="updateNik" data-nik maxlength="16" inputmode="numeric" class="input-field"></div>
             <div><label class="field-label">SIM</label><input type="text" id="updateSim" class="input-field"></div>
 
             <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
