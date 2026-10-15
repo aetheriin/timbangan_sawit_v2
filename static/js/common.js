@@ -128,7 +128,7 @@ function tiketPunyaTahap(t, kode) {
 // Berlaku juga untuk baris yang dirender belakangan (MutationObserver). Label yang tidak dikenal tetap berupa teks.
 const IKON_AKSI = {
     'Ubah': 'fa-pen', 'Edit': 'fa-pen', 'Hapus': 'fa-trash-can', 'Nonaktifkan': 'fa-toggle-off', 'Aktifkan': 'fa-toggle-on',
-    'Atur Ulang Password': 'fa-key', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
+    'Atur Ulang Password': 'fa-key', 'Hak Akses': 'fa-user-shield', 'Paksa Keluar': 'fa-right-from-bracket', 'Keluar': 'fa-right-from-bracket',
     'Lihat Slip': 'fa-print', 'Cetak QR': 'fa-print', 'Buka': 'fa-arrow-up-right-from-square', 'Void': 'fa-ban', 'Batalkan': 'fa-ban',
     'Lampirkan Surat': 'fa-paperclip', 'Lampirkan BA': 'fa-paperclip', 'Lampirkan': 'fa-paperclip', 'Lihat Surat': 'fa-file-lines',
     'Tetapkan': 'fa-circle-check', 'Kembalikan': 'fa-rotate-left', 'Isi DO Baru': 'fa-file-pen', 'Ganti Token': 'fa-key',

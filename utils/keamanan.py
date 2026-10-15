@@ -255,11 +255,12 @@ def id_pos():
 
 
 # ===== PASSWORD KEDALUWARSA =====
-def password_wajib_diganti(password_changed_at):
-    """Alasan wajib ganti password, atau None. NULL = baru dibuat / direset admin."""
+def password_wajib_diganti(password_changed_at, masa_berlaku=None):
+    """Alasan wajib ganti password, atau None. NULL = baru dibuat / direset admin.
+    masa_berlaku = hari khusus pengguna (Kelola Pengguna); None = ikut Pengaturan, 0 = tidak pernah kedaluwarsa."""
     if password_changed_at is None:
         return "Password Anda baru dibuat / direset admin. Silakan buat password baru."
-    hari = pengaturan.nilai("PASSWORD_EXPIRED_HARI")
+    hari = pengaturan.nilai("PASSWORD_EXPIRED_HARI") if masa_berlaku is None else masa_berlaku
     if hari and (datetime.now() - password_changed_at).days >= hari:
         return f"Password Anda sudah kedaluwarsa (lebih dari {hari} hari). Silakan buat password baru."
     return None

@@ -57,6 +57,30 @@ def peta_akses():
 
 
 @cache_ttl(30)
+def akses_khusus():
+    """Hak akses khusus per pengguna (tabel akun_akses, migrasi 031): {id_user: {kode_menu: {lihat, tambah, ...}}}.
+    Baris di sini menggantikan hak jabatan untuk menu itu saja (bisa menambah maupun mencabut)."""
+    try:
+        rows = _query("""SELECT a.id_user, m.kode, a.bisa_lihat, a.bisa_tambah, a.bisa_ubah, a.bisa_hapus, a.bisa_setujui
+                         FROM akun_akses a JOIN menu m ON m.id_menu = a.id_menu WHERE m.is_active = 1""")
+    except pyodbc.Error:        # sebelum migrasi 031
+        return {}
+    peta = {}
+    for r in rows:
+        peta.setdefault(r["id_user"], {})[r["kode"]] = {
+            "lihat": bool(r["bisa_lihat"]), "tambah": bool(r["bisa_tambah"]), "ubah": bool(r["bisa_ubah"]),
+            "hapus": bool(r["bisa_hapus"]), "setujui": bool(r["bisa_setujui"])}
+    return peta
+
+
+def hak_user(user):
+    """Hak efektif pengguna: hak jabatan, ditimpa hak khusus pengguna per menu."""
+    hak = peta_akses().get(user.id_level, {})
+    khusus = akses_khusus().get(getattr(user, "id", None))
+    return {**hak, **khusus} if khusus else hak
+
+
+@cache_ttl(30)
 def anak_menu():
     """{kode_induk: [kode_anak, ...]} untuk menu yang punya tab (bagian halaman)."""
     peta = {}
@@ -75,6 +99,7 @@ def menu_sidebar():
 
 def hapus_cache():
     peta_akses.hapus()
+    akses_khusus.hapus()
     menu_sidebar.hapus()
     anak_menu.hapus()
 
@@ -85,12 +110,23 @@ def jabatan_dengan(kode_menu, aksi):
     return sorted(i for i, hak in peta_akses().items() if i in aktif and hak.get(kode_menu, {}).get(aksi))
 
 
+def pengguna_khusus_dengan(kode_menu, aksi):
+    """id pengguna aktif yang diberi aksi itu lewat hak khusus (di luar jabatannya)."""
+    calon = [i for i, hak in akses_khusus().items() if hak.get(kode_menu, {}).get(aksi)]
+    if not calon:
+        return []
+    aktif = {r["id_user"] for r in _query(f"""SELECT u.id_user FROM akun u JOIN level l ON l.id_level = u.id_level
+                                             WHERE u.is_active = 1 AND l.is_admin = 0
+                                               AND u.id_user IN ({",".join("?" * len(calon))})""", *calon)}
+    return sorted(i for i in calon if i in aktif)
+
+
 def boleh(kode_menu, *aksi, user=None):
     """True bila level user boleh salah satu aksi di menu itu. Admin tidak punya aksi operasional."""
     user = user or current_user
     if not getattr(user, "is_authenticated", False) or getattr(user, "is_admin", False):
         return False
-    hak = peta_akses().get(user.id_level, {}).get(kode_menu, {})
+    hak = hak_user(user).get(kode_menu, {})
     return any(hak.get(a) for a in (aksi or AKSI))
 
 
@@ -99,7 +135,7 @@ def boleh_lihat(kode_menu, user=None):
     user = user or current_user
     if not getattr(user, "is_authenticated", False) or getattr(user, "is_admin", False):
         return False
-    hak = peta_akses().get(user.id_level, {})
+    hak = hak_user(user)
     return any(hak.get(k, {}).get("lihat") for k in (kode_menu, *anak_menu().get(kode_menu, ())))
 
 
@@ -218,6 +254,30 @@ def simpan_akses_level(id_level, akses):
             if lh or t or u or h or s:
                 cursor.execute("""INSERT INTO level_akses (id_level, id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus, bisa_setujui)
                                   VALUES (?, ?, 1, ?, ?, ?, ?)""", id_level, id_menu, int(t), int(u), int(h), int(s))
+        conn.commit()
+    finally:
+        conn.close()
+    hapus_cache()
+
+
+def akses_user(id_user):
+    """Baris hak khusus pengguna: {id_menu: {...}}"""
+    return {r["id_menu"]: r for r in _query(
+        "SELECT id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus, bisa_setujui FROM akun_akses WHERE id_user = ?",
+        id_user)}
+
+
+def simpan_akses_user(id_user, akses):
+    """akses = {id_menu: (lihat, tambah, ubah, hapus, setujui)} hanya untuk menu yang berbeda dari jabatannya.
+    Semua dikosongkan = kembali mengikuti jabatan."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM akun_akses WHERE id_user = ?", id_user)
+        for id_menu, (lh, t, u, h, s) in akses.items():
+            lh = lh or t or u or h or s
+            cursor.execute("""INSERT INTO akun_akses (id_user, id_menu, bisa_lihat, bisa_tambah, bisa_ubah, bisa_hapus, bisa_setujui)
+                              VALUES (?, ?, ?, ?, ?, ?, ?)""", id_user, id_menu, int(lh), int(t), int(u), int(h), int(s))
         conn.commit()
     finally:
         conn.close()

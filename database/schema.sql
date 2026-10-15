@@ -98,6 +98,17 @@ CREATE TABLE dbo.level_akses (
     bisa_setujui BIT NOT NULL CONSTRAINT DF_LevelAkses_Setujui DEFAULT (0),   -- menyetujui pengajuan di menu itu (migrasi 029)
     CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
 );
+-- Hak akses khusus per pengguna (AccessMenu.UserID, migrasi 031): menimpa hak jabatan untuk menu itu saja
+CREATE TABLE dbo.akun_akses (
+    id_user      INT NOT NULL,                      -- FK ke akun ditambahkan setelah tabel akun dibuat
+    id_menu      INT NOT NULL CONSTRAINT FK_AkunAkses_Menu REFERENCES dbo.menu (id_menu),
+    bisa_lihat   BIT NOT NULL CONSTRAINT DF_AkunAkses_Lihat DEFAULT (0),
+    bisa_tambah  BIT NOT NULL CONSTRAINT DF_AkunAkses_Tambah DEFAULT (0),
+    bisa_ubah    BIT NOT NULL CONSTRAINT DF_AkunAkses_Ubah DEFAULT (0),
+    bisa_hapus   BIT NOT NULL CONSTRAINT DF_AkunAkses_Hapus DEFAULT (0),
+    bisa_setujui BIT NOT NULL CONSTRAINT DF_AkunAkses_Setujui DEFAULT (0),
+    CONSTRAINT PK_AkunAkses PRIMARY KEY (id_user, id_menu)
+);
 GO
 /* Isi awal company, area, department, level, menu, level_akses ada di bagian DATA AWAL (paling bawah). */
 
@@ -115,7 +126,8 @@ CREATE TABLE dbo.kategori_personel (
 CREATE TABLE dbo.personel (
     id_personel          INT IDENTITY(1,1) PRIMARY KEY,
     kode_personel        VARCHAR(20)  NULL,                     -- diisi HO, mis. PRGBS-001
-    nik                  VARCHAR(20)  NOT NULL CONSTRAINT UX_Personel_Nik UNIQUE,
+    nik                  VARCHAR(20)  NULL,                     -- 16 digit; boleh kosong untuk akun lama (migrasi 031)
+    email                NVARCHAR(100) NULL,                    -- migrasi 031
     nama_personel        VARCHAR(100) NOT NULL,
     kategori             VARCHAR(20)  NOT NULL CONSTRAINT DF_Personel_Kategori DEFAULT ('DRIVER')
                          CONSTRAINT FK_Personel_Kategori REFERENCES dbo.kategori_personel (kode),
@@ -126,6 +138,7 @@ CREATE TABLE dbo.personel (
     created_at           DATETIME NOT NULL CONSTRAINT DF_Personel_Created DEFAULT (GETDATE()),
     updated_at           DATETIME NOT NULL CONSTRAINT DF_Personel_Modified DEFAULT (GETDATE())
 );
+CREATE UNIQUE INDEX UX_Personel_Nik ON dbo.personel (nik) WHERE nik IS NOT NULL;
 CREATE UNIQUE INDEX UX_Personel_Kode ON dbo.personel (kode_personel) WHERE kode_personel IS NOT NULL;
 CREATE INDEX IX_Personel_Aktif_Kategori ON dbo.personel (is_active, kategori) INCLUDE (kode_personel, nama_personel);
 GO
@@ -139,16 +152,26 @@ CREATE TABLE dbo.akun (
     id_level      INT NOT NULL CONSTRAINT FK_Users_Level REFERENCES dbo.level (id_level),
     id_department INT NOT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),
     id_comp_area  INT NOT NULL CONSTRAINT FK_Users_Area REFERENCES dbo.comp_area (id_comp_area),
-    id_personel  INT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),
+    id_personel  INT NOT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),   -- akun = personel yang bisa login
     is_active    BIT NOT NULL CONSTRAINT DF_Users_Aktif DEFAULT (1),
     last_login   DATETIME NULL,
     sesi_versi   INT NOT NULL CONSTRAINT DF_Users_SesiVersi DEFAULT (0),   -- naik = semua sesi user dicabut
     password_changed_at DATETIME NULL,                          -- NULL = wajib ganti password saat login
+    masa_berlaku_password INT NULL,                             -- hari, khusus user ini; NULL = ikut pengaturan (migrasi 031)
     created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
-CREATE UNIQUE INDEX UX_Users_Personel ON dbo.akun (id_personel) WHERE id_personel IS NOT NULL;
+CREATE UNIQUE INDEX UX_Akun_Personel ON dbo.akun (id_personel);
 -- PT yang dikelola user kantor pusat (migrasi 026). Kosong = semua PT
+-- Riwayat password (PasswordManager.History, migrasi 031): menolak pemakaian ulang N password terakhir
+CREATE TABLE dbo.password_riwayat (
+    id_riwayat INT IDENTITY(1,1) PRIMARY KEY,
+    id_user    INT NOT NULL CONSTRAINT FK_PwRiwayat_Akun REFERENCES dbo.akun (id_user),
+    password   VARCHAR(255) NOT NULL,
+    dibuat     DATETIME NOT NULL CONSTRAINT DF_PwRiwayat_Dibuat DEFAULT (GETDATE())
+);
+CREATE INDEX IX_PwRiwayat_User ON dbo.password_riwayat (id_user, dibuat DESC);
+ALTER TABLE dbo.akun_akses ADD CONSTRAINT FK_AkunAkses_Akun FOREIGN KEY (id_user) REFERENCES dbo.akun (id_user);
 CREATE TABLE dbo.akun_company (
     id_user     INT NOT NULL CONSTRAINT FK_AkunCompany_Akun REFERENCES dbo.akun (id_user),
     id_company  INT NOT NULL CONSTRAINT FK_AkunCompany_Company REFERENCES dbo.company (id_company),
@@ -1055,9 +1078,11 @@ SELECT l.id_level, m.id_menu, 1 FROM dbo.level l CROSS JOIN dbo.menu m
 WHERE l.is_admin = 0 AND NOT EXISTS (SELECT 1 FROM dbo.level_akses a WHERE a.id_level = l.id_level AND a.id_menu = m.id_menu);
 GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
-INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area)
+INSERT INTO dbo.personel (nik, nama_personel, kategori) VALUES (NULL, 'Super Admin', 'EMPLOYEE');
+INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area, id_personel)
 SELECT 'Super Admin', 'admin',
        'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
        (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), (SELECT id_department FROM dbo.department WHERE nama = N'Umum'),
-       (SELECT MIN(id_comp_area) FROM dbo.comp_area);
+       (SELECT MIN(id_comp_area) FROM dbo.comp_area), SCOPE_IDENTITY();
+INSERT INTO dbo.password_riwayat (id_user, password) SELECT id_user, password FROM dbo.akun;
 GO

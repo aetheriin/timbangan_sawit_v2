@@ -2,7 +2,7 @@ from flask import Blueprint, request, render_template, redirect, session, jsonif
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from utils.auth import User
-from utils.db_utils import (get_user_by_username, catat_login_terakhir, get_password_hash, ganti_password_sendiri,
+from utils.db_utils import (password_pernah_dipakai, pesan_riwayat_password, get_user_by_username, catat_login_terakhir, get_password_hash, ganti_password_sendiri,
                             naikkan_sesi_versi)
 from utils.keamanan import log_keamanan, mulai_sesi, password_wajib_diganti
 from utils import sesi_aktif, pengaturan
@@ -69,7 +69,7 @@ def login():
     if pengaturan.nilai("SATU_PERANGKAT") and sesi_aktif.hapus_user(row.id_user, "PERANGKAT_LAIN", kecuali_sid=sid):
         log_keamanan("SESI_PERANGKAT_LAIN", f"username={row.username} sesi lama diakhiri")
     catat_login_terakhir(row.id_user)
-    alasan = password_wajib_diganti(row.password_changed_at)
+    alasan = password_wajib_diganti(row.password_changed_at, getattr(row, "masa_berlaku_password", None))
     if alasan:                                  # kedaluwarsa / baru direset: hanya halaman ganti password yang terbuka
         session["_wajib_ganti_pw"] = alasan
         return redirect("/ganti-password")
@@ -118,8 +118,8 @@ def ganti_password():
         return tampil(f"Password baru minimal {PASSWORD_MIN} karakter", 400)
     if baru != request.form.get("password_ulang", ""):
         return tampil("Ulangi password baru tidak sama", 400)
-    if check_password_hash(hash_lama, baru):
-        return tampil("Password baru tidak boleh sama dengan password lama", 400)
+    if check_password_hash(hash_lama, baru) or password_pernah_dipakai(current_user.id, baru):
+        return tampil(pesan_riwayat_password(), 400)
     session["_versi"] = ganti_password_sendiri(current_user.id, generate_password_hash(baru))
     sesi_aktif.hapus_user(current_user.id, "GANTI_PASSWORD", kecuali_sid=session.get("_sid"))
     session.pop("_wajib_ganti_pw", None)

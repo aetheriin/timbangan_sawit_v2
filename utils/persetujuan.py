@@ -56,11 +56,15 @@ def penyetuju(jenis):
     return hak_akses.jabatan_dengan(MENU_JENIS[jenis], "setujui")
 
 
-def _notif_penyetuju(cursor, p, daftar_jabatan):
+def _notif_penyetuju(cursor, p, daftar_jabatan, daftar_user=()):
+    """Ke jabatan yang punya hak Setujui, ditambah pengguna yang diberi hak Setujui khusus (Kelola Pengguna)."""
+    judul = f"Persetujuan {JENIS[p['jenis']].lower()} menunggu Anda"
     for id_level in daftar_jabatan:
-        notifikasi.buat(MENU_JENIS[p["jenis"]], f"Persetujuan {JENIS[p['jenis']].lower()} menunggu Anda", p["judul"],
-                        tautan(p["jenis"], p["id_pengajuan"]), p["id_comp_area"], cursor=cursor,
-                        id_level=id_level, id_company=p["id_company"])
+        notifikasi.buat(MENU_JENIS[p["jenis"]], judul, p["judul"], tautan(p["jenis"], p["id_pengajuan"]), p["id_comp_area"],
+                        cursor=cursor, id_level=id_level, id_company=p["id_company"])
+    for id_user in daftar_user:
+        notifikasi.buat(MENU_JENIS[p["jenis"]], judul, p["judul"], tautan(p["jenis"], p["id_pengajuan"]), p["id_comp_area"],
+                        cursor=cursor, id_user=id_user)
 
 
 def _riwayat(cursor, id_pengajuan, langkah, aksi, id_user, id_level=None, catatan=None):
@@ -73,7 +77,8 @@ def ajukan(jenis, target, judul, alasan, data, user_id):
     if jenis not in JENIS:
         raise ValueError("Jenis pengajuan tidak dikenal")
     langkah = penyetuju(jenis)
-    if not langkah:
+    khusus = [i for i in hak_akses.pengguna_khusus_dengan(MENU_JENIS[jenis], "setujui") if i != user_id]
+    if not langkah and not khusus:
         _PELAKSANA[jenis](data, user_id, user_id)
         return "DISETUJUI", None
     id_area = area_akun(user_id)
@@ -92,7 +97,7 @@ def ajukan(jenis, target, judul, alasan, data, user_id):
         id_p = cursor.fetchone()[0]
         _riwayat(cursor, id_p, 0, "DIAJUKAN", user_id, catatan=alasan)
         _notif_penyetuju(cursor, {"id_pengajuan": id_p, "jenis": jenis, "judul": judul,
-                                  "id_comp_area": id_area, "id_company": id_company}, langkah)
+                                  "id_comp_area": id_area, "id_company": id_company}, langkah, khusus)
         conn.commit()
     except Exception:
         conn.rollback()

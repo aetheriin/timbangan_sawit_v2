@@ -1,15 +1,42 @@
 <!-- MODAL: Tambah / Ubah Pengguna -->
 <div id="modalUser" class="modal-overlay">
-    <form id="formUser" class="modal-box" autocomplete="off">
+    <form id="formUser" class="modal-box max-w-lg" autocomplete="off">
         <div class="modal-header">
             <h3 id="judulModalUser" class="font-bold">Tambah Pengguna</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="p-6 space-y-3">
             <input type="hidden" name="id_user">
+            {# Data personel (akun = personel yang bisa login). NIK yang sudah terdaftar dihubungkan otomatis. #}
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="userNik">NIK</label>
+                    <input type="text" id="userNik" name="nik" data-nik maxlength="16" inputmode="numeric" class="input-field"
+                           data-on-change="cekNikUser" data-arg="$value">
+                </div>
+                <div>
+                    <label class="field-label" for="userKategori">Kategori Personel</label>
+                    <select id="userKategori" name="kategori" required class="input-field">
+                        {% for k in kategori_akun %}<option value="{{ k.kode }}">{{ k.nama }}</option>{% endfor %}
+                    </select>
+                </div>
+                <p id="infoNikUser" class="field-hint col-span-2 -mt-1 hidden"></p>
+            </div>
             <div>
                 <label class="field-label" for="userNama">Nama Lengkap</label>
                 <input type="text" id="userNama" name="nama" required maxlength="100" class="input-field">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="userEmail">Email <span class="text-slate-400 font-normal">(opsional)</span></label>
+                    <input type="email" id="userEmail" name="email" maxlength="100" class="input-field lowercase">
+                </div>
+                <div>
+                    <label class="field-label" for="userMasaPw">Masa Berlaku Password</label>
+                    <input type="number" id="userMasaPw" name="masa_berlaku_password" min="0" max="365" class="input-field"
+                           placeholder="Ikut pengaturan ({{ password_expired }} hari)">
+                </div>
+                <p class="field-hint col-span-2 -mt-1">Masa berlaku dalam hari, khusus pengguna ini. Kosong = ikut Pengaturan Site, 0 = tidak pernah kedaluwarsa.</p>
             </div>
             <div>
                 <label class="field-label" for="userUsername">Username</label>
@@ -90,6 +117,32 @@
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalResetPassword" class="btn-secondary">Batal</button>
             <button type="submit" class="btn-primary">Atur Ulang Password</button>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL: Hak Akses Khusus pengguna (menimpa hak jabatan per menu) -->
+<div id="modalAksesUser" class="modal-overlay">
+    <form id="formAksesUser" class="modal-box modal-box-lg" autocomplete="off">
+        <div class="modal-header">
+            <h3 class="font-bold">Hak Akses Khusus <span id="judulAksesUser" class="font-normal text-slate-500"></span></h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalAksesUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p class="text-sm text-slate-600">Awalnya sama dengan hak jabatan <b id="jabatanAksesUser"></b>. Centang yang diubah hanya berlaku untuk
+                pengguna ini; baris yang berbeda dari jabatan ditandai <span class="badge-status bg-violet-100 text-violet-800">Khusus</span>.</p>
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row"><tr><th class="table-cell">Halaman / Bagian</th>
+                    {% for a in ['Lihat', 'Tambah', 'Ubah', 'Hapus', 'Setujui'] %}<th class="table-cell text-center w-20">{{ a }}</th>{% endfor %}</tr></thead>
+                <tbody id="tabelAksesUser" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+        <div class="px-6 pb-6 flex justify-between gap-2">
+            <button type="button" class="btn-secondary" data-on-click="resetAksesUser">Kembalikan ke Jabatan</button>
+            <div class="flex gap-2">
+                <button type="button" data-on-click="closeModal" data-arg="modalAksesUser" class="btn-secondary">Batal</button>
+                <button type="submit" class="btn-primary">Simpan</button>
+            </div>
         </div>
     </form>
 </div>

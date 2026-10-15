@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from utils.face_utils import extract_embedding_tunggal, embedding_to_binary
 from utils.db_utils import cek_nik_ada, cari_wajah_mirip_driver
 from utils.db_personel import (get_daftar_personel, get_personel, cek_kode_ada, saran_kode_personel,
-                               insert_personel, update_personel, hapus_personel, daftar_kategori, daftar_jenis_sim,
+                               insert_personel, update_personel, hapus_personel, akun_personel, daftar_kategori, daftar_jenis_sim,
                                sim_dipakai)
 from utils.personel_utils import validasi_personel, format_nama_personel
 from utils.upload_utils import simpan_upload, hapus_file
@@ -227,6 +227,8 @@ def personel_hapus(id_personel):
         return ditolak
     if p["is_blacklisted"]:
         return jsonify({"error": "Personel blacklist tidak bisa dihapus (blacklist permanen)"}), 400
+    if akun_personel(id_personel):
+        return jsonify({"error": "Personel ini punya akun login aktif. Nonaktifkan akunnya di Admin › Kelola Pengguna terlebih dahulu."}), 400
     hapus_personel(id_personel, current_user.id)
     return jsonify({"message": f"{format_nama_personel(p['kode_personel'], id_personel, p['nama_personel'])} berhasil dihapus. "
                                "Riwayat tiket & absensi tetap tersimpan."})

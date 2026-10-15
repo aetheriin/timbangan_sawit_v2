@@ -17,7 +17,9 @@ from extensions import BASE_DIR, UPLOAD_FOLDER
 from utils.hak_akses import admin_required
 from utils.dokumen import simpan_file, hapus_file_info
 from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
-from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id
+from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id, cek_nik_ada, password_pernah_dipakai, pesan_riwayat_password
+from utils.db_personel import daftar_kategori
+from utils.personel_utils import nik_valid
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
@@ -105,6 +107,8 @@ def admin_halaman(halaman):
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
                            alur_list=alur.daftar_alur(),
+                           kategori_akun=[v for v in daftar_kategori().values() if v["boleh_akun"]],
+                           password_expired=pengaturan.nilai("PASSWORD_EXPIRED_HARI"),
                            password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
 
@@ -156,6 +160,57 @@ def _password_form(nama="password"):
     return pw
 
 
+POLA_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _personel_form(user_lama=None):
+    """Data personel akun (ERD User): nama, NIK 16 digit, email, kategori yang boleh punya akun.
+    Akun baru: NIK wajib; bila NIK sudah terdaftar sebagai personel tanpa akun, personel itu yang dihubungkan.
+    Akun lama yang belum punya NIK boleh disimpan tanpa NIK."""
+    nama, nik = _teks("nama"), (request.form.get("nik") or "").strip()
+    email = (request.form.get("email") or "").strip().lower() or None
+    if email and (len(email) > 100 or not POLA_EMAIL.match(email)):
+        raise ValueError("Format email tidak valid.")
+    kategori = (request.form.get("kategori") or "").strip().upper()
+    boleh = {k for k, v in daftar_kategori(semua=True).items() if v["boleh_akun"]}
+    if kategori not in boleh:
+        raise ValueError("Pilih kategori personel dari daftar.")
+    if nik and not nik_valid(nik):
+        raise ValueError("NIK harus 16 digit angka.")
+    if not nik and (user_lama is None or user_lama["nik"]):
+        raise ValueError("NIK wajib diisi.")
+    id_personel = user_lama["id_personel"] if user_lama else None
+    if nik and user_lama is None:
+        ada = db.personel_untuk_nik(nik)
+        if ada:
+            if ada["akun"]:
+                raise ValueError(f"NIK ini sudah dipakai akun {ada['akun']}.")
+            if not ada["boleh_akun"]:
+                raise ValueError(f"NIK ini terdaftar sebagai {ada['nama_kategori'] or ada['kategori']} dan tidak bisa dibuatkan akun.")
+            id_personel = ada["id_personel"]
+    elif nik and cek_nik_ada(nik, exclude_id=id_personel):
+        raise ValueError("NIK sudah terdaftar pada personel lain.")
+    return {"id_personel": id_personel, "nama": nama, "nik": nik or None, "email": email, "kategori": kategori}
+
+
+def _masa_berlaku_form():
+    """Masa berlaku password khusus pengguna (hari). Kosong = ikut Pengaturan, 0 = tidak pernah kedaluwarsa."""
+    teks = (request.form.get("masa_berlaku_password") or "").strip()
+    if not teks:
+        return None
+    if not teks.isdigit() or int(teks) > 365:
+        raise ValueError("Masa berlaku password 0-365 hari.")
+    return int(teks)
+
+
+@admin_bp.route("/api/admin/users/nik/<nik>")
+@_admin
+def users_cek_nik(nik):
+    """Untuk form Tambah Pengguna: NIK yang sudah terdaftar sebagai personel langsung mengisi nama & kategorinya."""
+    ada = db.personel_untuk_nik(nik) if nik_valid(nik) else None
+    return jsonify(ada or {})
+
+
 @admin_bp.route("/api/admin/users/tambah", methods=["POST"])
 @_admin
 def users_tambah():
@@ -165,11 +220,10 @@ def users_tambah():
             raise ValueError("Username 3-50 karakter: huruf kecil, angka, titik, garis bawah")
         if db.username_dipakai(username):
             raise ValueError(f"Username {username} sudah dipakai")
-        nama, (level, id_department, id_area), pw = _teks("nama"), _akun_form(), _password_form()
-        db.tambah_user(username, nama, level["id_level"], id_department, id_area, generate_password_hash(pw))
-        baru = next((u for u in db.daftar_user() if u["username"].lower() == username), None)
-        if baru:
-            _simpan_pt_kelola(baru["id_user"], id_area)
+        personel, (level, id_department, id_area), pw = _personel_form(), _akun_form(), _password_form()
+        id_user = db.tambah_user(username, level["id_level"], id_department, id_area, generate_password_hash(pw),
+                                 personel, _masa_berlaku_form())
+        _simpan_pt_kelola(id_user, id_area)
         _audit("USER_TAMBAH", username, f"jabatan {level['kode']}")
         return jsonify({"message": f"Pengguna {username} berhasil ditambahkan"})
     return _jalankan(aksi)
@@ -187,14 +241,14 @@ def _user_atau_404(id_user):
 def users_ubah(id_user):
     def aksi():
         u = _user_atau_404(id_user)
-        nama, (level, id_department, id_area) = _teks("nama"), _akun_form()
+        personel, (level, id_department, id_area) = _personel_form(u), _akun_form()
         ganti_level = u["id_level"] != level["id_level"]
         if u["is_admin"] and not level["is_admin"]:
             if id_user == current_user.id:
                 raise ValueError("Tidak bisa menurunkan level akun sendiri")
             if db.jumlah_admin_aktif(kecuali=id_user) == 0:
                 raise ValueError("Minimal harus ada 1 admin aktif")
-        db.ubah_user(id_user, nama, level["id_level"], id_department, id_area)
+        db.ubah_user(id_user, level["id_level"], id_department, id_area, personel, _masa_berlaku_form())
         _simpan_pt_kelola(id_user, id_area)
         _audit("USER_UBAH", u["username"], f"level {u['role']} -> {level['kode']}" if ganti_level else "data diubah")
         if ganti_level:
@@ -211,8 +265,8 @@ def users_reset_password(id_user):
         u = _user_atau_404(id_user)
         baru = _password_form()
         lama = get_password_hash(id_user)
-        if lama and check_password_hash(lama, baru):
-            raise ValueError("Password baru tidak boleh sama dengan password lama")
+        if (lama and check_password_hash(lama, baru)) or password_pernah_dipakai(id_user, baru):
+            raise ValueError(pesan_riwayat_password())
         db.reset_password(id_user, generate_password_hash(baru))
         sesi_aktif.hapus_user(id_user, "RESET_PASSWORD")
         _audit("USER_RESET_PASSWORD", u["username"])
@@ -235,6 +289,52 @@ def users_aktif(id_user):
         sesi_aktif.hapus_user(id_user, "NONAKTIF")
         _audit("USER_AKTIF" if aktif else "USER_NONAKTIF", u["username"])
         return jsonify({"message": f"Pengguna {u['username']} berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/users/<int:id_user>/akses")
+@_admin
+def users_akses(id_user):
+    """Matriks hak khusus: hak jabatan + hak khusus pengguna (baris akun_akses menimpa jabatan per menu)."""
+    def aksi():
+        u = _user_atau_404(id_user)
+        jabatan, khusus = hak_akses.akses_level(u["id_level"]), hak_akses.akses_user(id_user)
+        kosong = {"bisa_lihat": 0, "bisa_tambah": 0, "bisa_ubah": 0, "bisa_hapus": 0, "bisa_setujui": 0}
+        menu = []
+        for m in hak_akses.daftar_menu_akses():
+            j = jabatan.get(m["id_menu"], kosong)
+            k = khusus.get(m["id_menu"])
+            jadi = k or j
+            menu.append({**m, "khusus": k is not None,
+                         **{a: bool(jadi[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui")},
+                         "jabatan": {a: bool(j[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui")}})
+        return jsonify({"user": {k: u[k] for k in ("id_user", "username", "nama", "nama_level", "is_admin")}, "menu": menu})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/users/<int:id_user>/akses", methods=["POST"])
+@_admin
+def users_akses_simpan(id_user):
+    """Yang disimpan hanya menu yang centangnya berbeda dari jabatan; "reset" = kembali ikut jabatan."""
+    def aksi():
+        u = _user_atau_404(id_user)
+        if u["is_admin"]:
+            raise ValueError("Akun admin tidak memakai hak akses menu.")
+        jabatan = hak_akses.akses_level(u["id_level"])
+        akses = {}
+        if request.form.get("reset") != "1":
+            for m in hak_akses.daftar_menu_akses():
+                ada = lambda a: f"{m['id_menu']}_{a}" in request.form and (a == "lihat" or a in m["aksi"])
+                pilih = tuple(ada(a) for a in ("lihat", "tambah", "ubah", "hapus", "setujui"))
+                pilih = (pilih[0] or any(pilih[1:]),) + pilih[1:]
+                j = jabatan.get(m["id_menu"])
+                asal = tuple(bool(j and j[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui"))
+                if pilih != asal:
+                    akses[m["id_menu"]] = pilih
+        hak_akses.simpan_akses_user(id_user, akses)
+        _audit("USER_AKSES_KHUSUS", u["username"], f"{len(akses)} menu berbeda dari jabatan")
+        return jsonify({"message": f"Hak akses pengguna {u['username']} berhasil disimpan." if akses
+                        else f"Hak akses pengguna {u['username']} kembali mengikuti jabatan."})
     return _jalankan(aksi)
 
 

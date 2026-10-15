@@ -45,7 +45,7 @@ def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, l.nama AS nama_level, u.id_level, l.is_admin,
-                             l.halaman_awal, u.sesi_versi, u.password_changed_at
+                             l.halaman_awal, u.sesi_versi, u.password_changed_at, u.masa_berlaku_password
                       FROM akun u JOIN level l ON l.id_level = u.id_level
                       WHERE u.username = ? AND u.is_active = 1 AND l.is_active = 1""", username)
     row = cursor.fetchone()
@@ -81,11 +81,40 @@ def ganti_password_sendiri(user_id, password_hash):
         cursor.execute("""UPDATE akun SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
                           updated_at = GETDATE() OUTPUT INSERTED.sesi_versi WHERE id_user = ?""", password_hash, user_id)
         versi = cursor.fetchone()[0]
+        catat_riwayat_password(cursor, user_id, password_hash)
         conn.commit()
     finally:
         conn.close()
     get_user_by_id.hapus()
     return versi
+
+def catat_riwayat_password(cursor, user_id, password_hash):
+    """History di PasswordManager (tabel password_riwayat, migrasi 031); disimpan secukupnya untuk pengecekan."""
+    cursor.execute("INSERT INTO password_riwayat (id_user, password) VALUES (?, ?)", user_id, password_hash)
+    cursor.execute("""DELETE FROM password_riwayat WHERE id_user = ? AND id_riwayat NOT IN
+                      (SELECT TOP 12 id_riwayat FROM password_riwayat WHERE id_user = ? ORDER BY id_riwayat DESC)""",
+                   user_id, user_id)
+
+def password_pernah_dipakai(user_id, password):
+    """True bila password sama dengan salah satu dari N password terakhir (Pengaturan › PASSWORD_RIWAYAT)."""
+    from werkzeug.security import check_password_hash
+    from utils import pengaturan
+    n = pengaturan.nilai("PASSWORD_RIWAYAT")
+    if not n:
+        return False
+    conn = get_connection()
+    try:
+        rows = conn.cursor().execute("SELECT TOP (?) password FROM password_riwayat WHERE id_user = ? ORDER BY id_riwayat DESC",
+                                     n, user_id).fetchall()
+    finally:
+        conn.close()
+    return any(check_password_hash(r[0], password) for r in rows)
+
+def pesan_riwayat_password():
+    from utils import pengaturan
+    n = pengaturan.nilai("PASSWORD_RIWAYAT")
+    return (f"Password baru tidak boleh sama dengan {n} password terakhir." if n and n > 1
+            else "Password baru tidak boleh sama dengan password lama.")
 
 def naikkan_sesi_versi(user_id):
     """Cabut semua sesi lain user ini (login di perangkat baru); kembalikan sesi_versi baru."""

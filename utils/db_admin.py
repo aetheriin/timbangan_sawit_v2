@@ -29,13 +29,17 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
 
 
 # ===== USER (level, department, area dari tabel; hak akses di utils/hak_akses.py) =====
+# Akun = personel yang bisa login (migrasi 031): nama, NIK, email & kategori disimpan di personel.
 _SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
                          u.id_department, d.nama AS department, u.id_comp_area, co.kode + ' · ' + a.nama AS area,
-                         u.is_active, u.last_login, u.created_at
+                         u.is_active, u.last_login, u.created_at, u.id_personel, p.kode_personel, p.nik, p.email,
+                         p.kategori, u.masa_berlaku_password,
+                         (SELECT COUNT(*) FROM akun_akses x WHERE x.id_user = u.id_user) AS jumlah_akses_khusus
                   FROM akun u JOIN level lv ON lv.id_level = u.id_level
                   JOIN department d ON d.id_department = u.id_department
                   JOIN comp_area a ON a.id_comp_area = u.id_comp_area
-                  JOIN company co ON co.id_company = a.id_company"""
+                  JOIN company co ON co.id_company = a.id_company
+                  JOIN personel p ON p.id_personel = u.id_personel"""
 
 
 def daftar_user():
@@ -58,23 +62,83 @@ def jumlah_admin_aktif(kecuali=None):
     return len([r for r in rows if r["id_user"] != kecuali])
 
 
-def tambah_user(username, nama, id_level, id_department, id_comp_area, password_hash):
-    _ubah("""INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password)
-             VALUES (?, ?, ?, ?, ?, ?)""", username, nama, id_level, id_department, id_comp_area, password_hash)
+def personel_untuk_nik(nik):
+    """Personel dengan NIK ini (untuk dihubungkan ke akun baru) beserta akunnya bila sudah punya."""
+    rows = _query("""SELECT p.id_personel, p.nama_personel, p.kategori, k.nama AS nama_kategori, k.boleh_akun,
+                            u.username AS akun
+                     FROM personel p LEFT JOIN kategori_personel k ON k.kode = p.kategori
+                     LEFT JOIN akun u ON u.id_personel = p.id_personel WHERE p.nik = ?""", nik)
+    return rows[0] if rows else None
 
 
-def ubah_user(id_user, nama, id_level, id_department, id_comp_area):
+def tambah_user(username, id_level, id_department, id_comp_area, password_hash, personel, masa_berlaku):
+    """personel = {id_personel (None = buat baru), nama, nik, email, kategori}. Personel yang sudah ada (dicari dari NIK)
+    dihubungkan ke akun ini dan datanya diperbarui. Password pertama ikut dicatat di riwayat."""
+    from utils.db_utils import catat_riwayat_password
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        id_personel = _simpan_personel_akun(cursor, personel)
+        cursor.execute("""INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password, id_personel,
+                                            masa_berlaku_password)
+                          OUTPUT INSERTED.id_user VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       username, personel["nama"], id_level, id_department, id_comp_area, password_hash, id_personel, masa_berlaku)
+        id_user = cursor.fetchone()[0]
+        catat_riwayat_password(cursor, id_user, password_hash)
+        conn.commit()
+        return id_user
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _simpan_personel_akun(cursor, d):
+    if d.get("id_personel"):
+        cursor.execute("""UPDATE personel SET nama_personel = ?, nik = ?, email = ?, kategori = ?, updated_at = GETDATE()
+                          WHERE id_personel = ?""", d["nama"], d["nik"], d["email"], d["kategori"], d["id_personel"])
+        return d["id_personel"]
+    cursor.execute("""INSERT INTO personel (nik, nama_personel, email, kategori) OUTPUT INSERTED.id_personel
+                      VALUES (?, ?, ?, ?)""", d["nik"], d["nama"], d["email"], d["kategori"])
+    return cursor.fetchone()[0]
+
+
+def ubah_user(id_user, id_level, id_department, id_comp_area, personel, masa_berlaku):
     """Ganti level -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
-    _ubah("""UPDATE akun SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
-             id_level = ?, id_department = ?, id_comp_area = ?, updated_at = GETDATE() WHERE id_user = ?""",
-          nama, id_level, id_level, id_department, id_comp_area, id_user)
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        _simpan_personel_akun(cursor, personel)
+        cursor.execute("""UPDATE akun SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
+                          id_level = ?, id_department = ?, id_comp_area = ?, masa_berlaku_password = ?, updated_at = GETDATE()
+                          WHERE id_user = ?""",
+                       personel["nama"], id_level, id_level, id_department, id_comp_area, masa_berlaku, id_user)
+        if cursor.rowcount == 0:
+            raise ValueError("Data tidak ditemukan")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def reset_password(id_user, password_hash):
     # password_changed_at = NULL -> user wajib mengganti password ini saat login berikutnya
-    _ubah("""UPDATE akun SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
-             updated_at = GETDATE() WHERE id_user = ?""", password_hash, id_user)
+    from utils.db_utils import catat_riwayat_password
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""UPDATE akun SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
+                          updated_at = GETDATE() WHERE id_user = ?""", password_hash, id_user)
+        if cursor.rowcount == 0:
+            raise ValueError("Data tidak ditemukan")
+        catat_riwayat_password(cursor, id_user, password_hash)
+        conn.commit()
+    finally:
+        conn.close()
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 

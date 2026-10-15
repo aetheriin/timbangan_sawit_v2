@@ -37,7 +37,10 @@ DEFINISI = {
     "LOGIN_JENDELA_MENIT": ("Rentang hitung salah password (menit)", "Kunci Login", "int", "15", 1, 120,
                             "Salah password dihitung dalam rentang waktu ini"),
     "PASSWORD_EXPIRED_HARI": ("Password kedaluwarsa (hari)", "Password", "int", "90", 0, 365,
-                              "Setelah lewat, user wajib ganti password saat login. 0 = tidak pernah kedaluwarsa"),
+                              "Setelah lewat, user wajib ganti password saat login. 0 = tidak pernah kedaluwarsa. "
+                              "Bisa diatur khusus per pengguna di Kelola Pengguna"),
+    "PASSWORD_RIWAYAT": ("Larangan pakai ulang password", "Password", "int", "3", 0, 12,
+                         "Password baru tidak boleh sama dengan sekian password terakhir. 0 = tidak dicek"),
     "LOGIN_KUNCI_MENIT": ("Lama dikunci (menit)", "Kunci Login", "int", "15", 1, 240,
                           "Akun / IP tidak bisa login selama ini (admin bisa membuka lebih cepat)"),
 }

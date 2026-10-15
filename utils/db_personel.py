@@ -168,6 +168,7 @@ def update_personel(id_personel, kode, nik, nama, no_sim, kategori, user_id,
     cursor.execute("""UPDATE personel SET kode_personel = ?, nik = ?, nama_personel = ?, kategori = ?,
                       is_updated = 1, current_hash = ?, updated_at = GETDATE()
                       WHERE id_personel = ?""", kode or None, nik, nama, kategori, hash_baru, id_personel)
+    cursor.execute("UPDATE akun SET nama = ? WHERE id_personel = ?", nama, id_personel)     # akun = personel (migrasi 031)
     simpan_sim(cursor, id_personel, no_sim or None, id_jenis_sim, sim_berlaku, user_id)
     if embedding_binary is not None:
         simpan_wajah(cursor, id_personel, embedding_binary, foto_path, foto_sumber, user_id)
@@ -176,6 +177,16 @@ def update_personel(id_personel, kode, nik, nama, no_sim, kategori, user_id,
     conn.close()
     if embedding_binary is not None:
         reset_cache_wajah()
+
+
+def akun_personel(id_personel):
+    """username akun aktif milik personel ini, atau None."""
+    conn = get_connection()
+    try:
+        row = conn.cursor().execute("SELECT username FROM akun WHERE id_personel = ? AND is_active = 1", id_personel).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
 
 
 def hapus_personel(id_personel, user_id):
