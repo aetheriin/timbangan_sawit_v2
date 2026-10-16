@@ -16,8 +16,21 @@ GO
    - akun_akses: hak akses khusus per pengguna, menggantikan hak jabatan untuk menu itu saja.
    Aman dijalankan ulang.
    ===================================================================================== */
-IF OBJECT_ID('dbo.UX_Personel_Nik', 'UQ') IS NOT NULL
-    ALTER TABLE dbo.personel DROP CONSTRAINT UX_Personel_Nik;
+-- Lepas SEMUA unique lama di personel.nik, apa pun namanya (database lama: UQ__driver__... dari tabel driver),
+-- kecuali index terfilter UX_Personel_Nik yang dibuat di bawah. Tanpa ini NIK kosong kedua ditolak.
+DECLARE @sql NVARCHAR(MAX) = N'';
+SELECT @sql += N'ALTER TABLE dbo.personel DROP CONSTRAINT ' + QUOTENAME(kc.name) + N'; '
+FROM sys.key_constraints kc
+JOIN sys.index_columns ic ON ic.object_id = kc.parent_object_id AND ic.index_id = kc.unique_index_id
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE kc.parent_object_id = OBJECT_ID('dbo.personel') AND kc.type = 'UQ' AND c.name = 'nik';
+SELECT @sql += N'DROP INDEX ' + QUOTENAME(i.name) + N' ON dbo.personel; '
+FROM sys.indexes i
+JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE i.object_id = OBJECT_ID('dbo.personel') AND i.is_unique = 1 AND i.is_unique_constraint = 0
+  AND i.is_primary_key = 0 AND i.has_filter = 0 AND c.name = 'nik';
+IF @sql <> N'' EXEC (@sql);
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.personel') AND name = 'nik' AND is_nullable = 0)
     ALTER TABLE dbo.personel ALTER COLUMN nik VARCHAR(20) NULL;
@@ -29,17 +42,23 @@ IF COL_LENGTH('dbo.personel', 'email') IS NULL
     ALTER TABLE dbo.personel ADD email NVARCHAR(100) NULL;
 GO
 
--- Akun lama tanpa personel: buatkan personelnya
-DECLARE @id_user INT, @id_personel INT;
+-- Akun lama tanpa personel: buatkan personelnya. XACT_ABORT: error pertama langsung menghentikan batch
+-- (tidak berulang tanpa henti), dan id personel diambil dari OUTPUT INTO (bukan SCOPE_IDENTITY yang bisa
+-- tertinggal dari baris sebelumnya bila INSERT gagal).
+SET XACT_ABORT ON;
+DECLARE @id_user INT;
+DECLARE @baru TABLE (id INT);
 WHILE EXISTS (SELECT 1 FROM dbo.akun WHERE id_personel IS NULL)
 BEGIN
     SELECT TOP 1 @id_user = id_user FROM dbo.akun WHERE id_personel IS NULL ORDER BY id_user;
+    DELETE FROM @baru;
     INSERT INTO dbo.personel (nik, nama_personel, kategori)
+    OUTPUT INSERTED.id_personel INTO @baru (id)
     SELECT NULL, LEFT(u.nama, 100), CASE WHEN lv.kode = 'SECURITY' THEN 'SECURITY' ELSE 'EMPLOYEE' END
     FROM dbo.akun u JOIN dbo.level lv ON lv.id_level = u.id_level WHERE u.id_user = @id_user;
-    SET @id_personel = SCOPE_IDENTITY();
-    UPDATE dbo.akun SET id_personel = @id_personel WHERE id_user = @id_user;
+    UPDATE dbo.akun SET id_personel = (SELECT id FROM @baru) WHERE id_user = @id_user;
 END
+SET XACT_ABORT OFF;
 GO
 IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.akun') AND name = 'id_personel' AND is_nullable = 1)
 BEGIN
