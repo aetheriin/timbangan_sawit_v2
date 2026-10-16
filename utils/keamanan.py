@@ -106,10 +106,11 @@ def pasang_cookie(app):
     @app.context_processor
     def info_sesi():
         from utils import hak_akses, alur, kolom_wajib
+        from utils.versi import versi_aplikasi
         return {"sesi_idle_detik": pengaturan.nilai("SESI_IDLE_MENIT") * 60, "status_tiket": alur.daftar_status,
                 "kolom_wajib": kolom_wajib.per_form_html,
                 "boleh": hak_akses.boleh, "boleh_lihat": hak_akses.boleh_lihat, "tab_lihat": hak_akses.tab_lihat,
-                "menu_sidebar": hak_akses.menu_sidebar}
+                "menu_sidebar": hak_akses.menu_sidebar, "versi_aplikasi": versi_aplikasi}
 
 
 def mulai_sesi(user, sesi_versi=0):

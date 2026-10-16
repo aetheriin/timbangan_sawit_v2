@@ -21,7 +21,7 @@ from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
 from utils.hak_akses import boleh, izin, halaman as lihat_halaman
-from utils import log_aktivitas, koreksi_tiket
+from utils import log_aktivitas, koreksi_tiket, alur
 from utils.db_master import daftar_driver_aktif
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
@@ -213,6 +213,9 @@ def api_plat_lookup():
                              ip_address=request.remote_addr)
 
     row = cari_transaksi_aktif(no_plat=no_plat)
+    if row and row.id_alur is not None and row.id_alur == alur.id_alur_kode("POS_SAJA"):
+        return jsonify({"error": f"{no_plat} tercatat masuk lewat Pos Security (tanpa tiket timbang). "
+                                 "Catat keluar di Logbook dulu."}), 400
     if row:
         return jsonify({**serialisasi_tiket(row), "kendaraan_blacklist": blacklist}), 200
 

@@ -75,12 +75,13 @@ def arus_hari_ini(id_area=None):
         # Posisi truk yang masih di dalam (semua tiket aktif, tidak hanya yang dibuat hari ini).
         # Setelah timbang 1: TBS ke Sortasi, produk lain ke Laboratorium.
         cursor.execute(f"""SELECT
-                SUM(CASE WHEN t.status_alur = 'SECURITY_REGISTER' THEN 1 ELSE 0 END) AS timbang_1,
+                SUM(CASE WHEN t.status_alur = 'SECURITY_REGISTER' AND ISNULL(a.kode, '') <> 'POS_SAJA' THEN 1 ELSE 0 END) AS timbang_1,
                 SUM(CASE WHEN t.status_alur = 'TIMBANG_1' AND p.kategori = 'TBS' THEN 1 ELSE 0 END) AS sortasi,
                 SUM(CASE WHEN t.status_alur = 'TIMBANG_1' AND p.kategori <> 'TBS' THEN 1 ELSE 0 END) AS lab,
                 SUM(CASE WHEN t.status_alur = 'TIMBANG_2' THEN 1 ELSE 0 END) AS timbang_2,
                 COUNT(*) AS di_dalam
             FROM transaksi t JOIN produk p ON p.id_produk = t.id_produk
+            LEFT JOIN mill ml ON ml.id_mill = t.id_mill LEFT JOIN alur a ON a.id_alur = ml.id_alur
             WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){filter_area}""", *param_area)
         posisi = {k: int(v or 0) for k, v in _rows_to_dicts(cursor)[0].items()}
         ringkas["di_dalam"] = posisi.pop("di_dalam")

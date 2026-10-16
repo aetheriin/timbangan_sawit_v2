@@ -46,7 +46,7 @@ async function muatKesehatan() {
         kartu('Folder Unggahan', 'fa-folder-open', `${d.upload.ukuran_mb} MB${d.upload.lebih ? '+' : ''}`, 'Foto wajah, surat blacklist, foto absensi'),
         kartu('Timbangan', 'fa-weight-scale', `${d.timbangan.jumlah_terhubung} / ${d.timbangan.jumlah} terhubung`, 'Koneksi serial tiap jembatan timbang',
               d.timbangan.terhubung ? 'ok' : 'peringatan'),
-        kartu('Versi Aplikasi', 'fa-code-branch', d.aplikasi.versi, `Python ${d.aplikasi.python}`),
+        kartu('Versi Aplikasi', 'fa-code-branch', d.aplikasi.versi, `${d.aplikasi.git} · Python ${d.aplikasi.python}`),
         kartu('Server Berjalan', 'fa-power-off', `${d.aplikasi.uptime_jam} jam`, `sejak ${d.aplikasi.berjalan_sejak}`),
         kartu('Sesi Aktif', 'fa-users', String(d.aplikasi.sesi_aktif), 'Pengguna yang sedang login'),
     ].join('');

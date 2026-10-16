@@ -1815,6 +1815,7 @@ window.KAMUS_EN = {
 "{0} perusahaan": "{0} companies",
 "{0} sudah tercatat absen pukul {0}.": "{0} already checked in at {1}.",
 "{0} tercatat keluar pukul {0}": "{0} checked out at {1}",
+"{0} tercatat masuk lewat Pos Security (tanpa tiket timbang). Catat keluar di Logbook dulu.": "{0} was checked in via the Security Post (no weighing ticket). Record its exit in the Logbook first.",
 "{0} tercatat masuk pukul {0}": "{0} checked in at {1}",
 "{0} terdaftar dalam daftar blacklist": "{0} is on the blacklist",
 "{0} terdaftar sebagai tamu. Silakan catat melalui menu Tamu.": "{0} is registered as a visitor. Please record via the Visitors menu.",

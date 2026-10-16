@@ -655,6 +655,7 @@ def get_list_tiket_aktif(id_area=None):
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
+          AND ISNULL(ml.id_alur, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
         ORDER BY t.created_at DESC
     """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]

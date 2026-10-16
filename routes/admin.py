@@ -14,6 +14,7 @@ from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from extensions import BASE_DIR, UPLOAD_FOLDER
+from utils.versi import versi_aplikasi
 from utils.hak_akses import admin_required
 from utils.dokumen import simpan_file, hapus_file_info
 from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
@@ -1149,7 +1150,7 @@ def kesehatan():
         "upload": {"ukuran_mb": upload_mb, "lebih": upload_terpotong},
         "timbangan": {"terhubung": bool(status) and all(s["terhubung"] for s in status.values()),
                       "jumlah": len(status), "jumlah_terhubung": sum(1 for s in status.values() if s["terhubung"])},
-        "aplikasi": {"versi": _versi_git(), "python": platform.python_version(),
+        "aplikasi": {"versi": versi_aplikasi(), "git": _versi_git(), "python": platform.python_version(),
                      "berjalan_sejak": datetime.fromtimestamp(WAKTU_MULAI).strftime("%Y-%m-%d %H:%M"),
                      "uptime_jam": round((time.time() - WAKTU_MULAI) / 3600, 1),
                      "sesi_aktif": len(sesi_aktif.daftar(pengaturan.nilai("SESI_IDLE_MENIT") * 60))},

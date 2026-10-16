@@ -24,6 +24,7 @@
 </form>
 <p class="text-xs text-slate-500 mt-8 pt-5 border-t border-slate-100">
     <i class="fa-solid fa-circle-info mr-1 text-slate-400"></i>Lupa password atau akun terkunci? Hubungi admin sistem.</p>
+<p class="text-[11px] text-slate-400 mt-3">CPOS v{{ versi_aplikasi() }}</p>
 {% endblock %}
 
 {% block skrip %}<script src="{{ url_for('static', filename='js/login.js') }}"></script>{% endblock %}
