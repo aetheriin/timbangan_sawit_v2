@@ -23,6 +23,8 @@ DEFINISI = {
                           "Aktif: tantangan acak (kedip / menoleh). Mati: cukup menghadap kamera"),
     "TANTANGAN_TAMU": ("Tantangan wajah saat scan tamu", "Pengenalan Wajah", "bool", "false", None, None,
                        "Aktif: tamu mengikuti tantangan acak. Mati: cukup menghadap kamera"),
+    "BATAS_LAMA_DI_DALAM_JAM": ("Batas lama truk di dalam (jam)", "Pos Security", "int", "4", 1, 48,
+                                "Di Logbook, truk yang di dalam lebih lama dari ini ditandai merah (kuning mulai 75% batas)"),
     "TOLERANSI_TARA_PERSEN": ("Toleransi tara vs berat kosong (%)", "Timbangan", "int", "15", 0, 100,
                               "Tara yang berbeda lebih dari persen ini dari berat kosong jenis kendaraan (Data Master › "
                               "Kendaraan) memunculkan peringatan. 0 = tidak dicek"),
@@ -49,7 +51,7 @@ DEFINISI = {
 }
 
 # Operasional, boleh berbeda per area (migrasi 014). Sisanya keamanan: global.
-PER_AREA = ("WAJIB_SCAN_WAJAH", "AMBANG_WAJAH", "TANTANGAN_SECURITY", "TANTANGAN_ABSENSI", "TANTANGAN_TAMU")
+PER_AREA = ("BATAS_LAMA_DI_DALAM_JAM", "WAJIB_SCAN_WAJAH", "AMBANG_WAJAH", "TANTANGAN_SECURITY", "TANTANGAN_ABSENSI", "TANTANGAN_TAMU")
 
 _lock = threading.Lock()
 _cache = {"waktu": 0.0, "data": {}, "area": {}}

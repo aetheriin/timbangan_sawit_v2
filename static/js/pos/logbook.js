@@ -1,0 +1,131 @@
+// ===== LOGBOOK KENDARAAN (tahap 1) — PRATINJAU TAMPILAN =====
+// Data contoh dibuat relatif terhadap jam sekarang. Setelah tampilan disetujui, data diambil dari server
+// (kunjungan kendaraan per area pengguna) dan tombol Keluar menyimpan jam keluar.
+const LB = document.getElementById('logbook');
+const BATAS_MENIT = Number(LB.dataset.batasJam || 4) * 60;
+const bolehKeluar = LB.dataset.bolehKeluar === '1';
+
+const menitLalu = m => new Date(Date.now() - m * 60000);
+let dataDalam = [
+    { plat: 'BA 7312 QB', supir: 'Rahmat Hidayat', kode: 'DRV-004', customer: 'PT Citra Palma Abadi', produk: 'CPO', angkut: 'PT Trans Sawit', masuk: menitLalu(305), petugas: 'Budi Santoso' },
+    { plat: 'BK 8112 ZA', supir: 'Wawan Setiawan', kode: 'DRV-006', customer: 'PT Sawit Sumber Mas', produk: 'TBS', angkut: 'CV Angkut Lancar', masuk: menitLalu(195), petugas: 'Budi Santoso' },
+    { plat: 'BM 4410 KC', supir: 'Dedi Kurniawan', kode: 'DRV-005', customer: 'KUD Harapan Jaya', produk: 'TBS', angkut: 'Kendaraan pengirim', masuk: menitLalu(82), petugas: 'Joko Prasetyo' },
+    { plat: 'BK 9021 TR', supir: 'Bambang Sudiro', kode: 'DRV-001', customer: 'PT Berkat Agro Mandiri', produk: 'KERNEL', angkut: 'PT Trans Sawit', masuk: menitLalu(24), petugas: 'Joko Prasetyo' },
+];
+let dataKeluar = [
+    { plat: 'BK 1180 AD', supir: 'Suryadi Pratama', kode: 'DRV-003', customer: 'PT Sawit Sumber Mas', produk: 'TBS', angkut: 'CV Angkut Lancar', masuk: menitLalu(420), keluar: menitLalu(330), petugas: 'Budi Santoso', petugas_keluar: 'Budi Santoso' },
+    { plat: 'BM 7702 PP', supir: 'Hendra Gunawan', kode: 'DRV-002', customer: 'KUD Harapan Jaya', produk: 'TBS', angkut: 'Kendaraan pengirim', masuk: menitLalu(380), keluar: menitLalu(250), petugas: 'Budi Santoso', petugas_keluar: 'Joko Prasetyo' },
+    { plat: 'BA 5521 KL', supir: 'Wawan Setiawan', kode: 'DRV-006', customer: 'PT Citra Palma Abadi', produk: 'CPO', angkut: 'PT Trans Sawit', masuk: menitLalu(300), keluar: menitLalu(120), petugas: 'Budi Santoso', petugas_keluar: 'Joko Prasetyo' },
+];
+
+const jamMenit = d => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+const durasi = menit => { const j = Math.floor(menit / 60); return j ? `${j} jam ${menit % 60} mnt` : `${menit} mnt`; };
+const lamaMenit = (dari, sampai = new Date()) => Math.max(0, Math.round((sampai - dari) / 60000));
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('lbTanggal').value = new Date().toISOString().slice(0, 10);
+    tampilLogbook();
+    setInterval(tampilLogbook, 60000);            // lama di dalam ikut bertambah
+});
+
+function tampilLogbook() {
+    const lama = r => lamaMenit(r.masuk);
+    const warnaLama = m => m > BATAS_MENIT ? 'bg-red-100 text-red-700' : m >= BATAS_MENIT * 0.75 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700';
+    const kolomSupir = r => `${escapeHtml(r.supir)}<span class="block text-[11px] text-slate-400 font-mono">${escapeHtml(r.kode)}</span>`;
+    const urutDalam = [...dataDalam].sort((a, b) => a.masuk - b.masuk);
+    document.getElementById('tabelDalam').innerHTML = urutDalam.map(r => {
+        const m = lama(r);
+        return `<tr class="hover:bg-slate-50${m > BATAS_MENIT ? ' bg-red-50/40' : ''}" data-cari="${escapeHtml(`${r.plat} ${r.supir} ${r.customer}`.toUpperCase())}">
+            <td class="table-cell font-mono font-semibold whitespace-nowrap">${escapeHtml(r.plat)}</td>
+            <td class="table-cell">${kolomSupir(r)}</td>
+            <td class="table-cell">${escapeHtml(r.customer)}</td>
+            <td class="table-cell">${escapeHtml(r.produk)}</td>
+            <td class="table-cell text-slate-600">${escapeHtml(r.angkut)}</td>
+            <td class="table-cell font-mono">${jamMenit(r.masuk)}</td>
+            <td class="table-cell"><span class="badge-status ${warnaLama(m)}">${m > BATAS_MENIT ? '<i class="fa-solid fa-triangle-exclamation mr-1"></i>' : ''}${durasi(m)}</span></td>
+            <td class="table-cell text-slate-600">${escapeHtml(r.petugas)}</td>
+            <td class="table-cell text-right">${bolehKeluar
+                ? `<button type="button" class="btn-secondary btn-sm text-amber-700" data-on-click="catatKeluar" data-arg="${escapeHtml(r.plat)}"><i class="fa-solid fa-right-from-bracket"></i> Catat Keluar</button>` : ''}</td>
+        </tr>`;
+    }).join('') || barisKosong(9, 'Tidak ada truk di dalam');
+    const urutKeluar = [...dataKeluar].sort((a, b) => b.keluar - a.keluar);
+    document.getElementById('tabelKeluar').innerHTML = urutKeluar.map(r => `
+        <tr class="hover:bg-slate-50" data-cari="${escapeHtml(`${r.plat} ${r.supir} ${r.customer}`.toUpperCase())}">
+            <td class="table-cell font-mono font-semibold whitespace-nowrap">${escapeHtml(r.plat)}</td>
+            <td class="table-cell">${kolomSupir(r)}</td>
+            <td class="table-cell">${escapeHtml(r.customer)}</td>
+            <td class="table-cell">${escapeHtml(r.produk)}</td>
+            <td class="table-cell text-slate-600">${escapeHtml(r.angkut)}</td>
+            <td class="table-cell font-mono">${jamMenit(r.masuk)}</td>
+            <td class="table-cell font-mono">${jamMenit(r.keluar)}</td>
+            <td class="table-cell">${durasi(lamaMenit(r.masuk, r.keluar))}</td>
+            <td class="table-cell text-slate-600 text-xs">${escapeHtml(r.petugas)}<span class="text-slate-400"> / </span>${escapeHtml(r.petugas_keluar)}</td>
+        </tr>`).join('') || barisKosong(9, 'Belum ada truk keluar hari ini');
+
+    document.getElementById('jmlDalam').textContent = `${dataDalam.length} truk`;
+    document.getElementById('jmlKeluar').textContent = `${dataKeluar.length} truk`;
+    const rata = dataKeluar.length ? Math.round(dataKeluar.reduce((a, r) => a + lamaMenit(r.masuk, r.keluar), 0) / dataKeluar.length) : null;
+    const lewat = dataDalam.filter(r => lama(r) > BATAS_MENIT).length;
+    const stat = (label, nilai, satuan, catatan = '') => `<div class="mini-stat"><p class="mini-stat-label">${label}</p>
+        <p class="mini-stat-nilai">${nilai} <span class="text-xs font-sans font-normal text-slate-500">${satuan}</span></p>${catatan}</div>`;
+    document.getElementById('ringkasLogbook').innerHTML =
+        stat('Masih di dalam', dataDalam.length, 'truk', lewat ? `<p class="text-[11px] text-red-600 mt-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${lewat} lewat batas</p>` : '') +
+        stat('Masuk hari ini', dataDalam.length + dataKeluar.length, 'truk') +
+        stat('Keluar hari ini', dataKeluar.length, 'truk') +
+        stat('Rata-rata di dalam', rata == null ? '-' : durasi(rata), '');
+    cariLogbook(document.getElementById('lbCari').value);
+}
+
+function cariLogbook(teks) {
+    const cari = (teks || '').toUpperCase().replace(/\s+/g, '');
+    ['tabelDalam', 'tabelKeluar'].forEach(id => {
+        document.querySelectorAll(`#${id} tr[data-cari]`).forEach(tr => {
+            tr.classList.toggle('hidden', !!cari && !tr.dataset.cari.replace(/\s+/g, '').includes(cari));
+        });
+        if (typeof Halaman !== 'undefined') Halaman.segarkan(document.getElementById(id));
+    });
+}
+
+async function catatKeluar(plat) {
+    const r = dataDalam.find(x => x.plat === plat);
+    if (!r) return;
+    const ok = await Dialog.konfirmasi({ judul: `Catat ${plat} keluar?`, teksYa: 'Catat Keluar',
+        pesan: `${r.supir} · ${r.customer}\nMasuk ${jamMenit(r.masuk)}, sudah ${durasi(lamaMenit(r.masuk))} di dalam.` });
+    if (!ok) return;
+    dataDalam = dataDalam.filter(x => x !== r);
+    dataKeluar.push({ ...r, keluar: new Date(), petugas_keluar: 'Anda' });
+    tampilLogbook();
+    Notif.sukses(`Pratinjau: ${plat} tercatat keluar pukul ${jamMenit(new Date())}.`);
+}
+
+// ===== Cetak serah terima shift: halaman A4 berisi truk masih di dalam + ringkasan + tanda tangan =====
+function cetakSerahTerima() {
+    const sekarang = new Date();
+    const baris = [...dataDalam].sort((a, b) => a.masuk - b.masuk).map((r, i) => `<tr><td>${i + 1}</td><td><b>${escapeHtml(r.plat)}</b></td>
+        <td>${escapeHtml(r.supir)}</td><td>${escapeHtml(r.customer)}</td><td>${escapeHtml(r.produk)}</td>
+        <td>${jamMenit(r.masuk)}</td><td>${durasi(lamaMenit(r.masuk))}</td><td></td></tr>`).join('')
+        || '<tr><td colspan="8" style="text-align:center;color:#64748b">Tidak ada truk di dalam</td></tr>';
+    const w = window.open('', '_blank');
+    if (!w) { Notif.peringatan('Izinkan pop-up untuk mencetak serah terima.'); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Serah Terima Shift Security</title><style>
+        body{font-family:Arial,sans-serif;font-size:12px;color:#0f172a;margin:24px} h1{font-size:18px;margin:0}
+        .sub{color:#475569;margin:4px 0 16px} table{width:100%;border-collapse:collapse;margin-top:8px}
+        th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left} th{background:#f1f5f9}
+        .ringkas{display:flex;gap:12px;margin:12px 0} .ringkas div{border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;flex:1}
+        .ringkas b{display:block;font-size:16px} .ttd{display:flex;justify-content:space-between;margin-top:48px}
+        .ttd div{width:40%;text-align:center} .garis{margin-top:64px;border-top:1px solid #0f172a;padding-top:4px}
+        @page{size:A4;margin:14mm}</style></head><body>
+        <h1>Serah Terima Shift Security</h1>
+        <p class="sub">${escapeHtml(document.title.replace(' · CPOS', ''))} · Dicetak ${sekarang.toLocaleString('id-ID')}</p>
+        <div class="ringkas"><div>Masih di dalam<b>${dataDalam.length} truk</b></div><div>Masuk hari ini<b>${dataDalam.length + dataKeluar.length} truk</b></div>
+            <div>Keluar hari ini<b>${dataKeluar.length} truk</b></div></div>
+        <p><b>Truk masih di dalam saat serah terima</b></p>
+        <table><thead><tr><th>No</th><th>Plat</th><th>Supir</th><th>Customer / Supplier</th><th>Produk</th><th>Jam Masuk</th><th>Lama</th><th>Keterangan</th></tr></thead>
+        <tbody>${baris}</tbody></table>
+        <div class="ttd"><div>Petugas yang menyerahkan<div class="garis">Nama &amp; tanda tangan</div></div>
+            <div>Petugas yang menerima<div class="garis">Nama &amp; tanda tangan</div></div></div>
+        </body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+}

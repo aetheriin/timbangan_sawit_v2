@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import judul_halaman %}
+{% block title %}Pos Security · CPOS{% endblock %}
+
+{# Tahap 1 Security: kendaraan masuk tanpa tiket. Plat -> supir terakhir & peringatan, scan wajah supir, muatan,
+   Simpan Masuk = jam masuk. Keluar dicatat dari Logbook atau dari sini bila plat masih di dalam.
+   LANGKAH 1 (tampilan): isi contoh dari static/js/pos/pos_security.js, belum menyimpan. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {% call judul_halaman('Pos Security', 'Kendaraan masuk: cek plat, scan wajah supir, catat muatan, simpan jam masuk', 'fa-shield-halved', 'gelap') %}
+        <span class="kpi-tanggal text-sm"><i class="fa-regular fa-clock mr-1"></i><span id="jamSekarang">--:--</span></span>
+        <a href="/logbook" class="btn-secondary"><i class="fa-solid fa-book"></i> Logbook</a>
+    {% endcall %}
+{% endblock %}
+
+{% block tab_content %}
+<div class="space-y-5" id="posSecurity" data-boleh-simpan="{{ 1 if boleh_simpan else 0 }}" data-boleh-blacklist="{{ 1 if boleh_blacklist else 0 }}">
+
+    {# Pratinjau tampilan: pilih keadaan contoh (dihapus saat fungsi nyata dipasang) #}
+    <div class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2.5 text-sm">
+        <span class="font-semibold text-violet-800"><i class="fa-solid fa-eye mr-1"></i> Pratinjau tampilan</span>
+        <span class="text-violet-700">Contoh keadaan:</span>
+        <button type="button" class="chip chip-active" data-on-click="contohPos" data-arg="normal">Normal</button>
+        <button type="button" class="chip" data-on-click="contohPos" data-arg="blacklist">Blacklist + SIM habis</button>
+        <button type="button" class="chip" data-on-click="contohPos" data-arg="didalam">Truk masih di dalam</button>
+        <button type="button" class="chip" data-on-click="contohPos" data-arg="kosong">Kosong</button>
+    </div>
+
+    {# ===== PANEL PERINGATAN GABUNGAN: merah (kritis) di atas, kuning (perhatian) di bawah ===== #}
+    <div id="panelPeringatan" class="hidden rounded-xl border overflow-hidden shadow-sm"></div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-5 gap-5">
+
+        {# ===== KIRI: kendaraan & muatan ===== #}
+        <div class="xl:col-span-3 space-y-5">
+
+            <div class="card">
+                <div class="flex items-center gap-3 pb-3 mb-4 border-b border-slate-100">
+                    <span class="langkah-nomor">1</span>
+                    <h2 class="text-sm font-bold text-slate-900">Kendaraan</h2>
+                    <span id="badgePlat" class="ml-auto"></span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="field-label" for="posPlat">No. Plat Kendaraan</label>
+                            <div class="relative">
+                                <input type="text" id="posPlat" data-plat class="input-field uppercase text-lg font-mono font-bold tracking-wide pr-24"
+                                       placeholder="BK 1234 AB" data-on-enter="cekPlatPos" data-arg="$value">
+                                <button type="button" class="btn-secondary btn-sm absolute right-1.5 top-1/2 -translate-y-1/2" data-on-click="cekPlatPos">Cek</button>
+                            </div>
+                            <p class="field-hint">Ketik plat lalu Enter: supir terakhir, blacklist, dan status di dalam langsung dicek.</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="field-label" for="posStnk">No. STNK</label>
+                                <input type="text" id="posStnk" class="input-field uppercase" maxlength="50">
+                            </div>
+                            <div>
+                                <label class="field-label" for="posJenis">Jenis Kendaraan</label>
+                                <input type="text" id="posJenis" readonly class="input-field bg-slate-50">
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="field-label">Supir Terakhir Truk Ini</p>
+                        <div id="supirTerakhir" class="border border-slate-200 rounded-lg p-4 flex items-center gap-4 bg-slate-50 min-h-[8.5rem]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="flex items-center gap-3 pb-3 mb-4 border-b border-slate-100">
+                    <span class="langkah-nomor">3</span>
+                    <h2 class="text-sm font-bold text-slate-900">Muatan &amp; Pengangkutan</h2>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label" for="posCustomer">Customer / Supplier</label>
+                        <select id="posCustomer" class="input-field" data-cari>
+                            <option value="">-- Pilih --</option>
+                            {% for s in supplier_list %}<option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label" for="posProduk">Produk</label>
+                        <select id="posProduk" class="input-field" data-cari>
+                            <option value="">-- Pilih --</option>
+                            {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="field-label" for="posAngkut">Pengangkutan</label>
+                        <input type="text" id="posAngkut" list="daftarTransportir" maxlength="100" class="input-field"
+                               placeholder="Pilih transportir atau ketik nama baru">
+                        <datalist id="daftarTransportir">
+                            {% for t in transportir_list %}<option value="{{ t.nama_supplier }}">{% endfor %}
+                        </datalist>
+                        <p class="field-hint">Nama baru otomatis didaftarkan sebagai transportir di Data Master › Supplier.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ===== KANAN: supir (scan wajah) ===== #}
+        <div class="xl:col-span-2">
+            <div class="card">
+                <div class="flex items-center gap-3 pb-3 mb-4 border-b border-slate-100">
+                    <span class="langkah-nomor">2</span>
+                    <h2 class="text-sm font-bold text-slate-900">Supir</h2>
+                    <span id="badgeSupir" class="ml-auto"></span>
+                </div>
+                <div class="relative bg-black rounded-lg aspect-[4/3] overflow-hidden flex items-center justify-center">
+                    <video id="posVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-contain video-mirror hidden"></video>
+                    <div id="posFoto" class="absolute inset-0 flex items-center justify-center text-slate-500">
+                        <div class="text-center"><i class="fa-solid fa-camera text-3xl mb-2"></i><p class="text-xs">Kamera belum menyala</p></div>
+                    </div>
+                    {# Bingkai panduan wajah seperti scan Tamu #}
+                    <div class="relative w-[38%] h-[70%] rounded-full border-2 border-dashed border-amber-400"></div>
+                    <span id="posInstruksi" class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white bg-black/50 rounded px-2 py-0.5">
+                        Posisikan wajah supir di dalam bingkai</span>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button type="button" class="btn-secondary flex-1" data-on-click="contohKamera"><i class="fa-solid fa-video"></i> Nyalakan Kamera</button>
+                    <button type="button" class="btn-success flex-1" data-on-click="contohScanWajah"><i class="fa-solid fa-face-viewfinder"></i> Scan Wajah</button>
+                </div>
+                <p id="posStatusScan" class="text-xs text-slate-500 mt-2"></p>
+
+                <div id="kartuSupir" class="mt-4 border border-slate-200 rounded-lg p-4"></div>
+
+                {% if boleh_ubah_supir %}
+                <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button type="button" class="btn-secondary" data-on-click="contohInfo" data-arg="Tambah Supir"><i class="fa-solid fa-user-plus"></i> Tambah Supir</button>
+                    <button type="button" class="btn-secondary" data-on-click="contohInfo" data-arg="Ubah Supir"><i class="fa-solid fa-user-pen"></i> Ubah Supir</button>
+                </div>
+                {% endif %}
+                {% if boleh_blacklist %}
+                <button type="button" class="btn-secondary w-full mt-2 text-red-600" data-on-click="contohInfo" data-arg="Ajukan Blacklist">
+                    <i class="fa-solid fa-ban"></i> Ajukan Blacklist Supir / Kendaraan</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# ===== BAR SIMPAN: ringkasan + Simpan Masuk (= jam masuk) ===== #}
+    <div class="card flex flex-wrap items-center gap-4 sticky bottom-3 z-10 shadow-lg">
+        <div class="flex-1 min-w-0">
+            <p class="text-xs text-slate-500">Ringkasan</p>
+            <p id="ringkasPos" class="text-sm font-semibold text-slate-900 truncate">-</p>
+        </div>
+        <button type="button" class="btn-secondary" data-on-click="contohPos" data-arg="kosong"><i class="fa-solid fa-rotate-left"></i> Kosongkan</button>
+        {% if boleh_keluar %}
+        <button type="button" id="btnKeluarPos" class="btn-secondary hidden text-amber-700" data-on-click="contohKeluarPos"><i class="fa-solid fa-right-from-bracket"></i> Catat Keluar</button>
+        {% endif %}
+        {% if boleh_simpan %}
+        <button type="button" id="btnSimpanPos" class="btn-primary px-6" data-on-click="contohSimpanPos"><i class="fa-solid fa-right-to-bracket"></i> Simpan Masuk</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/pos/pos_security.js') }}"></script>
+{% endblock %}

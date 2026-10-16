@@ -27,6 +27,7 @@ AKSI_MENU = {
     "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"),
     "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus", "setujui"), "KUNJUNGAN": ("tambah", "ubah"),
     "KELEBIHAN_DO": ("tambah", "ubah"),
+    "POS_SECURITY": ("tambah", "ubah"), "LOGBOOK": ("ubah",),
 }
 
 

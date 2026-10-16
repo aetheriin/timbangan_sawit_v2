@@ -1034,7 +1034,9 @@ INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
     ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
     ('KELEBIHAN_DO',     N'Kelebihan DO',     '/kelebihan-do',         'fa-scale-unbalanced', 55),
-    ('MASTER',           N'Data Master',      '/master',               'fa-database',      60);
+    ('MASTER',           N'Data Master',      '/master',               'fa-database',      60),
+    ('POS_SECURITY',     N'Pos Security',     '/pos-security',         'fa-shield-halved', 15),   -- migrasi 038
+    ('LOGBOOK',          N'Logbook Kendaraan', '/logbook',             'fa-book',          16);
 INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
 SELECT v.kode, v.nama, p.id_menu, v.urutan
 FROM (VALUES ('FORM_SECURITY',    N'Stasiun Timbang › Security',          'FORM', 1),
@@ -1066,7 +1068,11 @@ FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
              ('SECURITY',         'MASTER_KENDARAAN', 1, 1, 0),
              ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN',   1, 0, 0),
              ('SORTASI',          'FORM_SORTASI',     1, 0, 0),
-             ('LAB',              'FORM_LAB',         1, 1, 0)) v (lv, mn, t, u, h)
+             ('LAB',              'FORM_LAB',         1, 1, 0),
+             ('SECURITY',         'POS_SECURITY',     1, 1, 0),
+             ('SECURITY',         'LOGBOOK',          0, 1, 0),
+             ('HO',               'POS_SECURITY',     0, 0, 0),
+             ('HO',               'LOGBOOK',          0, 0, 0)) v (lv, mn, t, u, h)
 JOIN dbo.level l ON l.kode = v.lv
 JOIN dbo.menu m ON m.kode = v.mn;
 -- Jembatan timbang awal (migrasi 011)
@@ -1120,7 +1126,8 @@ JOIN dbo.menu m ON m.id_menu = a.id_menu WHERE l.kode = 'HO' AND m.kode = 'BLACK
 -- Semua jabatan non-admin awalnya boleh melihat semua halaman (atur di Admin › Level & Hak Akses)
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_lihat)
 SELECT l.id_level, m.id_menu, 1 FROM dbo.level l CROSS JOIN dbo.menu m
-WHERE l.is_admin = 0 AND NOT EXISTS (SELECT 1 FROM dbo.level_akses a WHERE a.id_level = l.id_level AND a.id_menu = m.id_menu);
+WHERE l.is_admin = 0 AND m.kode NOT IN ('POS_SECURITY', 'LOGBOOK')       -- menu pos: hanya jabatan yang diberi di atas
+  AND NOT EXISTS (SELECT 1 FROM dbo.level_akses a WHERE a.id_level = l.id_level AND a.id_menu = m.id_menu);
 GO
 -- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
 INSERT INTO dbo.personel (nik, nama_personel, kategori) VALUES (NULL, 'Super Admin', 'EMPLOYEE');

@@ -47,7 +47,8 @@ HALAMAN = {
 POLA_USERNAME = re.compile(r"^[a-z0-9._]{3,50}$")
 # Pilihan "Halaman awal setelah login" (admin memilih nama menu, bukan mengetik alamat)
 # /weighbridge?tab=... (tanpa view=form) = Daftar Tiket dengan tahap terpilih; view=form&tab=... = tab Stasiun Timbang
-HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "Daftar Tiket › Semua tahap"),
+HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/pos-security", "Pos Security"), ("/logbook", "Logbook Kendaraan"),
+                ("/weighbridge?view=list", "Daftar Tiket › Semua tahap"),
                 ("/weighbridge?tab=security", "Daftar Tiket › Security"), ("/weighbridge?tab=timbangan", "Daftar Tiket › Timbangan"),
                 ("/weighbridge?tab=sortasi", "Daftar Tiket › Sortasi"), ("/weighbridge?tab=lab", "Daftar Tiket › Laboratorium"),
                 ("/weighbridge?view=form&tab=security", "Stasiun Timbang › Security"),

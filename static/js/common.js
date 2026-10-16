@@ -10,6 +10,20 @@ function closeModal(id) {
     document.getElementById(id).classList.add('hidden');
 }
 
+// Esc menutup modal paling atas yang sedang terbuka. Tombol X modal itu yang diklik, supaya penutup khusus
+// (mis. mematikan kamera) tetap berjalan. Dialog konfirmasi & pencarian punya penanganan Esc sendiri.
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (typeof Dialog !== 'undefined' && Dialog._selesai) return;
+    const terbuka = [...document.querySelectorAll('.modal-overlay.flex')].filter(m => m.id !== 'dialogKonfirmasi');
+    const modal = terbuka[terbuka.length - 1];
+    if (!modal) return;
+    e.preventDefault();
+    const tombol = modal.querySelector('[title="Tutup"]') || modal.querySelector(`[data-on-click="closeModal"][data-arg="${modal.id}"]`);
+    if (tombol) tombol.click();
+    else closeModal(modal.id);
+});
+
 function escapeHtml(teks) {
     return String(teks ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

@@ -124,6 +124,7 @@
 
   /* Kartu putih di dalam section / tab body */
   .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm p-5; }
+  .langkah-nomor { @apply w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center justify-center flex-shrink-0; }
   .card-title { @apply text-sm font-bold text-slate-900 mb-4 pb-2.5 border-b border-slate-100; }
 
   /* Filter chip & segmented control (menu Face Recognition) */
@@ -158,9 +159,10 @@
 
   /* Modal */
   .modal-overlay { @apply fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4; }
-  .modal-box { @apply bg-white rounded-xl border border-slate-200 w-full max-w-md overflow-hidden shadow-2xl; }
+  /* Modal setinggi apa pun tidak melewati layar: isi di-scroll, judul + tombol X tetap terlihat di atas */
+  .modal-box { @apply bg-white rounded-xl border border-slate-200 w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto shadow-2xl; }
   .modal-box-lg { @apply max-w-3xl max-h-[90vh] overflow-y-auto; }
-  .modal-header { @apply bg-white text-slate-900 border-b border-slate-100 px-6 py-4 flex justify-between items-center; }
+  .modal-header { @apply sticky top-0 z-10 bg-white text-slate-900 border-b border-slate-100 px-6 py-4 flex justify-between items-center; }
   .modal-tab { @apply py-2.5 text-sm font-medium text-slate-500 bg-slate-100 border-b-2 border-transparent transition; }
   .modal-tab-active { @apply bg-white text-blue-700 border-blue-600; }
 
