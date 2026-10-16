@@ -2,9 +2,9 @@
 {% from "partials/layout/_macros.html" import judul_halaman %}
 {% block title %}Pos Security · CPOS{% endblock %}
 
-{# Tahap 1 Security: kendaraan masuk tanpa tiket. Plat -> supir terakhir & peringatan, scan wajah supir, muatan,
-   Simpan Masuk = jam masuk. Keluar dicatat dari Logbook atau dari sini bila plat masih di dalam.
-   LANGKAH 1 (tampilan): isi contoh dari static/js/pos/pos_security.js, belum menyimpan. #}
+{# Tahap 1 Security: kendaraan masuk tanpa tiket timbang. Plat -> supir terakhir & peringatan, scan wajah supir, muatan,
+   Simpan Masuk = jam masuk (transaksi alur POS_SAJA, routes/pos.py). Keluar dicatat dari Logbook atau dari sini
+   bila plat masih di dalam. #}
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
@@ -16,17 +16,7 @@
 {% endblock %}
 
 {% block tab_content %}
-<div class="space-y-5" id="posSecurity" data-boleh-simpan="{{ 1 if boleh_simpan else 0 }}" data-boleh-blacklist="{{ 1 if boleh_blacklist else 0 }}">
-
-    {# Pratinjau tampilan: pilih keadaan contoh (dihapus saat fungsi nyata dipasang) #}
-    <div class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2.5 text-sm">
-        <span class="font-semibold text-violet-800"><i class="fa-solid fa-eye mr-1"></i> Pratinjau tampilan</span>
-        <span class="text-violet-700">Contoh keadaan:</span>
-        <button type="button" class="chip chip-active" data-on-click="contohPos" data-arg="normal">Normal</button>
-        <button type="button" class="chip" data-on-click="contohPos" data-arg="blacklist">Blacklist + SIM habis</button>
-        <button type="button" class="chip" data-on-click="contohPos" data-arg="didalam">Truk masih di dalam</button>
-        <button type="button" class="chip" data-on-click="contohPos" data-arg="kosong">Kosong</button>
-    </div>
+<div class="space-y-5" id="posSecurity" data-wajib-scan="{{ 1 if wajib_scan_wajah else 0 }}">
 
     {# ===== PANEL PERINGATAN GABUNGAN: merah (kritis) di atas, kuning (perhatian) di bawah ===== #}
     <div id="panelPeringatan" class="hidden rounded-xl border overflow-hidden shadow-sm"></div>
@@ -48,7 +38,7 @@
                             <label class="field-label" for="posPlat">No. Plat Kendaraan</label>
                             <div class="relative">
                                 <input type="text" id="posPlat" data-plat class="input-field uppercase text-lg font-mono font-bold tracking-wide pr-24"
-                                       placeholder="BK 1234 AB" data-on-enter="cekPlatPos" data-arg="$value">
+                                       placeholder="BK 1234 AB" data-on-enter="cekPlatPos" autocomplete="off">
                                 <button type="button" class="btn-secondary btn-sm absolute right-1.5 top-1/2 -translate-y-1/2" data-on-click="cekPlatPos">Cek</button>
                             </div>
                             <p class="field-hint">Ketik plat lalu Enter: supir terakhir, blacklist, dan status di dalam langsung dicek.</p>
@@ -60,7 +50,7 @@
                             </div>
                             <div>
                                 <label class="field-label" for="posJenis">Jenis Kendaraan</label>
-                                <input type="text" id="posJenis" readonly class="input-field bg-slate-50">
+                                <input type="text" id="posJenis" readonly class="input-field bg-slate-50" placeholder="-">
                             </div>
                         </div>
                     </div>
@@ -88,17 +78,27 @@
                         <label class="field-label" for="posProduk">Produk</label>
                         <select id="posProduk" class="input-field" data-cari>
                             <option value="">-- Pilih --</option>
-                            {% for p in produk_list %}<option value="{{ p.id_produk }}">{{ p.nama_produk }}</option>{% endfor %}
+                            {% for p in produk_list %}<option value="{{ p.id_produk }}" data-kategori="{{ p.kategori }}">{{ p.nama_produk }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="md:col-span-2">
+                    <div>
+                        <label class="field-label" for="posJenisTrx">Jenis Transaksi</label>
+                        <select id="posJenisTrx" class="input-field">
+                            <option value="">-- Pilih --</option>
+                            <option value="PEMBELIAN">Pembelian (barang masuk)</option>
+                            <option value="PENJUALAN">Penjualan (barang keluar)</option>
+                            <option value="PENIMBANGAN_SAJA">Penimbangan saja</option>
+                        </select>
+                        <p class="field-hint">Terisi otomatis dari produk (TBS = pembelian), boleh diubah, mis. TBS yang dijual ke PT lain.</p>
+                    </div>
+                    <div>
                         <label class="field-label" for="posAngkut">Pengangkutan</label>
                         <input type="text" id="posAngkut" list="daftarTransportir" maxlength="100" class="input-field"
-                               placeholder="Pilih transportir atau ketik nama baru">
+                               placeholder="Kosongkan bila kendaraan milik pengirim">
                         <datalist id="daftarTransportir">
                             {% for t in transportir_list %}<option value="{{ t.nama_supplier }}">{% endfor %}
                         </datalist>
-                        <p class="field-hint">Nama baru otomatis didaftarkan sebagai transportir di Data Master › Supplier.</p>
+                        <p class="field-hint">Pilih transportir atau ketik nama baru (otomatis didaftarkan di Data Master › Supplier).</p>
                     </div>
                 </div>
             </div>
@@ -112,6 +112,7 @@
                     <h2 class="text-sm font-bold text-slate-900">Supir</h2>
                     <span id="badgeSupir" class="ml-auto"></span>
                 </div>
+                <input type="hidden" id="posIdDriver">
                 <div class="relative bg-black rounded-lg aspect-[4/3] overflow-hidden flex items-center justify-center">
                     <video id="posVideo" autoplay playsinline muted class="absolute inset-0 w-full h-full object-contain video-mirror hidden"></video>
                     <div id="posFoto" class="absolute inset-0 flex items-center justify-center text-slate-500">
@@ -119,25 +120,25 @@
                     </div>
                     {# Bingkai panduan wajah seperti scan Tamu #}
                     <div class="relative w-[38%] h-[70%] rounded-full border-2 border-dashed border-amber-400"></div>
-                    <span id="posInstruksi" class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white bg-black/50 rounded px-2 py-0.5">
+                    <span id="posInstruksi" class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] text-white bg-black/50 rounded px-2 py-0.5 whitespace-nowrap">
                         Posisikan wajah supir di dalam bingkai</span>
                 </div>
-                <div class="flex gap-2 mt-3">
-                    <button type="button" class="btn-secondary flex-1" data-on-click="contohKamera"><i class="fa-solid fa-video"></i> Nyalakan Kamera</button>
-                    <button type="button" class="btn-success flex-1" data-on-click="contohScanWajah"><i class="fa-solid fa-face-viewfinder"></i> Scan Wajah</button>
-                </div>
+                {% if boleh_simpan %}
+                <button type="button" id="btnScanPos" class="btn-success w-full mt-3" data-on-click="scanWajahPos">
+                    <i class="fa-solid fa-face-viewfinder"></i> Scan Wajah Supir</button>
+                {% endif %}
                 <p id="posStatusScan" class="text-xs text-slate-500 mt-2"></p>
 
                 <div id="kartuSupir" class="mt-4 border border-slate-200 rounded-lg p-4"></div>
 
-                {% if boleh_ubah_supir %}
                 <div class="grid grid-cols-2 gap-2 mt-3">
-                    <button type="button" class="btn-secondary" data-on-click="contohInfo" data-arg="Tambah Supir"><i class="fa-solid fa-user-plus"></i> Tambah Supir</button>
-                    <button type="button" class="btn-secondary" data-on-click="contohInfo" data-arg="Ubah Supir"><i class="fa-solid fa-user-pen"></i> Ubah Supir</button>
+                    {% if boleh_simpan %}
+                    <button type="button" class="btn-secondary" data-on-click="bukaSupirBaruPos"><i class="fa-solid fa-user-plus"></i> Tambah Supir</button>
+                    {% endif %}
+                    <button type="button" class="btn-secondary" data-on-click="bukaUbahSupirPos"><i class="fa-solid fa-user-pen"></i> Ganti / Ubah Supir</button>
                 </div>
-                {% endif %}
                 {% if boleh_blacklist %}
-                <button type="button" class="btn-secondary w-full mt-2 text-red-600" data-on-click="contohInfo" data-arg="Ajukan Blacklist">
+                <button type="button" class="btn-secondary w-full mt-2 text-red-600" data-on-click="bukaBlacklistPos">
                     <i class="fa-solid fa-ban"></i> Ajukan Blacklist Supir / Kendaraan</button>
                 {% endif %}
             </div>
@@ -150,17 +151,113 @@
             <p class="text-xs text-slate-500">Ringkasan</p>
             <p id="ringkasPos" class="text-sm font-semibold text-slate-900 truncate">-</p>
         </div>
-        <button type="button" class="btn-secondary" data-on-click="contohPos" data-arg="kosong"><i class="fa-solid fa-rotate-left"></i> Kosongkan</button>
+        <button type="button" class="btn-secondary" data-on-click="kosongkanPos"><i class="fa-solid fa-rotate-left"></i> Kosongkan</button>
         {% if boleh_keluar %}
-        <button type="button" id="btnKeluarPos" class="btn-secondary hidden text-amber-700" data-on-click="contohKeluarPos"><i class="fa-solid fa-right-from-bracket"></i> Catat Keluar</button>
+        <button type="button" id="btnKeluarPos" class="btn-secondary hidden text-amber-700" data-on-click="keluarPos"><i class="fa-solid fa-right-from-bracket"></i> Catat Keluar</button>
         {% endif %}
         {% if boleh_simpan %}
-        <button type="button" id="btnSimpanPos" class="btn-primary px-6" data-on-click="contohSimpanPos"><i class="fa-solid fa-right-to-bracket"></i> Simpan Masuk</button>
+        <button type="button" id="btnSimpanPos" class="btn-primary px-6" data-on-click="simpanMasukPos" data-arg="$el"><i class="fa-solid fa-right-to-bracket"></i> Simpan Masuk</button>
         {% endif %}
     </div>
 </div>
+
+{# ===== MODAL: supir baru (rekam wajah) ===== #}
+<div id="modalPosSupirBaru" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Pendaftaran Supir Baru &amp; Perekaman Wajah</h3>
+            <button type="button" data-on-click="tutupSupirBaruPos" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="field-label" for="psbKode">Kode Personel</label>
+                <input type="text" id="psbKode" readonly class="input-field bg-slate-50 font-mono" placeholder="otomatis">
+            </div>
+            <div><label class="field-label" for="psbNama">Nama Lengkap</label><input type="text" id="psbNama" class="input-field" maxlength="100"></div>
+            <div><label class="field-label" for="psbNik">NIK</label><input type="text" id="psbNik" placeholder="16 digit NIK" data-nik maxlength="16" inputmode="numeric" class="input-field"></div>
+            <div><label class="field-label" for="psbSim">No. SIM</label><input type="text" id="psbSim" class="input-field uppercase" maxlength="30"></div>
+            <div class="border-2 border-dashed border-slate-300 rounded-lg p-5 text-center">
+                <div id="psbPreview" class="photo-circle mb-3"><i class="fa-solid fa-camera text-slate-300 text-2xl"></i></div>
+                <video id="psbVideo" autoplay playsinline muted class="hidden w-full rounded-lg mb-3 video-mirror"></video>
+                <button type="button" id="psbRekam" class="btn-success" data-on-click="rekamFotoPos" data-arg="psb">Nyalakan Kamera</button>
+            </div>
+            <button type="button" class="btn-primary w-full" data-on-click="simpanSupirBaruPos" data-arg="$el">Simpan Supir</button>
+        </div>
+    </div>
+</div>
+
+{# ===== MODAL: ganti supir (cari NIK) / ubah data supir ===== #}
+<div id="modalPosUbahSupir" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Ganti / Ubah Supir</h3>
+            <button type="button" data-on-click="tutupUbahSupirPos" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="grid grid-cols-2">
+            <button type="button" id="pusTabCari" class="modal-tab modal-tab-active" data-on-click="tabUbahSupirPos" data-arg="cari">Ganti Supir</button>
+            <button type="button" id="pusTabUbah" class="modal-tab" data-on-click="tabUbahSupirPos" data-arg="ubah">Ubah Data Supir</button>
+        </div>
+        <div id="pusPanelCari" class="p-6 space-y-4">
+            <p class="text-xs text-slate-500">Dipakai bila wajah tidak terbaca. Supir yang dipilih manual tercatat di Log Audit.</p>
+            <div>
+                <label class="field-label" for="pusNik">NIK supir yang datang</label>
+                <div class="flex gap-2">
+                    <input type="text" id="pusNik" data-nik maxlength="16" inputmode="numeric" class="input-field" placeholder="16 digit NIK"
+                           data-on-enter="cariNikPos">
+                    <button type="button" class="btn-secondary" data-on-click="cariNikPos">Cari</button>
+                </div>
+            </div>
+            <div id="pusHasil" class="text-sm"></div>
+            <button type="button" id="pusPakai" class="btn-primary w-full" data-on-click="pakaiSupirPos" disabled>Gunakan Supir Ini</button>
+        </div>
+        <div id="pusPanelUbah" class="p-6 space-y-4 hidden">
+            {% if boleh_ubah_supir %}
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+                Perubahan identitas tercatat di Log Audit dan supir ditandai "Pernah Diperbarui".</div>
+            <p id="pusTanpaSupir" class="hidden text-sm text-red-500">Belum ada supir terpilih. Scan atau pilih supir dulu.</p>
+            <div><label class="field-label" for="pusNama">Nama Lengkap</label><input type="text" id="pusNama" class="input-field" maxlength="100"></div>
+            <div><label class="field-label" for="pusNikUbah">NIK</label><input type="text" id="pusNikUbah" data-nik maxlength="16" inputmode="numeric" class="input-field"></div>
+            <div><label class="field-label" for="pusSim">No. SIM</label><input type="text" id="pusSim" class="input-field uppercase" maxlength="30"></div>
+            <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center">
+                <div id="pusPreview" class="photo-circle mb-3"><i class="fa-solid fa-camera text-slate-300 text-2xl"></i></div>
+                <video id="pusVideo" autoplay playsinline muted class="hidden w-full rounded-lg mb-3 video-mirror"></video>
+                <button type="button" id="pusRekam" class="btn-success" data-on-click="rekamFotoPos" data-arg="pus">Nyalakan Kamera</button>
+                <p class="text-xs text-slate-400 mt-2">Opsional, hanya bila wajah perlu direkam ulang</p>
+            </div>
+            <button type="button" id="pusSimpan" class="btn-primary w-full" data-on-click="simpanUbahSupirPos" data-arg="$el">Simpan Perubahan</button>
+            {% else %}
+            <p class="text-sm text-slate-500">Level Anda tidak memiliki hak Ubah di menu Pos Security.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if boleh_blacklist %}
+{# ===== MODAL: ajukan blacklist (surat boleh menyusul dari menu Blacklist) ===== #}
+<div id="modalPosBlacklist" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 class="font-bold">Ajukan Blacklist</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalPosBlacklist" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <p class="field-label">Target</p>
+                <div id="pblTarget" class="space-y-2 text-sm"></div>
+            </div>
+            <div>
+                <label class="field-label" for="pblAlasan">Alasan</label>
+                <textarea id="pblAlasan" rows="3" maxlength="500" class="input-field" placeholder="Mis. membawa TBS curian, plat palsu"></textarea>
+            </div>
+            <p class="text-xs text-slate-500">Berlaku setelah disetujui. Surat blacklist dapat dilampirkan menyusul dari menu Blacklist.</p>
+            <button type="button" class="btn-danger w-full" data-on-click="kirimBlacklistPos" data-arg="$el"><i class="fa-solid fa-ban"></i> Kirim Pengajuan</button>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_scripts %}
+<script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/pos/pos_security.js') }}"></script>
 {% endblock %}

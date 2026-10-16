@@ -550,6 +550,8 @@ CREATE TABLE dbo.transaksi (
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     diperiksa_pada     DATETIME NULL,                               -- verifikasi tiket selesai (migrasi 033)
     diperiksa_oleh     INT NULL CONSTRAINT FK_Trx_Pemeriksa REFERENCES dbo.akun (id_user),
+    waktu_keluar       DATETIME NULL,                               -- jam keluar gerbang, Logbook (migrasi 039)
+    keluar_oleh        INT NULL CONSTRAINT FK_Trx_Keluar REFERENCES dbo.akun (id_user),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
                                         OR (cara_angkut IN ('PENGIRIM', 'PENERIMA') AND id_pengangkutan IS NULL)),
@@ -558,6 +560,7 @@ CREATE TABLE dbo.transaksi (
 );
 CREATE INDEX IX_Trx_Status_Created ON dbo.transaksi (status_alur, created_at DESC) INCLUDE (id_kendaraan, id_supplier, id_driver);
 CREATE INDEX IX_Trx_Kendaraan_Created ON dbo.transaksi (id_kendaraan, created_at DESC);
+CREATE INDEX IX_Trx_Keluar ON dbo.transaksi (waktu_keluar) INCLUDE (id_kendaraan, id_mill, status_alur);
 CREATE INDEX IX_Trx_Supplier_Created ON dbo.transaksi (id_supplier, created_at DESC);
 CREATE INDEX IX_Trx_Driver_Created ON dbo.transaksi (id_driver, created_at DESC);
 GO
@@ -1102,18 +1105,20 @@ INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
 INSERT INTO dbo.alur (kode, nama) VALUES
     ('TBS', N'TBS: timbang - sortasi - timbang'),
     ('PKS', N'Produk PKS: timbang - lab - timbang'),
-    ('TIMBANG_SAJA', N'Penimbangan saja (sekali timbang)');
+    ('TIMBANG_SAJA', N'Penimbangan saja (sekali timbang)'),
+    ('POS_SAJA', N'Pos Security saja (catat masuk / keluar, tanpa timbang)');      -- migrasi 039
 INSERT INTO dbo.alur_tahap (id_alur, urutan, kode_tahap)
 SELECT a.id_alur, v.urutan, v.tahap
 FROM (VALUES ('TBS', 1, 'SECURITY'), ('TBS', 2, 'TIMBANG_1'), ('TBS', 3, 'SORTASI'), ('TBS', 4, 'TIMBANG_2'),
              ('PKS', 1, 'SECURITY'), ('PKS', 2, 'TIMBANG_1'), ('PKS', 3, 'LAB'), ('PKS', 4, 'TIMBANG_2'),
-             ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1')) v (alur, urutan, tahap)
+             ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1'),
+             ('POS_SAJA', 1, 'SECURITY')) v (alur, urutan, tahap)
 JOIN dbo.alur a ON a.kode = v.alur;
 INSERT INTO dbo.mill (id_comp_area, kode, nama, id_alur)
 SELECT ar.id_comp_area, v.kode, v.nama, al.id_alur
 FROM dbo.comp_area ar
 CROSS JOIN (VALUES ('TBS', N'Penerimaan TBS', 'TBS'), ('PKS', N'Produk PKS', 'PKS'),
-                   ('TS', N'Penimbangan Saja', 'TIMBANG_SAJA')) v (kode, nama, alur)
+                   ('TS', N'Penimbangan Saja', 'TIMBANG_SAJA'), ('POS', N'Pos Security', 'POS_SAJA')) v (kode, nama, alur)
 JOIN dbo.alur al ON al.kode = v.alur;
 -- Hak menu Tamu (KUNJUNGAN) untuk Security
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)

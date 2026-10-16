@@ -1,7 +1,8 @@
 """Log Validasi Blacklist (migrasi 028): setiap orang / kendaraan blacklist yang terdeteksi dicatat per kejadian.
 
 Dipanggil otomatis dari catat_security_audit(..., "TRY_SCAN_BLACKLIST", details={...}) dengan kunci details:
-  sumber (SCAN_WAJAH, ABSENSI, TAMU, TAMU_MASUK, TIKET, TAMBAH_SUPIR, PENDAFTARAN, PLAT), tindakan (DITOLAK /
+  sumber (SCAN_WAJAH, ABSENSI, TAMU, TAMU_MASUK, TIKET, TAMBAH_SUPIR, PENDAFTARAN, PLAT,
+  POS_MASUK), tindakan (DITOLAK /
   PERINGATAN / DILOLOSKAN), id_personel, id_kendaraan, no_plat, jarak, keterangan.
 - Kejadian sama (target, sumber, petugas) dalam 60 detik tidak dicatat ulang (mis. plat diketik berulang).
 - Deteksi pertama hari itu untuk target di lokasi tersebut mengirim notifikasi ke jabatan yang punya hak Setujui di
@@ -16,7 +17,8 @@ log = logging.getLogger(__name__)
 
 SUMBER = {"SCAN_WAJAH": "Scan wajah Form Security", "ABSENSI": "Scan absensi", "TAMU": "Scan tamu",
           "TAMU_MASUK": "Tamu dicatat masuk", "TIKET": "Tiket tetap dibuat", "TAMBAH_SUPIR": "Tambah supir",
-          "PENDAFTARAN": "Pendaftaran personel", "PLAT": "Cek plat di info bar", "LAINNYA": "Lainnya"}
+          "PENDAFTARAN": "Pendaftaran personel", "PLAT": "Cek plat di info bar",
+          "POS_MASUK": "Kendaraan masuk di Pos Security", "LAINNYA": "Lainnya"}
 TINDAKAN = ("DITOLAK", "PERINGATAN", "DILOLOSKAN")
 JEDA_DETIK = 60
 

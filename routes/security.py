@@ -168,7 +168,7 @@ def _data_verif(d, is_updated=None):
 
 @security_bp.route("/api/driver/tambah", methods=["POST"])
 @login_required
-@izin('FORM_SECURITY', 'tambah')
+@izin(('FORM_SECURITY', 'POS_SECURITY'), 'tambah')
 def driver_tambah():
     nik = request.form.get("nik", "").strip()
     nama = request.form.get("nama", "").strip()
@@ -216,7 +216,7 @@ def driver_tambah():
 
 @security_bp.route("/api/driver/update-identitas", methods=["POST"])
 @login_required
-@izin('FORM_SECURITY', 'ubah')
+@izin(('FORM_SECURITY', 'POS_SECURITY'), 'ubah')
 def driver_update_identitas():
     f = request.form
     id_driver, nik, nama, no_sim = f.get("id_driver", "").strip(), f.get("nik", "").strip(), \
@@ -261,7 +261,7 @@ MAKS_FRAME = 20
 
 @security_bp.route("/api/security/scan-wajah", methods=["POST"])
 @login_required
-@izin('FORM_SECURITY', 'tambah')
+@izin(('FORM_SECURITY', 'POS_SECURITY'), 'tambah')
 def scan_wajah_supir():
     area = area_akun(current_user.id)
     wajib = pengaturan.nilai("TANTANGAN_SECURITY", area)

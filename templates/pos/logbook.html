@@ -2,8 +2,8 @@
 {% from "partials/layout/_macros.html" import judul_halaman, section_header, tombol_ekspor %}
 {% block title %}Logbook Kendaraan · CPOS{% endblock %}
 
-{# Tahap 1 Security: truk masih di dalam (masuk dari Pos Security) dan yang sudah keluar, dengan jam masuk / keluar.
-   LANGKAH 1 (tampilan): data contoh dari static/js/pos/logbook.js. #}
+{# Truk masih di dalam (semua, belum dicatat keluar) dan yang sudah keluar pada tanggal terpilih, dari tabel transaksi
+   (routes/pos.py /api/pos/logbook). Catat Keluar butuh hak Ubah di menu Logbook. #}
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
@@ -16,11 +16,6 @@
 
 {% block tab_content %}
 <div class="space-y-5" id="logbook" data-batas-jam="{{ batas_jam }}" data-boleh-keluar="{{ 1 if boleh_keluar else 0 }}">
-
-    <div class="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-violet-300 bg-violet-50 px-4 py-2.5 text-sm">
-        <span class="font-semibold text-violet-800"><i class="fa-solid fa-eye mr-1"></i> Pratinjau tampilan</span>
-        <span class="text-violet-700">Isi tabel masih data contoh. Tombol Keluar sudah bisa dicoba (baris pindah ke tabel Sudah Keluar).</span>
-    </div>
 
     <div id="ringkasLogbook" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
