@@ -150,7 +150,7 @@ CREATE TABLE dbo.akun (
     username     VARCHAR(50)  NOT NULL CONSTRAINT UX_Users_Username UNIQUE,
     password     VARCHAR(255) NOT NULL,                         -- hash pbkdf2
     id_level      INT NOT NULL CONSTRAINT FK_Users_Level REFERENCES dbo.level (id_level),
-    id_department INT NOT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),
+    id_department INT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),   -- NULL = akun admin sistem (migrasi 037)
     id_comp_area  INT NOT NULL CONSTRAINT FK_Users_Area REFERENCES dbo.comp_area (id_comp_area),
     id_personel  INT NOT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),   -- akun = personel yang bisa login
     is_active    BIT NOT NULL CONSTRAINT DF_Users_Aktif DEFAULT (1),
@@ -1127,7 +1127,7 @@ INSERT INTO dbo.personel (nik, nama_personel, kategori) VALUES (NULL, 'Super Adm
 INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area, id_personel)
 SELECT 'Super Admin', 'admin',
        'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
-       (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), (SELECT id_department FROM dbo.department WHERE nama = N'Umum'),
+       (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), NULL,
        (SELECT MIN(id_comp_area) FROM dbo.comp_area), SCOPE_IDENTITY();
 INSERT INTO dbo.password_riwayat (id_user, password) SELECT id_user, password FROM dbo.akun;
 GO

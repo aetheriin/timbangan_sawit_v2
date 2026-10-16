@@ -125,6 +125,9 @@ function bukaLevel(id) {
     isiForm(form, lv ? { id_level: lv.id_level, kode: lv.kode, nama: lv.nama, halaman_awal: lv.halaman_awal,
                          keterangan: lv.keterangan || '', id_department: dept || '' }
                      : { id_level: '', halaman_awal: '/weighbridge?view=list', id_department: dept || '' });
+    const admin = !!(lv && lv.is_admin);            // jabatan admin sistem tidak termasuk departemen
+    document.getElementById('blokLevelDept').classList.toggle('hidden', admin);
+    form.elements.id_department.required = !admin;
     form.elements.kode.readOnly = !!lv;
     form.elements.kode.required = !lv;
     form.elements.kode.classList.toggle('bg-slate-50', !!lv);

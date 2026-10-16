@@ -18,7 +18,7 @@
                     <input type="text" id="levelNama" name="nama" required maxlength="100" class="input-field">
                 </div>
             </div>
-            <div>
+            <div id="blokLevelDept">
                 <label class="field-label" for="levelDept">Departemen</label>
                 <select id="levelDept" name="id_department" required class="input-field">
                     {% for d in department_list %}<option value="{{ d.id_department }}">{{ d.nama }}</option>{% endfor %}

@@ -74,14 +74,53 @@ def _riwayat(cursor, id_pengajuan, langkah, aksi, id_user, id_level=None, catata
                       VALUES (?, ?, ?, ?, ?, ?)""", id_pengajuan, langkah, aksi, id_level, id_user, catatan)
 
 
+def _pengaju_berhak(jenis, user_id):
+    """Pengaju (pengguna yang sedang login) punya hak Setujui di menu jenis ini."""
+    from flask_login import current_user
+    try:
+        user = current_user if getattr(current_user, "id", None) == user_id else None
+    except RuntimeError:        # di luar request
+        user = None
+    return bool(user) and hak_akses.boleh(MENU_JENIS[jenis], "setujui", user=user)
+
+
+def _catat_langsung(jenis, target, judul, alasan, data, user_id):
+    """Jejak pengajuan yang langsung disetujui (pengaju berhak menyetujui): status DISETUJUI + riwayat."""
+    id_area = area_akun(user_id)
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""SET NOCOUNT ON; INSERT INTO pengajuan (jenis, total_langkah, langkah, status, selesai_at, id_company,
+                                                                 id_comp_area, target, judul, alasan, data, diajukan_oleh)
+                          VALUES (?, 1, 1, 'DISETUJUI', GETDATE(), ?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
+                       jenis, company_area().get(id_area), id_area, target, judul[:200], (alasan or "")[:500] or None,
+                       json.dumps(data, default=str), user_id)
+        id_p = cursor.fetchone()[0]
+        _riwayat(cursor, id_p, 0, "DIAJUKAN", user_id, catatan=alasan)
+        _riwayat(cursor, id_p, 1, "DISETUJUI", user_id, catatan="Disetujui langsung: pengaju memiliki hak Setujui")
+        conn.commit()
+    except Exception:       # noqa: BLE001 - jejak gagal tidak membatalkan yang sudah dijalankan
+        conn.rollback()
+        import logging
+        logging.getLogger("weighbridge").exception("Gagal mencatat pengajuan langsung %s", jenis)
+    finally:
+        conn.close()
+
+
 def ajukan(jenis, target, judul, alasan, data, user_id):
     """Buat pengajuan. Tanpa langkah penyetuju -> langsung dijalankan. Kembalikan (status, pesan)."""
     if jenis not in JENIS:
         raise ValueError("Jenis pengajuan tidak dikenal")
+    if _pengaju_berhak(jenis, user_id):
+        # Pengaju sendiri punya hak Setujui: tidak perlu menunggu orang lain (dan tidak menyetujui sendiri lewat
+        # antrean). Langsung dijalankan, tetap tercatat sebagai pengajuan yang disetujui.
+        _PELAKSANA[jenis]({k: v for k, v in data.items() if not k.startswith("_")}, user_id, user_id)
+        _catat_langsung(jenis, target, judul, alasan, data, user_id)
+        return "DISETUJUI", None
     langkah = penyetuju(jenis)
     khusus = [i for i in hak_akses.pengguna_khusus_dengan(MENU_JENIS[jenis], "setujui") if i != user_id]
     if not langkah and not khusus:
-        _PELAKSANA[jenis](data, user_id, user_id)
+        _PELAKSANA[jenis]({k: v for k, v in data.items() if not k.startswith("_")}, user_id, user_id)
         return "DISETUJUI", None
     id_area = area_akun(user_id)
     id_company = company_area().get(id_area)
@@ -169,6 +208,8 @@ def batalkan(id_pengajuan, user):
         p = _ambil(cursor, id_pengajuan)
         if p["status"] != "MENUNGGU" or p["diajukan_oleh"] != user.id:
             raise ValueError("Hanya pengajuan Anda yang masih menunggu yang bisa dibatalkan")
+        if not hak_akses.boleh(MENU_JENIS.get(p["jenis"], ""), "setujui", user=user):
+            raise ValueError("Pengajuan hanya bisa diputuskan oleh pemegang hak Setujui")
         conn.rollback()
     finally:
         conn.close()
@@ -236,7 +277,8 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
             "status": r["status"], "langkah": r["langkah"], "total_langkah": r["total_langkah"], "judul": r["judul"],
             "alasan": r["alasan"], "pengaju": r["pengaju"], "company": r["kode_company"], "site": r["site"],
             "waktu": r["created_at"].strftime("%Y-%m-%d %H:%M"), "bisa_setujui": bisa,
-            "bisa_batal": r["status"] == "MENUNGGU" and r["diajukan_oleh"] == user.id,
+            "bisa_batal": (r["status"] == "MENUNGGU" and r["diajukan_oleh"] == user.id
+                           and hak_akses.boleh(MENU_JENIS.get(r["jenis"], ""), "setujui", user=user)),
             "riwayat": riwayat.get(r["id_pengajuan"], []), "rincian": r["data"].get("_rincian", []),
         })
     return hasil

@@ -84,7 +84,7 @@ function aturAreaUser(pilih) {
 
 function aturDeptUser(pilih) {
     const area = document.getElementById('userArea').value;
-    const dept = typeof pilih === 'number' ? pilih : Number(document.getElementById('userDept').value) || null;
+    const dept = typeof pilih === 'number' || pilih === 'admin' ? pilih : document.getElementById('userDept').value || null;
     isiDariSumber('userDept', 'sumberDept', o => !o.dataset.area || (area && o.dataset.area.split(',').includes(area)), dept);
     aturJabatanUser();
     aturPtKelola();
@@ -122,7 +122,7 @@ function bukaUbahUser(id) {
     const ar = document.querySelector('#sumberArea').content.querySelector(`option[value="${u.id_comp_area}"]`);
     document.getElementById('userCompany').value = ar ? ar.dataset.company : '';
     aturAreaUser(u.id_comp_area);
-    aturDeptUser(lv ? Number(lv.dataset.dept) : null);
+    aturDeptUser(lv ? (lv.dataset.dept === 'admin' ? 'admin' : Number(lv.dataset.dept)) : null);
     aturJabatanUser(u.id_level);
     form.querySelectorAll('[name=pt_kelola]').forEach(c => { c.checked = u.pt_kelola.includes(Number(c.value)); });
     aturPtKelola();

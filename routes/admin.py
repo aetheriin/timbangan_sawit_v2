@@ -46,9 +46,14 @@ HALAMAN = {
 
 POLA_USERNAME = re.compile(r"^[a-z0-9._]{3,50}$")
 # Pilihan "Halaman awal setelah login" (admin memilih nama menu, bukan mengetik alamat)
-HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "List Tiket"),
-                ("/weighbridge?tab=security", "Stasiun Timbang › Security"), ("/weighbridge?tab=timbangan", "Stasiun Timbang › Timbangan"),
-                ("/weighbridge?tab=sortasi", "Stasiun Timbang › Sortasi"), ("/weighbridge?tab=lab", "Stasiun Timbang › Laboratorium"),
+# /weighbridge?tab=... (tanpa view=form) = Daftar Tiket dengan tahap terpilih; view=form&tab=... = tab Stasiun Timbang
+HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/weighbridge?view=list", "Daftar Tiket › Semua tahap"),
+                ("/weighbridge?tab=security", "Daftar Tiket › Security"), ("/weighbridge?tab=timbangan", "Daftar Tiket › Timbangan"),
+                ("/weighbridge?tab=sortasi", "Daftar Tiket › Sortasi"), ("/weighbridge?tab=lab", "Daftar Tiket › Laboratorium"),
+                ("/weighbridge?view=form&tab=security", "Stasiun Timbang › Security"),
+                ("/weighbridge?view=form&tab=timbangan", "Stasiun Timbang › Timbangan"),
+                ("/weighbridge?view=form&tab=sortasi", "Stasiun Timbang › Sortasi"),
+                ("/weighbridge?view=form&tab=lab", "Stasiun Timbang › Laboratorium"),
                 ("/face-recognition", "Pengenalan Wajah"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
                 ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
                 ("/admin", "Admin (khusus level admin)")]
@@ -136,10 +141,10 @@ def _akun_form():
     level = {lv["id_level"]: lv for lv in hak_akses.daftar_level() if lv["is_active"]}
     id_level = _id_form("id_level", level, "jabatan")
     id_department = level[id_level]["id_department"]
-    if id_department is None:
+    if id_department is None and not level[id_level]["is_admin"]:
         raise ValueError("Jabatan ini belum punya departemen. Atur di Admin › Level & Hak Akses")
     id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
-    if not org.department_di_area(id_department, id_area):
+    if id_department is not None and not org.department_di_area(id_department, id_area):
         raise ValueError("Departemen jabatan ini tidak tersedia di area yang dipilih. Atur di Admin › Organisasi › Departemen")
     return level[id_level], id_department, id_area
 
@@ -370,8 +375,12 @@ def level_simpan():
             if not lama or lama["halaman_awal"] != halaman_awal:        # nilai lama yang diketik manual tetap boleh
                 raise ValueError("Pilih halaman awal dari daftar")
         keterangan = _teks("keterangan", wajib=False, maks=255) or None
-        id_department = _id_form("id_department", {d["id_department"] for d in org.daftar_department() if d["is_active"]},
-                                 "departemen")
+        lama_lv = hak_akses.get_level(id_level) if id_level else None
+        if lama_lv and lama_lv["is_admin"]:          # jabatan admin sistem tidak termasuk departemen mana pun
+            id_department = None
+        else:
+            id_department = _id_form("id_department", {d["id_department"] for d in org.daftar_department() if d["is_active"]},
+                                     "departemen")
         if id_level is None:
             kode = _teks("kode", maks=30).upper()
             if not POLA_KODE.match(kode):
