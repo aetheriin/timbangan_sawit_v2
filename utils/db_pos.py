@@ -1,7 +1,7 @@
 """Pos Security & Logbook Kendaraan (tahap 1) di atas tabel transaksi, tanpa tabel baru (migrasi 039).
 
 Jam masuk = transaksi.created_at (petugas security_id), jam keluar = waktu_keluar (petugas keluar_oleh).
-Kendaraan dari Pos Security memakai unit timbang beralur POS_SAJA: selesai saat dicatat keluar.
+Kendaraan dari Pos Security memakai alur POS_SAJA: selesai saat dicatat keluar.
 "Masih di dalam" = belum dicatat keluar dan tidak dibatalkan (tiket biasa ikut, supaya Logbook tetap dipakai di tahap 2)."""
 from datetime import datetime, timedelta
 
@@ -22,8 +22,7 @@ _DARI = """FROM transaksi t
            LEFT JOIN mitra ang ON ang.id_supplier = t.id_pengangkutan
            LEFT JOIN akun um ON um.id_user = t.security_id
            LEFT JOIN akun uk ON uk.id_user = t.keluar_oleh
-           LEFT JOIN mill ml ON ml.id_mill = t.id_mill
-           LEFT JOIN alur a ON a.id_alur = ml.id_alur"""
+           LEFT JOIN alur a ON a.id_alur = t.id_alur"""
 
 
 def _query(sql, *params):

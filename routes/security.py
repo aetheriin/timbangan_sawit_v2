@@ -112,16 +112,13 @@ def buat_tiket():
     saran = f.get("id_driver_saran", "").strip()
     prev_driver_id = int(saran) if saran.isdigit() and saran != str(id_driver) else None
 
-    # Pabrik (arah tahap: sortasi / lab) dari alur produk; penimbangan saja memakai alur TIMBANG_SAJA
+    # Alur tahap (sortasi / lab) dari produk; penimbangan saja memakai alur TIMBANG_SAJA. Area = area akun security.
     produk = next(p for p in get_semua_produk() if p.id_produk == int(id_produk))
-    id_alur = alur.id_alur_kode("TIMBANG_SAJA") if jenis == "PENIMBANGAN_SAJA" else produk.id_alur
-    mill = alur.pilih_mill(area_akun(current_user.id), id_alur)
-    if mill is None:
-        return jsonify({"error": "Pabrik untuk alur produk ini belum diatur di area Anda (Admin › Organisasi › Pabrik)"}), 400
+    id_alur = alur.alur_tiket(jenis, produk.id_alur)
 
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis,
                         int(id_supplier), int(id_produk), id_driver, no_do,
-                        current_user.id, id_angkut, mill["id_mill"], do["id_do"] if do else None, cara)
+                        current_user.id, id_angkut, area_akun(current_user.id), id_alur, do["id_do"] if do else None, cara)
 
     if prev_driver_id:
         lama = get_driver_by_id(prev_driver_id)

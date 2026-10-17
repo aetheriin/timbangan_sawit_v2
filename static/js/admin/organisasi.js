@@ -1,4 +1,4 @@
-// ===== ADMIN > ORGANISASI: perusahaan, area perusahaan, Mill (tipe area), departemen (+ area), unit timbang =====
+// ===== ADMIN > ORGANISASI: perusahaan, area perusahaan, Mill (tipe area), departemen (+ perusahaan), jabatan =====
 const ORG = {
     company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), escapeHtml(c.alamat || '-'),
                escapeHtml(c.label_area || '-')] },
@@ -10,9 +10,12 @@ const ORG = {
               escapeHtml(l.keterangan || '-'), `${Number(l.jumlah_area)} area`] },
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                   escapeHtml(labelPtDept(d.company)), Number(d.jumlah_user)] },
-    mill: { id: 'id_mill', nama: 'Unit Timbang', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
+    jabatan: { id: 'id_level', nama: 'Jabatan', kolom: j => [mono(j.kode),
+               escapeHtml(j.nama) + (j.is_admin ? ' <span class="badge-status bg-slate-800 text-white">Admin</span>' : ''),
+               escapeHtml(j.department || 'Admin sistem'), escapeHtml(labelHalamanAwal(j.halaman_awal)), Number(j.jumlah_user)] },
 };
-let dataOrg = { company: [], area: [], lokasi: [], department: [], mill: [] };
+let dataOrg = { company: [], area: [], lokasi: [], department: [], jabatan: [] };
+const labelHalamanAwal = url => ([...document.getElementById('orgJabAwal').options].find(o => o.value === url) || {}).textContent || url;
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 const labelPtDept = ids => ids.length
@@ -95,13 +98,28 @@ function bukaOrganisasi(jenis, id) {
         isiPilihan('orgAreaCompany', dataOrg.company, 'id_company', c => `${c.kode} · ${c.nama}`, r ? r.id_company : null);
         isiPilihan('orgAreaMill', dataOrg.lokasi, 'id_lokasi', l => `${l.kode} · ${l.nama}`, r ? r.id_lokasi : null);
     }
-    if (jenis === 'mill') isiPilihan('orgMillArea', dataOrg.area, 'id_comp_area', a => a.label, r ? r.id_comp_area : null);
     const { area, company, ...isi } = r || {};
     isiForm(form, r ? { ...isi, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
+    if (jenis === 'jabatan') aturFormJabatan(form, r);
     if (jenis === 'department') isiPtDepartemen(r ? r.company : []);
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
-    form.querySelector('input:not([type=hidden]), select').focus();
+    form.querySelector('input:not([type=hidden]):not([readonly]), select').focus();
+}
+
+// Jabatan: kode hanya diisi saat tambah; jabatan admin sistem tanpa departemen
+function aturFormJabatan(form, r) {
+    isiPilihan('orgJabDept', dataOrg.department, 'id_department', d => d.nama, r ? r.id_department : null);
+    const awal = form.elements.halaman_awal;
+    const nilai = r ? r.halaman_awal : '/weighbridge?view=list';
+    if (![...awal.options].some(o => o.value === nilai)) awal.add(new Option(nilai, nilai));
+    awal.value = nilai;
+    const admin = !!(r && r.is_admin);
+    document.getElementById('blokOrgJabDept').classList.toggle('hidden', admin);
+    form.elements.id_department.required = !admin;
+    form.elements.kode.readOnly = !!r;
+    form.elements.kode.required = !r;
+    form.elements.kode.classList.toggle('bg-slate-50', !!r);
 }
 
 Object.keys(ORG).forEach(jenis => {
@@ -115,8 +133,10 @@ function ubahAktifOrganisasi(jenis, id) {
     const cfg = ORG[jenis];
     const r = dataOrg[jenis].find(x => x[cfg.id] === id);
     konfirmasiAktif({
-        url: `/api/admin/organisasi/${jenis}/${id}/aktif`, aktif: !r.is_active, nama: r.label || r.nama, jenis: cfg.nama.toLowerCase(),
-        pesanNonaktif: jenis === 'mill' ? 'Tiket baru tidak lagi memakai unit timbang ini.' : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.',
+        url: jenis === 'jabatan' ? `/api/admin/level/${id}/aktif` : `/api/admin/organisasi/${jenis}/${id}/aktif`,
+        aktif: !r.is_active, nama: r.label || r.nama, jenis: cfg.nama.toLowerCase(),
+        pesanNonaktif: jenis === 'jabatan' ? 'Pengguna dengan jabatan ini tidak bisa login dan sesinya langsung berakhir.'
+                                           : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.',
         setelahnya: muatOrganisasi,
     });
 }

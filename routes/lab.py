@@ -8,7 +8,7 @@ from utils import alur
 
 
 def _tahap_ada(trx, kode):
-    """Tahap ini ada di alur mill tiket; tiket lama tanpa mill memakai kategori produk."""
+    """Tahap ini ada di alur tiket; tiket lama tanpa alur memakai kategori produk."""
     if trx.id_alur:
         return alur.punya_tahap(trx.id_alur, kode)
     return trx.kategori == ("TBS" if kode == "SORTASI" else "PRODUK_PKS")

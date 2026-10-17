@@ -1,5 +1,5 @@
 def _tahap(id_alur):
-    """Urutan tahap tiket dari alur mill-nya (kosong bila tiket lama tanpa mill)."""
+    """Urutan tahap tiket dari alurnya (kosong bila tiket lama tanpa alur)."""
     if not id_alur:
         return []
     from utils.alur import tahap_alur

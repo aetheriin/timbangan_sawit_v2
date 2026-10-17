@@ -26,18 +26,6 @@ def peta_alur():
     return peta
 
 
-@cache_ttl(60)
-def daftar_mill():
-    rows = _query("""SELECT m.id_mill, m.id_comp_area, c.kode + ' · ' + ar.nama AS area, m.kode, m.nama, m.id_alur,
-                            a.kode AS kode_alur, a.nama AS nama_alur, m.is_active
-                     FROM mill m JOIN alur a ON a.id_alur = m.id_alur JOIN comp_area ar ON ar.id_comp_area = m.id_comp_area
-                     JOIN company c ON c.id_company = ar.id_company
-                     ORDER BY m.is_active DESC, c.kode, ar.nama, m.kode""")
-    for r in rows:
-        r["is_active"] = bool(r["is_active"])
-    return rows
-
-
 # Warna status tiket (tabel status_tiket, migrasi 033), diatur di Admin › Organisasi
 WARNA_STATUS = ("abu", "biru", "hijau", "oranye", "merah", "ungu", "kuning", "toska")
 
@@ -65,7 +53,6 @@ def simpan_status(kode, nama, warna):
 
 def hapus_cache():
     peta_alur.hapus()
-    daftar_mill.hapus()
 
 
 def tahap_alur(id_alur):
@@ -104,14 +91,13 @@ def menunggu(id_alur, status_alur):
     return NAMA_TAHAP.get({"SECURITY_REGISTER": "TIMBANG_1", "TIMBANG_2": "TIMBANG_2"}.get(status_alur, ""), status_alur)
 
 
-def pilih_mill(id_comp_area, id_alur):
-    """Pabrik aktif pertama di area itu untuk alur ini (dipakai saat tiket dibuat). None bila belum diatur."""
-    return next((m for m in daftar_mill() if m["is_active"] and m["id_comp_area"] == id_comp_area
-                 and m["id_alur"] == id_alur), None)
+def alur_tiket(jenis_transaksi, id_alur_produk):
+    """Alur tahap transaksi baru: Penimbangan saja = TIMBANG_SAJA, selain itu alur produk (Admin › Produk)."""
+    return id_alur_kode("TIMBANG_SAJA") if jenis_transaksi == "PENIMBANGAN_SAJA" else id_alur_produk
 
 
 def daftar_alur():
-    """Alur aktif untuk pilihan (Admin › Organisasi › Pabrik, Admin › Produk)."""
+    """Alur aktif untuk pilihan (Admin › Produk)."""
     return [{"id_alur": i, "kode": a["kode"], "nama": a["nama"], "tahap": a["tahap"]}
             for i, a in sorted(peta_alur().items()) if a["is_active"]]
 
@@ -127,22 +113,6 @@ def _ubah(sql, *params):
     finally:
         conn.close()
     hapus_cache()
-
-
-def kode_mill_dipakai(id_comp_area, kode, kecuali=None):
-    return any(m["id_mill"] != kecuali for m in daftar_mill() if m["id_comp_area"] == id_comp_area and m["kode"] == kode)
-
-
-def simpan_mill(id_mill, id_comp_area, kode, nama, id_alur):
-    if id_mill is None:
-        _ubah("INSERT INTO mill (id_comp_area, kode, nama, id_alur) VALUES (?, ?, ?, ?)", id_comp_area, kode, nama, id_alur)
-    else:
-        _ubah("UPDATE mill SET id_comp_area = ?, kode = ?, nama = ?, id_alur = ? WHERE id_mill = ?",
-              id_comp_area, kode, nama, id_alur, id_mill)
-
-
-def set_aktif_mill(id_mill, aktif):
-    _ubah("UPDATE mill SET is_active = ? WHERE id_mill = ?", 1 if aktif else 0, id_mill)
 
 
 def id_alur_kode(kode):

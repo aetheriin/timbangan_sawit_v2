@@ -480,7 +480,7 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
                t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
-               t.id_mill, ml.id_alur, t.cara_angkut, t.id_pengangkutan, k.no_plat, k.no_stnk,
+               t.id_comp_area, t.id_alur, t.cara_angkut, t.id_pengangkutan, k.no_plat, k.no_stnk,
                d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
                d.is_updated, d.is_blacklisted, d.foto_path
         FROM transaksi t
@@ -488,7 +488,6 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN v_personel d ON t.id_driver = d.id_personel
-        LEFT JOIN mill ml ON ml.id_mill = t.id_mill
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
           AND (k.no_plat = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
@@ -512,7 +511,7 @@ def catat_cetak_qr(no_tiket):
     return sebelumnya
 
 def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier, id_produk, id_driver, no_do, security_id,
-                        id_pengangkutan=None, id_mill=None, id_do=None, cara_angkut="PENGIRIM"):
+                        id_pengangkutan=None, id_comp_area=None, id_alur=None, id_do=None, cara_angkut="PENGIRIM"):
     """INSERT sungguhan, dipanggil saat 'Mulai Validasi Awal' diklik (bukan saat Tab di base bar)."""
     kendaraan_id = get_or_create_kendaraan(no_plat, no_stnk)
     qr_expired = datetime.now() + timedelta(hours=24)
@@ -523,10 +522,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor.execute(
         """INSERT INTO transaksi
            (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, id_pengangkutan, id_mill, id_do, cara_angkut)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            security_id, id_kontrak, id_pengangkutan, id_comp_area, id_alur, id_do, cara_angkut)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
-        security_id, id_kontrak, id_pengangkutan, id_mill, id_do, cara_angkut
+        security_id, id_kontrak, id_pengangkutan, id_comp_area, id_alur, id_do, cara_angkut
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.
@@ -575,12 +574,12 @@ def _simpan_penimbangan(cursor, no_tiket, ke, berat, id_jembatan, operator_id):
                    hitung_hash_timbang(no_tiket, ke, berat, id_jembatan))
 
 def _status_setelah(cursor, no_tiket, kode_tahap):
-    """Status tiket setelah tahap ini, menurut alur mill tiket (utils/alur.py)."""
+    """Status tiket setelah tahap ini, menurut alur tiket (utils/alur.py)."""
     from utils.alur import status_setelah
-    cursor.execute("""SELECT t.jenis_transaksi, ml.id_alur FROM transaksi t LEFT JOIN mill ml ON ml.id_mill = t.id_mill
+    cursor.execute("""SELECT t.jenis_transaksi, t.id_alur FROM transaksi t
                       WHERE t.no_tiket = ?""", no_tiket)
     row = cursor.fetchone()
-    if row.id_alur is None:          # tiket tanpa mill (data lama yang belum terpetakan): aturan lama
+    if row.id_alur is None:          # tiket tanpa alur (data lama sebelum migrasi 041): aturan lama
         if kode_tahap == 'TIMBANG_1':
             return 'SELESAI' if row.jenis_transaksi == 'PENIMBANGAN_SAJA' else 'TIMBANG_1'
         return 'SELESAI' if kode_tahap == 'TIMBANG_2' else 'TIMBANG_2'
@@ -646,16 +645,15 @@ def get_list_tiket_aktif(id_area=None):
     cursor = conn.cursor()
     cursor.execute(f"""
         SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
-               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, ml.id_alur,
+               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, t.id_alur,
                t.no_do, d.nama_personel AS supir
         FROM transaksi t
-        LEFT JOIN mill ml ON ml.id_mill = t.id_mill
         LEFT JOIN personel d ON d.id_personel = t.id_driver
         JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
-          AND ISNULL(ml.id_alur, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
+          AND ISNULL(t.id_alur, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
         ORDER BY t.created_at DESC
     """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
@@ -849,10 +847,9 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
     conn.commit()
     conn.close()
 
-# Area tiket: area mill tiket, atau area akun Security pembuatnya (tiket lama tanpa mill). Dipakai menyaring
-# List / history per area akun yang membuka (user di HO tidak melihat tiket site lain).
-AREA_TIKET = ("COALESCE((SELECT m.id_comp_area FROM mill m WHERE m.id_mill = t.id_mill), "
-              "(SELECT a.id_comp_area FROM akun a WHERE a.id_user = t.security_id))")
+# Area tiket = area akun Security pembuatnya. Dipakai menyaring List / history per area akun yang membuka
+# (user di site tidak melihat tiket site lain).
+AREA_TIKET = "t.id_comp_area"          # area transaksi (migrasi 041)
 
 
 def _filter_area(id_area):

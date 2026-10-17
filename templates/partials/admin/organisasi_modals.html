@@ -98,30 +98,31 @@
     </form>
 </div>
 
-<!-- MODAL: Unit Timbang (tabel mill: alur tahap per area) -->
-<div id="modalOrg-mill" class="modal-overlay">
-    <form id="formOrg-mill" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/mill/simpan">
+<!-- MODAL: Jabatan (= Level di ERD). Hak menu tiap jabatan diatur di Admin › Level & Hak Akses -->
+<div id="modalOrg-jabatan" class="modal-overlay">
+    <form id="formOrg-jabatan" class="modal-box" autocomplete="off" data-url="/api/admin/level/simpan">
         <div class="modal-header">
-            <h3 class="font-bold" data-judul>Unit Timbang</h3>
-            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="font-bold" data-judul>Jabatan</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-jabatan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="p-6 grid grid-cols-3 gap-3">
-            <input type="hidden" name="id_mill">
-            <div class="col-span-3"><label class="field-label" for="orgMillArea">Area</label>
-                <select id="orgMillArea" name="id_comp_area" required class="input-field">
-                    {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <input type="hidden" name="id_level">
+            <div><label class="field-label" for="orgJabKode">Kode</label>
+                <input type="text" id="orgJabKode" name="kode" maxlength="30" placeholder="SUPERVISOR" class="input-field uppercase font-mono">
+                <p class="field-hint">Tidak bisa diubah setelah dibuat.</p></div>
+            <div><label class="field-label" for="orgJabNama">Nama</label>
+                <input type="text" id="orgJabNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div id="blokOrgJabDept" class="col-span-2"><label class="field-label" for="orgJabDept">Departemen</label>
+                <select id="orgJabDept" name="id_department" required class="input-field"><option value="">-- Pilih departemen --</option></select></div>
+            <div class="col-span-2"><label class="field-label" for="orgJabAwal">Halaman Awal Setelah Login</label>
+                <select id="orgJabAwal" name="halaman_awal" required class="input-field">
+                    {% for url, label in halaman_awal_list or [] %}<option value="{{ url }}">{{ label }}</option>{% endfor %}
                 </select></div>
-            <div><label class="field-label" for="orgMillKode">Kode</label>
-                <input type="text" id="orgMillKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
-            <div class="col-span-2"><label class="field-label" for="orgMillNama">Nama</label>
-                <input type="text" id="orgMillNama" name="nama" required maxlength="100" class="input-field"></div>
-            <div class="col-span-3"><label class="field-label" for="orgMillAlur">Alur Tahap</label>
-                <select id="orgMillAlur" name="id_alur" required class="input-field">
-                    {% for a in alur_list %}<option value="{{ a.id_alur }}">{{ a.nama }}</option>{% endfor %}
-                </select></div>
+            <div class="col-span-2"><label class="field-label" for="orgJabKet">Keterangan</label>
+                <input type="text" id="orgJabKet" name="keterangan" maxlength="255" class="input-field"></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
-            <button type="button" data-on-click="closeModal" data-arg="modalOrg-mill" class="btn-secondary">Batal</button>
+            <button type="button" data-on-click="closeModal" data-arg="modalOrg-jabatan" class="btn-secondary">Batal</button>
             <button type="submit" class="btn-primary">Simpan</button>
         </div>
     </form>

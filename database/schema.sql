@@ -304,7 +304,7 @@ CREATE TABLE dbo.mitra_peran (
 );
 GO
 
--- Alur tahap tiket (migrasi 012): urutan tahap per alur, dipakai produk & mill
+-- Alur tahap tiket (migrasi 012): urutan tahap per alur, dipakai produk & transaksi
 CREATE TABLE dbo.tahap (
     kode    VARCHAR(20)  NOT NULL PRIMARY KEY,
     nama    NVARCHAR(50) NOT NULL,
@@ -324,17 +324,6 @@ CREATE TABLE dbo.alur_tahap (
     kode_tahap  VARCHAR(20) NOT NULL CONSTRAINT FK_AlurTahap_Tahap REFERENCES dbo.tahap (kode),
     CONSTRAINT PK_AlurTahap PRIMARY KEY (id_alur, urutan),
     CONSTRAINT UX_AlurTahap_Tahap UNIQUE (id_alur, kode_tahap)
-);
-GO
--- Mill per area: tiket baru memakai mill aktif di area akun Security sesuai alur produk
-CREATE TABLE dbo.mill (
-    id_mill       INT IDENTITY(1,1) PRIMARY KEY,
-    id_comp_area  INT NOT NULL CONSTRAINT FK_Mill_Area REFERENCES dbo.comp_area (id_comp_area),
-    kode          VARCHAR(10)   NOT NULL,
-    nama          NVARCHAR(100) NOT NULL,
-    id_alur       INT NOT NULL CONSTRAINT FK_Mill_Alur REFERENCES dbo.alur (id_alur),
-    is_active     BIT NOT NULL CONSTRAINT DF_Mill_Aktif DEFAULT (1),
-    CONSTRAINT UX_Mill_AreaKode UNIQUE (id_comp_area, kode)
 );
 GO
 
@@ -541,7 +530,8 @@ CREATE TABLE dbo.transaksi (
     driver_photo_path  VARCHAR(255) NULL,
     security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.akun (id_user),
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
-    id_mill            INT NULL CONSTRAINT FK_Trx_Mill REFERENCES dbo.mill (id_mill),                       -- alur tahap tiket
+    id_comp_area       INT NOT NULL CONSTRAINT FK_Trx_Area REFERENCES dbo.comp_area (id_comp_area),          -- area akun Security (migrasi 041)
+    id_alur            INT NULL CONSTRAINT FK_Trx_Alur REFERENCES dbo.alur (id_alur),                       -- alur tahap tiket (dari produk)
     id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
     cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
     no_tiket_induk     VARCHAR(50) NULL CONSTRAINT FK_Trx_Induk REFERENCES dbo.transaksi (no_tiket),   -- tiket split kelebihan DO (migrasi 022)
@@ -559,7 +549,8 @@ CREATE TABLE dbo.transaksi (
 );
 CREATE INDEX IX_Trx_Status_Created ON dbo.transaksi (status_alur, created_at DESC) INCLUDE (id_kendaraan, id_supplier, id_driver);
 CREATE INDEX IX_Trx_Kendaraan_Created ON dbo.transaksi (id_kendaraan, created_at DESC);
-CREATE INDEX IX_Trx_Keluar ON dbo.transaksi (waktu_keluar) INCLUDE (id_kendaraan, id_mill, status_alur);
+CREATE INDEX IX_Trx_Keluar ON dbo.transaksi (waktu_keluar) INCLUDE (id_kendaraan, id_comp_area, status_alur);
+CREATE INDEX IX_Trx_Area_Created ON dbo.transaksi (id_comp_area, created_at DESC);
 CREATE INDEX IX_Trx_Supplier_Created ON dbo.transaksi (id_supplier, created_at DESC);
 CREATE INDEX IX_Trx_Driver_Created ON dbo.transaksi (id_driver, created_at DESC);
 GO
@@ -1098,7 +1089,7 @@ INSERT INTO dbo.status_tiket (kode, nama, warna, urutan) VALUES
     ('REJECTED', N'Ditolak', 'merah', 7), ('VOID', N'Dibatalkan', 'abu', 8);
 INSERT INTO dbo.jenis_kendaraan (kode, nama) VALUES
     ('TRUK', N'Truk'), ('DUMP_TRUK', N'Dump Truk'), ('TANGKI', N'Truk Tangki'), ('PICKUP', N'Pick-up'), ('LAINNYA', N'Lainnya');
--- Alur tahap & mill per area (migrasi 012)
+-- Alur tahap (migrasi 012; unit timbang dihapus di migrasi 041)
 INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
     ('SECURITY', N'Security', 1), ('TIMBANG_1', N'Timbang Masuk', 2), ('SORTASI', N'Sortasi', 3),
     ('LAB', N'Laboratorium', 4), ('TIMBANG_2', N'Timbang Keluar', 5);
@@ -1114,12 +1105,6 @@ FROM (VALUES ('TBS', 1, 'SECURITY'), ('TBS', 2, 'TIMBANG_1'), ('TBS', 3, 'SORTAS
              ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1'),
              ('POS_SAJA', 1, 'SECURITY')) v (alur, urutan, tahap)
 JOIN dbo.alur a ON a.kode = v.alur;
-INSERT INTO dbo.mill (id_comp_area, kode, nama, id_alur)
-SELECT ar.id_comp_area, v.kode, v.nama, al.id_alur
-FROM dbo.comp_area ar
-CROSS JOIN (VALUES ('TBS', N'Penerimaan TBS', 'TBS'), ('PKS', N'Produk PKS', 'PKS'),
-                   ('TS', N'Penimbangan Saja', 'TIMBANG_SAJA'), ('POS', N'Pos Security', 'POS_SAJA')) v (kode, nama, alur)
-JOIN dbo.alur al ON al.kode = v.alur;
 -- Hak menu Tamu (KUNJUNGAN) untuk Security
 INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
 SELECT l.id_level, m.id_menu, 1, 1, 0
@@ -1544,35 +1529,6 @@ BEGIN
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
             EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'jembatan_timbang', @id_baris = @k,
-                 @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
-        END
-        FETCH NEXT FROM c INTO @k;
-    END
-    CLOSE c; DEALLOCATE c;
-END
-GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_mill ON dbo.mill AFTER INSERT, UPDATE, DELETE AS
-BEGIN
-    SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
-    DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_mill AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_mill AS NVARCHAR(100)) FROM inserted i;
-    DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
-    DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
-    OPEN c; FETCH NEXT FROM c INTO @k;
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_mill AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_mill AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
-        IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
-        BEGIN
-            SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'mill', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;

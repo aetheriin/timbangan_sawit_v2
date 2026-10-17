@@ -33,7 +33,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Pilih departemen, lalu jabatan, lalu halaman yang boleh dibuka dan aksinya"),
-    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, dan unit timbang"),
+    "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, jabatan, dan status tiket"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
     "jadwal": ("Jadwal Kerja", "fa-calendar-days", "Jam masuk, jam pulang, dan toleransi absensi per hari"),
@@ -441,8 +441,8 @@ def _id_opsional(nama):
 @_admin
 def organisasi_daftar():
     return jsonify({"company": org.daftar_company(), "lokasi": org.daftar_lokasi(), "area": org.daftar_area(),
-                    "department": org.daftar_department(),
-                    "mill": alur.daftar_mill(), "status": alur.daftar_status()})
+                    "department": org.daftar_department(), "jabatan": hak_akses.daftar_level(),
+                    "status": alur.daftar_status()})
 
 
 @admin_bp.route("/api/admin/organisasi/company/simpan", methods=["POST"])
@@ -511,24 +511,6 @@ def department_simpan():
     return _jalankan(aksi)
 
 
-@admin_bp.route("/api/admin/organisasi/mill/simpan", methods=["POST"])
-@_admin
-def mill_simpan():
-    def aksi():
-        id_m = _id_opsional("id_mill")
-        id_a = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
-        id_alur = _id_form("id_alur", {a["id_alur"] for a in alur.daftar_alur()}, "alur")
-        kode, nama = _teks("kode", maks=10).upper(), _teks("nama")
-        if not POLA_KODE_ORG.match(kode):
-            raise ValueError("Kode 2-10 karakter: huruf besar, angka, - atau _")
-        if alur.kode_mill_dipakai(id_a, kode, kecuali=id_m):
-            raise ValueError(f"Kode {kode} sudah dipakai di area ini")
-        alur.simpan_mill(id_m, id_a, kode, nama, id_alur)
-        _audit("MILL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Unit timbang {nama} berhasil disimpan."})
-    return _jalankan(aksi)
-
-
 @admin_bp.route("/api/admin/organisasi/status/simpan", methods=["POST"])
 @_admin
 def status_simpan():
@@ -550,15 +532,14 @@ def status_simpan():
 @_admin
 def organisasi_aktif(jenis, id_baris):
     fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "lokasi": org.set_aktif_lokasi,
-              "department": org.set_aktif_department, "mill": alur.set_aktif_mill}
+              "department": org.set_aktif_department}
     if jenis not in fungsi:
         abort(404)
-    label = {"company": "Perusahaan", "area": "Area", "lokasi": "Mill", "department": "Departemen",
-             "mill": "Unit timbang"}[jenis]
+    label = {"company": "Perusahaan", "area": "Area", "lokasi": "Mill", "department": "Departemen"}[jenis]
 
     def aksi():
         aktif = _aktif_dari_form()
-        if not aktif and jenis != "mill":
+        if not aktif:
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "lokasi": [(l["id_lokasi"], l["jumlah_area"]) for l in org.daftar_lokasi()],

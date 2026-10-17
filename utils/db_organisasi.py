@@ -147,7 +147,7 @@ def company_area():
 
 # ===== AREA PERUSAHAAN (CompanyArea) =====
 def daftar_area():
-    """Area milik perusahaan (dipakai akun, jembatan, pos, unit timbang, tiket). label = "YBS · REFINERY"."""
+    """Area milik perusahaan (dipakai akun, jembatan, pos, tiket). label = "YBS · REFINERY"."""
     return _query("""SELECT a.id_comp_area, a.kode, a.nama, a.keterangan, a.is_active, a.id_company, c.nama AS company,
                             c.kode AS kode_company, a.id_lokasi, l.nama AS mill, ISNULL(l.is_pusat, 0) AS is_pusat,
                             c.kode + ' · ' + a.nama AS label,
@@ -158,7 +158,7 @@ def daftar_area():
 
 
 def simpan_area(id_area, id_company, id_lokasi, nama, keterangan):
-    """Kode area = kode Mill. Area baru langsung mendapat jadwal kerja & unit timbang (disalin dari area pertama)."""
+    """Kode area = kode Mill. Area baru langsung mendapat jadwal kerja (disalin dari area pertama)."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -190,11 +190,11 @@ def _hapus_cache_area():
     area_pusat.hapus()
     area_per_company.hapus()
     company_area.hapus()
-    hapus_cache()           # label area di daftar unit timbang
+    hapus_cache()
 
 
 def _salin_dari_area_pertama():
-    """Area baru langsung punya jadwal kerja & mill (disalin dari area pertama), bisa diubah sesudahnya."""
+    """Area baru langsung punya jadwal kerja (disalin dari area pertama), bisa diubah sesudahnya."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -203,11 +203,6 @@ def _salin_dari_area_pertama():
                           FROM comp_area a CROSS JOIN jadwal_kerja j
                           WHERE j.id_comp_area = (SELECT MIN(id_comp_area) FROM jadwal_kerja)
                             AND NOT EXISTS (SELECT 1 FROM jadwal_kerja x WHERE x.id_comp_area = a.id_comp_area)""")
-        cursor.execute("""INSERT INTO mill (id_comp_area, kode, nama, id_alur)
-                          SELECT a.id_comp_area, m.kode, m.nama, m.id_alur
-                          FROM comp_area a CROSS JOIN mill m
-                          WHERE m.id_comp_area = (SELECT MIN(id_comp_area) FROM mill) AND m.is_active = 1
-                            AND NOT EXISTS (SELECT 1 FROM mill x WHERE x.id_comp_area = a.id_comp_area)""")
         conn.commit()
     finally:
         conn.close()

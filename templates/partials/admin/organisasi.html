@@ -3,7 +3,7 @@
                              ('area', 'Area Perusahaan', ['Perusahaan', 'Kode', 'Nama Area', 'Mill', 'Keterangan', 'Pengguna Aktif']),
                              ('lokasi', 'Mill (tipe area, sama untuk semua perusahaan)', ['Kode', 'Nama', 'Keterangan', 'Dipakai Area']),
                              ('department', 'Departemen', ['Nama', 'Keterangan', 'Perusahaan', 'Pengguna Aktif']),
-                             ('mill', 'Unit Timbang (alur tahap per area)', ['Kode', 'Nama', 'Area', 'Alur'])] %}
+                             ('jabatan', 'Jabatan (hak menu diatur di Level & Hak Akses)', ['Kode', 'Nama', 'Departemen', 'Halaman Awal', 'Pengguna Aktif'])] %}
 <div class="section-box">
     {% call section_header('org-' ~ key, judul) %}
     <button type="button" class="btn-primary py-1.5" data-henti-klik data-on-click="bukaOrganisasi" data-arg="{{ key }}">

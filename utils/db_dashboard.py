@@ -81,7 +81,7 @@ def arus_hari_ini(id_area=None):
                 SUM(CASE WHEN t.status_alur = 'TIMBANG_2' THEN 1 ELSE 0 END) AS timbang_2,
                 COUNT(*) AS di_dalam
             FROM transaksi t JOIN produk p ON p.id_produk = t.id_produk
-            LEFT JOIN mill ml ON ml.id_mill = t.id_mill LEFT JOIN alur a ON a.id_alur = ml.id_alur
+            LEFT JOIN alur a ON a.id_alur = t.id_alur
             WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){filter_area}""", *param_area)
         posisi = {k: int(v or 0) for k, v in _rows_to_dicts(cursor)[0].items()}
         ringkas["di_dalam"] = posisi.pop("di_dalam")

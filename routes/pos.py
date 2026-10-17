@@ -186,10 +186,6 @@ def simpan_masuk():
     terverifikasi = bool(v) and str(v["id_driver"]) == str(driver.id_driver)
     if pengaturan.nilai("WAJIB_SCAN_WAJAH", area) and not terverifikasi:
         return jsonify({"error": "Supir belum terverifikasi wajah. Silakan lakukan scan wajah."}), 400
-    mill = alur.pilih_mill(area, alur.id_alur_kode("POS_SAJA"))
-    if mill is None:
-        return jsonify({"error": "Unit timbang Pos Security belum ada di area Anda "
-                                 "(Admin › Organisasi › Unit Timbang, alur Pos Security saja)"}), 400
 
     peringatan = []
     if k and k["is_blacklisted"]:
@@ -200,7 +196,8 @@ def simpan_masuk():
     id_angkut = id_pengangkutan_dari_nama(nama_angkut) if nama_angkut else None
     no_tiket = generate_no_tiket(no_plat)
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis, int(id_supplier), int(id_produk), driver.id_driver, None,
-                        current_user.id, id_angkut, mill["id_mill"], None, "PIHAK_KETIGA" if id_angkut else "PENGIRIM")
+                        current_user.id, id_angkut, area, alur.id_alur_kode("POS_SAJA"), None,
+                        "PIHAK_KETIGA" if id_angkut else "PENGIRIM")
 
     ip = request.remote_addr
     saran = f.get("id_driver_saran", "").strip()

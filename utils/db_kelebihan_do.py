@@ -43,11 +43,11 @@ def proses_tiket_selesai(no_tiket, user_id):
         split = f"{no_tiket}-S1"
         cursor.execute("""INSERT INTO transaksi (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver,
                                                  id_pengangkutan, id_kontrak, no_do, status_alur, is_qr_active, qr_expired_at,
-                                                 qr_reprint_count, driver_photo_path, security_id, id_jembatan, id_mill,
+                                                 qr_reprint_count, driver_photo_path, security_id, id_jembatan, id_comp_area, id_alur,
                                                  id_do, cara_angkut, no_tiket_induk, berat_split_kg)
                           SELECT ?, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver,
                                  id_pengangkutan, id_kontrak, NULL, 'SELESAI', 0, qr_expired_at,
-                                 0, driver_photo_path, security_id, id_jembatan, id_mill,
+                                 0, driver_photo_path, security_id, id_jembatan, id_comp_area, id_alur,
                                  NULL, cara_angkut, no_tiket, ?
                           FROM transaksi WHERE no_tiket = ?""", split, lebih, no_tiket)
         cursor.execute("SELECT id_comp_area FROM akun WHERE id_user = ?", user_id)
