@@ -19,7 +19,6 @@ from utils.hak_akses import admin_required
 from utils.dokumen import simpan_file, hapus_file_info
 from utils import db_admin as db, db_organisasi as org, hak_akses, pengaturan, login_guard, sesi_aktif, kiosk
 from utils.db_utils import cek_koneksi_db, get_password_hash, get_user_by_id, cek_nik_ada, password_pernah_dipakai, pesan_riwayat_password
-from utils.db_personel import daftar_kategori
 from utils.personel_utils import nik_valid
 from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
@@ -114,7 +113,6 @@ def admin_halaman(halaman):
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
                            alur_list=alur.daftar_alur(),
-                           kategori_akun=[v for v in daftar_kategori().values() if v["boleh_akun"]],
                            password_expired=pengaturan.nilai("PASSWORD_EXPIRED_HARI"),
                            password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
@@ -147,7 +145,7 @@ def _akun_form():
         raise ValueError("Jabatan ini belum punya departemen. Atur di Admin › Level & Hak Akses")
     id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
     if id_department is not None and not org.department_di_area(id_department, id_area):
-        raise ValueError("Departemen jabatan ini tidak tersedia di area yang dipilih. Atur di Admin › Organisasi › Departemen")
+        raise ValueError("Departemen jabatan ini tidak ada di perusahaan yang dipilih. Atur di Admin › Organisasi › Departemen")
     return level[id_level], id_department, id_area
 
 
@@ -167,21 +165,12 @@ def _password_form(nama="password"):
     return pw
 
 
-POLA_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
 def _personel_form(user_lama=None):
-    """Data personel akun (ERD User): nama, NIK 16 digit, email, kategori yang boleh punya akun.
-    Akun baru: NIK wajib; bila NIK sudah terdaftar sebagai personel tanpa akun, personel itu yang dihubungkan.
+    """Data orang di akun: hanya nama & NIK 16 digit (kategori, email, SIM, wajah diatur di menu Personel).
+    Akun baru: NIK wajib; bila NIK sudah terdaftar sebagai personel tanpa akun, personel itu yang dihubungkan
+    (kategorinya harus boleh punya akun). Personel baru otomatis berkategori Karyawan.
     Akun lama yang belum punya NIK boleh disimpan tanpa NIK."""
     nama, nik = _teks("nama"), (request.form.get("nik") or "").strip()
-    email = (request.form.get("email") or "").strip().lower() or None
-    if email and (len(email) > 100 or not POLA_EMAIL.match(email)):
-        raise ValueError("Format email tidak valid.")
-    kategori = (request.form.get("kategori") or "").strip().upper()
-    boleh = {k for k, v in daftar_kategori(semua=True).items() if v["boleh_akun"]}
-    if kategori not in boleh:
-        raise ValueError("Pilih kategori personel dari daftar.")
     if nik and not nik_valid(nik):
         raise ValueError("NIK harus 16 digit angka.")
     if not nik and (user_lama is None or user_lama["nik"]):
@@ -197,17 +186,7 @@ def _personel_form(user_lama=None):
             id_personel = ada["id_personel"]
     elif nik and cek_nik_ada(nik, exclude_id=id_personel):
         raise ValueError("NIK sudah terdaftar pada personel lain.")
-    return {"id_personel": id_personel, "nama": nama, "nik": nik or None, "email": email, "kategori": kategori}
-
-
-def _masa_berlaku_form():
-    """Masa berlaku password khusus pengguna (hari). Kosong = ikut Pengaturan, 0 = tidak pernah kedaluwarsa."""
-    teks = (request.form.get("masa_berlaku_password") or "").strip()
-    if not teks:
-        return None
-    if not teks.isdigit() or int(teks) > 365:
-        raise ValueError("Masa berlaku password 0-365 hari.")
-    return int(teks)
+    return {"id_personel": id_personel, "nama": nama, "nik": nik or None}
 
 
 @admin_bp.route("/api/admin/users/nik/<nik>")
@@ -227,10 +206,8 @@ def users_tambah():
             raise ValueError("Username 3-50 karakter: huruf kecil, angka, titik, garis bawah")
         if db.username_dipakai(username):
             raise ValueError(f"Username {username} sudah dipakai")
-        kolom_wajib.cek("PENGGUNA", request.form)
         personel, (level, id_department, id_area), pw = _personel_form(), _akun_form(), _password_form()
-        id_user = db.tambah_user(username, level["id_level"], id_department, id_area, generate_password_hash(pw),
-                                 personel, _masa_berlaku_form())
+        id_user = db.tambah_user(username, level["id_level"], id_department, id_area, generate_password_hash(pw), personel)
         _simpan_pt_kelola(id_user, id_area)
         _audit("USER_TAMBAH", username, f"jabatan {level['kode']}")
         return jsonify({"message": f"Pengguna {username} berhasil ditambahkan"})
@@ -249,7 +226,6 @@ def _user_atau_404(id_user):
 def users_ubah(id_user):
     def aksi():
         u = _user_atau_404(id_user)
-        kolom_wajib.cek("PENGGUNA", request.form)
         personel, (level, id_department, id_area) = _personel_form(u), _akun_form()
         ganti_level = u["id_level"] != level["id_level"]
         if u["is_admin"] and not level["is_admin"]:
@@ -257,7 +233,7 @@ def users_ubah(id_user):
                 raise ValueError("Tidak bisa menurunkan level akun sendiri")
             if db.jumlah_admin_aktif(kecuali=id_user) == 0:
                 raise ValueError("Minimal harus ada 1 admin aktif")
-        db.ubah_user(id_user, level["id_level"], id_department, id_area, personel, _masa_berlaku_form())
+        db.ubah_user(id_user, level["id_level"], id_department, id_area, personel)
         _simpan_pt_kelola(id_user, id_area)
         _audit("USER_UBAH", u["username"], f"level {u['role']} -> {level['kode']}" if ganti_level else "data diubah")
         if ganti_level:
@@ -525,11 +501,11 @@ def department_simpan():
         id_d, nama = _id_opsional("id_department"), _teks("nama")
         if org.kode_dipakai("department", "id_department", "nama", nama, kecuali=id_d):
             raise ValueError(f"Departemen {nama} sudah ada.")
-        semua = {a["id_comp_area"] for a in org.daftar_area()}
-        area = {int(v) for v in request.form.getlist("area") if v.isdigit()}
-        if area - semua:
-            raise ValueError("Pilih area dari daftar.")
-        org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None, area)
+        semua = {c["id_company"] for c in org.daftar_company()}
+        pt = {int(v) for v in request.form.getlist("company") if v.isdigit()}
+        if pt - semua:
+            raise ValueError("Pilih perusahaan dari daftar.")
+        org.simpan_department(id_d, nama, _teks("keterangan", wajib=False, maks=255) or None, pt)
         _audit("DEPARTMENT_SIMPAN", nama)
         return jsonify({"message": f"Departemen {nama} berhasil disimpan."})
     return _jalankan(aksi)

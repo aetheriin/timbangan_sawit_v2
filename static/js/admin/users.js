@@ -67,7 +67,7 @@ function siapkanModalUser(ubah) {
     return form;
 }
 
-// Area mengikuti perusahaan, departemen mengikuti area, jabatan mengikuti departemen
+// Area & departemen mengikuti perusahaan, jabatan mengikuti departemen
 // (sumber: <template> di users_modals.html)
 function isiDariSumber(idSelect, idSumber, cocok, pilih) {
     const sel = document.getElementById(idSelect);
@@ -83,9 +83,9 @@ function aturAreaUser(pilih) {
 }
 
 function aturDeptUser(pilih) {
-    const area = document.getElementById('userArea').value;
+    const company = document.getElementById('userCompany').value;
     const dept = typeof pilih === 'number' || pilih === 'admin' ? pilih : document.getElementById('userDept').value || null;
-    isiDariSumber('userDept', 'sumberDept', o => !o.dataset.area || (area && o.dataset.area.split(',').includes(area)), dept);
+    isiDariSumber('userDept', 'sumberDept', o => !o.dataset.company || (company && o.dataset.company.split(',').includes(company)), dept);
     aturJabatanUser();
     aturPtKelola();
 }
@@ -106,8 +106,6 @@ function aturPtKelola() {
 function bukaTambahUser() {
     const form = siapkanModalUser(false);
     form.elements.id_user.value = '';
-    const kat = form.elements.kategori;            // bawaan Karyawan (atau kategori pertama yang boleh punya akun)
-    kat.value = [...kat.options].some(o => o.value === 'EMPLOYEE') ? 'EMPLOYEE' : ([...kat.options].find(o => o.value) || {}).value || '';
     aturAreaUser();
     openModal('modalUser');
     document.getElementById('userNik').focus();
@@ -116,8 +114,7 @@ function bukaTambahUser() {
 function bukaUbahUser(id) {
     const u = cariDataUser(id);
     const form = siapkanModalUser(true);
-    isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username, nik: u.nik || '', email: u.email || '',
-                    kategori: u.kategori, masa_berlaku_password: u.masa_berlaku_password ?? '' });
+    isiForm(form, { id_user: u.id_user, nama: u.nama, username: u.username, nik: u.nik || '' });
     const lv = document.querySelector('#sumberJabatan').content.querySelector(`option[value="${u.id_level}"]`);
     const ar = document.querySelector('#sumberArea').content.querySelector(`option[value="${u.id_comp_area}"]`);
     document.getElementById('userCompany').value = ar ? ar.dataset.company : '';
@@ -172,7 +169,6 @@ async function cekNikUser(nik) {
     if (!p.boleh_akun) { info.textContent = `NIK ini terdaftar sebagai ${p.nama_kategori || p.kategori} dan tidak bisa dibuatkan akun.`; return; }
     info.textContent = `Terdaftar sebagai personel ${p.nama_personel}. Akun ini akan dihubungkan ke personel tersebut.`;
     form.elements.nama.value = p.nama_personel;
-    form.elements.kategori.value = p.kategori;
 }
 
 // ===== HAK AKSES KHUSUS =====

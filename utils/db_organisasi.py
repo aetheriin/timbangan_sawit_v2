@@ -222,36 +222,37 @@ def set_aktif_area(id_area, aktif):
     _hapus_cache_area()
 
 
-# ===== DEPARTMENT + area tempat departemen tersedia (department_area = DepartmentDetails, migrasi 030) =====
+# ===== DEPARTMENT + perusahaan yang memilikinya (department_company = DepartmentDetails, migrasi 040) =====
 def daftar_department():
-    """area = id area tempat departemen tersedia; kosong = semua area."""
+    """company = id perusahaan yang memiliki departemen; kosong = semua perusahaan."""
     rows = _query("""SELECT d.id_department, d.nama, d.keterangan, d.is_active,
                             (SELECT COUNT(*) FROM akun u WHERE u.id_department = d.id_department AND u.is_active = 1) AS jumlah_user
                      FROM department d ORDER BY d.is_active DESC, d.nama""")
-    peta = area_department()
+    peta = company_department()
     for r in rows:
-        r["area"] = list(peta.get(r["id_department"], ()))
+        r["company"] = list(peta.get(r["id_department"], ()))
     return rows
 
 
 @cache_ttl(60)
-def area_department():
-    """{id_department: (id_comp_area, ...)}; departemen yang tidak ada di sini tersedia di semua area."""
+def company_department():
+    """{id_department: (id_company, ...)}; departemen yang tidak ada di sini tersedia di semua perusahaan."""
     hasil = {}
     try:
-        for r in _query("SELECT id_department, id_comp_area FROM department_area ORDER BY id_comp_area"):
-            hasil.setdefault(r["id_department"], []).append(r["id_comp_area"])
-    except pyodbc.Error:        # sebelum migrasi 030
+        for r in _query("SELECT id_department, id_company FROM department_company ORDER BY id_company"):
+            hasil.setdefault(r["id_department"], []).append(r["id_company"])
+    except pyodbc.Error:        # sebelum migrasi 040
         pass
     return {k: tuple(v) for k, v in hasil.items()}
 
 
 def department_di_area(id_department, id_area):
-    area = area_department().get(id_department)
-    return not area or id_area in area
+    """Departemen tersedia di perusahaan pemilik area ini."""
+    pt = company_department().get(id_department)
+    return not pt or company_area().get(id_area) in pt
 
 
-def simpan_department(id_department, nama, keterangan, daftar_area_id):
+def simpan_department(id_department, nama, keterangan, daftar_company_id):
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -263,16 +264,16 @@ def simpan_department(id_department, nama, keterangan, daftar_area_id):
             cursor.execute("UPDATE department SET nama = ?, keterangan = ? WHERE id_department = ?", nama, keterangan, id_department)
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
-        cursor.execute("DELETE FROM department_area WHERE id_department = ?", id_department)
-        for id_a in sorted(set(daftar_area_id)):
-            cursor.execute("INSERT INTO department_area (id_department, id_comp_area) VALUES (?, ?)", id_department, id_a)
+        cursor.execute("DELETE FROM department_company WHERE id_department = ?", id_department)
+        for id_c in sorted(set(daftar_company_id)):
+            cursor.execute("INSERT INTO department_company (id_department, id_company) VALUES (?, ?)", id_department, id_c)
         conn.commit()
     except Exception:
         conn.rollback()
         raise
     finally:
         conn.close()
-    area_department.hapus()
+    company_department.hapus()
 
 
 def set_aktif_department(id_department, aktif):

@@ -35,8 +35,10 @@ async function muatSesi(opsi = {}) {
             <td class="table-cell font-mono text-xs">${escapeHtml(s.ip)}</td>
             <td class="table-cell font-mono text-xs whitespace-nowrap">${escapeHtml(s.login)}</td>
             <td class="table-cell">${s.idle_menit < 1 ? badge('Aktif', WARNA_BADGE.hijau) : `<span class="font-mono text-xs">${escapeHtml(s.idle_menit)} menit</span>`}</td>
-            <td class="table-cell text-right">${s.is_saya ? '' : `<button type="button" class="link-aksi text-red-600"
-                data-on-click="paksaKeluar" data-arg="${s.user_id}|${escapeHtml(s.username)}">Paksa Keluar</button>`}</td>
+            <td class="table-cell text-right">${s.is_saya
+                ? '<span class="text-xs text-slate-400" title="Untuk keluar, pakai tombol Keluar di kanan atas">Sesi ini</span>'
+                : `<button type="button" class="link-aksi text-red-600"
+                data-on-click="paksaKeluar" data-arg="${s.user_id}|${escapeHtml(s.username)}">Akhiri Sesi</button>`}</td>
         </tr>`).join('') || barisKosong(6, 'Tidak ada sesi aktif');
 
     tKunci.innerHTML = data.terkunci.map(k => `
@@ -56,8 +58,8 @@ async function muatSesi(opsi = {}) {
 
 async function paksaKeluar(idUser, username) {
     const ok = await Dialog.konfirmasi({
-        judul: 'Paksa keluar?', pesan: `Semua sesi ${username} di semua PC akan diakhiri. Ia harus login ulang.`,
-        teksYa: 'Paksa Keluar', bahaya: true,
+        judul: 'Akhiri sesi?', pesan: `Semua sesi ${username} di semua PC akan diakhiri. Ia harus login ulang.`,
+        teksYa: 'Akhiri Sesi', bahaya: true,
     });
     if (!ok) return;
     if (tampilkanHasil(await kirimForm('/api/admin/sesi/paksa-keluar', { id_user: idUser }))) muatSesi();

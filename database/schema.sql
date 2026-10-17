@@ -61,11 +61,11 @@ CREATE TABLE dbo.department (
     keterangan    NVARCHAR(255) NULL,
     is_active     BIT NOT NULL CONSTRAINT DF_Department_Aktif DEFAULT (1)
 );
--- Departemen yang tersedia di area tertentu (DepartmentDetails, migrasi 030); tanpa baris = semua area
-CREATE TABLE dbo.department_area (
-    id_department INT NOT NULL CONSTRAINT FK_DeptArea_Dept REFERENCES dbo.department (id_department),
-    id_comp_area  INT NOT NULL CONSTRAINT FK_DeptArea_Area REFERENCES dbo.comp_area (id_comp_area),
-    CONSTRAINT PK_DepartmentArea PRIMARY KEY (id_department, id_comp_area)
+-- Perusahaan yang memiliki departemen (DepartmentDetails, migrasi 040); tanpa baris = semua perusahaan
+CREATE TABLE dbo.department_company (
+    id_department INT NOT NULL CONSTRAINT FK_DeptCompany_Dept REFERENCES dbo.department (id_department),
+    id_company    INT NOT NULL CONSTRAINT FK_DeptCompany_Company REFERENCES dbo.company (id_company),
+    CONSTRAINT PK_DepartmentCompany PRIMARY KEY (id_department, id_company)
 );
 CREATE TABLE dbo.level (
     id_level      INT IDENTITY(1,1) PRIMARY KEY,
@@ -157,7 +157,6 @@ CREATE TABLE dbo.akun (
     last_login   DATETIME NULL,
     sesi_versi   INT NOT NULL CONSTRAINT DF_Users_SesiVersi DEFAULT (0),   -- naik = semua sesi user dicabut
     password_changed_at DATETIME NULL,                          -- NULL = wajib ganti password saat login
-    masa_berlaku_password INT NULL,                             -- hari, khusus user ini; NULL = ikut pengaturan (migrasi 031)
     created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
     updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
 );
@@ -1012,7 +1011,8 @@ INSERT INTO dbo.keperluan_kunjungan (nama) VALUES
 GO
 -- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
 INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)'), ('HO', N'HEAD OFFICE');
-INSERT INTO dbo.lokasi (kode, nama, is_pusat) VALUES ('300', N'HO', 1), ('600', N'PKS', 0);
+INSERT INTO dbo.lokasi (kode, nama, keterangan, is_pusat) VALUES ('300', N'HO', N'Kantor pusat', 1),
+    ('400', N'OFFICE', N'Kantor cabang di site', 0), ('600', N'PKS', NULL, 0);
 INSERT INTO dbo.comp_area (id_company, id_lokasi, kode, nama)
 SELECT c.id_company, l.id_lokasi, l.kode, v.nama
 FROM (VALUES ('PT', '600', N'PKS'), ('HO', '300', N'HEAD OFFICE')) v (company, lokasi, nama)

@@ -7,36 +7,19 @@
         </div>
         <div class="p-6 space-y-3">
             <input type="hidden" name="id_user">
-            {# Data personel (akun = personel yang bisa login). NIK yang sudah terdaftar dihubungkan otomatis. #}
+            {# Akun = personel yang bisa login. NIK yang sudah terdaftar di Personel langsung dihubungkan (nama terisi);
+               NIK baru -> personel baru kategori Karyawan. Kategori, email, SIM, wajah diatur di menu Personel. #}
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="field-label" for="userNik">NIK</label>
                     <input type="text" id="userNik" name="nik" data-nik maxlength="16" inputmode="numeric" class="input-field"
-                           data-on-change="cekNikUser" data-arg="$value">
+                           data-on-change="cekNikUser" data-arg="$value" placeholder="16 digit">
                 </div>
                 <div>
-                    <label class="field-label" for="userKategori">Kategori Personel</label>
-                    <select id="userKategori" name="kategori" required class="input-field">
-                        {% for k in kategori_akun %}<option value="{{ k.kode }}">{{ k.nama }}</option>{% endfor %}
-                    </select>
+                    <label class="field-label" for="userNama">Nama Lengkap</label>
+                    <input type="text" id="userNama" name="nama" required maxlength="100" class="input-field">
                 </div>
                 <p id="infoNikUser" class="field-hint col-span-2 -mt-1 hidden"></p>
-            </div>
-            <div>
-                <label class="field-label" for="userNama">Nama Lengkap</label>
-                <input type="text" id="userNama" name="nama" required maxlength="100" class="input-field">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="field-label" for="userEmail">Email <span class="text-slate-400 font-normal">(opsional)</span></label>
-                    <input type="email" id="userEmail" name="email" maxlength="100" class="input-field lowercase">
-                </div>
-                <div>
-                    <label class="field-label" for="userMasaPw">Masa Berlaku Password</label>
-                    <input type="number" id="userMasaPw" name="masa_berlaku_password" min="0" max="365" class="input-field"
-                           placeholder="Ikut pengaturan ({{ password_expired }} hari)">
-                </div>
-                <p class="field-hint col-span-2 -mt-1">Masa berlaku dalam hari, khusus pengguna ini. Kosong = ikut Pengaturan Site, 0 = tidak pernah kedaluwarsa.</p>
             </div>
             <div>
                 <label class="field-label" for="userUsername">Username</label>
@@ -63,10 +46,10 @@
                     <select id="userLevel" name="id_level" required class="input-field"></select>
                 </div>
             </div>
-            {# Sumber pilihan Area, Departemen & Jabatan (disaring users.js: area per perusahaan, departemen yang tersedia
-               di area itu, jabatan per departemen). data-area kosong = departemen ada di semua area. #}
+            {# Sumber pilihan Area, Departemen & Jabatan (disaring users.js: area & departemen per perusahaan, jabatan per
+               departemen). data-company kosong = departemen ada di semua perusahaan. #}
             <template id="sumberArea">{% for a in area_list %}<option value="{{ a.id_comp_area }}" data-company="{{ a.id_company }}" data-pusat="{{ 1 if a.is_pusat else 0 }}">{{ a.nama }} ({{ a.kode }})</option>{% endfor %}</template>
-            <template id="sumberDept">{% for d in department_list %}<option value="{{ d.id_department }}" data-area="{{ d.area | join(',') }}">{{ d.nama }}</option>{% endfor %}<option value="admin" data-area="">Admin sistem</option></template>
+            <template id="sumberDept">{% for d in department_list %}<option value="{{ d.id_department }}" data-company="{{ d.company | join(',') }}">{{ d.nama }}</option>{% endfor %}<option value="admin" data-company="">Admin sistem</option></template>
             <template id="sumberJabatan">{% for lv in level_list %}<option value="{{ lv.id_level }}" data-dept="{{ 'admin' if lv.is_admin else (lv.id_department or '') }}">{{ lv.nama }}</option>{% endfor %}</template>
             {# Hanya untuk user di area kantor pusat: PT yang dikelola. Tidak dicentang semua = semua PT. #}
             <div id="blokPtKelola" class="hidden rounded-lg border border-slate-200 p-3">

@@ -69,7 +69,7 @@ def login():
     if pengaturan.nilai("SATU_PERANGKAT") and sesi_aktif.hapus_user(row.id_user, "PERANGKAT_LAIN", kecuali_sid=sid):
         log_keamanan("SESI_PERANGKAT_LAIN", f"username={row.username} sesi lama diakhiri")
     catat_login_terakhir(row.id_user)
-    alasan = password_wajib_diganti(row.password_changed_at, getattr(row, "masa_berlaku_password", None))
+    alasan = password_wajib_diganti(row.password_changed_at)
     if alasan:                                  # kedaluwarsa / baru direset: hanya halaman ganti password yang terbuka
         session["_wajib_ganti_pw"] = alasan
         return redirect("/ganti-password")

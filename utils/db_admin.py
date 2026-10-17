@@ -36,7 +36,7 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
 _SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
                          u.id_department, ISNULL(d.nama, 'Admin sistem') AS department, u.id_comp_area, co.kode + ' · ' + a.nama AS area,
                          u.is_active, u.last_login, u.created_at, u.id_personel, p.kode_personel, p.nik, p.email,
-                         p.kategori, u.masa_berlaku_password,
+                         p.kategori,
                          (SELECT COUNT(*) FROM akun_akses x WHERE x.id_user = u.id_user) AS jumlah_akses_khusus
                   FROM akun u JOIN level lv ON lv.id_level = u.id_level
                   LEFT JOIN department d ON d.id_department = u.id_department
@@ -74,18 +74,18 @@ def personel_untuk_nik(nik):
     return rows[0] if rows else None
 
 
-def tambah_user(username, id_level, id_department, id_comp_area, password_hash, personel, masa_berlaku):
-    """personel = {id_personel (None = buat baru), nama, nik, email, kategori}. Personel yang sudah ada (dicari dari NIK)
-    dihubungkan ke akun ini dan datanya diperbarui. Password pertama ikut dicatat di riwayat."""
+def tambah_user(username, id_level, id_department, id_comp_area, password_hash, personel):
+    """personel = {id_personel (None = buat baru), nama, nik}. Personel yang sudah ada (dicari dari NIK) dihubungkan ke
+    akun ini; personel baru berkategori Karyawan. Password pertama ikut dicatat di riwayat."""
     from utils.db_utils import catat_riwayat_password
     conn = get_connection()
     try:
         cursor = conn.cursor()
         id_personel = _simpan_personel_akun(cursor, personel)
         cursor.execute("""SET NOCOUNT ON; INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password,
-                                                           id_personel, masa_berlaku_password)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
-                       username, personel["nama"], id_level, id_department, id_comp_area, password_hash, id_personel, masa_berlaku)
+                                                           id_personel)
+                          VALUES (?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
+                       username, personel["nama"], id_level, id_department, id_comp_area, password_hash, id_personel)
         id_user = cursor.fetchone()[0]
         catat_riwayat_password(cursor, id_user, password_hash)
         conn.commit()
@@ -98,25 +98,26 @@ def tambah_user(username, id_level, id_department, id_comp_area, password_hash, 
 
 
 def _simpan_personel_akun(cursor, d):
+    """Nama & NIK personel akun. Kategori & email tidak diubah dari sini (menu Personel)."""
     if d.get("id_personel"):
-        cursor.execute("""UPDATE personel SET nama_personel = ?, nik = ?, email = ?, kategori = ?, updated_at = GETDATE()
-                          WHERE id_personel = ?""", d["nama"], d["nik"], d["email"], d["kategori"], d["id_personel"])
+        cursor.execute("UPDATE personel SET nama_personel = ?, nik = ?, updated_at = GETDATE() WHERE id_personel = ?",
+                       d["nama"], d["nik"], d["id_personel"])
         return d["id_personel"]
-    cursor.execute("""INSERT INTO personel (nik, nama_personel, email, kategori) OUTPUT INSERTED.id_personel
-                      VALUES (?, ?, ?, ?)""", d["nik"], d["nama"], d["email"], d["kategori"])
+    cursor.execute("""INSERT INTO personel (nik, nama_personel, kategori) OUTPUT INSERTED.id_personel
+                      VALUES (?, ?, 'EMPLOYEE')""", d["nik"], d["nama"])
     return cursor.fetchone()[0]
 
 
-def ubah_user(id_user, id_level, id_department, id_comp_area, personel, masa_berlaku):
+def ubah_user(id_user, id_level, id_department, id_comp_area, personel):
     """Ganti level -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         _simpan_personel_akun(cursor, personel)
         cursor.execute("""UPDATE akun SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
-                          id_level = ?, id_department = ?, id_comp_area = ?, masa_berlaku_password = ?, updated_at = GETDATE()
+                          id_level = ?, id_department = ?, id_comp_area = ?, updated_at = GETDATE()
                           WHERE id_user = ?""",
-                       personel["nama"], id_level, id_level, id_department, id_comp_area, masa_berlaku, id_user)
+                       personel["nama"], id_level, id_level, id_department, id_comp_area, id_user)
         if cursor.rowcount == 0:
             raise ValueError("Data tidak ditemukan")
         conn.commit()

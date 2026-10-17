@@ -9,21 +9,21 @@ const ORG = {
               escapeHtml(l.nama) + (l.is_pusat ? ' <span class="badge-status bg-amber-100 text-amber-800">Kantor pusat</span>' : ''),
               escapeHtml(l.keterangan || '-'), `${Number(l.jumlah_area)} area`] },
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
-                  escapeHtml(labelAreaDept(d.area)), Number(d.jumlah_user)] },
+                  escapeHtml(labelPtDept(d.company)), Number(d.jumlah_user)] },
     mill: { id: 'id_mill', nama: 'Unit Timbang', kolom: m => [mono(m.kode), escapeHtml(m.nama), escapeHtml(m.area), escapeHtml(m.nama_alur)] },
 };
 let dataOrg = { company: [], area: [], lokasi: [], department: [], mill: [] };
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
-const labelAreaDept = ids => ids.length
-    ? ids.map(id => (dataOrg.area.find(a => a.id_comp_area === id) || {}).label).filter(Boolean).join(', ')
-    : 'Semua area';
+const labelPtDept = ids => ids.length
+    ? ids.map(id => (dataOrg.company.find(c => c.id_company === id) || {}).kode).filter(Boolean).join(', ')
+    : 'Semua perusahaan';
 
 document.addEventListener('DOMContentLoaded', muatOrganisasi);
 
 async function muatOrganisasi() {
     const data = await ambilJson('/api/admin/organisasi');
-    if (!data.error) dataOrg.area = data.area;           // dibutuhkan label departemen sebelum tabel digambar
+    if (!data.error) dataOrg.company = data.company;     // dibutuhkan label departemen sebelum tabel digambar
     Object.keys(ORG).forEach(jenis => {
         const tbody = document.getElementById(`tabelOrg-${jenis}`);
         const n = Number(tbody.dataset.kolom);
@@ -96,9 +96,9 @@ function bukaOrganisasi(jenis, id) {
         isiPilihan('orgAreaMill', dataOrg.lokasi, 'id_lokasi', l => `${l.kode} · ${l.nama}`, r ? r.id_lokasi : null);
     }
     if (jenis === 'mill') isiPilihan('orgMillArea', dataOrg.area, 'id_comp_area', a => a.label, r ? r.id_comp_area : null);
-    const { area, ...isi } = r || {};
+    const { area, company, ...isi } = r || {};
     isiForm(form, r ? { ...isi, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
-    if (jenis === 'department') isiAreaDepartemen(r ? r.area : []);
+    if (jenis === 'department') isiPtDepartemen(r ? r.company : []);
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]), select').focus();
@@ -121,15 +121,10 @@ function ubahAktifOrganisasi(jenis, id) {
     });
 }
 
-// Centang area tempat departemen tersedia, dikelompokkan per perusahaan
-function isiAreaDepartemen(dipilih) {
-    const daftar = dataOrg.area.filter(a => a.is_active || dipilih.includes(a.id_comp_area));
-    const grup = {};
-    daftar.forEach(a => (grup[a.kode_company] = grup[a.kode_company] || []).push(a));
-    document.getElementById('orgDeptArea').innerHTML = Object.entries(grup).map(([pt, isi]) => `
-        <div><p class="text-xs font-semibold text-slate-500 mb-1">${escapeHtml(pt)}</p>
-            <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">${isi.map(a => `
-                <label class="flex items-center gap-2"><input type="checkbox" name="area" value="${a.id_comp_area}"${dipilih.includes(a.id_comp_area) ? ' checked' : ''}>
-                    ${escapeHtml(a.nama)}</label>`).join('')}</div></div>`).join('')
-        || '<p class="text-slate-400">Belum ada area. Tambahkan di tabel Area Perusahaan.</p>';
+// Centang perusahaan yang memiliki departemen
+function isiPtDepartemen(dipilih) {
+    document.getElementById('orgDeptCompany').innerHTML = dataOrg.company.filter(c => c.is_active || dipilih.includes(c.id_company))
+        .map(c => `<label class="flex items-center gap-2"><input type="checkbox" name="company" value="${c.id_company}"${dipilih.includes(c.id_company) ? ' checked' : ''}>
+            ${escapeHtml(`${c.kode} · ${c.nama}`)}</label>`).join('')
+        || '<p class="text-slate-400">Belum ada perusahaan. Tambahkan di tabel Perusahaan.</p>';
 }

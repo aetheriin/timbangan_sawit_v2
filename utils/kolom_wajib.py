@@ -8,7 +8,6 @@ from utils.db_utils import get_connection, _rows_to_dicts
 
 # kode form: (nama, id <form> di halaman, {nama kolom di form: label})
 DAFTAR = {
-    "PENGGUNA": ("Kelola Pengguna", "formUser", {"email": "Email"}),
     "PERUSAHAAN": ("Perusahaan", "formOrg-company", {"alamat": "Alamat"}),
     "SUPPLIER": ("Supplier", "formMitra", {"alamat": "Alamat"}),
     "KENDARAAN": ("Kendaraan", "formKendaraan", {"id_supir_utama": "Supir utama"}),
