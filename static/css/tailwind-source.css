@@ -235,3 +235,33 @@ html.dark .sidebar .avatar { background-color: #334155; }
 html.dark .topbar-cari { background-color: #1e293b; border-color: #334155; color: #94a3b8; }
 html.dark .topbar-cari:hover { background-color: #273449; }
 html.dark .topbar-kbd { background-color: #0f172a; border-color: #334155; color: #94a3b8; }
+
+/* ===================== HALAMAN ERROR (templates/error.html): warna logo CPOS (navy + amber) ===================== */
+.hal-error { background: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #f1f5f9 70%); color: #0f172a; position: relative; overflow-x: hidden; }
+.hal-error-latar { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hal-error-latar .sirkuit { stroke: #cbd5e1; }
+.hal-error-latar .sirkuit-titik { fill: #f59e0b; opacity: 0.55; }
+.hal-error-latar .daun { fill: #e2e8f0; opacity: 0.8; }
+.hal-error-navy { color: #0f172a; }
+.hal-error-redup { color: #64748b; }
+.hal-error-angka { font-size: clamp(5.5rem, 16vw, 10rem); line-height: 1; font-weight: 800; letter-spacing: -0.04em;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 60%, #334155 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hal-error-tanda { height: clamp(6rem, 17vw, 10.5rem); width: auto; filter: drop-shadow(0 8px 18px rgba(245, 158, 11, 0.25)); }
+.hal-error-gembok { fill: #0f172a; }
+.hal-error-gembok-tali { stroke: #0f172a; }
+.hal-error-bayang { background: radial-gradient(ellipse, rgba(15, 23, 42, 0.18) 0%, transparent 70%); }
+.hal-error-tombol, .hal-error-tombol-2 { display: inline-flex; align-items: center; gap: 0.5rem; border-radius: 9999px; padding: 0.7rem 1.5rem;
+  font-size: 0.875rem; font-weight: 600; transition: transform .15s, box-shadow .15s; }
+.hal-error-tombol { color: #fff; background: linear-gradient(90deg, #0f172a 0%, #1e293b 55%, #b45309 100%); box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25); }
+.hal-error-tombol:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.3); }
+.hal-error-tombol-2 { color: #0f172a; background: #fff; border: 1px solid #cbd5e1; }
+.hal-error-tombol-2:hover { border-color: #94a3b8; }
+html.dark .hal-error { background: radial-gradient(ellipse at 50% 35%, #1e293b 0%, #0b1220 75%); color: #e2e8f0; }
+html.dark .hal-error-navy { color: #f8fafc; }
+html.dark .hal-error-redup { color: #94a3b8; }
+html.dark .hal-error-angka { background: linear-gradient(180deg, #f8fafc 0%, #cbd5e1 100%); -webkit-background-clip: text; background-clip: text; }
+html.dark .hal-error-latar .sirkuit { stroke: #334155; }
+html.dark .hal-error-latar .daun { fill: #1e293b; }
+html.dark .hal-error-gembok { fill: #e2e8f0; }
+html.dark .hal-error-gembok-tali { stroke: #e2e8f0; }
+html.dark .hal-error-tombol-2 { color: #e2e8f0; background: #1e293b; border-color: #334155; }
