@@ -96,17 +96,30 @@ async function pilihJabatan(id) {
     awal.disabled = false;
     pastikanPilihanAwal(data.halaman_awal);
     awal.value = data.halaman_awal;
-    let induk = null;
-    tbody.innerHTML = data.menu.map(m => {
-        const judul = m.induk && m.induk !== induk
-            ? `<tr class="bg-slate-50"><td colspan="6" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
-        induk = m.induk;
-        const kotak = (aksi, ada) => ada
-            ? `<td class="table-cell text-center"><input type="checkbox" name="${m.id_menu}_${aksi}" value="1" data-menu="${m.id_menu}"
-                data-aksi="${aksi}" data-nama="${escapeHtml(m.nama)}" class="w-4 h-4"${m[aksi] ? ' checked' : ''}${admin ? ' disabled' : ''}></td>`
-            : '<td class="table-cell text-center text-slate-300">–</td>';
-        return `${judul}<tr class="hover:bg-slate-50"><td class="table-cell">${escapeHtml(m.nama.split(' › ').pop())}</td>
-                ${kotak('lihat', true)}${kotak('tambah', m.aksi.includes('tambah'))}${kotak('ubah', m.aksi.includes('ubah'))}${kotak('hapus', m.aksi.includes('hapus'))}${kotak('setujui', m.aksi.includes('setujui'))}</tr>`;
+    // Dikelompokkan: Halaman Utama (menu tanpa induk) lalu tiap induk (Stasiun Timbang, Pengenalan Wajah, ...).
+    // Kelompok yang sudah ada centangnya langsung terbuka; sisanya tertutup dan bisa dibuka lewat panah.
+    const grup = [];
+    data.menu.forEach(m => {
+        const nama = m.induk || 'Halaman Utama';
+        let g = grup.find(x => x.nama === nama);
+        if (!g) grup.push(g = { nama, menu: [] });
+        g.menu.push(m);
+    });
+    const kotak = (m, aksi, ada) => ada
+        ? `<td class="table-cell text-center"><input type="checkbox" name="${m.id_menu}_${aksi}" value="1" data-menu="${m.id_menu}"
+            data-aksi="${aksi}" data-nama="${escapeHtml(m.nama)}" class="w-4 h-4"${m[aksi] ? ' checked' : ''}${admin ? ' disabled' : ''}></td>`
+        : '<td class="table-cell text-center text-slate-300">–</td>';
+    tbody.innerHTML = grup.map((g, i) => {
+        const buka = g.menu.some(m => m.lihat);
+        return `<tr class="bg-slate-50 cursor-pointer select-none hover:bg-slate-100" data-on-click="bukaGrupAkses" data-arg="${i}" data-grup-kepala="${i}">
+                <td colspan="6" class="table-cell">
+                    <span class="flex items-center gap-2">
+                        <i class="fa-solid fa-chevron-right text-[10px] text-slate-400 transition-transform${buka ? ' rotate-90' : ''}" data-panah></i>
+                        <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">${escapeHtml(g.nama)}</span>
+                        <span class="ml-auto text-[11px] font-normal text-slate-500" data-jumlah-grup="${i}"></span>
+                    </span></td></tr>` +
+            g.menu.map(m => `<tr class="hover:bg-slate-50${buka ? '' : ' hidden'}" data-grup="${i}"><td class="table-cell pl-9">${escapeHtml(m.nama.split(' › ').pop())}</td>
+                ${kotak(m, 'lihat', true)}${kotak(m, 'tambah', m.aksi.includes('tambah'))}${kotak(m, 'ubah', m.aksi.includes('ubah'))}${kotak(m, 'hapus', m.aksi.includes('hapus'))}${kotak(m, 'setujui', m.aksi.includes('setujui'))}</tr>`).join('');
     }).join('');
     ringkasAkses();
 }
@@ -121,7 +134,31 @@ document.getElementById('tabelAkses').addEventListener('change', e => {
     ringkasAkses();
 });
 
+function bukaGrupAkses(i, paksa) {
+    const baris = document.querySelectorAll(`#tabelAkses tr[data-grup="${i}"]`);
+    const buka = paksa ?? [...baris].some(r => r.classList.contains('hidden'));
+    baris.forEach(r => r.classList.toggle('hidden', !buka));
+    document.querySelector(`#tabelAkses tr[data-grup-kepala="${i}"] [data-panah]`)?.classList.toggle('rotate-90', buka);
+}
+
+function bukaSemuaAkses(buka) {
+    document.querySelectorAll('#tabelAkses tr[data-grup-kepala]').forEach(r => bukaGrupAkses(r.dataset.grupKepala, buka));
+}
+
+async function kosongkanAkses() {
+    if (!await Dialog.konfirmasi({ judul: 'Kosongkan semua centang?', teksYa: 'Kosongkan', bahaya: true,
+        pesan: 'Semua halaman & aksi untuk peran ini dilepas. Belum tersimpan sampai Anda menekan Simpan.' })) return;
+    document.querySelectorAll('#tabelAkses input[type=checkbox]:not(:disabled)').forEach(c => { c.checked = false; });
+    ringkasAkses();
+}
+
 function ringkasAkses() {
+    // Jumlah halaman tercentang per kelompok (tampil di baris kepala kelompok)
+    document.querySelectorAll('#tabelAkses [data-jumlah-grup]').forEach(el => {
+        const semua = document.querySelectorAll(`#tabelAkses tr[data-grup="${el.dataset.jumlahGrup}"] input[data-aksi="lihat"]`);
+        const n = [...semua].filter(c => c.checked).length;
+        el.innerHTML = n ? `<span class="badge-status bg-emerald-100 text-emerald-700">${n} / ${semua.length} halaman</span>` : `${semua.length} halaman`;
+    });
     const label = { tambah: 'tambah', ubah: 'ubah', hapus: 'hapus', setujui: 'setujui' };
     const chip = [...document.querySelectorAll('#tabelAkses input[data-aksi="lihat"]:checked')].map(c => {
         const aksi = [...document.querySelectorAll(`#tabelAkses input[data-menu="${c.dataset.menu}"]:checked`)]
