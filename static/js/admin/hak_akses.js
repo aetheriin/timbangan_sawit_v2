@@ -1,9 +1,11 @@
 // ===== ADMIN > LEVEL & HAK AKSES =====
-// Pilih departemen -> jabatan (tabel level) -> centang halaman yang boleh dibuka (Lihat) dan aksinya.
-let daftarLevel = [];
+// Pilih departemen -> jabatan (umum: Manager, Staff, ...) -> halaman awal & centang halaman / aksi.
+// Hak menempel di gabungan departemen + jabatan (peran); peran dibuat otomatis saat pertama disimpan.
+let daftarLevel = [];          // peran yang sudah ada
+let daftarJabatan = [];
 let daftarDept = [];
-let deptDipilih = null;          // id_department, atau 'admin' untuk jabatan admin
-let levelDipilih = null;
+let deptDipilih = null;        // id_department, atau 'admin' untuk jabatan admin sistem
+let jabatanDipilih = null;
 
 document.addEventListener('DOMContentLoaded', muatSemua);
 
@@ -14,68 +16,86 @@ async function muatSemua() {
         return;
     }
     daftarLevel = level;
-    daftarDept = org.department.filter(d => d.is_active || level.some(lv => lv.id_department === d.id_department));
-    if (deptDipilih === null) {
-        const lv = daftarLevel.find(x => !x.is_admin);
-        deptDipilih = lv ? lv.id_department : (daftarDept[0] || {}).id_department;
-    }
+    daftarJabatan = org.jabatan.filter(j => j.is_active);
+    daftarDept = org.department.filter(d => d.is_active);
+    if (deptDipilih === null) deptDipilih = (daftarDept[0] || {}).id_department ?? 'admin';
     tampilDepartemen();
     tampilLevel();
 }
 
-const levelDiDept = id => daftarLevel.filter(lv => (id === 'admin' ? lv.is_admin : !lv.is_admin && lv.id_department === id));
+const peranDari = (dept, idJabatan) => daftarLevel.find(lv => lv.id_jabatan === idJabatan
+    && (dept === 'admin' ? lv.is_admin : !lv.is_admin && lv.id_department === dept));
+const jabatanDiDept = dept => daftarJabatan.filter(j => (dept === 'admin') === !!j.is_admin);
 
 function tampilDepartemen() {
-    const item = (id, nama, jumlah) => `
+    const item = (id, nama) => {
+        const diatur = jabatanDiDept(id).filter(j => peranDari(id, j.id_jabatan)).length;
+        return `
         <button type="button" class="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left text-sm
             ${id === deptDipilih ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'}" data-on-click="pilihDepartemen" data-arg="${id}">
             <span class="truncate">${escapeHtml(nama)}</span>
-            <span class="text-[11px] ${id === deptDipilih ? 'text-slate-300' : 'text-slate-400'}">${jumlah} jabatan</span>
+            <span class="text-[11px] ${id === deptDipilih ? 'text-slate-300' : 'text-slate-400'}">${diatur} diatur</span>
         </button>`;
+    };
     document.getElementById('daftarDepartemen').innerHTML =
-        daftarDept.map(d => item(d.id_department, d.nama, levelDiDept(d.id_department).length)).join('') +
-        item('admin', 'Admin sistem', levelDiDept('admin').length);
+        daftarDept.map(d => item(d.id_department, d.nama)).join('') + item('admin', 'Admin sistem');
 }
 
 function pilihDepartemen(id) {
     deptDipilih = id === 'admin' ? 'admin' : Number(id);
+    jabatanDipilih = null;
     tampilDepartemen();
     tampilLevel();
+    kosongkanMatriks();
 }
 
 function tampilLevel() {
-    const daftar = levelDiDept(deptDipilih);
-    document.getElementById('tabelLevel').innerHTML = daftar.map(lv => `
-        <div class="px-4 py-3 cursor-pointer ${lv.id_level === levelDipilih ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : 'hover:bg-slate-50'}${lv.is_active ? '' : ' opacity-60'}"
-            data-on-click="pilihLevel" data-arg="${lv.id_level}">
+    document.getElementById('tabelLevel').innerHTML = jabatanDiDept(deptDipilih).map(j => {
+        const lv = peranDari(deptDipilih, j.id_jabatan);
+        return `
+        <div class="px-4 py-3 cursor-pointer ${j.id_jabatan === jabatanDipilih ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : 'hover:bg-slate-50'}"
+            data-on-click="pilihJabatan" data-arg="${j.id_jabatan}">
             <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                    <p class="font-semibold text-slate-900 text-sm">${escapeHtml(lv.nama)}</p>
-                    <p class="text-[11px] text-slate-500 mt-0.5">Halaman awal: ${escapeHtml(labelHalamanAwal(lv.halaman_awal))}</p>
+                    <p class="font-semibold text-slate-900 text-sm">${escapeHtml(j.nama)}</p>
+                    <p class="text-[11px] mt-0.5 ${lv ? 'text-slate-500' : 'text-amber-700'}">${lv ? `Halaman awal: ${escapeHtml(labelHalamanAwal(lv.halaman_awal))}` : 'Belum diatur'}</p>
                 </div>
-                <span class="text-[11px] text-slate-500 whitespace-nowrap">${Number(lv.jumlah_user)} pengguna</span>
+                <span class="text-[11px] text-slate-500 whitespace-nowrap">${lv ? Number(lv.jumlah_user) : 0} pengguna</span>
             </div>
-            <div class="flex items-center justify-between gap-2 mt-2">
-                ${badgeAktif(lv.is_active)}
-                <span class="space-x-3" data-henti-klik>
-                    <button type="button" class="link-aksi text-blue-600" data-on-click="bukaLevel" data-arg="${lv.id_level}">Ubah</button>
-                    ${lv.is_admin ? '' : `<button type="button" class="link-aksi ${lv.is_active ? 'text-red-600' : 'text-emerald-600'}"
-                        data-on-click="ubahAktifLevel" data-arg="${lv.id_level}">${lv.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
-                </span>
-            </div>
-        </div>`).join('') || `<p class="p-4 text-sm text-slate-400">Belum ada jabatan di departemen ini</p>`;
+        </div>`;
+    }).join('') || '<p class="p-4 text-sm text-slate-400">Belum ada jabatan. Tambahkan di Admin › Organisasi.</p>';
 }
 
-async function pilihLevel(id) {
-    levelDipilih = id;
+function kosongkanMatriks() {
+    document.getElementById('judulMatriks').textContent = '';
+    document.getElementById('btnSimpanAkses').disabled = true;
+    document.getElementById('levelAwal').disabled = true;
+    ['infoAdmin', 'infoBaru'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('tabelAkses').innerHTML = '<tr><td colspan="6" class="table-cell text-center text-slate-400 py-6">Pilih jabatan</td></tr>';
+    document.getElementById('ringkasAkses').textContent = '-';
+}
+
+async function pilihJabatan(id) {
+    jabatanDipilih = id;
     tampilLevel();
-    const data = await ambilJson(`/api/admin/level/${id}/akses`);
+    const dept = deptDipilih === 'admin' ? '' : deptDipilih;
+    const form = document.getElementById('formAkses');
+    form.elements.id_department.value = dept;
+    form.elements.id_jabatan.value = id;
+    const data = await ambilJson(`/api/admin/peran?id_department=${dept}&id_jabatan=${id}`);
     const tbody = document.getElementById('tabelAkses');
     if (data.error) { tbody.innerHTML = barisKosong(6, data.error); return; }
-    const admin = !!data.level.is_admin;
-    document.getElementById('judulMatriks').textContent = `· ${data.level.nama}`;
+    const j = daftarJabatan.find(x => x.id_jabatan === id);
+    const admin = !!j.is_admin;
+    const namaDept = deptDipilih === 'admin' ? '' : `${(daftarDept.find(d => d.id_department === deptDipilih) || {}).nama} · `;
+    document.getElementById('judulMatriks').textContent = `· ${namaDept}${j.nama}`;
     document.getElementById('infoAdmin').classList.toggle('hidden', !admin);
-    document.getElementById('btnSimpanAkses').disabled = admin;
+    document.getElementById('infoBaru').classList.toggle('hidden', !!data.level || admin);
+    document.getElementById('btnSimpanAkses').disabled = false;
+    const awal = document.getElementById('levelAwal');
+    awal.disabled = false;
+    pastikanPilihanAwal(data.halaman_awal);
+    awal.value = data.halaman_awal;
     let induk = null;
     tbody.innerHTML = data.menu.map(m => {
         const judul = m.induk && m.induk !== induk
@@ -113,41 +133,8 @@ function ringkasAkses() {
 
 document.getElementById('formAkses').addEventListener('submit', e => {
     e.preventDefault();
-    if (levelDipilih) kirimFormAdmin(e.target, `/api/admin/level/${levelDipilih}/akses`, { setelahnya: muatSemua });
+    if (jabatanDipilih) kirimFormAdmin(e.target, '/api/admin/peran/akses', { setelahnya: async () => { await muatSemua(); pilihJabatan(jabatanDipilih); } });
 });
-
-function bukaLevel(id) {
-    const form = document.getElementById('formLevel');
-    const lv = daftarLevel.find(x => x.id_level === id);
-    form.reset();
-    pastikanPilihanAwal(lv ? lv.halaman_awal : '');
-    const dept = lv ? lv.id_department : (deptDipilih === 'admin' ? '' : deptDipilih);
-    isiForm(form, lv ? { id_level: lv.id_level, kode: lv.kode, nama: lv.nama, halaman_awal: lv.halaman_awal,
-                         keterangan: lv.keterangan || '', id_department: dept || '' }
-                     : { id_level: '', halaman_awal: '/weighbridge?view=list', id_department: dept || '' });
-    const admin = !!(lv && lv.is_admin);            // jabatan admin sistem tidak termasuk departemen
-    document.getElementById('blokLevelDept').classList.toggle('hidden', admin);
-    form.elements.id_department.required = !admin;
-    form.elements.kode.readOnly = !!lv;
-    form.elements.kode.required = !lv;
-    form.elements.kode.classList.toggle('bg-slate-50', !!lv);
-    document.getElementById('judulModalLevel').textContent = lv ? `Ubah Jabatan ${lv.nama}` : 'Tambah Jabatan';
-    openModal('modalLevel');
-    (lv ? form.elements.nama : form.elements.kode).focus();
-}
-
-document.getElementById('formLevel').addEventListener('submit', e => {
-    e.preventDefault();
-    kirimFormAdmin(e.target, '/api/admin/level/simpan', { modal: 'modalLevel', setelahnya: muatSemua });
-});
-
-function ubahAktifLevel(id) {
-    const lv = daftarLevel.find(x => x.id_level === id);
-    konfirmasiAktif({
-        url: `/api/admin/level/${id}/aktif`, aktif: !lv.is_active, nama: `Jabatan ${lv.nama}`, jenis: 'jabatan',
-        pesanNonaktif: 'Pengguna dengan jabatan ini tidak bisa login dan sesinya langsung berakhir.', setelahnya: muatSemua,
-    });
-}
 
 // Halaman awal: tampilkan nama menu, bukan alamat. Nilai lama yang diketik manual tetap muncul sebagai pilihan.
 function labelHalamanAwal(url) {

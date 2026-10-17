@@ -2,8 +2,8 @@
 <div class="filter-bar">
     <div class="seg flex-wrap">
         <button type="button" class="chip chip-active" data-filter="" data-on-click="filterRoleUser" data-arg="$el">Semua</button>
-        {% for lv in level_list %}
-        <button type="button" class="chip" data-filter="{{ lv.kode }}" data-on-click="filterRoleUser" data-arg="$el">{{ lv.nama }}</button>
+        {% for j in jabatan_list %}
+        <button type="button" class="chip" data-filter="{{ j.id_jabatan }}" data-on-click="filterRoleUser" data-arg="$el">{{ j.nama }}</button>
         {% endfor %}
     </div>
     <div class="flex-1"></div>

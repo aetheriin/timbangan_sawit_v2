@@ -67,6 +67,17 @@ CREATE TABLE dbo.department_company (
     id_company    INT NOT NULL CONSTRAINT FK_DeptCompany_Company REFERENCES dbo.company (id_company),
     CONSTRAINT PK_DepartmentCompany PRIMARY KEY (id_department, id_company)
 );
+-- Jabatan umum (ERD Level, migrasi 042): Admin, Manager, Supervisor, Staff, Magang; ditambah di Admin › Organisasi
+CREATE TABLE dbo.jabatan (
+    id_jabatan  INT IDENTITY(1,1) PRIMARY KEY,
+    nama        NVARCHAR(100) NOT NULL CONSTRAINT UX_Jabatan_Nama UNIQUE,
+    keterangan  NVARCHAR(255) NULL,
+    is_admin    BIT NOT NULL CONSTRAINT DF_Jabatan_Admin DEFAULT (0),   -- admin sistem: hanya menu Admin, tanpa departemen
+    urutan      INT NOT NULL CONSTRAINT DF_Jabatan_Urutan DEFAULT (100),
+    is_active   BIT NOT NULL CONSTRAINT DF_Jabatan_Aktif DEFAULT (1)
+);
+-- Peran = departemen + jabatan (migrasi 042); hak menu (level_akses) & halaman awal menempel di sini.
+-- Kode & nama ("Security · Staff") dibuat otomatis saat hak akses gabungan itu pertama disimpan.
 CREATE TABLE dbo.level (
     id_level      INT IDENTITY(1,1) PRIMARY KEY,
     kode          VARCHAR(30)   NOT NULL CONSTRAINT UX_Level_Kode UNIQUE,
@@ -75,9 +86,10 @@ CREATE TABLE dbo.level (
     halaman_awal  VARCHAR(100)  NOT NULL CONSTRAINT DF_Level_Awal DEFAULT ('/weighbridge'),
     keterangan    NVARCHAR(255) NULL,
     is_active     BIT NOT NULL CONSTRAINT DF_Level_Aktif DEFAULT (1),
-    -- Jabatan milik satu departemen (migrasi 026); departemen pengguna ikut jabatannya
-    id_department INT NULL CONSTRAINT FK_Level_Department REFERENCES dbo.department (id_department)
+    id_department INT NULL CONSTRAINT FK_Level_Department REFERENCES dbo.department (id_department),   -- NULL = admin sistem
+    id_jabatan    INT NULL CONSTRAINT FK_Level_Jabatan REFERENCES dbo.jabatan (id_jabatan)
 );
+CREATE UNIQUE INDEX UX_Level_Peran ON dbo.level (id_department, id_jabatan) WHERE id_department IS NOT NULL AND id_jabatan IS NOT NULL;
 CREATE TABLE dbo.menu (
     id_menu    INT IDENTITY(1,1) PRIMARY KEY,
     kode       VARCHAR(40)   NOT NULL CONSTRAINT UX_Menu_Kode UNIQUE,
@@ -1008,17 +1020,21 @@ INSERT INTO dbo.comp_area (id_company, id_lokasi, kode, nama)
 SELECT c.id_company, l.id_lokasi, l.kode, v.nama
 FROM (VALUES ('PT', '600', N'PKS'), ('HO', '300', N'HEAD OFFICE')) v (company, lokasi, nama)
 JOIN dbo.company c ON c.kode = v.company JOIN dbo.lokasi l ON l.kode = v.lokasi;
-INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'QC / Lab'), (N'Head Office');
-INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal) VALUES
-    ('ADMIN',            N'Super Admin',      1, '/admin'),
-    ('HO',               N'Head Office',      0, '/dashboard'),
-    ('SECURITY',         N'Security',         0, '/weighbridge?tab=security'),
-    ('OPERATOR_TIMBANG', N'Operator Timbang', 0, '/weighbridge?tab=timbangan'),
-    ('SORTASI',          N'Sortasi',          0, '/weighbridge?tab=sortasi'),
-    ('LAB',              N'Laboratorium',     0, '/weighbridge?tab=lab');
-UPDATE l SET id_department = d.id_department
-FROM dbo.level l JOIN dbo.department d ON d.nama = CASE l.kode WHEN 'HO' THEN N'Head Office' WHEN 'SECURITY' THEN N'Security'
-    WHEN 'OPERATOR_TIMBANG' THEN N'Timbangan' WHEN 'SORTASI' THEN N'QC / Lab' WHEN 'LAB' THEN N'QC / Lab' ELSE N'Umum' END;
+INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'Sortasi'), (N'Laboratorium'), (N'Head Office');
+INSERT INTO dbo.jabatan (nama, is_admin, urutan) VALUES
+    (N'Admin', 1, 1), (N'Manager', 0, 2), (N'Supervisor', 0, 3), (N'Staff', 0, 4), (N'Magang', 0, 5);
+-- Peran awal (departemen · jabatan); kode tetap dipakai data awal hak akses di bawah
+INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal, id_department, id_jabatan)
+SELECT v.kode, CASE WHEN d.nama IS NULL THEN v.jabatan ELSE d.nama + N' · ' + v.jabatan END, v.adm, v.awal,
+       d.id_department, j.id_jabatan
+FROM (VALUES ('ADMIN',            N'Admin',   NULL,             1, '/admin'),
+             ('HO',               N'Manager', N'Head Office',   0, '/dashboard'),
+             ('SECURITY',         N'Staff',   N'Security',      0, '/pos-security'),
+             ('OPERATOR_TIMBANG', N'Staff',   N'Timbangan',     0, '/weighbridge?tab=timbangan'),
+             ('SORTASI',          N'Staff',   N'Sortasi',       0, '/weighbridge?tab=sortasi'),
+             ('LAB',              N'Staff',   N'Laboratorium',  0, '/weighbridge?tab=lab')) v (kode, jabatan, dept, adm, awal)
+JOIN dbo.jabatan j ON j.nama = v.jabatan
+LEFT JOIN dbo.department d ON d.nama = v.dept;
 INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
     ('DASHBOARD',        N'Dashboard',        '/dashboard',            'fa-chart-line',    10),
     ('LIST',             N'Daftar Tiket',     '/weighbridge?view=list', 'fa-list',         20),

@@ -38,19 +38,21 @@
                     <select id="userArea" name="id_comp_area" required class="input-field" data-on-change="aturDeptUser"></select>
                 </div>
                 <div>
-                    <label class="field-label" for="userDept">Departemen</label>
-                    <select id="userDept" required class="input-field" data-on-change="aturJabatanUser"></select>
-                </div>
-                <div>
                     <label class="field-label" for="userLevel">Jabatan</label>
-                    <select id="userLevel" name="id_level" required class="input-field"></select>
+                    <select id="userLevel" name="id_jabatan" required class="input-field" data-on-change="aturJabatanUser">
+                        <option value="">-- Pilih jabatan --</option>
+                        {% for j in jabatan_list %}<option value="{{ j.id_jabatan }}" data-admin="{{ 1 if j.is_admin else 0 }}">{{ j.nama }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div id="blokUserDept">
+                    <label class="field-label" for="userDept">Departemen</label>
+                    <select id="userDept" name="id_department" required class="input-field"></select>
                 </div>
             </div>
-            {# Sumber pilihan Area, Departemen & Jabatan (disaring users.js: area & departemen per perusahaan, jabatan per
-               departemen). data-company kosong = departemen ada di semua perusahaan. #}
+            {# Sumber pilihan Area & Departemen (disaring users.js per perusahaan). data-company kosong = departemen ada
+               di semua perusahaan. Hak menu mengikuti gabungan departemen + jabatan (Admin › Level & Hak Akses). #}
             <template id="sumberArea">{% for a in area_list %}<option value="{{ a.id_comp_area }}" data-company="{{ a.id_company }}" data-pusat="{{ 1 if a.is_pusat else 0 }}">{{ a.nama }} ({{ a.kode }})</option>{% endfor %}</template>
-            <template id="sumberDept">{% for d in department_list %}<option value="{{ d.id_department }}" data-company="{{ d.company | join(',') }}">{{ d.nama }}</option>{% endfor %}<option value="admin" data-company="">Admin sistem</option></template>
-            <template id="sumberJabatan">{% for lv in level_list %}<option value="{{ lv.id_level }}" data-dept="{{ 'admin' if lv.is_admin else (lv.id_department or '') }}">{{ lv.nama }}</option>{% endfor %}</template>
+            <template id="sumberDept">{% for d in department_list %}<option value="{{ d.id_department }}" data-company="{{ d.company | join(',') }}">{{ d.nama }}</option>{% endfor %}</template>
             {# Hanya untuk user di area kantor pusat: PT yang dikelola. Tidak dicentang semua = semua PT. #}
             <div id="blokPtKelola" class="hidden rounded-lg border border-slate-200 p-3">
                 <p class="field-label mb-1">PT yang dikelola</p>

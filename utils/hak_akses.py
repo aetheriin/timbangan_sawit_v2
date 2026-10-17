@@ -1,8 +1,10 @@
-"""Hak akses dari database (Admin › Level & Hak Akses): jabatan (tabel level) -> menu -> lihat / tambah / ubah / hapus.
+"""Hak akses dari database (Admin › Level & Hak Akses): peran (tabel level) -> menu -> lihat / tambah / ubah / hapus.
 
-Jabatan milik satu departemen (level.id_department, migrasi 026). Lihat = halaman / tab boleh dibuka; menu induk
+Peran = gabungan departemen + jabatan umum (migrasi 042), mis. Security · Staff. Kode & nama peran dibuat otomatis;
+jabatan (Admin, Manager, Supervisor, Staff, Magang, ...) diatur di Admin › Organisasi. Lihat = halaman / tab boleh dibuka; menu induk
 (Stasiun Timbang, Pengenalan Wajah, Data Master) terlihat bila salah satu tab-nya boleh dilihat. Level is_admin hanya
 area Admin. Dibaca dari cache memori 30 detik (tidak menambah query per request); disimpan ulang -> hapus_cache()."""
+import re
 from functools import wraps
 
 import pyodbc
@@ -217,18 +219,99 @@ def admin_required(f):
 
 # ===== Admin › Hak Akses =====
 def daftar_level():
-    """Jabatan beserta departemennya (sebelum migrasi 026: tanpa departemen)."""
+    """Peran (departemen + jabatan) beserta jumlah pengguna aktifnya."""
+    return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
+                            l.id_department, d.nama AS department, l.id_jabatan, j.nama AS jabatan,
+                            (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
+                     FROM level l LEFT JOIN department d ON d.id_department = l.id_department
+                     LEFT JOIN jabatan j ON j.id_jabatan = l.id_jabatan
+                     ORDER BY l.is_admin DESC, d.nama, j.urutan, j.nama""")
+
+
+# ===== Jabatan umum (ERD Level, migrasi 042) =====
+def daftar_jabatan():
+    return _query("""SELECT j.id_jabatan, j.nama, j.keterangan, j.is_admin, j.urutan, j.is_active,
+                            (SELECT COUNT(*) FROM level l WHERE l.id_jabatan = j.id_jabatan) AS jumlah_peran,
+                            (SELECT COUNT(*) FROM akun u JOIN level l ON l.id_level = u.id_level
+                             WHERE l.id_jabatan = j.id_jabatan AND u.is_active = 1) AS jumlah_user
+                     FROM jabatan j ORDER BY j.is_active DESC, j.urutan, j.nama""")
+
+
+def nama_jabatan_dipakai(nama, kecuali=None):
+    return any(r["id_jabatan"] != kecuali for r in _query("SELECT id_jabatan FROM jabatan WHERE nama = ?", nama))
+
+
+def simpan_jabatan(id_jabatan, nama, keterangan, urutan):
+    """Ganti nama jabatan -> nama peran yang memakainya ikut berubah ("Departemen · Jabatan")."""
+    conn = get_connection()
     try:
-        return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
-                                l.id_department, d.nama AS department,
-                                (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
-                         FROM level l LEFT JOIN department d ON d.id_department = l.id_department
-                         ORDER BY l.is_admin DESC, d.nama, l.nama""")
-    except pyodbc.Error:
-        return _query("""SELECT l.id_level, l.kode, l.nama, l.is_admin, l.halaman_awal, l.keterangan, l.is_active,
-                                NULL AS id_department, NULL AS department,
-                                (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
-                         FROM level l ORDER BY l.is_admin DESC, l.nama""")
+        cursor = conn.cursor()
+        if id_jabatan is None:
+            cursor.execute("INSERT INTO jabatan (nama, keterangan, urutan) VALUES (?, ?, ?)", nama, keterangan, urutan)
+        else:
+            cursor.execute("UPDATE jabatan SET nama = ?, keterangan = ?, urutan = ? WHERE id_jabatan = ?",
+                           nama, keterangan, urutan, id_jabatan)
+            if cursor.rowcount == 0:
+                raise ValueError("Jabatan tidak ditemukan")
+            cursor.execute("""UPDATE l SET nama = LEFT(d.nama + N' · ' + ?, 100) FROM level l
+                              JOIN department d ON d.id_department = l.id_department WHERE l.id_jabatan = ?""", nama, id_jabatan)
+        conn.commit()
+    finally:
+        conn.close()
+    hapus_cache()
+
+
+def set_aktif_jabatan(id_jabatan, aktif):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE jabatan SET is_active = ? WHERE id_jabatan = ? AND is_admin = 0", 1 if aktif else 0, id_jabatan)
+        if cursor.rowcount == 0:
+            raise ValueError("Jabatan admin tidak bisa dinonaktifkan")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def cari_peran(id_department, id_jabatan):
+    rows = _query("""SELECT id_level FROM level WHERE id_jabatan = ?
+                     AND (id_department = ? OR (id_department IS NULL AND ? IS NULL))""", id_jabatan, id_department, id_department)
+    return rows[0]["id_level"] if rows else None
+
+
+def peran_untuk(id_department, id_jabatan, halaman_awal="/weighbridge?view=list"):
+    """id peran (level) untuk departemen + jabatan ini; dibuat bila belum ada (kode & nama otomatis, tanpa hak menu)."""
+    ada = cari_peran(id_department, id_jabatan)
+    if ada:
+        return ada
+    info = _query("""SELECT j.nama AS jabatan, j.is_admin, d.nama AS department FROM jabatan j
+                     LEFT JOIN department d ON d.id_department = ? WHERE j.id_jabatan = ?""", id_department, id_jabatan)[0]
+    nama = f"{info['department']} · {info['jabatan']}" if info["department"] else info["jabatan"]
+    dasar = re.sub(r"[^A-Z0-9]+", "_", f"{info['department'] or ''}_{info['jabatan']}".upper()).strip("_")[:26] or "PERAN"
+    kode, n = dasar, 2
+    while kode_level_dipakai(kode):
+        kode, n = f"{dasar}_{n}", n + 1
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""SET NOCOUNT ON; INSERT INTO level (kode, nama, is_admin, halaman_awal, id_department, id_jabatan)
+                          VALUES (?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
+                       kode, nama[:100], 1 if info["is_admin"] else 0, halaman_awal, id_department, id_jabatan)
+        id_level = cursor.fetchone()[0]
+        conn.commit()
+    finally:
+        conn.close()
+    hapus_cache()
+    return id_level
+
+
+def simpan_halaman_awal(id_level, halaman_awal):
+    conn = get_connection()
+    try:
+        conn.cursor().execute("UPDATE level SET halaman_awal = ? WHERE id_level = ?", halaman_awal, id_level)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def daftar_menu_akses():
@@ -295,26 +378,6 @@ def get_level(id_level):
 
 def kode_level_dipakai(kode, kecuali=None):
     return any(r["id_level"] != kecuali for r in _query("SELECT id_level FROM level WHERE kode = ?", kode))
-
-
-def simpan_level(id_level, kode, nama, halaman_awal, keterangan, id_department):
-    """Departemen jabatan diubah -> departemen semua pengguna jabatan itu ikut berubah."""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        if id_level is None:
-            cursor.execute("""SET NOCOUNT ON; INSERT INTO level (kode, nama, halaman_awal, keterangan, id_department)
-                              VALUES (?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
-                           kode, nama, halaman_awal, keterangan, id_department)
-            id_level = cursor.fetchone()[0]
-        else:
-            cursor.execute("""UPDATE level SET nama = ?, halaman_awal = ?, keterangan = ?, id_department = ?
-                              WHERE id_level = ?""", nama, halaman_awal, keterangan, id_department, id_level)
-            cursor.execute("UPDATE akun SET id_department = ? WHERE id_level = ?", id_department, id_level)
-        conn.commit()
-        return id_level
-    finally:
-        conn.close()
 
 
 def set_aktif_level(id_level, aktif):

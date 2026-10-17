@@ -33,7 +33,7 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
 
 # ===== USER (level, department, area dari tabel; hak akses di utils/hak_akses.py) =====
 # Akun = personel yang bisa login (migrasi 031): nama, NIK, email & kategori disimpan di personel.
-_SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin,
+_SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin, lv.id_jabatan,
                          u.id_department, ISNULL(d.nama, 'Admin sistem') AS department, u.id_comp_area, co.kode + ' · ' + a.nama AS area,
                          u.is_active, u.last_login, u.created_at, u.id_personel, p.kode_personel, p.nik, p.email,
                          p.kategori,

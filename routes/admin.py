@@ -106,7 +106,7 @@ def admin_halaman(halaman):
     judul, ikon, keterangan = HALAMAN[halaman]
     return render_template("admin/admin.html", halaman=f"admin:{halaman}", menu_admin=HALAMAN,
                            admin_aktif=halaman, judul=judul, ikon=ikon, keterangan=keterangan,
-                           level_list=[lv for lv in hak_akses.daftar_level() if lv["is_active"]],
+                           jabatan_list=[j for j in hak_akses.daftar_jabatan() if j["is_active"]],
                            department_list=[d for d in org.daftar_department() if d["is_active"]],
                            area_list=[a for a in org.daftar_area() if a["is_active"]],
                            format_timbangan=FORMAT_TIMBANGAN,
@@ -137,16 +137,23 @@ def _id_form(nama, pilihan, label):
 
 
 def _akun_form():
-    """(jabatan, id_department, id_comp_area) dari form; hanya yang aktif. Departemen ikut jabatan."""
-    level = {lv["id_level"]: lv for lv in hak_akses.daftar_level() if lv["is_active"]}
-    id_level = _id_form("id_level", level, "jabatan")
-    id_department = level[id_level]["id_department"]
-    if id_department is None and not level[id_level]["is_admin"]:
-        raise ValueError("Jabatan ini belum punya departemen. Atur di Admin › Level & Hak Akses")
+    """(peran, id_department, id_comp_area) dari form. Peran = departemen + jabatan (dibuat bila belum ada);
+    jabatan admin sistem tanpa departemen."""
+    jabatan = {j["id_jabatan"]: j for j in hak_akses.daftar_jabatan() if j["is_active"]}
+    id_jabatan = _id_form("id_jabatan", jabatan, "jabatan")
     id_area = _id_form("id_comp_area", {a["id_comp_area"] for a in org.daftar_area() if a["is_active"]}, "area")
-    if id_department is not None and not org.department_di_area(id_department, id_area):
-        raise ValueError("Departemen jabatan ini tidak ada di perusahaan yang dipilih. Atur di Admin › Organisasi › Departemen")
-    return level[id_level], id_department, id_area
+    if jabatan[id_jabatan]["is_admin"]:
+        id_department = None
+    else:
+        id_department = _id_form("id_department", {d["id_department"] for d in org.daftar_department() if d["is_active"]},
+                                 "departemen")
+        if not org.department_di_area(id_department, id_area):
+            raise ValueError("Departemen ini tidak ada di perusahaan yang dipilih. Atur di Admin › Organisasi › Departemen")
+    id_level = hak_akses.peran_untuk(id_department, id_jabatan)
+    peran = hak_akses.get_level(id_level)
+    if not peran["is_active"]:
+        raise ValueError(f"Peran {peran['nama']} dinonaktifkan")
+    return peran, id_department, id_area
 
 
 def _simpan_pt_kelola(id_user, id_area):
@@ -340,37 +347,62 @@ def _level_atau_404(id_level):
     return lv
 
 
-@admin_bp.route("/api/admin/level/simpan", methods=["POST"])
+def _peran_form(buat):
+    """(id_department, id_jabatan, id_level atau None) dari form / query Level & Hak Akses."""
+    sumber = request.form if request.method == "POST" else request.args
+    jabatan = {j["id_jabatan"]: j for j in hak_akses.daftar_jabatan()}
+    teks_j, teks_d = (sumber.get("id_jabatan") or "").strip(), (sumber.get("id_department") or "").strip()
+    if not teks_j.isdigit() or int(teks_j) not in jabatan:
+        raise ValueError("Pilih jabatan dari daftar")
+    id_jabatan = int(teks_j)
+    if jabatan[id_jabatan]["is_admin"]:
+        id_department = None
+    elif teks_d.isdigit() and int(teks_d) in {d["id_department"] for d in org.daftar_department()}:
+        id_department = int(teks_d)
+    else:
+        raise ValueError("Pilih departemen dari daftar")
+    id_level = hak_akses.peran_untuk(id_department, id_jabatan) if buat else hak_akses.cari_peran(id_department, id_jabatan)
+    return id_department, id_jabatan, id_level
+
+
+@admin_bp.route("/api/admin/peran")
 @_admin
-def level_simpan():
+def peran_lihat():
+    """Hak menu & halaman awal satu gabungan departemen + jabatan (kosong bila belum pernah diatur)."""
     def aksi():
-        teks_id = (request.form.get("id_level") or "").strip()
-        id_level = int(teks_id) if teks_id.isdigit() else None
-        nama = _teks("nama")
+        _, _, id_level = _peran_form(buat=False)
+        lv = hak_akses.get_level(id_level) if id_level else None
+        akses = hak_akses.akses_level(id_level) if id_level else {}
+        return jsonify({"level": lv, "halaman_awal": lv["halaman_awal"] if lv else "/weighbridge?view=list",
+                        "menu": [{**m, **{k: bool(akses.get(m["id_menu"], {}).get(f"bisa_{k}"))
+                                          for k in ("lihat", *hak_akses.AKSI, "setujui")}}
+                                 for m in hak_akses.daftar_menu_akses()]})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/peran/akses", methods=["POST"])
+@_admin
+def peran_simpan():
+    """Simpan halaman awal & hak menu; peran dibuat otomatis bila gabungan ini belum ada."""
+    def aksi():
         halaman_awal = _teks("halaman_awal", maks=100)
-        if halaman_awal not in dict(HALAMAN_AWAL):
-            lama = hak_akses.get_level(id_level) if id_level else None
-            if not lama or lama["halaman_awal"] != halaman_awal:        # nilai lama yang diketik manual tetap boleh
-                raise ValueError("Pilih halaman awal dari daftar")
-        keterangan = _teks("keterangan", wajib=False, maks=255) or None
-        lama_lv = hak_akses.get_level(id_level) if id_level else None
-        if lama_lv and lama_lv["is_admin"]:          # jabatan admin sistem tidak termasuk departemen mana pun
-            id_department = None
-        else:
-            id_department = _id_form("id_department", {d["id_department"] for d in org.daftar_department() if d["is_active"]},
-                                     "departemen")
-        if id_level is None:
-            kode = _teks("kode", maks=30).upper()
-            if not POLA_KODE.match(kode):
-                raise ValueError("Kode 2-30 karakter: huruf besar, angka, garis bawah")
-            if hak_akses.kode_level_dipakai(kode):
-                raise ValueError(f"Kode level {kode} sudah dipakai")
-        else:
-            kode = _level_atau_404(id_level)["kode"]
-        hak_akses.simpan_level(id_level, kode, nama, halaman_awal, keterangan, id_department)
+        _, _, id_lama = _peran_form(buat=False)
+        lama = hak_akses.get_level(id_lama) if id_lama else None
+        if halaman_awal not in dict(HALAMAN_AWAL) and not (lama and lama["halaman_awal"] == halaman_awal):
+            raise ValueError("Pilih halaman awal dari daftar")
+        _, _, id_level = _peran_form(buat=True)
+        lv = hak_akses.get_level(id_level)
+        hak_akses.simpan_halaman_awal(id_level, halaman_awal)
+        if not lv["is_admin"]:
+            # Aksi yang tidak ada di menu itu (mis. hapus di Dashboard) tidak disimpan walau dikirim
+            akses = {m["id_menu"]: (request.form.get(f"{m['id_menu']}_lihat") == "1",
+                                    *(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1"
+                                      for k in (*hak_akses.AKSI, "setujui")))
+                     for m in hak_akses.daftar_menu_akses()}
+            hak_akses.simpan_akses_level(id_level, akses)
         get_user_by_id.hapus()
-        _audit("LEVEL_SIMPAN", kode, nama)
-        return jsonify({"message": f"Jabatan {nama} berhasil disimpan"})
+        _audit("HAK_AKSES_UBAH", lv["kode"], f"{lv['nama']} · halaman awal {halaman_awal}")
+        return jsonify({"message": f"Hak akses {lv['nama']} berhasil disimpan dan berlaku di semua PC dalam ±30 detik"})
     return _jalankan(aksi)
 
 
@@ -441,7 +473,7 @@ def _id_opsional(nama):
 @_admin
 def organisasi_daftar():
     return jsonify({"company": org.daftar_company(), "lokasi": org.daftar_lokasi(), "area": org.daftar_area(),
-                    "department": org.daftar_department(), "jabatan": hak_akses.daftar_level(),
+                    "department": org.daftar_department(), "jabatan": hak_akses.daftar_jabatan(),
                     "status": alur.daftar_status()})
 
 
@@ -511,6 +543,22 @@ def department_simpan():
     return _jalankan(aksi)
 
 
+@admin_bp.route("/api/admin/organisasi/jabatan/simpan", methods=["POST"])
+@_admin
+def jabatan_simpan():
+    def aksi():
+        id_j, nama = _id_opsional("id_jabatan"), _teks("nama")
+        if hak_akses.nama_jabatan_dipakai(nama, kecuali=id_j):
+            raise ValueError(f"Jabatan {nama} sudah ada.")
+        teks = (request.form.get("urutan") or "").strip()
+        urutan = int(teks) if teks.isdigit() else 100
+        hak_akses.simpan_jabatan(id_j, nama, _teks("keterangan", wajib=False, maks=255) or None, urutan)
+        get_user_by_id.hapus()
+        _audit("JABATAN_SIMPAN", nama)
+        return jsonify({"message": f"Jabatan {nama} berhasil disimpan."})
+    return _jalankan(aksi)
+
+
 @admin_bp.route("/api/admin/organisasi/status/simpan", methods=["POST"])
 @_admin
 def status_simpan():
@@ -532,10 +580,10 @@ def status_simpan():
 @_admin
 def organisasi_aktif(jenis, id_baris):
     fungsi = {"company": org.set_aktif_company, "area": org.set_aktif_area, "lokasi": org.set_aktif_lokasi,
-              "department": org.set_aktif_department}
+              "department": org.set_aktif_department, "jabatan": hak_akses.set_aktif_jabatan}
     if jenis not in fungsi:
         abort(404)
-    label = {"company": "Perusahaan", "area": "Area", "lokasi": "Mill", "department": "Departemen"}[jenis]
+    label = {"company": "Perusahaan", "area": "Area", "lokasi": "Mill", "department": "Departemen", "jabatan": "Jabatan"}[jenis]
 
     def aksi():
         aktif = _aktif_dari_form()
@@ -543,7 +591,8 @@ def organisasi_aktif(jenis, id_baris):
             dipakai = {"company": [(c["id_company"], c["jumlah_area"]) for c in org.daftar_company()],
                        "area": [(a["id_comp_area"], a["jumlah_user"]) for a in org.daftar_area()],
                        "lokasi": [(l["id_lokasi"], l["jumlah_area"]) for l in org.daftar_lokasi()],
-                       "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()]}[jenis]
+                       "department": [(d["id_department"], d["jumlah_user"]) for d in org.daftar_department()],
+                       "jabatan": [(j["id_jabatan"], j["jumlah_user"]) for j in hak_akses.daftar_jabatan()]}[jenis]
             if dict(dipakai).get(id_baris):
                 raise ValueError(f"{label} masih digunakan. Pindahkan pengguna / area terkait terlebih dahulu.")
         fungsi[jenis](id_baris, aktif)

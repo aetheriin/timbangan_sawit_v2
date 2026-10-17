@@ -98,28 +98,22 @@
     </form>
 </div>
 
-<!-- MODAL: Jabatan (= Level di ERD). Hak menu tiap jabatan diatur di Admin › Level & Hak Akses -->
+<!-- MODAL: Jabatan umum (= Level di ERD): Manager, Supervisor, Staff, ... Hak menu per departemen di Level & Hak Akses -->
 <div id="modalOrg-jabatan" class="modal-overlay">
-    <form id="formOrg-jabatan" class="modal-box" autocomplete="off" data-url="/api/admin/level/simpan">
+    <form id="formOrg-jabatan" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/jabatan/simpan">
         <div class="modal-header">
             <h3 class="font-bold" data-judul>Jabatan</h3>
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-jabatan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="p-6 grid grid-cols-2 gap-3">
-            <input type="hidden" name="id_level">
-            <div><label class="field-label" for="orgJabKode">Kode</label>
-                <input type="text" id="orgJabKode" name="kode" maxlength="30" placeholder="SUPERVISOR" class="input-field uppercase font-mono">
-                <p class="field-hint">Tidak bisa diubah setelah dibuat.</p></div>
-            <div><label class="field-label" for="orgJabNama">Nama</label>
-                <input type="text" id="orgJabNama" name="nama" required maxlength="100" class="input-field"></div>
-            <div id="blokOrgJabDept" class="col-span-2"><label class="field-label" for="orgJabDept">Departemen</label>
-                <select id="orgJabDept" name="id_department" required class="input-field"><option value="">-- Pilih departemen --</option></select></div>
-            <div class="col-span-2"><label class="field-label" for="orgJabAwal">Halaman Awal Setelah Login</label>
-                <select id="orgJabAwal" name="halaman_awal" required class="input-field">
-                    {% for url, label in halaman_awal_list or [] %}<option value="{{ url }}">{{ label }}</option>{% endfor %}
-                </select></div>
-            <div class="col-span-2"><label class="field-label" for="orgJabKet">Keterangan</label>
+        <div class="p-6 grid grid-cols-3 gap-3">
+            <input type="hidden" name="id_jabatan">
+            <div class="col-span-2"><label class="field-label" for="orgJabNama">Nama</label>
+                <input type="text" id="orgJabNama" name="nama" required maxlength="100" placeholder="Supervisor" class="input-field"></div>
+            <div><label class="field-label" for="orgJabUrutan">Urutan</label>
+                <input type="number" id="orgJabUrutan" name="urutan" min="0" max="999" class="input-field" placeholder="10"></div>
+            <div class="col-span-3"><label class="field-label" for="orgJabKet">Keterangan</label>
                 <input type="text" id="orgJabKet" name="keterangan" maxlength="255" class="input-field"></div>
+            <p class="col-span-3 field-hint">Urutan menentukan posisi di daftar pilihan (kecil di atas). Hak menu tiap departemen + jabatan diatur di Admin › Level &amp; Hak Akses.</p>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-jabatan" class="btn-secondary">Batal</button>

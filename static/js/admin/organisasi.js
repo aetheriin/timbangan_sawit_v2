@@ -10,12 +10,11 @@ const ORG = {
               escapeHtml(l.keterangan || '-'), `${Number(l.jumlah_area)} area`] },
     department: { id: 'id_department', nama: 'Departemen', kolom: d => [escapeHtml(d.nama), escapeHtml(d.keterangan || '-'),
                   escapeHtml(labelPtDept(d.company)), Number(d.jumlah_user)] },
-    jabatan: { id: 'id_level', nama: 'Jabatan', kolom: j => [mono(j.kode),
-               escapeHtml(j.nama) + (j.is_admin ? ' <span class="badge-status bg-slate-800 text-white">Admin</span>' : ''),
-               escapeHtml(j.department || 'Admin sistem'), escapeHtml(labelHalamanAwal(j.halaman_awal)), Number(j.jumlah_user)] },
+    jabatan: { id: 'id_jabatan', nama: 'Jabatan', kolom: j => [mono(String(j.urutan)),
+               escapeHtml(j.nama) + (j.is_admin ? ' <span class="badge-status bg-slate-800 text-white">Admin sistem</span>' : ''),
+               escapeHtml(j.keterangan || '-'), `${Number(j.jumlah_peran)} departemen`, Number(j.jumlah_user)] },
 };
 let dataOrg = { company: [], area: [], lokasi: [], department: [], jabatan: [] };
-const labelHalamanAwal = url => ([...document.getElementById('orgJabAwal').options].find(o => o.value === url) || {}).textContent || url;
 
 const mono = teks => `<span class="font-mono">${escapeHtml(teks)}</span>`;
 const labelPtDept = ids => ids.length
@@ -100,26 +99,10 @@ function bukaOrganisasi(jenis, id) {
     }
     const { area, company, ...isi } = r || {};
     isiForm(form, r ? { ...isi, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
-    if (jenis === 'jabatan') aturFormJabatan(form, r);
     if (jenis === 'department') isiPtDepartemen(r ? r.company : []);
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]):not([readonly]), select').focus();
-}
-
-// Jabatan: kode hanya diisi saat tambah; jabatan admin sistem tanpa departemen
-function aturFormJabatan(form, r) {
-    isiPilihan('orgJabDept', dataOrg.department, 'id_department', d => d.nama, r ? r.id_department : null);
-    const awal = form.elements.halaman_awal;
-    const nilai = r ? r.halaman_awal : '/weighbridge?view=list';
-    if (![...awal.options].some(o => o.value === nilai)) awal.add(new Option(nilai, nilai));
-    awal.value = nilai;
-    const admin = !!(r && r.is_admin);
-    document.getElementById('blokOrgJabDept').classList.toggle('hidden', admin);
-    form.elements.id_department.required = !admin;
-    form.elements.kode.readOnly = !!r;
-    form.elements.kode.required = !r;
-    form.elements.kode.classList.toggle('bg-slate-50', !!r);
 }
 
 Object.keys(ORG).forEach(jenis => {
@@ -133,10 +116,9 @@ function ubahAktifOrganisasi(jenis, id) {
     const cfg = ORG[jenis];
     const r = dataOrg[jenis].find(x => x[cfg.id] === id);
     konfirmasiAktif({
-        url: jenis === 'jabatan' ? `/api/admin/level/${id}/aktif` : `/api/admin/organisasi/${jenis}/${id}/aktif`,
+        url: `/api/admin/organisasi/${jenis}/${id}/aktif`,
         aktif: !r.is_active, nama: r.label || r.nama, jenis: cfg.nama.toLowerCase(),
-        pesanNonaktif: jenis === 'jabatan' ? 'Pengguna dengan jabatan ini tidak bisa login dan sesinya langsung berakhir.'
-                                           : 'Tidak muncul lagi di pilihan saat membuat / mengubah user.',
+        pesanNonaktif: 'Tidak muncul lagi di pilihan saat membuat / mengubah user.',
         setelahnya: muatOrganisasi,
     });
 }
