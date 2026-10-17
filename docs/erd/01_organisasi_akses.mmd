@@ -5,20 +5,44 @@ erDiagram
         nvarchar nama
         bit is_active
         datetime created_at
+        nvarchar alamat "NULL"
+    }
+    lokasi {
+        int id_lokasi PK
+        varchar kode UK
+        nvarchar nama
+        bit is_pusat
+        bit is_active
+        datetime created_at
+        nvarchar keterangan "NULL"
     }
     comp_area {
         int id_comp_area PK
         int id_company FK
-        varchar kode UK
+        varchar kode
         nvarchar nama
         nvarchar alamat "NULL"
         bit is_active
         datetime created_at
+        int id_lokasi FK "NULL"
+        nvarchar keterangan "NULL"
     }
     department {
         int id_department PK
         nvarchar nama UK
         nvarchar keterangan "NULL"
+        bit is_active
+    }
+    department_company {
+        int id_department PK,FK
+        int id_company PK,FK
+    }
+    jabatan {
+        int id_jabatan PK
+        nvarchar nama UK
+        nvarchar keterangan "NULL"
+        bit is_admin
+        int urutan
         bit is_active
     }
     level {
@@ -29,6 +53,8 @@ erDiagram
         varchar halaman_awal
         nvarchar keterangan "NULL"
         bit is_active
+        int id_department FK "NULL"
+        int id_jabatan FK "NULL"
     }
     menu {
         int id_menu PK
@@ -46,6 +72,8 @@ erDiagram
         bit bisa_tambah
         bit bisa_ubah
         bit bisa_hapus
+        bit bisa_lihat
+        bit bisa_setujui
     }
     akun {
         int id_user PK
@@ -53,15 +81,34 @@ erDiagram
         varchar username UK
         varchar password
         int id_level FK
-        int id_department FK
+        int id_department FK "NULL"
         int id_comp_area FK
-        int id_personel FK,UK "NULL"
+        int id_personel FK,UK
         bit is_active
         datetime last_login "NULL"
         int sesi_versi
         datetime password_changed_at "NULL"
         datetime created_at
         datetime updated_at
+    }
+    akun_akses {
+        int id_user PK,FK
+        int id_menu PK,FK
+        bit bisa_lihat
+        bit bisa_tambah
+        bit bisa_ubah
+        bit bisa_hapus
+        bit bisa_setujui
+    }
+    akun_company {
+        int id_user PK,FK
+        int id_company PK,FK
+    }
+    password_riwayat {
+        int id_riwayat PK
+        int id_user FK
+        varchar password
+        datetime dibuat
     }
     sesi_login {
         varchar sid PK
@@ -86,6 +133,10 @@ erDiagram
         int updated_by FK "NULL"
         datetime updated_at
     }
+    kolom_wajib {
+        varchar form PK
+        varchar kolom PK
+    }
     perangkat_kiosk {
         varchar id_pos PK
         varchar nama
@@ -108,14 +159,24 @@ erDiagram
         int id_personel PK
     }
     comp_area ||--o{ akun : "id_comp_area"
-    department ||--o{ akun : "id_department"
+    department |o--o{ akun : "id_department"
     level ||--o{ akun : "id_level"
-    personel |o--o| akun : "id_personel"
+    personel ||--o| akun : "id_personel"
+    menu ||--o{ akun_akses : "id_menu"
+    akun ||--o{ akun_akses : "id_user"
+    company ||--o{ akun_company : "id_company"
+    akun ||--o{ akun_company : "id_user"
     company ||--o{ comp_area : "id_company"
+    lokasi |o--o{ comp_area : "id_lokasi"
+    company ||--o{ department_company : "id_company"
+    department ||--o{ department_company : "id_department"
     comp_area ||--o{ jadwal_kerja : "id_comp_area"
+    department |o--o{ level : "id_department"
+    jabatan |o--o{ level : "id_jabatan"
     level ||--o{ level_akses : "id_level"
     menu ||--o{ level_akses : "id_menu"
     menu |o--o{ menu : "id_parent"
+    akun ||--o{ password_riwayat : "id_user"
     akun |o--o{ pengaturan : "updated_by"
     comp_area ||--o{ pengaturan_area : "id_comp_area"
     akun |o--o{ pengaturan_area : "updated_by"

@@ -36,18 +36,21 @@ null_of = {(t, k["nama"]): k["null"] for t, ks in kolom.items() for k in ks}
 
 KELOMPOK = [
     ("01_organisasi_akses", "Organisasi, akun & hak akses",
-     ["company", "comp_area", "department", "level", "menu", "level_akses", "akun", "sesi_login", "pengaturan", "pengaturan_area",
+     ["company", "lokasi", "comp_area", "department", "department_company", "jabatan", "level", "menu", "level_akses", "akun",
+      "akun_akses", "akun_company", "password_riwayat", "sesi_login", "pengaturan", "pengaturan_area", "kolom_wajib",
       "perangkat_kiosk", "jadwal_kerja", "personel"]),
     ("02_personel_dokumen", "Personel, wajah, kunjungan, absensi, blacklist & dokumen",
      ["kategori_personel", "personel", "jenis_sim", "personel_sim", "personel_wajah", "keperluan_kunjungan", "kunjungan", "absensi",
-      "blacklist", "jenis_dokumen", "dokumen", "dokumen_file", "kendaraan", "comp_area"]),
+      "blacklist", "blacklist_deteksi", "jenis_dokumen", "dokumen", "dokumen_file", "kendaraan", "comp_area"]),
     ("03_mitra_kontrak", "Mitra, kendaraan, produk, kontrak & DO",
-     ["mitra", "mitra_peran", "jenis_kendaraan", "kendaraan", "kendaraan_driver", "kontrak_kendaraan", "kontrak", "delivery_order",
-      "do_pengangkutan", "produk", "standar_mutu", "alur", "harga_harian", "personel"]),
-    ("04_proses_tiket", "Proses tiket: alur, mill, jembatan, timbang, sortasi, lab, pembatalan",
-     ["transaksi", "tahap", "alur", "alur_tahap", "mill", "comp_area", "jembatan_timbang", "penimbangan", "sortasi", "lab_hasil",
-      "pembatalan_tiket", "produk", "mitra", "kendaraan", "personel", "delivery_order", "kontrak_kendaraan", "dokumen"]),
-    ("05_log", "Log aktivitas (JSON + rantai hash)", ["log_aktivitas", "akun", "comp_area"]),
+     ["mitra", "mitra_peran", "mitra_company", "company", "jenis_kendaraan", "kendaraan", "kendaraan_driver", "kontrak_kendaraan",
+      "kontrak", "delivery_order", "do_pengangkutan", "kelebihan_do", "produk", "standar_mutu", "alur", "harga_harian", "personel"]),
+    ("04_proses_tiket", "Proses tiket & Pos Security: alur, jembatan, timbang, sortasi, lab, pembatalan",
+     ["transaksi", "jenis_transaksi", "status_tiket", "tahap", "alur", "alur_tahap", "comp_area", "jembatan_timbang", "penimbangan",
+      "sortasi", "lab_hasil", "pembatalan_tiket", "produk", "mitra", "kendaraan", "personel", "delivery_order",
+      "kontrak_kendaraan", "dokumen", "akun"]),
+    ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
+     ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "notifikasi", "notifikasi_baca", "akun", "comp_area"]),
 ]
 
 def entitas(t, ringkas=False):
@@ -85,9 +88,11 @@ for kode, judul, tabel in KELOMPOK:
     utama = {t for t in tabel}
     # tabel pendukung (milik kelompok lain) cukup ditampilkan PK-nya
     pendukung = {"01_organisasi_akses": {"personel"}, "02_personel_dokumen": {"kendaraan", "comp_area"},
-                 "03_mitra_kontrak": {"personel", "alur"}, "04_proses_tiket": {"comp_area", "produk", "mitra", "kendaraan", "personel",
-                 "delivery_order", "kontrak_kendaraan", "dokumen"}, "05_log": {"akun", "comp_area"}}[kode]
-    hasil[kode] = diagram(tabel, utama - pendukung, tanpa_akun=kode not in ("01_organisasi_akses", "05_log"))
+                 "03_mitra_kontrak": {"personel", "alur", "company"},
+                 "04_proses_tiket": {"comp_area", "produk", "mitra", "kendaraan", "personel", "delivery_order",
+                                     "kontrak_kendaraan", "dokumen", "akun"},
+                 "05_log_persetujuan": {"akun", "comp_area"}}[kode]
+    hasil[kode] = diagram(tabel, utama - pendukung, tanpa_akun=kode not in ("01_organisasi_akses", "05_log_persetujuan"))
 folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "erd")
 os.makedirs(folder, exist_ok=True)
 for nama, isi in hasil.items():

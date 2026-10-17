@@ -20,15 +20,28 @@ erDiagram
         varchar username UK
         varchar password
         int id_level FK
-        int id_department FK
+        int id_department FK "NULL"
         int id_comp_area FK
-        int id_personel FK,UK "NULL"
+        int id_personel FK,UK
         bit is_active
         datetime last_login "NULL"
         int sesi_versi
         datetime password_changed_at "NULL"
         datetime created_at
         datetime updated_at
+    }
+    akun_akses {
+        int id_user PK,FK
+        int id_menu PK,FK
+        bit bisa_lihat
+        bit bisa_tambah
+        bit bisa_ubah
+        bit bisa_hapus
+        bit bisa_setujui
+    }
+    akun_company {
+        int id_user PK,FK
+        int id_company PK,FK
     }
     alur {
         int id_alur PK
@@ -47,21 +60,40 @@ erDiagram
         int id_personel FK "NULL"
         int id_kendaraan FK "NULL"
         varchar alasan_blacklist
-        int id_dokumen FK
+        int id_dokumen FK "NULL"
         int created_by FK
         datetime created_at
         varchar no_plat_terkait "NULL"
         int id_customer_terkait FK "NULL"
         int id_pengangkutan_terkait FK "NULL"
+        datetime dicabut_at "NULL"
+        int dicabut_oleh FK "NULL"
+        nvarchar alasan_cabut "NULL"
+    }
+    blacklist_deteksi {
+        bigint id_deteksi PK
+        datetime waktu
+        int id_comp_area FK "NULL"
+        int id_personel FK "NULL"
+        int id_kendaraan FK "NULL"
+        varchar no_plat "NULL"
+        varchar sumber
+        varchar tindakan
+        float jarak_wajah "NULL"
+        nvarchar keterangan "NULL"
+        varchar no_tiket "NULL"
+        int id_user FK "NULL"
     }
     comp_area {
         int id_comp_area PK
         int id_company FK
-        varchar kode UK
+        varchar kode
         nvarchar nama
         nvarchar alamat "NULL"
         bit is_active
         datetime created_at
+        int id_lokasi FK "NULL"
+        nvarchar keterangan "NULL"
     }
     company {
         int id_company PK
@@ -69,6 +101,7 @@ erDiagram
         nvarchar nama
         bit is_active
         datetime created_at
+        nvarchar alamat "NULL"
     }
     delivery_order {
         int id_do PK
@@ -87,12 +120,17 @@ erDiagram
         nvarchar keterangan "NULL"
         bit is_active
     }
+    department_company {
+        int id_department PK,FK
+        int id_company PK,FK
+    }
     do_pengangkutan {
         int id_do_angkut PK
         int id_do FK
         varchar cara_angkut
         int id_pengangkutan FK "NULL"
         decimal qty_kg "NULL"
+        decimal ongkos_per_kg "NULL"
     }
     dokumen {
         int id_dokumen PK
@@ -122,6 +160,14 @@ erDiagram
         decimal biaya_olah
         int updated_by FK "NULL"
         datetime updated_at
+    }
+    jabatan {
+        int id_jabatan PK
+        nvarchar nama UK
+        nvarchar keterangan "NULL"
+        bit is_admin
+        int urutan
+        bit is_active
     }
     jadwal_kerja {
         int id_comp_area PK,FK
@@ -165,6 +211,9 @@ erDiagram
         varchar kode UK
         nvarchar nama
         bit is_active
+        decimal berat_kosong_kg "NULL"
+        decimal muatan_maks_kg "NULL"
+        int kursi "NULL"
     }
     jenis_sim {
         int id_jenis_sim PK
@@ -172,12 +221,39 @@ erDiagram
         nvarchar nama
         bit is_active
     }
+    jenis_transaksi {
+        varchar kode PK
+        nvarchar nama
+        bit is_bayar
+        bit is_active
+    }
     kategori_personel {
         varchar kode PK
         nvarchar nama
         bit wajib_sim
         bit boleh_akun
+        varchar prefix_kode "NULL"
         bit is_active
+    }
+    kelebihan_do {
+        int id_kelebihan PK
+        varchar no_tiket FK,UK
+        varchar no_tiket_split FK
+        int id_do FK
+        decimal kuota_kg
+        decimal realisasi_kg
+        decimal netto_tiket_kg
+        decimal kelebihan_kg
+        varchar no_do_baru "NULL"
+        varchar status
+        nvarchar catatan "NULL"
+        int diajukan_oleh FK "NULL"
+        datetime diajukan_at "NULL"
+        int ditetapkan_oleh FK "NULL"
+        datetime ditetapkan_at "NULL"
+        nvarchar alasan_kembali "NULL"
+        int id_comp_area FK "NULL"
+        datetime created_at
     }
     kendaraan {
         int id_kendaraan PK
@@ -203,6 +279,10 @@ erDiagram
         nvarchar nama UK
         bit is_active
     }
+    kolom_wajib {
+        varchar form PK
+        varchar kolom PK
+    }
     kontrak {
         int id_kontrak PK
         varchar no_kontrak UK
@@ -216,6 +296,9 @@ erDiagram
         bit is_active
         int created_by FK "NULL"
         datetime created_at
+        bit ppn
+        bit harga_termasuk_ppn
+        int id_company FK "NULL"
     }
     kontrak_kendaraan {
         int id_kontrak PK
@@ -265,6 +348,8 @@ erDiagram
         varchar halaman_awal
         nvarchar keterangan "NULL"
         bit is_active
+        int id_department FK "NULL"
+        int id_jabatan FK "NULL"
     }
     level_akses {
         int id_level PK,FK
@@ -272,6 +357,8 @@ erDiagram
         bit bisa_tambah
         bit bisa_ubah
         bit bisa_hapus
+        bit bisa_lihat
+        bit bisa_setujui
     }
     log_aktivitas {
         bigint id_log PK
@@ -288,6 +375,15 @@ erDiagram
         char hash_sebelum "NULL"
         char hash_baris
     }
+    lokasi {
+        int id_lokasi PK
+        varchar kode UK
+        nvarchar nama
+        bit is_pusat
+        bit is_active
+        datetime created_at
+        nvarchar keterangan "NULL"
+    }
     menu {
         int id_menu PK
         varchar kode UK
@@ -298,24 +394,44 @@ erDiagram
         int urutan
         bit is_active
     }
-    mill {
-        int id_mill PK
-        int id_comp_area FK
-        varchar kode
-        nvarchar nama
-        int id_alur FK
-        bit is_active
-    }
     mitra {
         int id_supplier PK
         varchar kode_supplier UK
         varchar nama_supplier
         bit is_active
         datetime created_at
+        nvarchar alamat "NULL"
+    }
+    mitra_company {
+        int id_supplier PK,FK
+        int id_company PK,FK
     }
     mitra_peran {
         int id_supplier PK,FK
         varchar peran PK
+    }
+    notifikasi {
+        int id_notifikasi PK
+        varchar kode_menu
+        int id_comp_area FK "NULL"
+        nvarchar judul
+        nvarchar isi "NULL"
+        varchar tautan "NULL"
+        datetime waktu
+        int id_level FK "NULL"
+        int id_company FK "NULL"
+        int id_user FK "NULL"
+    }
+    notifikasi_baca {
+        int id_notifikasi PK,FK
+        int id_user PK,FK
+        datetime dibaca_at
+    }
+    password_riwayat {
+        int id_riwayat PK
+        int id_user FK
+        varchar password
+        datetime dibuat
     }
     pembatalan_tiket {
         varchar no_tiket PK,FK
@@ -323,6 +439,32 @@ erDiagram
         nvarchar alasan
         int id_dokumen FK "NULL"
         int oleh FK "NULL"
+        datetime waktu
+    }
+    pengajuan {
+        int id_pengajuan PK
+        varchar jenis
+        varchar status
+        tinyint langkah
+        tinyint total_langkah
+        int id_company FK
+        int id_comp_area FK
+        varchar target
+        nvarchar judul
+        nvarchar alasan "NULL"
+        nvarchar data "NULL"
+        int diajukan_oleh FK
+        datetime created_at
+        datetime selesai_at "NULL"
+    }
+    pengajuan_riwayat {
+        int id_riwayat PK
+        int id_pengajuan FK
+        tinyint langkah
+        varchar aksi
+        int id_level FK "NULL"
+        int id_user FK
+        nvarchar catatan "NULL"
         datetime waktu
     }
     pengaturan {
@@ -359,7 +501,7 @@ erDiagram
     personel {
         int id_personel PK
         varchar kode_personel UK "NULL"
-        varchar nik UK
+        varchar nik UK "NULL"
         varchar nama_personel
         varchar kategori FK
         bit is_updated
@@ -368,6 +510,7 @@ erDiagram
         bit is_active
         datetime created_at
         datetime updated_at
+        nvarchar email "NULL"
     }
     personel_sim {
         int id_sim PK
@@ -427,6 +570,12 @@ erDiagram
         float maks_air
         float maks_kotoran
     }
+    status_tiket {
+        varchar kode PK
+        nvarchar nama
+        varchar warna
+        tinyint urutan
+    }
     tahap {
         varchar kode PK
         nvarchar nama
@@ -449,27 +598,46 @@ erDiagram
         varchar driver_photo_path "NULL"
         int security_id FK
         int id_jembatan FK "NULL"
-        int id_mill FK "NULL"
         int id_do FK "NULL"
         varchar cara_angkut
+        varchar no_tiket_induk FK "NULL"
+        decimal berat_split_kg "NULL"
         datetime created_at
+        datetime diperiksa_pada "NULL"
+        int diperiksa_oleh FK "NULL"
+        datetime waktu_keluar "NULL"
+        int keluar_oleh FK "NULL"
+        int id_comp_area FK
+        int id_alur FK "NULL"
     }
     personel |o--o{ absensi : "id_personel"
     comp_area ||--o{ akun : "id_comp_area"
-    department ||--o{ akun : "id_department"
+    department |o--o{ akun : "id_department"
     level ||--o{ akun : "id_level"
-    personel |o--o| akun : "id_personel"
+    personel ||--o| akun : "id_personel"
+    menu ||--o{ akun_akses : "id_menu"
+    akun ||--o{ akun_akses : "id_user"
+    company ||--o{ akun_company : "id_company"
+    akun ||--o{ akun_company : "id_user"
     alur ||--o{ alur_tahap : "id_alur"
     tahap ||--o{ alur_tahap : "kode_tahap"
     akun ||--o{ blacklist : "created_by"
+    akun |o--o{ blacklist : "dicabut_oleh"
     mitra |o--o{ blacklist : "id_customer_terkait"
-    dokumen ||--o{ blacklist : "id_dokumen"
+    dokumen |o--o{ blacklist : "id_dokumen"
     kendaraan |o--o{ blacklist : "id_kendaraan"
     mitra |o--o{ blacklist : "id_pengangkutan_terkait"
     personel |o--o{ blacklist : "id_personel"
+    comp_area |o--o{ blacklist_deteksi : "id_comp_area"
+    kendaraan |o--o{ blacklist_deteksi : "id_kendaraan"
+    personel |o--o{ blacklist_deteksi : "id_personel"
+    akun |o--o{ blacklist_deteksi : "id_user"
     company ||--o{ comp_area : "id_company"
+    lokasi |o--o{ comp_area : "id_lokasi"
     akun |o--o{ delivery_order : "created_by"
     kontrak ||--o| delivery_order : "id_kontrak"
+    company ||--o{ department_company : "id_company"
+    department ||--o{ department_company : "id_department"
     delivery_order ||--o{ do_pengangkutan : "id_do"
     mitra |o--o{ do_pengangkutan : "id_pengangkutan"
     akun ||--o{ dokumen : "created_by"
@@ -478,11 +646,18 @@ erDiagram
     akun |o--o{ harga_harian : "updated_by"
     comp_area ||--o{ jadwal_kerja : "id_comp_area"
     comp_area ||--o{ jembatan_timbang : "id_comp_area"
+    akun |o--o{ kelebihan_do : "diajukan_oleh"
+    akun |o--o{ kelebihan_do : "ditetapkan_oleh"
+    comp_area |o--o{ kelebihan_do : "id_comp_area"
+    delivery_order ||--o{ kelebihan_do : "id_do"
+    transaksi ||--o| kelebihan_do : "no_tiket"
+    transaksi ||--o{ kelebihan_do : "no_tiket_split"
     jenis_kendaraan |o--o{ kendaraan : "id_jenis_kendaraan"
     akun |o--o{ kendaraan_driver : "created_by"
     personel ||--o{ kendaraan_driver : "id_driver"
     kendaraan ||--o{ kendaraan_driver : "id_kendaraan"
     akun |o--o{ kontrak : "created_by"
+    company |o--o{ kontrak : "id_company"
     mitra ||--o{ kontrak : "id_customer"
     produk ||--o{ kontrak : "id_produk"
     akun |o--o{ kontrak_kendaraan : "created_by"
@@ -497,17 +672,32 @@ erDiagram
     dokumen |o--o{ lab_hasil : "id_dokumen"
     transaksi ||--o| lab_hasil : "no_tiket"
     akun |o--o{ lab_hasil : "operator_lab_id"
+    department |o--o{ level : "id_department"
+    jabatan |o--o{ level : "id_jabatan"
     level ||--o{ level_akses : "id_level"
     menu ||--o{ level_akses : "id_menu"
     comp_area |o--o{ log_aktivitas : "id_comp_area"
     akun |o--o{ log_aktivitas : "id_user"
     menu |o--o{ menu : "id_parent"
-    alur ||--o{ mill : "id_alur"
-    comp_area ||--o{ mill : "id_comp_area"
+    company ||--o{ mitra_company : "id_company"
+    mitra ||--o{ mitra_company : "id_supplier"
     mitra ||--o{ mitra_peran : "id_supplier"
+    comp_area |o--o{ notifikasi : "id_comp_area"
+    company |o--o{ notifikasi : "id_company"
+    level |o--o{ notifikasi : "id_level"
+    akun |o--o{ notifikasi : "id_user"
+    notifikasi ||--o{ notifikasi_baca : "id_notifikasi"
+    akun ||--o{ notifikasi_baca : "id_user"
+    akun ||--o{ password_riwayat : "id_user"
     dokumen |o--o{ pembatalan_tiket : "id_dokumen"
     transaksi ||--o| pembatalan_tiket : "no_tiket"
     akun |o--o{ pembatalan_tiket : "oleh"
+    akun ||--o{ pengajuan : "diajukan_oleh"
+    comp_area ||--o{ pengajuan : "id_comp_area"
+    company ||--o{ pengajuan : "id_company"
+    level |o--o{ pengajuan_riwayat : "id_level"
+    pengajuan ||--o{ pengajuan_riwayat : "id_pengajuan"
+    akun ||--o{ pengajuan_riwayat : "id_user"
     akun |o--o{ pengaturan : "updated_by"
     comp_area ||--o{ pengaturan_area : "id_comp_area"
     akun |o--o{ pengaturan_area : "updated_by"
@@ -526,13 +716,17 @@ erDiagram
     transaksi ||--o| sortasi : "no_tiket"
     akun |o--o{ sortasi : "operator_sortasi_id"
     produk ||--o| standar_mutu : "id_produk"
+    akun |o--o{ transaksi : "diperiksa_oleh"
+    alur |o--o{ transaksi : "id_alur"
+    comp_area ||--o{ transaksi : "id_comp_area"
     delivery_order |o--o{ transaksi : "id_do"
     personel ||--o{ transaksi : "id_driver"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"
     kendaraan ||--o{ transaksi : "id_kendaraan"
     kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
-    mill |o--o{ transaksi : "id_mill"
     mitra |o--o{ transaksi : "id_pengangkutan"
     produk ||--o{ transaksi : "id_produk"
     mitra ||--o{ transaksi : "id_supplier"
+    akun |o--o{ transaksi : "keluar_oleh"
+    transaksi |o--o{ transaksi : "no_tiket_induk"
     akun ||--o{ transaksi : "security_id"

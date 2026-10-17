@@ -16,10 +16,29 @@ erDiagram
         varchar driver_photo_path "NULL"
         int security_id FK
         int id_jembatan FK "NULL"
-        int id_mill FK "NULL"
         int id_do FK "NULL"
         varchar cara_angkut
+        varchar no_tiket_induk FK "NULL"
+        decimal berat_split_kg "NULL"
         datetime created_at
+        datetime diperiksa_pada "NULL"
+        int diperiksa_oleh FK "NULL"
+        datetime waktu_keluar "NULL"
+        int keluar_oleh FK "NULL"
+        int id_comp_area FK
+        int id_alur FK "NULL"
+    }
+    jenis_transaksi {
+        varchar kode PK
+        nvarchar nama
+        bit is_bayar
+        bit is_active
+    }
+    status_tiket {
+        varchar kode PK
+        nvarchar nama
+        varchar warna
+        tinyint urutan
     }
     tahap {
         varchar kode PK
@@ -36,14 +55,6 @@ erDiagram
         int id_alur PK,FK
         tinyint urutan PK
         varchar kode_tahap FK
-    }
-    mill {
-        int id_mill PK
-        int id_comp_area FK
-        varchar kode
-        nvarchar nama
-        int id_alur FK
-        bit is_active
     }
     comp_area {
         int id_comp_area PK
@@ -133,25 +144,28 @@ erDiagram
     dokumen {
         int id_dokumen PK
     }
+    akun {
+        int id_user PK
+    }
     alur ||--o{ alur_tahap : "id_alur"
     tahap ||--o{ alur_tahap : "kode_tahap"
     comp_area ||--o{ jembatan_timbang : "id_comp_area"
     dokumen |o--o{ lab_hasil : "id_dokumen"
     transaksi ||--o| lab_hasil : "no_tiket"
-    alur ||--o{ mill : "id_alur"
-    comp_area ||--o{ mill : "id_comp_area"
     dokumen |o--o{ pembatalan_tiket : "id_dokumen"
     transaksi ||--o| pembatalan_tiket : "no_tiket"
     jembatan_timbang ||--o{ penimbangan : "id_jembatan"
     transaksi ||--o{ penimbangan : "no_tiket"
     alur ||--o{ produk : "id_alur"
     transaksi ||--o| sortasi : "no_tiket"
+    alur |o--o{ transaksi : "id_alur"
+    comp_area ||--o{ transaksi : "id_comp_area"
     delivery_order |o--o{ transaksi : "id_do"
     personel ||--o{ transaksi : "id_driver"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"
     kendaraan ||--o{ transaksi : "id_kendaraan"
     kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
-    mill |o--o{ transaksi : "id_mill"
     mitra |o--o{ transaksi : "id_pengangkutan"
     produk ||--o{ transaksi : "id_produk"
     mitra ||--o{ transaksi : "id_supplier"
+    transaksi |o--o{ transaksi : "no_tiket_induk"

@@ -5,16 +5,27 @@ erDiagram
         varchar nama_supplier
         bit is_active
         datetime created_at
+        nvarchar alamat "NULL"
     }
     mitra_peran {
         int id_supplier PK,FK
         varchar peran PK
+    }
+    mitra_company {
+        int id_supplier PK,FK
+        int id_company PK,FK
+    }
+    company {
+        int id_company PK
     }
     jenis_kendaraan {
         int id_jenis_kendaraan PK
         varchar kode UK
         nvarchar nama
         bit is_active
+        decimal berat_kosong_kg "NULL"
+        decimal muatan_maks_kg "NULL"
+        int kursi "NULL"
     }
     kendaraan {
         int id_kendaraan PK
@@ -62,6 +73,9 @@ erDiagram
         bit is_active
         int created_by FK "NULL"
         datetime created_at
+        bit ppn
+        bit harga_termasuk_ppn
+        int id_company FK "NULL"
     }
     delivery_order {
         int id_do PK
@@ -80,6 +94,27 @@ erDiagram
         varchar cara_angkut
         int id_pengangkutan FK "NULL"
         decimal qty_kg "NULL"
+        decimal ongkos_per_kg "NULL"
+    }
+    kelebihan_do {
+        int id_kelebihan PK
+        varchar no_tiket FK,UK
+        varchar no_tiket_split FK
+        int id_do FK
+        decimal kuota_kg
+        decimal realisasi_kg
+        decimal netto_tiket_kg
+        decimal kelebihan_kg
+        varchar no_do_baru "NULL"
+        varchar status
+        nvarchar catatan "NULL"
+        int diajukan_oleh FK "NULL"
+        datetime diajukan_at "NULL"
+        int ditetapkan_oleh FK "NULL"
+        datetime ditetapkan_at "NULL"
+        nvarchar alasan_kembali "NULL"
+        int id_comp_area FK "NULL"
+        datetime created_at
     }
     produk {
         int id_produk PK
@@ -112,14 +147,18 @@ erDiagram
     kontrak ||--o| delivery_order : "id_kontrak"
     delivery_order ||--o{ do_pengangkutan : "id_do"
     mitra |o--o{ do_pengangkutan : "id_pengangkutan"
+    delivery_order ||--o{ kelebihan_do : "id_do"
     jenis_kendaraan |o--o{ kendaraan : "id_jenis_kendaraan"
     personel ||--o{ kendaraan_driver : "id_driver"
     kendaraan ||--o{ kendaraan_driver : "id_kendaraan"
+    company |o--o{ kontrak : "id_company"
     mitra ||--o{ kontrak : "id_customer"
     produk ||--o{ kontrak : "id_produk"
     kendaraan ||--o{ kontrak_kendaraan : "id_kendaraan"
     produk |o--o{ kontrak_kendaraan : "id_produk"
     mitra ||--o{ kontrak_kendaraan : "id_supplier"
+    company ||--o{ mitra_company : "id_company"
+    mitra ||--o{ mitra_company : "id_supplier"
     mitra ||--o{ mitra_peran : "id_supplier"
     alur ||--o{ produk : "id_alur"
     produk ||--o| standar_mutu : "id_produk"
