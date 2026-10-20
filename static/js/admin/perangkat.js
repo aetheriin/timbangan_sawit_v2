@@ -67,13 +67,27 @@ function tampilkanToken(idPos, token) {
     openModal('modalToken');
 }
 
+// Clipboard API hanya ada di HTTPS / localhost; admin yang dibuka lewat http://IP memakai cara lama (execCommand)
 async function salinTokenKiosk() {
+    const el = document.getElementById('isiEnvKiosk');
+    const teks = el.textContent;
     try {
-        await navigator.clipboard.writeText(document.getElementById('isiEnvKiosk').textContent);
+        await navigator.clipboard.writeText(teks);
         Notif.sukses('Berhasil disalin');
-    } catch (e) {
-        Notif.peringatan('Browser menolak penyalinan otomatis. Silakan blok teks, lalu tekan Ctrl+C.');
-    }
+        return;
+    } catch (e) { /* lanjut ke cara lama */ }
+    const area = document.createElement('textarea');
+    area.value = teks;
+    area.setAttribute('readonly', '');
+    area.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    el.closest('.modal-box').appendChild(area);         // di dalam modal supaya fokus tidak keluar dari dialog
+    area.select();
+    let berhasil = false;
+    try { berhasil = document.execCommand('copy'); } catch (e) { berhasil = false; }
+    area.remove();
+    if (berhasil) { Notif.sukses('Berhasil disalin'); return; }
+    window.getSelection().selectAllChildren(el);           // tetap gagal: teks diblok, tinggal Ctrl+C
+    Notif.peringatan('Browser menolak penyalinan otomatis. Teks sudah diblok, tekan Ctrl+C.');
 }
 
 async function gantiTokenPos(idPos) {

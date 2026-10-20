@@ -256,6 +256,7 @@ window.KAMUS_EN = {
 "Boleh punya akun login": "May have a login account",
 "Browser lain": "Other browser",
 "Browser menolak penyalinan otomatis. Silakan blok teks, lalu tekan Ctrl+C.": "The browser refused automatic copying. Please select the text, then press Ctrl+C.",
+"Browser menolak penyalinan otomatis. Teks sudah diblok, tekan Ctrl+C.": "The browser refused automatic copying. The text is selected, press Ctrl+C.",
 "Bruto": "Gross",
 "Bruto, tara, netto, dan lama truk di dalam": "Gross, tare, net, and time the truck stayed inside",
 "Buat Tiket": "Create Ticket",
