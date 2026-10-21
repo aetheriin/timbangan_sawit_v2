@@ -18,7 +18,8 @@
             </div>
             {# Angka berat mengisi ruang tengah panel (tinggi panel mengikuti kartu kanan); tombol di dasar panel #}
             <div class="flex-1 flex flex-col items-center justify-center text-center py-10">
-                <p class="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">Berat saat ini (kendaraan + muatan)</p>
+                {# Label mengikuti tiket: timbang ke-berapa & disimpan sebagai bruto / tara (timbangan.js aturLabelBerat) #}
+                <p id="labelBeratLive" class="text-xs font-mono uppercase tracking-widest text-slate-400 mb-3">Berat di jembatan</p>
                 <p class="flex items-baseline justify-center font-mono font-bold tracking-tight text-white tabular-nums leading-none">
                     <span id="beratLiveDisplay" class="text-8xl">0</span><span class="text-3xl font-normal text-slate-400 ml-3">kg</span>
                 </p>

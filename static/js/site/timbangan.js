@@ -1,11 +1,30 @@
 let idSupplierAktif = null;
 let noTiketAktif = null;
+let jenisAktif = null;
+
+// Label di atas angka berat: berat yang dikunci akan disimpan sebagai apa (aturan server: Pembelian & Penimbangan
+// saja ke-1 = bruto, ke-2 = tara; Penjualan kebalikannya). data = hasil /api/timbang/data, null = belum ada tiket.
+function aturLabelBerat(data) {
+    const el = document.getElementById('labelBeratLive');
+    const BRUTO = '<span class="text-emerald-300">Bruto</span> (truk + muatan)';
+    const TARA = '<span class="text-sky-300">Tara</span> (truk kosong)';
+    let html = 'Berat di jembatan';
+    if (data && noTiketAktif) {
+        const pertama = data.berat_bruto == null && data.berat_tara == null;
+        if (data.berat_netto != null) html = 'Tiket ini sudah selesai ditimbang';
+        else if (jenisAktif === 'PENIMBANGAN_SAJA') html = `Timbang · ${BRUTO}`;
+        else if (jenisAktif === 'PENJUALAN') html = pertama ? `Timbang Masuk · ${TARA}` : `Timbang Keluar · ${BRUTO}`;
+        else html = pertama ? `Timbang Masuk · ${BRUTO}` : `Timbang Keluar · ${TARA}`;
+    }
+    el.innerHTML = html;
+}
 
 window.addEventListener('platLookup', (e) => {
     const data = e.detail;
     if (data.status === 'ADA_TIKET') {
         noTiketAktif = data.no_tiket;
         idSupplierAktif = data.id_supplier;
+        jenisAktif = data.jenis_transaksi;
         document.getElementById('tbJenisTransaksi').value = labelKode(data.jenis_transaksi);
         document.getElementById('tbSupplier').value = data.supplier;
         document.getElementById('tbProduk').value = data.produk;
@@ -14,6 +33,8 @@ window.addEventListener('platLookup', (e) => {
     } else {
         noTiketAktif = null;
         idSupplierAktif = null;
+        jenisAktif = null;
+        aturLabelBerat(null);
         ['tbJenisTransaksi', 'tbSupplier', 'tbProduk'].forEach(id => document.getElementById(id).value = '');
         ['tbBruto', 'tbTara', 'tbNetto', 'tbPotongan', 'tbNettoAkhir'].forEach(id => document.getElementById(id).textContent = '-');
     }
@@ -77,6 +98,7 @@ async function muatDataTimbanganTersimpan(noTiket) {
     document.getElementById('tbNetto').textContent = kgTeks(data.berat_netto);
     document.getElementById('tbPotongan').textContent = data.potongan_kg == null ? '-' : `-${kgTeks(data.potongan_kg)}`;
     document.getElementById('tbNettoAkhir').textContent = kgTeks(data.netto_akhir);
+    aturLabelBerat(data);
     const info = document.getElementById('tbJembatanMasuk');
     info.classList.toggle('hidden', !data.jembatan_masuk);
     info.textContent = data.jembatan_masuk ? `Masuk di ${data.jembatan_masuk} · keluar wajib di jembatan sama` : '';
