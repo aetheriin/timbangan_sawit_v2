@@ -12,6 +12,8 @@
    Tahap 3: mitra & kontrak: Currency, Bank, BankDetails, SupplierType (+ SupplierTypeDetails), SupplierGroup, Supplier
    (+ SupplierCompany), ProductType, Product (+ standar mutu), ProductPrice, DailyPrice, Contract, DeliveryOrder,
    DOTransport, VehicleContract, Invoice.
+   Tahap 4: tiket & timbang: WeightBridgeType, Status, WeightBridge (tiket), Weighing, view WeighingSummary, Grading (sortasi),
+   LabResult, TicketVoid, DOExcess (kelebihan DO), Log (+ view LogIntegrity).
    Mulai versi ini database DIBUAT BARU dari file ini; migrasi lama (database/migrations/ 001-043) hanya untuk
    database versi sebelumnya dan tidak dipakai lagi.
 
@@ -500,25 +502,29 @@ CREATE INDEX IX_VC_Vehicle_Supplier ON dbo.VehicleContract (IDVehicle, SupplierI
 GO
 
 -- Kontrak & DO (migrasi 013, diisi HO): 1 kontrak = 1 produk = 1 DO; 1 DO boleh beberapa pengangkut
--- Jenis tiket + is_bayar (WeightBridgeType.isPayment, migrasi 033): disiapkan untuk tahap keuangan, belum ditampilkan
-CREATE TABLE dbo.jenis_transaksi (
-    kode      VARCHAR(20)  NOT NULL PRIMARY KEY,
-    nama      NVARCHAR(50) NOT NULL,
-    is_bayar  BIT NOT NULL CONSTRAINT DF_JenisTrx_Bayar DEFAULT (0),
-    is_active BIT NOT NULL CONSTRAINT DF_JenisTrx_Aktif DEFAULT (1)
+-- Jenis tiket (pembelian / penjualan / penimbangan saja); IsPayment disiapkan untuk keuangan
+CREATE TABLE dbo.WeightBridgeType (
+    WeightTypeID    INT IDENTITY(1,1) PRIMARY KEY,
+    WeightTypeCode  VARCHAR(20)  NOT NULL CONSTRAINT UX_WBType_Code UNIQUE,
+    WeightTypeName  NVARCHAR(50) NOT NULL,
+    IsPayment       BIT NOT NULL CONSTRAINT DF_WBType_Payment DEFAULT (0),
+    Active          BIT NOT NULL CONSTRAINT DF_WBType_Active DEFAULT (1)
 );
--- Nama & warna status tiket (Status: StatusName, StatusColor, migrasi 033), diatur di Admin › Organisasi
-CREATE TABLE dbo.status_tiket (
-    kode   VARCHAR(30)  NOT NULL PRIMARY KEY,
-    nama   NVARCHAR(50) NOT NULL,
-    warna  VARCHAR(10)  NOT NULL CONSTRAINT DF_StatusTiket_Warna DEFAULT ('abu'),
-    urutan TINYINT NOT NULL CONSTRAINT DF_StatusTiket_Urutan DEFAULT (0)
+ALTER TABLE dbo.VehicleContract ADD CONSTRAINT FK_VC_WBType FOREIGN KEY (TransactionType) REFERENCES dbo.WeightBridgeType (WeightTypeCode);
+-- Status tiket: nama & warna diatur di Admin › Organisasi
+CREATE TABLE dbo.Status (
+    StatusID     INT IDENTITY(1,1) PRIMARY KEY,
+    StatusCode   VARCHAR(30)   NOT NULL CONSTRAINT UX_Status_Code UNIQUE,
+    StatusName   NVARCHAR(50)  NOT NULL,
+    StatusColor  VARCHAR(10)   NOT NULL CONSTRAINT DF_Status_Color DEFAULT ('abu'),
+    SortOrder    TINYINT NOT NULL CONSTRAINT DF_Status_Sort DEFAULT (0),
+    Description  NVARCHAR(255) NULL
 );
 -- Kontrak (diisi HO): 1 kontrak = 1 produk = 1 DO
 CREATE TABLE dbo.Contract (
     ContractID       INT IDENTITY(1,1) PRIMARY KEY,
     ContractNumber   VARCHAR(50) NOT NULL CONSTRAINT UX_Contract_No UNIQUE,
-    TransactionType  VARCHAR(20) NOT NULL,
+    TransactionType  VARCHAR(20) NOT NULL CONSTRAINT FK_Contract_WBType REFERENCES dbo.WeightBridgeType (WeightTypeCode),
     SupplierID       INT NOT NULL CONSTRAINT FK_Contract_Supplier REFERENCES dbo.Supplier (SupplierID),   -- customer
     ProductID        INT NOT NULL CONSTRAINT FK_Contract_Product REFERENCES dbo.Product (ProductID),
     ContractDate     DATE NOT NULL CONSTRAINT DF_Contract_Date DEFAULT (CAST(GETDATE() AS DATE)),
@@ -627,136 +633,139 @@ CREATE TABLE dbo.jembatan_timbang (
         AND faktor > 0 AND toleransi_kg >= 0 AND durasi_stabil >= 0.5 AND berat_min_kg >= 0)
 );
 GO
-CREATE TABLE dbo.transaksi (
-    no_tiket           VARCHAR(50) PRIMARY KEY,
-    jenis_transaksi    VARCHAR(20) NOT NULL,
-    id_supplier        INT NOT NULL CONSTRAINT FK_Trx_Supplier REFERENCES dbo.Supplier (SupplierID),     -- customer (dari DO)
-    id_produk          INT NOT NULL CONSTRAINT FK_Trx_Produk REFERENCES dbo.Product (ProductID),
-    id_kendaraan       INT NOT NULL CONSTRAINT FK_Trx_Kendaraan REFERENCES dbo.DetailVehicle (IDVehicle),
-    id_driver          BIGINT NOT NULL CONSTRAINT FK_Trx_Driver REFERENCES dbo.Users (UserID),
-    id_pengangkutan    INT NULL CONSTRAINT FK_Trx_Angkut REFERENCES dbo.Supplier (SupplierID),
-    id_kontrak         INT NULL CONSTRAINT FK_Trx_Kontrak REFERENCES dbo.VehicleContract (VehicleContractID),
-    no_do              VARCHAR(50) NULL,
-    status_alur        VARCHAR(30) NOT NULL CONSTRAINT DF_Trx_Status DEFAULT ('SECURITY_REGISTER'),
-    is_qr_active       BIT NOT NULL CONSTRAINT DF_Trx_QrAktif DEFAULT (1),
-    qr_expired_at      DATETIME NOT NULL,
-    qr_reprint_count   INT NOT NULL CONSTRAINT DF_Trx_Reprint DEFAULT (0),
-    driver_photo_path  VARCHAR(255) NULL,
-    security_id        BIGINT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.Users (UserID),
-    id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
-    id_comp_area       BIGINT NOT NULL CONSTRAINT FK_Trx_Area REFERENCES dbo.CompanyArea (CompAreaID),          -- area akun Security (migrasi 041)
-    id_alur            INT NULL CONSTRAINT FK_Trx_Alur REFERENCES dbo.alur (id_alur),                       -- alur tahap tiket (dari produk)
-    id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
-    cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
-    no_tiket_induk     VARCHAR(50) NULL CONSTRAINT FK_Trx_Induk REFERENCES dbo.transaksi (no_tiket),   -- tiket split kelebihan DO (migrasi 022)
-    berat_split_kg     DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
-    created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
-    diperiksa_pada     DATETIME NULL,                               -- verifikasi tiket selesai (migrasi 033)
-    diperiksa_oleh     BIGINT NULL CONSTRAINT FK_Trx_Pemeriksa REFERENCES dbo.Users (UserID),
-    waktu_keluar       DATETIME NULL,                               -- jam keluar gerbang, Logbook (migrasi 039)
-    keluar_oleh        BIGINT NULL CONSTRAINT FK_Trx_Keluar REFERENCES dbo.Users (UserID),
-    CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
-    CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
-                                        OR (cara_angkut IN ('PENGIRIM', 'PENERIMA') AND id_pengangkutan IS NULL)),
-    CONSTRAINT CK_Trx_Status CHECK (status_alur IN ('SECURITY_REGISTER', 'SCAN_WAJAH', 'TIMBANG_1', 'INSPEKSI_PROSES',
-                                                    'TIMBANG_2', 'SELESAI', 'REJECTED', 'VOID'))
+-- Tiket timbang (WeightBridge). Bruto / tara / netto dihitung dari Weighing (view WeighingSummary)
+CREATE TABLE dbo.WeightBridge (
+    WeightID            BIGINT IDENTITY(1,1) PRIMARY KEY,
+    TicketNumber        VARCHAR(50) NOT NULL CONSTRAINT UX_WB_Ticket UNIQUE,
+    TicketDate          DATETIME NOT NULL CONSTRAINT DF_WB_TicketDate DEFAULT (GETDATE()),
+    WeightTypeCode      VARCHAR(20) NOT NULL CONSTRAINT FK_WB_Type REFERENCES dbo.WeightBridgeType (WeightTypeCode),
+    SupplierID          INT NOT NULL CONSTRAINT FK_WB_Supplier REFERENCES dbo.Supplier (SupplierID),          -- customer (dari DO)
+    ProductID           INT NOT NULL CONSTRAINT FK_WB_Product REFERENCES dbo.Product (ProductID),
+    IDVehicle           INT NOT NULL CONSTRAINT FK_WB_Vehicle REFERENCES dbo.DetailVehicle (IDVehicle),
+    DriverID            BIGINT NOT NULL CONSTRAINT FK_WB_Driver REFERENCES dbo.Users (UserID),
+    TransportMode       VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (TransportID)
+    TransportID         INT NULL CONSTRAINT FK_WB_Transport REFERENCES dbo.Supplier (SupplierID),
+    VehicleContractID   INT NULL CONSTRAINT FK_WB_VehicleContract REFERENCES dbo.VehicleContract (VehicleContractID),
+    DONumber            VARCHAR(50) NULL,
+    DeliveryOrderID     INT NULL CONSTRAINT FK_WB_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
+    StatusCode          VARCHAR(30) NOT NULL CONSTRAINT DF_WB_Status DEFAULT ('SECURITY_REGISTER')
+                        CONSTRAINT FK_WB_Status REFERENCES dbo.Status (StatusCode),
+    IsVoid              AS CAST(CASE WHEN StatusCode = 'VOID' THEN 1 ELSE 0 END AS BIT),
+    IsQRActive          BIT NOT NULL CONSTRAINT DF_WB_QrActive DEFAULT (1),
+    QRExpiredDate       DATETIME NOT NULL,
+    QRReprintCount      INT NOT NULL CONSTRAINT DF_WB_Reprint DEFAULT (0),
+    DriverPhotoPath     VARCHAR(255) NULL,
+    ScaleID             INT NULL CONSTRAINT FK_WB_Scale REFERENCES dbo.jembatan_timbang (id_jembatan),     -- jembatan timbang masuk
+    CompAreaID          BIGINT NOT NULL CONSTRAINT FK_WB_Area REFERENCES dbo.CompanyArea (CompAreaID),        -- area akun Security
+    FlowID              INT NULL CONSTRAINT FK_WB_Flow REFERENCES dbo.alur (id_alur),                      -- alur tahap tiket (dari produk)
+    ParentTicketNumber  VARCHAR(50) NULL CONSTRAINT FK_WB_Parent REFERENCES dbo.WeightBridge (TicketNumber),  -- tiket split kelebihan DO
+    SplitWeight         DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
+    CreateBy            BIGINT NOT NULL CONSTRAINT FK_WB_CreateBy REFERENCES dbo.Users (UserID),             -- security
+    CheckDate           DATETIME NULL,                               -- verifikasi tiket selesai
+    CheckBy             BIGINT NULL CONSTRAINT FK_WB_CheckBy REFERENCES dbo.Users (UserID),
+    IsCheck             AS CAST(CASE WHEN CheckDate IS NULL THEN 0 ELSE 1 END AS BIT),
+    ExitDate            DATETIME NULL,                               -- jam keluar gerbang (Logbook)
+    ExitBy              BIGINT NULL CONSTRAINT FK_WB_ExitBy REFERENCES dbo.Users (UserID),
+    CONSTRAINT CK_WB_TransportMode CHECK ((TransportMode = 'PIHAK_KETIGA' AND TransportID IS NOT NULL)
+                                          OR (TransportMode IN ('PENGIRIM', 'PENERIMA') AND TransportID IS NULL))
 );
-CREATE INDEX IX_Trx_Status_Created ON dbo.transaksi (status_alur, created_at DESC) INCLUDE (id_kendaraan, id_supplier, id_driver);
-CREATE INDEX IX_Trx_Kendaraan_Created ON dbo.transaksi (id_kendaraan, created_at DESC);
-CREATE INDEX IX_Trx_Keluar ON dbo.transaksi (waktu_keluar) INCLUDE (id_kendaraan, id_comp_area, status_alur);
-CREATE INDEX IX_Trx_Area_Created ON dbo.transaksi (id_comp_area, created_at DESC);
-CREATE INDEX IX_Trx_Supplier_Created ON dbo.transaksi (id_supplier, created_at DESC);
-CREATE INDEX IX_Trx_Driver_Created ON dbo.transaksi (id_driver, created_at DESC);
+CREATE INDEX IX_WB_Status_Date ON dbo.WeightBridge (StatusCode, TicketDate DESC) INCLUDE (IDVehicle, SupplierID, DriverID);
+CREATE INDEX IX_WB_Vehicle_Date ON dbo.WeightBridge (IDVehicle, TicketDate DESC);
+CREATE INDEX IX_WB_Exit ON dbo.WeightBridge (ExitDate) INCLUDE (IDVehicle, CompAreaID, StatusCode);
+CREATE INDEX IX_WB_Area_Date ON dbo.WeightBridge (CompAreaID, TicketDate DESC);
+CREATE INDEX IX_WB_Supplier_Date ON dbo.WeightBridge (SupplierID, TicketDate DESC);
+CREATE INDEX IX_WB_Driver_Date ON dbo.WeightBridge (DriverID, TicketDate DESC);
 GO
 
 -- Void (Admin) / reject (Lab), migrasi 010
-CREATE TABLE dbo.pembatalan_tiket (
-    no_tiket    VARCHAR(50)   NOT NULL PRIMARY KEY CONSTRAINT FK_Batal_Transaksi REFERENCES dbo.transaksi (no_tiket),
-    jenis       VARCHAR(10)   NOT NULL CONSTRAINT CK_Batal_Jenis CHECK (jenis IN ('VOID', 'REJECT')),
-    alasan      NVARCHAR(255) NOT NULL,
-    id_dokumen  INT NULL CONSTRAINT FK_Batal_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
-    oleh        BIGINT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.Users (UserID),           -- NULL hanya data lama
-    waktu       DATETIME NOT NULL CONSTRAINT DF_Batal_Waktu DEFAULT (GETDATE())
+CREATE TABLE dbo.TicketVoid (
+    TicketNumber  VARCHAR(50)   NOT NULL PRIMARY KEY CONSTRAINT FK_TicketVoid_WB REFERENCES dbo.WeightBridge (TicketNumber),
+    VoidType      VARCHAR(10)   NOT NULL CONSTRAINT CK_TicketVoid_Type CHECK (VoidType IN ('VOID', 'REJECT')),
+    Reason        NVARCHAR(255) NOT NULL,
+    DocumentID    INT NULL CONSTRAINT FK_TicketVoid_Doc REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
+    VoidBy        BIGINT NULL CONSTRAINT FK_TicketVoid_User REFERENCES dbo.Users (UserID),
+    VoidDate      DATETIME NOT NULL CONSTRAINT DF_TicketVoid_Date DEFAULT (GETDATE())
 );
-CREATE INDEX IX_Batal_Waktu ON dbo.pembatalan_tiket (waktu DESC);
+CREATE INDEX IX_TicketVoid_Date ON dbo.TicketVoid (VoidDate DESC);
 GO
 
--- Penimbangan (migrasi 011): ke-1 masuk, ke-2 keluar di jembatan yang sama; bruto/tara/netto lewat v_timbangan
-CREATE TABLE dbo.penimbangan (
-    no_tiket     VARCHAR(50) NOT NULL CONSTRAINT FK_Penimbangan_Trx REFERENCES dbo.transaksi (no_tiket),
-    ke           TINYINT NOT NULL CONSTRAINT CK_Penimbangan_Ke CHECK (ke IN (1, 2)),
-    id_jembatan  INT NOT NULL CONSTRAINT FK_Penimbangan_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),
-    berat_kg     DECIMAL(10, 2) NOT NULL,
-    waktu        DATETIME NOT NULL CONSTRAINT DF_Penimbangan_Waktu DEFAULT (GETDATE()),
-    operator     BIGINT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.Users (UserID),   -- NULL hanya data lama
-    hash         CHAR(64) NULL,
-    CONSTRAINT PK_Penimbangan PRIMARY KEY (no_tiket, ke)
+-- Penimbangan: ke-1 masuk, ke-2 keluar di jembatan yang sama; bruto/tara/netto lewat view WeighingSummary
+CREATE TABLE dbo.Weighing (
+    TicketNumber  VARCHAR(50) NOT NULL CONSTRAINT FK_Weighing_WB REFERENCES dbo.WeightBridge (TicketNumber),
+    WeighNo       TINYINT NOT NULL CONSTRAINT CK_Weighing_No CHECK (WeighNo IN (1, 2)),
+    ScaleID       INT NOT NULL CONSTRAINT FK_Weighing_Scale REFERENCES dbo.jembatan_timbang (id_jembatan),
+    Weight        DECIMAL(10, 2) NOT NULL,
+    WeighDate     DATETIME NOT NULL CONSTRAINT DF_Weighing_Date DEFAULT (GETDATE()),
+    OperatorID    BIGINT NULL CONSTRAINT FK_Weighing_Operator REFERENCES dbo.Users (UserID),
+    Hash          CHAR(64) NULL,
+    CONSTRAINT PK_Weighing PRIMARY KEY (TicketNumber, WeighNo)
 );
-CREATE INDEX IX_Penimbangan_Waktu ON dbo.penimbangan (waktu DESC);
+CREATE INDEX IX_Weighing_Date ON dbo.Weighing (WeighDate DESC);
 GO
-CREATE OR ALTER TRIGGER dbo.TR_Penimbangan_JembatanSama ON dbo.penimbangan AFTER INSERT, UPDATE AS
+CREATE OR ALTER TRIGGER dbo.TR_Weighing_SameScale ON dbo.Weighing AFTER INSERT, UPDATE AS
 BEGIN
     SET NOCOUNT ON;
     IF EXISTS (SELECT 1 FROM inserted i
-               JOIN dbo.penimbangan p1 ON p1.no_tiket = i.no_tiket AND p1.ke = 1
-               WHERE i.ke = 2 AND i.id_jembatan <> p1.id_jembatan)
+               JOIN dbo.Weighing w1 ON w1.TicketNumber = i.TicketNumber AND w1.WeighNo = 1
+               WHERE i.WeighNo = 2 AND i.ScaleID <> w1.ScaleID)
     BEGIN
         RAISERROR('Timbang keluar harus di jembatan timbang yang sama dengan timbang masuk.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END
-    IF EXISTS (SELECT 1 FROM inserted i WHERE i.ke = 2
-               AND NOT EXISTS (SELECT 1 FROM dbo.penimbangan p1 WHERE p1.no_tiket = i.no_tiket AND p1.ke = 1))
+    IF EXISTS (SELECT 1 FROM inserted i WHERE i.WeighNo = 2
+               AND NOT EXISTS (SELECT 1 FROM dbo.Weighing w1 WHERE w1.TicketNumber = i.TicketNumber AND w1.WeighNo = 1))
     BEGIN
         RAISERROR('Timbang ke-2 hanya boleh setelah timbang ke-1.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END
-    UPDATE t SET t.id_jembatan = i.id_jembatan
-    FROM dbo.transaksi t JOIN inserted i ON i.no_tiket = t.no_tiket AND i.ke = 1;
+    UPDATE t SET t.ScaleID = i.ScaleID
+    FROM dbo.WeightBridge t JOIN inserted i ON i.TicketNumber = t.TicketNumber AND i.WeighNo = 1;
 END
 GO
-CREATE OR ALTER VIEW dbo.v_timbangan AS
-SELECT t.no_tiket, t.jenis_transaksi, t.id_jembatan, j.kode AS kode_jembatan,
-       CAST(CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p2.berat_kg ELSE p1.berat_kg END AS FLOAT) AS berat_bruto,
-       CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p2.waktu ELSE p1.waktu END AS waktu_bruto,
-       CAST(CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p1.berat_kg
-                 WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN NULL ELSE p2.berat_kg END AS FLOAT) AS berat_tara,
-       CASE WHEN t.jenis_transaksi = 'PENJUALAN' THEN p1.waktu
-            WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN NULL ELSE p2.waktu END AS waktu_tara,
-       CAST(CASE WHEN t.jenis_transaksi = 'PENIMBANGAN_SAJA' THEN p1.berat_kg
-                 WHEN p2.berat_kg IS NOT NULL THEN ABS(p1.berat_kg - p2.berat_kg) END AS FLOAT) AS berat_netto,
-       COALESCE(p2.hash, p1.hash) AS hash_keamanan,
-       COALESCE(p2.operator, p1.operator) AS operator_timbang_id
-FROM dbo.transaksi t
-LEFT JOIN dbo.penimbangan p1 ON p1.no_tiket = t.no_tiket AND p1.ke = 1
-LEFT JOIN dbo.penimbangan p2 ON p2.no_tiket = t.no_tiket AND p2.ke = 2
-LEFT JOIN dbo.jembatan_timbang j ON j.id_jembatan = t.id_jembatan;
+-- Bruto / tara / netto per tiket (penjualan: masuk = tara, keluar = bruto; penimbangan saja: satu kali timbang)
+CREATE OR ALTER VIEW dbo.WeighingSummary AS
+SELECT t.TicketNumber, t.WeightTypeCode, t.ScaleID, j.kode AS ScaleCode,
+       CAST(CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w2.Weight ELSE w1.Weight END AS FLOAT) AS Bruto,
+       CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w2.WeighDate ELSE w1.WeighDate END AS BrutoDate,
+       CAST(CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w1.Weight
+                 WHEN t.WeightTypeCode = 'PENIMBANGAN_SAJA' THEN NULL ELSE w2.Weight END AS FLOAT) AS Tara,
+       CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w1.WeighDate
+            WHEN t.WeightTypeCode = 'PENIMBANGAN_SAJA' THEN NULL ELSE w2.WeighDate END AS TaraDate,
+       CAST(CASE WHEN t.WeightTypeCode = 'PENIMBANGAN_SAJA' THEN w1.Weight
+                 WHEN w2.Weight IS NOT NULL THEN ABS(w1.Weight - w2.Weight) END AS FLOAT) AS Netto,
+       COALESCE(w2.Hash, w1.Hash) AS SecurityHash,
+       COALESCE(w2.OperatorID, w1.OperatorID) AS OperatorID
+FROM dbo.WeightBridge t
+LEFT JOIN dbo.Weighing w1 ON w1.TicketNumber = t.TicketNumber AND w1.WeighNo = 1
+LEFT JOIN dbo.Weighing w2 ON w2.TicketNumber = t.TicketNumber AND w2.WeighNo = 2
+LEFT JOIN dbo.jembatan_timbang j ON j.id_jembatan = t.ScaleID;
 GO
 
 -- Kelebihan DO (migrasi 022): kelebihan netto di atas kuota kontrak -> tiket split + No. DO baru (Ascend)
-CREATE TABLE dbo.kelebihan_do (
-    id_kelebihan     INT IDENTITY(1,1) PRIMARY KEY,
-    no_tiket         VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Tiket REFERENCES dbo.transaksi (no_tiket),
-    no_tiket_split   VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Split REFERENCES dbo.transaksi (no_tiket),
-    id_do            INT            NOT NULL CONSTRAINT FK_Lebih_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
-    kuota_kg         DECIMAL(14, 2) NOT NULL,
-    realisasi_kg     DECIMAL(14, 2) NOT NULL,
-    netto_tiket_kg   DECIMAL(14, 2) NOT NULL,
-    kelebihan_kg     DECIMAL(14, 2) NOT NULL,
-    no_do_baru       VARCHAR(50)    NULL,
-    status           VARCHAR(15)    NOT NULL CONSTRAINT DF_Lebih_Status DEFAULT ('MENUNGGU'),
-    catatan          NVARCHAR(255)  NULL,
-    diajukan_oleh    BIGINT NULL CONSTRAINT FK_Lebih_Aju REFERENCES dbo.Users (UserID),
-    diajukan_at      DATETIME NULL,
-    ditetapkan_oleh  BIGINT NULL CONSTRAINT FK_Lebih_Tetap REFERENCES dbo.Users (UserID),
-    ditetapkan_at    DATETIME NULL,
-    alasan_kembali   NVARCHAR(255)  NULL,
-    id_comp_area     BIGINT NULL CONSTRAINT FK_Lebih_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    created_at       DATETIME NOT NULL CONSTRAINT DF_Lebih_Created DEFAULT (GETDATE()),
-    CONSTRAINT UX_Lebih_Tiket UNIQUE (no_tiket),
-    CONSTRAINT CK_Lebih_Status CHECK (status IN ('MENUNGGU', 'DIAJUKAN', 'SELESAI', 'DIKEMBALIKAN')),
-    CONSTRAINT CK_Lebih_Kg CHECK (kelebihan_kg > 0)
+CREATE TABLE dbo.DOExcess (
+    ExcessID           INT IDENTITY(1,1) PRIMARY KEY,
+    TicketNumber       VARCHAR(50)    NOT NULL CONSTRAINT FK_DOExcess_WB REFERENCES dbo.WeightBridge (TicketNumber),
+    SplitTicketNumber  VARCHAR(50)    NOT NULL CONSTRAINT FK_DOExcess_Split REFERENCES dbo.WeightBridge (TicketNumber),
+    DeliveryOrderID    INT            NOT NULL CONSTRAINT FK_DOExcess_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
+    QuotaKg            DECIMAL(14, 2) NOT NULL,
+    RealizedKg         DECIMAL(14, 2) NOT NULL,
+    TicketNettoKg      DECIMAL(14, 2) NOT NULL,
+    ExcessKg           DECIMAL(14, 2) NOT NULL,
+    NewDONumber        VARCHAR(50)    NULL,
+    Status             VARCHAR(15)    NOT NULL CONSTRAINT DF_DOExcess_Status DEFAULT ('MENUNGGU'),
+    Notes              NVARCHAR(255)  NULL,
+    SubmitBy           BIGINT NULL CONSTRAINT FK_DOExcess_SubmitBy REFERENCES dbo.Users (UserID),
+    SubmitDate         DATETIME NULL,
+    ConfirmBy          BIGINT NULL CONSTRAINT FK_DOExcess_ConfirmBy REFERENCES dbo.Users (UserID),
+    ConfirmDate        DATETIME NULL,
+    ReturnReason       NVARCHAR(255)  NULL,
+    CompAreaID         BIGINT NULL CONSTRAINT FK_DOExcess_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    CreateDate         DATETIME NOT NULL CONSTRAINT DF_DOExcess_Create DEFAULT (GETDATE()),
+    CONSTRAINT UX_DOExcess_Ticket UNIQUE (TicketNumber),
+    CONSTRAINT CK_DOExcess_Status CHECK (Status IN ('MENUNGGU', 'DIAJUKAN', 'SELESAI', 'DIKEMBALIKAN')),
+    CONSTRAINT CK_DOExcess_Kg CHECK (ExcessKg > 0)
 );
 -- Notifikasi lonceng (migrasi 022): sasaran = level yang punya hak menu kode_menu
 CREATE TABLE dbo.notifikasi (
@@ -781,36 +790,38 @@ CREATE TABLE dbo.notifikasi_baca (
 );
 GO
 
-CREATE TABLE dbo.sortasi (
-    id_sortasi              INT IDENTITY(1,1) PRIMARY KEY,
-    no_tiket                VARCHAR(50) NOT NULL CONSTRAINT UX_Sortasi_Tiket UNIQUE
-                            CONSTRAINT FK_Sortasi_Trx REFERENCES dbo.transaksi (no_tiket),
-    persen_buah_mentah      FLOAT NULL,
-    persen_buah_busuk       FLOAT NULL,
-    persen_tangkai_panjang  FLOAT NULL,
-    persen_sampah_kotoran   FLOAT NULL,
-    persen_buah_matang      FLOAT NULL,
-    persen_brondolan        FLOAT NULL,
-    total_potongan_kg       FLOAT NULL,
-    catatan                 VARCHAR(500) NULL,
-    operator_sortasi_id     BIGINT NULL CONSTRAINT FK_Sortasi_Operator REFERENCES dbo.Users (UserID),
-    waktu_sortasi           DATETIME NULL
+-- Sortasi TBS (Grading): persen per kriteria + potongan kg
+CREATE TABLE dbo.Grading (
+    GradingID      INT IDENTITY(1,1) PRIMARY KEY,
+    TicketNumber   VARCHAR(50) NOT NULL CONSTRAINT UX_Grading_Ticket UNIQUE
+                   CONSTRAINT FK_Grading_WB REFERENCES dbo.WeightBridge (TicketNumber),
+    UnripePct      FLOAT NULL,          -- buah mentah
+    RottenPct      FLOAT NULL,          -- buah busuk
+    LongStalkPct   FLOAT NULL,          -- tangkai panjang
+    DirtPct        FLOAT NULL,          -- sampah / kotoran
+    RipePct        FLOAT NULL,          -- buah matang
+    LooseFruitPct  FLOAT NULL,          -- brondolan
+    DeductionKg    FLOAT NULL,
+    Notes          VARCHAR(500) NULL,
+    GradedBy       BIGINT NULL CONSTRAINT FK_Grading_User REFERENCES dbo.Users (UserID),
+    GradingDate    DATETIME NULL
 );
 GO
 
-CREATE TABLE dbo.lab_hasil (
-    id_lab             INT IDENTITY(1,1) PRIMARY KEY,
-    no_tiket           VARCHAR(50) NOT NULL CONSTRAINT UX_Lab_Tiket UNIQUE
-                       CONSTRAINT FK_Lab_Trx REFERENCES dbo.transaksi (no_tiket),
-    ffa                FLOAT NULL,
-    kadar_air          FLOAT NULL,
-    kadar_kotoran      FLOAT NULL,
-    warna_locis        VARCHAR(50) NULL,
-    keputusan          VARCHAR(20) NULL,
-    id_dokumen         INT NULL CONSTRAINT FK_Lab_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- COA (APPROVE), migrasi 014
-    operator_lab_id    BIGINT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.Users (UserID),
-    waktu_pemeriksaan  DATETIME NULL,
-    CONSTRAINT CK_Lab_Keputusan CHECK (keputusan IS NULL OR keputusan IN ('APPROVE', 'REJECT'))
+-- Hasil lab produk PKS; APPROVE wajib COA (COADocID)
+CREATE TABLE dbo.LabResult (
+    LabResultID    INT IDENTITY(1,1) PRIMARY KEY,
+    TicketNumber   VARCHAR(50) NOT NULL CONSTRAINT UX_LabResult_Ticket UNIQUE
+                   CONSTRAINT FK_LabResult_WB REFERENCES dbo.WeightBridge (TicketNumber),
+    FFA            FLOAT NULL,
+    Moisture       FLOAT NULL,          -- kadar air
+    Dirt           FLOAT NULL,          -- kadar kotoran
+    LovibondColor  VARCHAR(50) NULL,    -- warna (lovibond)
+    Decision       VARCHAR(20) NULL,
+    COADocID       INT NULL CONSTRAINT FK_LabResult_Doc REFERENCES dbo.dokumen (id_dokumen),
+    TestedBy       BIGINT NULL CONSTRAINT FK_LabResult_User REFERENCES dbo.Users (UserID),
+    TestDate       DATETIME NULL,
+    CONSTRAINT CK_LabResult_Decision CHECK (Decision IS NULL OR Decision IN ('APPROVE', 'REJECT'))
 );
 GO
 
@@ -931,25 +942,25 @@ CREATE TABLE dbo.perangkat_kiosk (
 GO
 
 /* Satu log untuk semua aktivitas (migrasi 015): JSON + rantai hash, hanya INSERT lewat sp_catat_log */
-CREATE TABLE dbo.log_aktivitas (
-    id_log         BIGINT IDENTITY(1,1) PRIMARY KEY,
-    waktu          DATETIME2(3) NOT NULL,
-    id_user        BIGINT NULL CONSTRAINT FK_Log_User REFERENCES dbo.Users (UserID),     -- NULL = kiosk / sistem
-    id_comp_area   BIGINT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    kategori       VARCHAR(20)  NOT NULL,      -- ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, TIMELINE, ...
-    aksi           VARCHAR(40)  NOT NULL,
-    tabel          VARCHAR(50)  NULL,
-    id_baris       VARCHAR(100) NULL,
-    nilai_lama     NVARCHAR(MAX) NULL,
-    nilai_baru     NVARCHAR(MAX) NULL,
-    ip             VARCHAR(45)  NULL,
-    hash_sebelum   CHAR(64) NULL,              -- NULL hanya baris pertama
-    hash_baris     CHAR(64) NOT NULL,
-    CONSTRAINT CK_Log_JsonLama CHECK (nilai_lama IS NULL OR ISJSON(nilai_lama) = 1),
-    CONSTRAINT CK_Log_JsonBaru CHECK (nilai_baru IS NULL OR ISJSON(nilai_baru) = 1)
+CREATE TABLE dbo.Log (
+    LogID          BIGINT IDENTITY(1,1) PRIMARY KEY,
+    LogDate        DATETIME2(3) NOT NULL,
+    CreateBy       BIGINT NULL CONSTRAINT FK_Log_User REFERENCES dbo.Users (UserID),     -- NULL = kiosk / sistem
+    CompAreaID     BIGINT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    Category       VARCHAR(20)  NOT NULL,      -- ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, DATA, ...
+    LogActionType  VARCHAR(40)  NOT NULL,
+    TableName      VARCHAR(50)  NULL,
+    RowID          VARCHAR(100) NULL,
+    OldValue       NVARCHAR(MAX) NULL,
+    NewValue       NVARCHAR(MAX) NULL,
+    IPAddress      VARCHAR(45)  NULL,
+    PrevHash       CHAR(64) NULL,              -- NULL hanya baris pertama
+    RowHash        CHAR(64) NOT NULL,
+    CONSTRAINT CK_Log_OldJson CHECK (OldValue IS NULL OR ISJSON(OldValue) = 1),
+    CONSTRAINT CK_Log_NewJson CHECK (NewValue IS NULL OR ISJSON(NewValue) = 1)
 );
-CREATE INDEX IX_Log_Kategori_Waktu ON dbo.log_aktivitas (kategori, waktu DESC);
-CREATE INDEX IX_Log_Baris ON dbo.log_aktivitas (tabel, id_baris);
+CREATE INDEX IX_Log_Category_Date ON dbo.Log (Category, LogDate DESC);
+CREATE INDEX IX_Log_Row ON dbo.Log (TableName, RowID);
 GO
 
 /* Isi yang di-hash (dipakai juga untuk verifikasi) */
@@ -975,37 +986,37 @@ BEGIN
     SET XACT_ABORT ON;
     BEGIN TRANSACTION;
     -- satu penulis pada satu waktu supaya rantai tidak bercabang
-    EXEC sp_getapplock @Resource = 'log_aktivitas', @LockMode = 'Exclusive', @LockOwner = 'Transaction';
-    DECLARE @prev CHAR(64) = (SELECT TOP 1 hash_baris FROM dbo.log_aktivitas ORDER BY id_log DESC);
+    EXEC sp_getapplock @Resource = 'Log', @LockMode = 'Exclusive', @LockOwner = 'Transaction';
+    DECLARE @prev CHAR(64) = (SELECT TOP 1 RowHash FROM dbo.Log ORDER BY LogID DESC);
     SET @waktu = COALESCE(@waktu, SYSDATETIME());
     IF @id_comp_area IS NULL AND @id_user IS NOT NULL
         SET @id_comp_area = (SELECT CompAreaID FROM dbo.Users WHERE UserID = @id_user);
-    INSERT INTO dbo.log_aktivitas (waktu, id_user, id_comp_area, kategori, aksi, tabel, id_baris, nilai_lama, nilai_baru,
-                                   ip, hash_sebelum, hash_baris)
+    INSERT INTO dbo.Log (LogDate, CreateBy, CompAreaID, Category, LogActionType, TableName, RowID, OldValue, NewValue,
+                         IPAddress, PrevHash, RowHash)
     VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
             dbo.fn_hash_log(@prev, @waktu, @id_user, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip));
     COMMIT TRANSACTION;
 END
 GO
 
-CREATE OR ALTER TRIGGER dbo.TR_Log_HanyaTambah ON dbo.log_aktivitas INSTEAD OF UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_Log_AppendOnly ON dbo.Log INSTEAD OF UPDATE, DELETE AS
 BEGIN
-    RAISERROR('log_aktivitas hanya boleh ditambah (tidak bisa diubah / dihapus).', 16, 1);
+    RAISERROR('Log hanya boleh ditambah (tidak bisa diubah / dihapus).', 16, 1);
     ROLLBACK TRANSACTION;
 END
 GO
 
 /* Baris pertama yang rantainya putus; kosong = utuh */
-CREATE OR ALTER VIEW dbo.v_log_rusak AS
-SELECT x.id_log, x.waktu, x.kategori, x.aksi,
-       CASE WHEN x.hash_baris <> x.hash_hitung THEN 'ISI_BERUBAH' ELSE 'RANTAI_PUTUS' END AS masalah
-FROM (SELECT l.id_log, l.waktu, l.kategori, l.aksi, l.hash_sebelum, l.hash_baris,
-             LAG(l.hash_baris) OVER (ORDER BY l.id_log) AS hash_seharusnya,
-             dbo.fn_hash_log(l.hash_sebelum, l.waktu, l.id_user, l.kategori, l.aksi, l.tabel, l.id_baris,
-                             l.nilai_lama, l.nilai_baru, l.ip) AS hash_hitung
-      FROM dbo.log_aktivitas l) x
-WHERE x.hash_baris <> x.hash_hitung
-   OR ISNULL(x.hash_sebelum, '') <> ISNULL(x.hash_seharusnya, '');
+CREATE OR ALTER VIEW dbo.LogIntegrity AS
+SELECT x.LogID, x.LogDate, x.Category, x.LogActionType,
+       CASE WHEN x.RowHash <> x.CalcHash THEN 'ISI_BERUBAH' ELSE 'RANTAI_PUTUS' END AS Problem
+FROM (SELECT l.LogID, l.LogDate, l.Category, l.LogActionType, l.PrevHash, l.RowHash,
+             LAG(l.RowHash) OVER (ORDER BY l.LogID) AS ExpectedPrev,
+             dbo.fn_hash_log(l.PrevHash, l.LogDate, l.CreateBy, l.Category, l.LogActionType, l.TableName, l.RowID,
+                             l.OldValue, l.NewValue, l.IPAddress) AS CalcHash
+      FROM dbo.Log l) x
+WHERE x.RowHash <> x.CalcHash
+   OR ISNULL(x.PrevHash, '') <> ISNULL(x.ExpectedPrev, '');
 GO
 
 
@@ -1293,9 +1304,9 @@ CROSS JOIN (VALUES (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17
                    (4, 'Kamis', '08:00', '17:00', 0), (5, 'Jumat', '08:00', '17:00', 0), (6, 'Sabtu', '08:00', '12:00', 0),
                    (7, 'Minggu', NULL, NULL, 1)) v (hari, nama, masuk, pulang, libur);
 -- Jenis kendaraan (migrasi 014)
-INSERT INTO dbo.jenis_transaksi (kode, nama, is_bayar) VALUES
+INSERT INTO dbo.WeightBridgeType (WeightTypeCode, WeightTypeName, IsPayment) VALUES
     ('PEMBELIAN', N'Pembelian', 1), ('PENJUALAN', N'Penjualan', 1), ('PENIMBANGAN_SAJA', N'Penimbangan Saja', 0);
-INSERT INTO dbo.status_tiket (kode, nama, warna, urutan) VALUES
+INSERT INTO dbo.Status (StatusCode, StatusName, StatusColor, SortOrder) VALUES
     ('SECURITY_REGISTER', N'Registrasi Security', 'oranye', 1), ('SCAN_WAJAH', N'Scan Wajah', 'oranye', 2),
     ('TIMBANG_1', N'Timbang 1', 'biru', 3), ('INSPEKSI_PROSES', N'Inspeksi', 'ungu', 4),
     ('TIMBANG_2', N'Timbang 2', 'biru', 5), ('SELESAI', N'Selesai', 'hijau', 6),
@@ -1348,10 +1359,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CompID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CompID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1377,10 +1388,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CompAreaID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CompAreaID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1406,10 +1417,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.MillID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.MillID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1435,10 +1446,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.DeptID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.DeptID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1464,10 +1475,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.LevelDetID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.LevelDetID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1522,10 +1533,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.SupplierID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.SupplierID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1551,10 +1562,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.ProductID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.ProductID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1580,10 +1591,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.IDVehicle AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.IDVehicle AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1609,10 +1620,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.VehicleTypeID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.VehicleTypeID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1638,10 +1649,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.ContractID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.ContractID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1667,10 +1678,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.DeliveryOrderID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.DeliveryOrderID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1696,10 +1707,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_jembatan AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_jembatan AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1725,10 +1736,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1754,10 +1765,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.kunci AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.kunci AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1783,10 +1794,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(CONCAT(d.id_comp_area, '|', d.kunci) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(CONCAT(i.id_comp_area, '|', i.kunci) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1798,28 +1809,28 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_status_tiket ON dbo.status_tiket AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Status ON dbo.Status AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.kode AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.kode AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.StatusCode AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.StatusCode AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.kode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.kode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.StatusCode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.StatusCode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'status_tiket', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Status', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1841,10 +1852,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CategoryCode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CategoryCode AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1870,10 +1881,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.LicenseID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.LicenseID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
@@ -1899,10 +1910,10 @@ BEGIN
     BEGIN
         SET @lama = (SELECT * FROM deleted d WHERE CAST(d.PurposeID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @baru = (SELECT * FROM inserted i WHERE CAST(i.PurposeID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;

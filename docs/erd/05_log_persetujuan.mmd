@@ -1,18 +1,18 @@
 erDiagram
-    log_aktivitas {
-        bigint id_log PK
-        datetime2 waktu
-        bigint id_user FK "NULL"
-        bigint id_comp_area FK "NULL"
-        varchar kategori
-        varchar aksi
-        varchar tabel "NULL"
-        varchar id_baris "NULL"
-        nvarchar nilai_lama "NULL"
-        nvarchar nilai_baru "NULL"
-        varchar ip "NULL"
-        char hash_sebelum "NULL"
-        char hash_baris
+    Log {
+        bigint LogID PK
+        datetime2 LogDate
+        bigint CreateBy FK "NULL"
+        bigint CompAreaID FK "NULL"
+        varchar Category
+        varchar LogActionType
+        varchar TableName "NULL"
+        varchar RowID "NULL"
+        nvarchar OldValue "NULL"
+        nvarchar NewValue "NULL"
+        varchar IPAddress "NULL"
+        char PrevHash "NULL"
+        char RowHash
     }
     pengajuan {
         int id_pengajuan PK
@@ -97,8 +97,8 @@ erDiagram
     alur_persetujuan ||--o{ alur_persetujuan_tahap : "id_alur_persetujuan"
     LevelDetails ||--o{ alur_persetujuan_tahap : "id_level"
     CompanyArea |o--o{ LevelDetails : "CompAreaID"
-    CompanyArea |o--o{ log_aktivitas : "id_comp_area"
-    Users |o--o{ log_aktivitas : "id_user"
+    CompanyArea |o--o{ Log : "CompAreaID"
+    Users |o--o{ Log : "CreateBy"
     CompanyArea |o--o{ notifikasi : "id_comp_area"
     LevelDetails |o--o{ notifikasi : "id_level"
     Users |o--o{ notifikasi : "id_user"

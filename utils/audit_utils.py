@@ -7,7 +7,7 @@ def catat_security_audit(user_id, action_type, no_tiket=None, details=None, ip_a
     """Gagal mencatat audit tidak boleh menggagalkan proses utama (tiket tetap dibuat / ditolak)."""
     if action_type not in AKSI_VALID or not user_id:
         return
-    log_aktivitas.catat("SECURITY", action_type, tabel="transaksi" if no_tiket else None, id_baris=no_tiket,
+    log_aktivitas.catat("SECURITY", action_type, tabel="WeightBridge" if no_tiket else None, id_baris=no_tiket,
                         baru=details or None, user_id=user_id, ip=ip_address)
     if action_type == "TRY_SCAN_BLACKLIST":            # juga ke Log Validasi Blacklist (per kejadian)
         from utils import blacklist_deteksi

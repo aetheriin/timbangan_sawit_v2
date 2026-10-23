@@ -93,13 +93,13 @@ _SELECT_PERSONEL = """
            tr.produk AS produk_terakhir, tr.created_at AS waktu_terakhir
     FROM UserProfile p
     LEFT JOIN UserCategory kp ON kp.CategoryCode = p.CategoryCode
-    OUTER APPLY (SELECT TOP 1 k.NoVehicle AS no_plat, t.id_supplier, s.SupplierName AS customer, t.id_pengangkutan,
-                        a.SupplierName AS pengangkutan, pr.ProductName AS produk, t.created_at
-                 FROM transaksi t JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-                 JOIN Supplier s ON t.id_supplier = s.SupplierID
-                 LEFT JOIN Product pr ON pr.ProductID = t.id_produk
-                 LEFT JOIN Supplier a ON t.id_pengangkutan = a.SupplierID
-                 WHERE t.id_driver = p.UserID ORDER BY t.created_at DESC) tr
+    OUTER APPLY (SELECT TOP 1 k.NoVehicle AS no_plat, t.SupplierID AS id_supplier, s.SupplierName AS customer, t.TransportID AS id_pengangkutan,
+                        a.SupplierName AS pengangkutan, pr.ProductName AS produk, t.TicketDate AS created_at
+                 FROM WeightBridge t JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+                 JOIN Supplier s ON t.SupplierID = s.SupplierID
+                 LEFT JOIN Product pr ON pr.ProductID = t.ProductID
+                 LEFT JOIN Supplier a ON t.TransportID = a.SupplierID
+                 WHERE t.DriverID = p.UserID ORDER BY t.TicketDate DESC) tr
     WHERE p.Active = 1"""
 
 
@@ -137,14 +137,14 @@ def cari_target(tipe, kata, batas=8):
                 OUTER APPLY (SELECT TOP 1 p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel
                              FROM VehicleDriver kd JOIN Users p ON p.UserID = kd.UserID
                              WHERE kd.IDVehicle = k.IDVehicle AND kd.Active = 1 AND kd.IsMain = 1) u
-                OUTER APPLY (SELECT TOP 1 t.id_driver, p.UserCode AS kode_personel, p.Nama AS nama_personel, s.SupplierName AS customer,
-                                    t.id_supplier, t.id_pengangkutan, a.SupplierName AS pengangkutan,
-                                    pr.ProductName AS produk, t.created_at
-                             FROM transaksi t JOIN Users p ON p.UserID = t.id_driver
-                             JOIN Supplier s ON t.id_supplier = s.SupplierID
-                             LEFT JOIN Product pr ON pr.ProductID = t.id_produk
-                             LEFT JOIN Supplier a ON t.id_pengangkutan = a.SupplierID
-                             WHERE t.id_kendaraan = k.IDVehicle ORDER BY t.created_at DESC) tr
+                OUTER APPLY (SELECT TOP 1 t.DriverID AS id_driver, p.UserCode AS kode_personel, p.Nama AS nama_personel, s.SupplierName AS customer,
+                                    t.SupplierID AS id_supplier, t.TransportID AS id_pengangkutan, a.SupplierName AS pengangkutan,
+                                    pr.ProductName AS produk, t.TicketDate AS created_at
+                             FROM WeightBridge t JOIN Users p ON p.UserID = t.DriverID
+                             JOIN Supplier s ON t.SupplierID = s.SupplierID
+                             LEFT JOIN Product pr ON pr.ProductID = t.ProductID
+                             LEFT JOIN Supplier a ON t.TransportID = a.SupplierID
+                             WHERE t.IDVehicle = k.IDVehicle ORDER BY t.TicketDate DESC) tr
                 WHERE REPLACE(k.NoVehicle, ' ', '') LIKE ?
                 ORDER BY k.NoVehicle""", f"%{kata.replace(' ', '')}%")
         return _rapikan_target(_rows_to_dicts(cursor))
@@ -158,8 +158,8 @@ def info_kendaraan(id_kendaraan):
                                  pr.ProductName AS produk_terakhir, t.id_supplier AS id_customer_terakhir,
                                  t.id_pengangkutan AS id_pengangkutan_terakhir
                           FROM DetailVehicle k
-                          OUTER APPLY (SELECT TOP 1 t.id_supplier, t.id_pengangkutan, t.id_produk FROM transaksi t
-                                       WHERE t.id_kendaraan = k.IDVehicle ORDER BY t.created_at DESC) t
+                          OUTER APPLY (SELECT TOP 1 t.SupplierID AS id_supplier, t.TransportID AS id_pengangkutan, t.ProductID AS id_produk FROM WeightBridge t
+                                       WHERE t.IDVehicle = k.IDVehicle ORDER BY t.TicketDate DESC) t
                           LEFT JOIN Supplier s ON s.SupplierID = t.id_supplier
                           LEFT JOIN Supplier a ON a.SupplierID = t.id_pengangkutan
                           LEFT JOIN Product pr ON pr.ProductID = t.id_produk

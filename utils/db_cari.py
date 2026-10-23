@@ -22,18 +22,18 @@ def cari_tiket(kata, id_area=None, batas=8):
     filter_area, param_area = _filter_area(id_area)
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, t.no_do, t.status_alur, t.created_at,
+        SELECT TOP {int(batas)} t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, t.DONumber AS no_do, t.StatusCode AS status_alur, t.TicketDate AS created_at,
                s.SupplierName AS customer, p.ProductName AS produk, d.Nama AS supir,
-               COALESCE(tb.berat_netto, t.berat_split_kg) AS netto
-        FROM transaksi t
-        JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-        JOIN Supplier s ON s.SupplierID = t.id_supplier
-        JOIN Product p ON p.ProductID = t.id_produk
-        JOIN Users d ON d.UserID = t.id_driver
-        LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-        WHERE (t.no_tiket LIKE ? OR REPLACE(k.NoVehicle, ' ', '') LIKE REPLACE(?, ' ', '') OR t.no_do LIKE ?
+               COALESCE(tb.Netto, t.SplitWeight) AS netto
+        FROM WeightBridge t
+        JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
+        JOIN Supplier s ON s.SupplierID = t.SupplierID
+        JOIN Product p ON p.ProductID = t.ProductID
+        JOIN Users d ON d.UserID = t.DriverID
+        LEFT JOIN WeighingSummary tb ON tb.TicketNumber = t.TicketNumber
+        WHERE (t.TicketNumber LIKE ? OR REPLACE(k.NoVehicle, ' ', '') LIKE REPLACE(?, ' ', '') OR t.DONumber LIKE ?
                OR d.Nama LIKE ? OR s.SupplierName LIKE ?){filter_area}
-        ORDER BY t.created_at DESC""", pola, pola, pola, pola, pola, *param_area)
+        ORDER BY t.TicketDate DESC""", pola, pola, pola, pola, pola, *param_area)
 
 
 def cari_do(kata, batas=5):
@@ -42,9 +42,9 @@ def cari_do(kata, batas=5):
     return _query(f"""
         SELECT TOP {int(batas)} o.DONumber AS no_do, k.ContractNumber AS no_kontrak, c.SupplierName AS customer, p.ProductName AS produk,
                k.ContractQty AS qty_kg, o.Active AS is_active, o.ExpiredDate AS berlaku_sampai,
-               (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
-                LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-                WHERE t.id_do = o.DeliveryOrderID AND t.status_alur <> 'VOID') AS realisasi_kg
+               (SELECT SUM(COALESCE(tb.Netto, t.SplitWeight)) FROM WeightBridge t
+                LEFT JOIN WeighingSummary tb ON tb.TicketNumber = t.TicketNumber
+                WHERE t.DeliveryOrderID = o.DeliveryOrderID AND t.StatusCode <> 'VOID') AS realisasi_kg
         FROM DeliveryOrder o
         JOIN Contract k ON k.ContractID = o.ContractID
         JOIN Supplier c ON c.SupplierID = k.SupplierID

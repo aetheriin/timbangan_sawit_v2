@@ -303,21 +303,21 @@ def info_database():
 # ===== VOID TIKET (pembatalan_tiket, migrasi 010) =====
 def daftar_tiket(cari="", hari=30, batas=500):
     cari = f"%{cari.strip()}%"
-    return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS customer, t.no_do, t.jenis_transaksi,
-                             t.status_alur, t.created_at, pb.jenis AS jenis_batal, pb.alasan AS alasan_void,
-                             pb.waktu AS void_at, u.Nama AS void_oleh, pb.id_dokumen,
+    return _query(f"""SELECT TOP {int(batas)} t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS customer, t.DONumber AS no_do, t.WeightTypeCode AS jenis_transaksi,
+                             t.StatusCode AS status_alur, t.TicketDate AS created_at, pb.VoidType AS jenis_batal, pb.Reason AS alasan_void,
+                             pb.VoidDate AS void_at, u.Nama AS void_oleh, pb.DocumentID AS id_dokumen,
                              dk.no_dokumen AS no_ba, df.file_path AS file_ba
-                      FROM transaksi t
-                      JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-                      JOIN Supplier s ON s.SupplierID = t.id_supplier
-                      LEFT JOIN pembatalan_tiket pb ON pb.no_tiket = t.no_tiket
-                      LEFT JOIN Users u ON u.UserID = pb.oleh
-                      LEFT JOIN dokumen dk ON dk.id_dokumen = pb.id_dokumen
+                      FROM WeightBridge t
+                      JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
+                      JOIN Supplier s ON s.SupplierID = t.SupplierID
+                      LEFT JOIN TicketVoid pb ON pb.TicketNumber = t.TicketNumber
+                      LEFT JOIN Users u ON u.UserID = pb.VoidBy
+                      LEFT JOIN dokumen dk ON dk.id_dokumen = pb.DocumentID
                       OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
-                                   WHERE f.id_dokumen = pb.id_dokumen ORDER BY f.urutan) df
-                      WHERE t.created_at >= DATEADD(DAY, -?, GETDATE())
-                        AND (t.no_tiket LIKE ? OR k.NoVehicle LIKE ? OR t.no_do LIKE ?)
-                      ORDER BY t.created_at DESC""", int(hari), cari, cari, cari)
+                                   WHERE f.id_dokumen = pb.DocumentID ORDER BY f.urutan) df
+                      WHERE t.TicketDate >= DATEADD(DAY, -?, GETDATE())
+                        AND (t.TicketNumber LIKE ? OR k.NoVehicle LIKE ? OR t.DONumber LIKE ?)
+                      ORDER BY t.TicketDate DESC""", int(hari), cari, cari, cari)
 
 
 def _ba(cursor, no_tiket, berita_acara, user_id):
@@ -335,12 +335,12 @@ def void_tiket(no_tiket, alasan, user_id, berita_acara=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""UPDATE transaksi SET status_alur = 'VOID', is_qr_active = 0
-                          WHERE no_tiket = ? AND status_alur <> 'VOID'""", no_tiket)
+        cursor.execute("""UPDATE WeightBridge SET StatusCode = 'VOID', IsQRActive = 0
+                          WHERE TicketNumber = ? AND StatusCode <> 'VOID'""", no_tiket)
         if cursor.rowcount == 0:
             raise ValueError("Tiket tidak ditemukan atau sudah dibatalkan")
-        cursor.execute("DELETE FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'REJECT'", no_tiket)
-        cursor.execute("""INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, id_dokumen, oleh)
+        cursor.execute("DELETE FROM TicketVoid WHERE TicketNumber = ? AND VoidType = 'REJECT'", no_tiket)
+        cursor.execute("""INSERT INTO TicketVoid (TicketNumber, VoidType, Reason, DocumentID, VoidBy)
                           VALUES (?, 'VOID', ?, ?, ?)""", no_tiket, alasan, _ba(cursor, no_tiket, berita_acara, user_id), user_id)
         conn.commit()
     except Exception:
@@ -355,13 +355,13 @@ def lampirkan_ba_void(no_tiket, berita_acara, user_id):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_dokumen FROM pembatalan_tiket WHERE no_tiket = ? AND jenis = 'VOID'", no_tiket)
+        cursor.execute("SELECT DocumentID AS id_dokumen FROM TicketVoid WHERE TicketNumber = ? AND VoidType = 'VOID'", no_tiket)
         row = cursor.fetchone()
         if row is None:
             raise ValueError("Tiket ini belum dibatalkan")
         if row.id_dokumen:
             raise ValueError("Berita acara sudah dilampirkan")
-        cursor.execute("UPDATE pembatalan_tiket SET id_dokumen = ? WHERE no_tiket = ?",
+        cursor.execute("UPDATE TicketVoid SET DocumentID = ? WHERE TicketNumber = ?",
                        _ba(cursor, no_tiket, berita_acara, user_id), no_tiket)
         conn.commit()
     except Exception:

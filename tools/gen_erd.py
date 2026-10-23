@@ -45,13 +45,13 @@ KELOMPOK = [
     ("03_mitra_kontrak", "Supplier, bank, produk, harga, kontrak, DO & invoice",
      ["Currency", "Bank", "BankDetails", "SupplierType", "SupplierTypeDetails", "SupplierGroup", "Supplier", "SupplierCompany",
       "Company", "VehicleType", "DetailVehicle", "VehicleDriver", "VehicleContract", "ProductType", "Product", "ProductPrice",
-      "DailyPrice", "Contract", "DeliveryOrder", "DOTransport", "Invoice", "kelebihan_do", "alur", "Users"]),
-    ("04_proses_tiket", "Proses tiket & Pos Security: alur, jembatan, timbang, sortasi, lab, pembatalan",
-     ["transaksi", "jenis_transaksi", "status_tiket", "tahap", "alur", "alur_tahap", "CompanyArea", "jembatan_timbang", "penimbangan",
-      "sortasi", "lab_hasil", "pembatalan_tiket", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
+      "DailyPrice", "Contract", "DeliveryOrder", "DOTransport", "Invoice", "WeightBridgeType", "alur", "Users"]),
+    ("04_proses_tiket", "Tiket & timbang: WeightBridge, Weighing, Grading, LabResult, TicketVoid, DOExcess",
+     ["WeightBridge", "WeightBridgeType", "Status", "tahap", "alur", "alur_tahap", "CompanyArea", "jembatan_timbang", "Weighing",
+      "Grading", "LabResult", "TicketVoid", "DOExcess", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
       "VehicleContract", "dokumen", "Users"]),
     ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
-     ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
+     ["Log", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
       "LevelDetails", "notifikasi", "notifikasi_baca", "Users", "CompanyArea"]),
 ]
 
@@ -90,7 +90,7 @@ for kode, judul, tabel in KELOMPOK:
     utama = {t for t in tabel}
     # tabel pendukung (milik kelompok lain) cukup ditampilkan PK-nya
     pendukung = {"01_organisasi_akses": {"UserCategory"}, "02_personel_dokumen": {"Users", "DetailVehicle", "CompanyArea"},
-                 "03_mitra_kontrak": {"Users", "alur", "Company"},
+                 "03_mitra_kontrak": {"Users", "alur", "Company", "WeightBridgeType"},
                  "04_proses_tiket": {"CompanyArea", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
                                      "VehicleContract", "dokumen", "Users"},
                  "05_log_persetujuan": {"Users", "CompanyArea"}}[kode]

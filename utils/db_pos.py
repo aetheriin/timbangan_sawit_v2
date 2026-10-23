@@ -8,21 +8,21 @@ from datetime import datetime, timedelta
 from utils.area_filter import sql_area
 from utils.db_utils import get_connection, _rows_to_dicts, AREA_TIKET
 
-DI_DALAM = "t.waktu_keluar IS NULL AND t.status_alur <> 'VOID'"
+DI_DALAM = "t.ExitDate IS NULL AND t.StatusCode <> 'VOID'"
 
-_KOLOM = """t.no_tiket, k.NoVehicle AS no_plat, t.id_driver, d.Nama AS supir, d.UserCode AS kode_personel,
-            s.SupplierName AS customer, p.ProductName AS produk, t.jenis_transaksi, t.status_alur,
-            ISNULL(ang.SupplierName, '') AS pengangkutan, t.created_at AS waktu_masuk, t.waktu_keluar,
+_KOLOM = """t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, t.DriverID AS id_driver, d.Nama AS supir, d.UserCode AS kode_personel,
+            s.SupplierName AS customer, p.ProductName AS produk, t.WeightTypeCode AS jenis_transaksi, t.StatusCode AS status_alur,
+            ISNULL(ang.SupplierName, '') AS pengangkutan, t.TicketDate AS waktu_masuk, t.ExitDate AS waktu_keluar,
             um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.kode AS kode_alur"""
-_DARI = """FROM transaksi t
-           JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-           JOIN Users d ON d.UserID = t.id_driver
-           JOIN Supplier s ON s.SupplierID = t.id_supplier
-           JOIN Product p ON p.ProductID = t.id_produk
-           LEFT JOIN Supplier ang ON ang.SupplierID = t.id_pengangkutan
-           LEFT JOIN Users um ON um.UserID = t.security_id
-           LEFT JOIN Users uk ON uk.UserID = t.keluar_oleh
-           LEFT JOIN alur a ON a.id_alur = t.id_alur"""
+_DARI = """FROM WeightBridge t
+           JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
+           JOIN Users d ON d.UserID = t.DriverID
+           JOIN Supplier s ON s.SupplierID = t.SupplierID
+           JOIN Product p ON p.ProductID = t.ProductID
+           LEFT JOIN Supplier ang ON ang.SupplierID = t.TransportID
+           LEFT JOIN Users um ON um.UserID = t.CreateBy
+           LEFT JOIN Users uk ON uk.UserID = t.ExitBy
+           LEFT JOIN alur a ON a.id_alur = t.FlowID"""
 
 
 def _query(sql, *params):
@@ -40,17 +40,17 @@ def logbook(id_area, tanggal):
     f_area, p_area = sql_area(AREA_TIKET, id_area)
     awal = datetime.combine(tanggal, datetime.min.time())
     akhir = awal + timedelta(days=1)
-    dalam = _query(f"SELECT {_KOLOM} {_DARI} WHERE {DI_DALAM}{f_area} ORDER BY t.created_at", *p_area)
-    keluar = _query(f"""SELECT {_KOLOM} {_DARI} WHERE t.waktu_keluar >= ? AND t.waktu_keluar < ?{f_area}
-                        ORDER BY t.waktu_keluar DESC""", awal, akhir, *p_area)
-    masuk = _query(f"""SELECT COUNT(*) AS n FROM transaksi t WHERE t.status_alur <> 'VOID'
-                       AND t.created_at >= ? AND t.created_at < ?{f_area}""", awal, akhir, *p_area)[0]["n"]
+    dalam = _query(f"SELECT {_KOLOM} {_DARI} WHERE {DI_DALAM}{f_area} ORDER BY t.TicketDate", *p_area)
+    keluar = _query(f"""SELECT {_KOLOM} {_DARI} WHERE t.ExitDate >= ? AND t.ExitDate < ?{f_area}
+                        ORDER BY t.ExitDate DESC""", awal, akhir, *p_area)
+    masuk = _query(f"""SELECT COUNT(*) AS n FROM WeightBridge t WHERE t.StatusCode <> 'VOID'
+                       AND t.TicketDate >= ? AND t.TicketDate < ?{f_area}""", awal, akhir, *p_area)[0]["n"]
     return {"dalam": dalam, "keluar": keluar, "masuk_hari_ini": masuk}
 
 
 def di_dalam(no_plat):
     """Kunjungan plat yang belum dicatat keluar (di area mana pun), atau None."""
-    rows = _query(f"SELECT TOP 1 {_KOLOM} {_DARI} WHERE k.NoVehicle = ? AND {DI_DALAM} ORDER BY t.created_at DESC", no_plat)
+    rows = _query(f"SELECT TOP 1 {_KOLOM} {_DARI} WHERE k.NoVehicle = ? AND {DI_DALAM} ORDER BY t.TicketDate DESC", no_plat)
     return rows[0] if rows else None
 
 
@@ -73,11 +73,11 @@ def atur_jenis_kendaraan(no_plat, id_jenis):
 
 
 def supir_terakhir(no_plat):
-    rows = _query("""SELECT TOP 1 t.created_at AS waktu, d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik,
+    rows = _query("""SELECT TOP 1 t.TicketDate AS waktu, d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik,
                             d.Nama AS nama, d.LicenseNumber AS no_sim, d.CategoryCode AS kategori, d.IsBlacklisted AS is_blacklisted, d.IsUpload AS is_updated, d.PhotoPath AS foto_path
-                     FROM transaksi t JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-                     JOIN UserProfile d ON d.UserID = t.id_driver
-                     WHERE k.NoVehicle = ? ORDER BY t.created_at DESC""", no_plat)
+                     FROM WeightBridge t JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
+                     JOIN UserProfile d ON d.UserID = t.DriverID
+                     WHERE k.NoVehicle = ? ORDER BY t.TicketDate DESC""", no_plat)
     return rows[0] if rows else None
 
 
@@ -105,21 +105,21 @@ def catat_keluar(no_tiket, id_user, id_area):
     """Isi jam keluar. Kunjungan Pos Security (alur POS_SAJA) sekaligus selesai. Kembalikan baris sebelum keluar,
     atau None bila tidak ada / sudah keluar / di luar area user."""
     f_area, p_area = sql_area(AREA_TIKET, id_area)
-    rows = _query(f"SELECT {_KOLOM} {_DARI} WHERE t.no_tiket = ? AND {DI_DALAM}{f_area}", no_tiket, *p_area)
+    rows = _query(f"SELECT {_KOLOM} {_DARI} WHERE t.TicketNumber = ? AND {DI_DALAM}{f_area}", no_tiket, *p_area)
     if not rows:
         return None
     pos = rows[0]["kode_alur"] == "POS_SAJA"
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"""UPDATE transaksi SET waktu_keluar = GETDATE(), keluar_oleh = ?
-                           {", status_alur = 'SELESAI', is_qr_active = 0" if pos else ""}
-                           WHERE no_tiket = ? AND waktu_keluar IS NULL""", id_user, no_tiket)
+        cursor.execute(f"""UPDATE WeightBridge SET ExitDate = GETDATE(), ExitBy = ?
+                           {", StatusCode = 'SELESAI', IsQRActive = 0" if pos else ""}
+                           WHERE TicketNumber = ? AND ExitDate IS NULL""", id_user, no_tiket)
         if cursor.rowcount == 0:
             conn.rollback()
             return None
         from utils import log_aktivitas
-        log_aktivitas.catat("TIMELINE", "POS_KELUAR", tabel="transaksi", id_baris=no_tiket, user_id=id_user, cursor=cursor)
+        log_aktivitas.catat("TIMELINE", "POS_KELUAR", tabel="WeightBridge", id_baris=no_tiket, user_id=id_user, cursor=cursor)
         conn.commit()
     finally:
         conn.close()

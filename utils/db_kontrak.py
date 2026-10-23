@@ -11,9 +11,9 @@ _SELECT = """SELECT o.DeliveryOrderID AS id_do, o.DONumber AS no_do, o.ContractI
                     k.ContractQty AS qty_kg, k.Price AS harga_per_kg, k.Description AS keterangan, k.PPN AS ppn, k.IncludePPN AS harga_termasuk_ppn, k.CompID AS id_company,
                     co.CompID AS kode_company, o.DODate AS tanggal_do, o.ExpiredDate AS berlaku_sampai, o.Active AS is_active, o.CreateDate AS created_at,
                     -- realisasi: total netto tiket DO ini (tanpa VOID)
-                    (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
-                     LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-                     WHERE t.id_do = o.DeliveryOrderID AND t.status_alur <> 'VOID') AS realisasi_kg
+                    (SELECT SUM(COALESCE(tb.Netto, t.SplitWeight)) FROM WeightBridge t
+                     LEFT JOIN WeighingSummary tb ON tb.TicketNumber = t.TicketNumber
+                     WHERE t.DeliveryOrderID = o.DeliveryOrderID AND t.StatusCode <> 'VOID') AS realisasi_kg
              FROM DeliveryOrder o
              JOIN Contract k ON k.ContractID = o.ContractID
              JOIN Supplier c ON c.SupplierID = k.SupplierID

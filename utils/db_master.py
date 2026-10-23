@@ -9,7 +9,7 @@ def daftar_kendaraan(cari="", batas=500):
                u.id_driver AS id_supir_utama, u.nama_personel AS nama_supir_utama, u.kode_personel AS kode_supir_utama,
                (SELECT COUNT(*) FROM VehicleDriver kd JOIN Users p ON p.UserID = kd.UserID
                 WHERE kd.IDVehicle = k.IDVehicle AND kd.Active = 1 AND p.Active = 1) AS jumlah_supir,
-               (SELECT MAX(t.created_at) FROM transaksi t WHERE t.id_kendaraan = k.IDVehicle) AS transaksi_terakhir
+               (SELECT MAX(t.TicketDate) FROM WeightBridge t WHERE t.IDVehicle = k.IDVehicle) AS transaksi_terakhir
         FROM DetailVehicle k
         LEFT JOIN VehicleType jk ON jk.VehicleTypeID = k.VehicleType
         OUTER APPLY (SELECT TOP 1 kd.UserID AS id_driver, p.Nama AS nama_personel, p.UserCode AS kode_personel
@@ -103,11 +103,11 @@ def cek_kapasitas(no_tiket):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT k.NoVehicle AS no_plat, j.NameType AS nama, j.WeightCar AS berat_kosong_kg, j.MaxLoad AS muatan_maks_kg, v.berat_bruto, v.berat_tara, v.berat_netto
-                          FROM transaksi t JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
+        cursor.execute("""SELECT k.NoVehicle AS no_plat, j.NameType AS nama, j.WeightCar AS berat_kosong_kg, j.MaxLoad AS muatan_maks_kg, v.Bruto AS berat_bruto, v.Tara AS berat_tara, v.Netto AS berat_netto
+                          FROM WeightBridge t JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
                           JOIN VehicleType j ON j.VehicleTypeID = k.VehicleType
-                          JOIN v_timbangan v ON v.no_tiket = t.no_tiket
-                          WHERE t.no_tiket = ?""", no_tiket)
+                          JOIN WeighingSummary v ON v.TicketNumber = t.TicketNumber
+                          WHERE t.TicketNumber = ?""", no_tiket)
         r = cursor.fetchone()
     finally:
         conn.close()
@@ -152,8 +152,8 @@ def plat_dipakai(no_plat, kecuali=None):
 def ada_tiket_aktif(id_kendaraan):
     conn = get_connection()
     try:
-        row = conn.cursor().execute("""SELECT TOP 1 no_tiket FROM transaksi WHERE id_kendaraan = ?
-                                       AND status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')""", id_kendaraan).fetchone()
+        row = conn.cursor().execute("""SELECT TOP 1 TicketNumber AS no_tiket FROM WeightBridge WHERE IDVehicle = ?
+                                       AND StatusCode NOT IN ('SELESAI', 'REJECTED', 'VOID')""", id_kendaraan).fetchone()
         return row[0] if row else None
     finally:
         conn.close()

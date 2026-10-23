@@ -466,11 +466,11 @@ def cari_riwayat_driver_by_plat(no_plat):
     cursor = conn.cursor()
     cursor.execute(f"""
         SELECT TOP 1 {SQL_KOLOM_DRIVER}, k.IDVehicle AS id_kendaraan, k.NoSTNK AS no_stnk
-        FROM transaksi t
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN UserProfile d ON t.id_driver = d.UserID
+        FROM WeightBridge t
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN UserProfile d ON t.DriverID = d.UserID
         WHERE k.NoVehicle = ?
-        ORDER BY t.created_at DESC
+        ORDER BY t.TicketDate DESC
     """, no_plat)
     row = cursor.fetchone()
     conn.close()
@@ -495,19 +495,19 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
-               t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.SupplierName AS nama_supplier, p.ProductName AS nama_produk, p.Category AS kategori,
-               t.id_comp_area, t.id_alur, t.cara_angkut, t.id_pengangkutan, k.NoVehicle AS no_plat, k.NoSTNK AS no_stnk,
+        SELECT t.TicketNumber AS no_tiket, t.WeightTypeCode AS jenis_transaksi, t.DONumber AS no_do, t.StatusCode AS status_alur, t.QRExpiredDate AS qr_expired_at,
+               t.TicketDate AS created_at, t.QRReprintCount AS qr_reprint_count, t.SupplierID AS id_supplier, t.ProductID AS id_produk, s.SupplierName AS nama_supplier, p.ProductName AS nama_produk, p.Category AS kategori,
+               t.CompAreaID AS id_comp_area, t.FlowID AS id_alur, t.TransportMode AS cara_angkut, t.TransportID AS id_pengangkutan, k.NoVehicle AS no_plat, k.NoSTNK AS no_stnk,
                d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik, d.Nama AS nama_driver, d.LicenseNumber AS no_sim,
                d.IsUpload AS is_updated, d.IsBlacklisted AS is_blacklisted, d.PhotoPath AS foto_path
-        FROM transaksi t
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN Supplier s ON t.id_supplier = s.SupplierID
-        JOIN Product p ON t.id_produk = p.ProductID
-        JOIN UserProfile d ON t.id_driver = d.UserID
-        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
-          AND (k.NoVehicle = ? OR t.no_tiket = ?)
-        ORDER BY t.created_at DESC
+        FROM WeightBridge t
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN Supplier s ON t.SupplierID = s.SupplierID
+        JOIN Product p ON t.ProductID = p.ProductID
+        JOIN UserProfile d ON t.DriverID = d.UserID
+        WHERE t.StatusCode NOT IN ('SELESAI', 'REJECTED', 'VOID')
+          AND (k.NoVehicle = ? OR t.TicketNumber = ?)
+        ORDER BY t.TicketDate DESC
     """, no_plat or '', no_tiket or '')
     row = cursor.fetchone()
     conn.close()
@@ -520,9 +520,9 @@ def catat_cetak_qr(no_tiket):
     """Naikkan hitungan cetak QR, kembalikan jumlah cetak sebelumnya (0 = cetakan pertama)."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT qr_reprint_count FROM transaksi WHERE no_tiket = ?", no_tiket)
+    cursor.execute("SELECT QRReprintCount AS qr_reprint_count FROM WeightBridge WHERE TicketNumber = ?", no_tiket)
     sebelumnya = cursor.fetchone()[0] or 0
-    cursor.execute("UPDATE transaksi SET qr_reprint_count = qr_reprint_count + 1 WHERE no_tiket = ?", no_tiket)
+    cursor.execute("UPDATE WeightBridge SET QRReprintCount = QRReprintCount + 1 WHERE TicketNumber = ?", no_tiket)
     conn.commit()
     conn.close()
     return sebelumnya
@@ -537,9 +537,9 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     cursor = conn.cursor()
     id_kontrak = cari_kontrak_aktif(kendaraan_id, id_supplier, cursor)
     cursor.execute(
-        """INSERT INTO transaksi
-           (no_tiket, jenis_transaksi, id_supplier, id_produk, id_kendaraan, id_driver, no_do, qr_expired_at,
-            security_id, id_kontrak, id_pengangkutan, id_comp_area, id_alur, id_do, cara_angkut)
+        """INSERT INTO WeightBridge
+           (TicketNumber, WeightTypeCode, SupplierID, ProductID, IDVehicle, DriverID, DONumber, QRExpiredDate,
+            CreateBy, VehicleContractID, TransportID, CompAreaID, FlowID, DeliveryOrderID, TransportMode)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         no_tiket, jenis_transaksi, id_supplier, id_produk, kendaraan_id, id_driver, no_do, qr_expired,
         security_id, id_kontrak, id_pengangkutan, id_comp_area, id_alur, id_do, cara_angkut
@@ -552,14 +552,14 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
         cursor.execute("SELECT COUNT(*) FROM VehicleDriver WHERE IDVehicle = ? AND Active = 1", kendaraan_id)
         _daftarkan_supir(cursor, kendaraan_id, id_driver, cursor.fetchone()[0] == 0, security_id)
     from utils import log_aktivitas
-    log_aktivitas.catat("TIMELINE", "SECURITY_INIT", tabel="transaksi", id_baris=no_tiket, user_id=security_id, cursor=cursor)
+    log_aktivitas.catat("TIMELINE", "SECURITY_INIT", tabel="WeightBridge", id_baris=no_tiket, user_id=security_id, cursor=cursor)
     conn.commit()
     conn.close()
     return no_tiket
 
 def catat_timeline(no_tiket, stage, processed_by):
     from utils import log_aktivitas
-    log_aktivitas.catat("TIMELINE", stage, tabel="transaksi", id_baris=no_tiket, user_id=processed_by)
+    log_aktivitas.catat("TIMELINE", stage, tabel="WeightBridge", id_baris=no_tiket, user_id=processed_by)
 
 # ===== TIMBANGAN =====
 
@@ -567,11 +567,11 @@ def get_data_timbangan(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT tb.no_tiket, tb.berat_bruto, tb.waktu_bruto, tb.berat_tara, tb.waktu_tara, tb.berat_netto,
-               tb.operator_timbang_id, tb.id_jembatan, tb.kode_jembatan, s.total_potongan_kg
-        FROM v_timbangan tb
-        LEFT JOIN sortasi s ON s.no_tiket = tb.no_tiket
-        WHERE tb.no_tiket = ?
+        SELECT tb.TicketNumber AS no_tiket, tb.Bruto AS berat_bruto, tb.BrutoDate AS waktu_bruto, tb.Tara AS berat_tara, tb.TaraDate AS waktu_tara, tb.Netto AS berat_netto,
+               tb.OperatorID AS operator_timbang_id, tb.ScaleID AS id_jembatan, tb.ScaleCode AS kode_jembatan, s.DeductionKg AS total_potongan_kg
+        FROM WeighingSummary tb
+        LEFT JOIN Grading s ON s.TicketNumber = tb.TicketNumber
+        WHERE tb.TicketNumber = ?
     """, no_tiket)
     row = cursor.fetchone()
     conn.close()
@@ -585,7 +585,7 @@ def hitung_hash_timbang(no_tiket, ke, berat, id_jembatan, secret_key=None):
     return hashlib.sha256(data.encode()).hexdigest()
 
 def _simpan_penimbangan(cursor, no_tiket, ke, berat, id_jembatan, operator_id):
-    cursor.execute("""INSERT INTO penimbangan (no_tiket, ke, id_jembatan, berat_kg, operator, hash)
+    cursor.execute("""INSERT INTO Weighing (TicketNumber, WeighNo, ScaleID, Weight, OperatorID, Hash)
                       VALUES (?, ?, ?, ?, ?, ?)""",
                    no_tiket, ke, id_jembatan, round(float(berat), 2), operator_id,
                    hitung_hash_timbang(no_tiket, ke, berat, id_jembatan))
@@ -593,8 +593,8 @@ def _simpan_penimbangan(cursor, no_tiket, ke, berat, id_jembatan, operator_id):
 def _status_setelah(cursor, no_tiket, kode_tahap):
     """Status tiket setelah tahap ini, menurut alur tiket (utils/alur.py)."""
     from utils.alur import status_setelah
-    cursor.execute("""SELECT t.jenis_transaksi, t.id_alur FROM transaksi t
-                      WHERE t.no_tiket = ?""", no_tiket)
+    cursor.execute("""SELECT t.WeightTypeCode AS jenis_transaksi, t.FlowID AS id_alur FROM WeightBridge t
+                      WHERE t.TicketNumber = ?""", no_tiket)
     row = cursor.fetchone()
     if row.id_alur is None:          # tiket tanpa alur (data lama sebelum migrasi 041): aturan lama
         if kode_tahap == 'TIMBANG_1':
@@ -607,10 +607,10 @@ def simpan_timbang_pertama(no_tiket, berat, operator_id, id_jembatan):
     Jembatan masuk dicatat di transaksi; timbang keluar wajib di jembatan yang sama."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT jenis_transaksi FROM transaksi WHERE no_tiket = ?", no_tiket)
+    cursor.execute("SELECT WeightTypeCode AS jenis_transaksi FROM WeightBridge WHERE TicketNumber = ?", no_tiket)
     jenis = cursor.fetchone().jenis_transaksi
     _simpan_penimbangan(cursor, no_tiket, 1, berat, id_jembatan, operator_id)
-    cursor.execute("UPDATE transaksi SET id_jembatan = ?, status_alur = ? WHERE no_tiket = ?", id_jembatan,
+    cursor.execute("UPDATE WeightBridge SET ScaleID = ?, StatusCode = ? WHERE TicketNumber = ?", id_jembatan,
                    _status_setelah(cursor, no_tiket, 'TIMBANG_1'), no_tiket)
     conn.commit()
     conn.close()
@@ -620,16 +620,16 @@ def simpan_timbang_kedua(no_tiket, berat, operator_id, id_jembatan):
     """Timbang keluar (penimbangan ke-2) di jembatan yang sama dengan masuk (dicek juga trigger DB)."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT berat_kg, id_jembatan FROM penimbangan WHERE no_tiket = ? AND ke = 1", no_tiket)
+    cursor.execute("SELECT Weight AS berat_kg, ScaleID AS id_jembatan FROM Weighing WHERE TicketNumber = ? AND WeighNo = 1", no_tiket)
     masuk = cursor.fetchone()
     if masuk.id_jembatan != id_jembatan:
         conn.close()
         raise ValueError("Timbang keluar harus di jembatan yang sama dengan timbang masuk")
     _simpan_penimbangan(cursor, no_tiket, 2, berat, id_jembatan, operator_id)
     netto = round(abs(float(masuk.berat_kg) - float(berat)), 2)
-    cursor.execute("UPDATE transaksi SET status_alur = 'SELESAI' WHERE no_tiket = ?", no_tiket)
+    cursor.execute("UPDATE WeightBridge SET StatusCode = 'SELESAI' WHERE TicketNumber = ?", no_tiket)
     # Potongan sortasi = persen potongan x NETTO (berat buah saja, tanpa truk)
-    cursor.execute(f"UPDATE sortasi SET total_potongan_kg = ROUND(? * {SQL_PERSEN_POTONGAN} / 100, 2) WHERE no_tiket = ?",
+    cursor.execute(f"UPDATE Grading SET DeductionKg = ROUND(? * {SQL_PERSEN_POTONGAN} / 100, 2) WHERE TicketNumber = ?",
                    netto, no_tiket)
     conn.commit()
     conn.close()
@@ -638,19 +638,19 @@ def simpan_timbang_kedua(no_tiket, berat, operator_id, id_jembatan):
 def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None, id_area=None):
     """Default 7 hari terakhir; tanggal (date) = hanya hari itu."""
     if tanggal:
-        filter_waktu, param = "t.created_at >= ? AND t.created_at < DATEADD(day, 1, ?)", (tanggal, tanggal)
+        filter_waktu, param = "t.TicketDate >= ? AND t.TicketDate < DATEADD(day, 1, ?)", (tanggal, tanggal)
     else:
-        filter_waktu, param = "t.created_at >= DATEADD(day, ?, GETDATE())", (-hari,)
+        filter_waktu, param = "t.TicketDate >= DATEADD(day, ?, GETDATE())", (-hari,)
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT TOP 200 s.SupplierName AS nama_supplier, k.NoVehicle AS no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
-        FROM transaksi t
-        JOIN Supplier s ON t.id_supplier = s.SupplierID
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
-        WHERE t.id_supplier = ? AND {filter_waktu}{_filter_area(id_area)[0]}
-        ORDER BY t.created_at DESC
+        SELECT TOP 200 s.SupplierName AS nama_supplier, k.NoVehicle AS no_plat, tb.Bruto AS berat_bruto, tb.Tara AS berat_tara, tb.Netto AS berat_netto, t.TicketDate AS created_at
+        FROM WeightBridge t
+        JOIN Supplier s ON t.SupplierID = s.SupplierID
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN WeighingSummary tb ON t.TicketNumber = tb.TicketNumber
+        WHERE t.SupplierID = ? AND {filter_waktu}{_filter_area(id_area)[0]}
+        ORDER BY t.TicketDate DESC
     """, id_supplier, *param, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -661,17 +661,17 @@ def get_list_tiket_aktif(id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, t.status_alur, t.jenis_transaksi,
-               p.ProductName AS produk, p.Category AS kategori_produk, t.created_at, t.id_alur,
-               t.no_do, d.Nama AS supir
-        FROM transaksi t
-        LEFT JOIN Users d ON d.UserID = t.id_driver
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN Supplier s ON t.id_supplier = s.SupplierID
-        JOIN Product p ON t.id_produk = p.ProductID
-        WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
-          AND ISNULL(t.id_alur, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
-        ORDER BY t.created_at DESC
+        SELECT t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, t.StatusCode AS status_alur, t.WeightTypeCode AS jenis_transaksi,
+               p.ProductName AS produk, p.Category AS kategori_produk, t.TicketDate AS created_at, t.FlowID AS id_alur,
+               t.DONumber AS no_do, d.Nama AS supir
+        FROM WeightBridge t
+        LEFT JOIN Users d ON d.UserID = t.DriverID
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN Supplier s ON t.SupplierID = s.SupplierID
+        JOIN Product p ON t.ProductID = p.ProductID
+        WHERE t.StatusCode NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
+          AND ISNULL(t.FlowID, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
+        ORDER BY t.TicketDate DESC
     """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -683,26 +683,26 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        filter_produk = "AND t.id_produk = ?" if id_produk else ""
+        filter_produk = "AND t.ProductID = ?" if id_produk else ""
         filter_area, param_area = _filter_area(id_area)
         params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
-            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, p.ProductName AS produk,
-                   t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
-                   t.status_alur, t.no_do, d.Nama AS supir, t.diperiksa_pada, pr.Nama AS pemeriksa,
+            SELECT TOP {int(batas)} t.TicketDate AS created_at, t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, p.ProductName AS produk,
+                   t.WeightTypeCode AS jenis_transaksi, tb.Bruto AS berat_bruto, tb.Tara AS berat_tara, COALESCE(tb.Netto, t.SplitWeight) AS berat_netto,
+                   t.StatusCode AS status_alur, t.DONumber AS no_do, d.Nama AS supir, t.CheckDate AS diperiksa_pada, pr.Nama AS pemeriksa,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
-                   CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
-                        DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
+                   CASE WHEN t.StatusCode IN ('SELESAI', 'REJECTED') THEN
+                        DATEDIFF(MINUTE, t.TicketDate, (SELECT MAX(pn.WeighDate) FROM Weighing pn WHERE pn.TicketNumber = t.TicketNumber))
                    END AS lama_menit
-            FROM transaksi t
-            JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-            JOIN Supplier s ON t.id_supplier = s.SupplierID
-            JOIN Product p ON t.id_produk = p.ProductID
-            LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-            LEFT JOIN Users d ON d.UserID = t.id_driver
-            LEFT JOIN Users pr ON pr.UserID = t.diperiksa_oleh
-            WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
-            ORDER BY t.created_at DESC""", *params)
+            FROM WeightBridge t
+            JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+            JOIN Supplier s ON t.SupplierID = s.SupplierID
+            JOIN Product p ON t.ProductID = p.ProductID
+            LEFT JOIN WeighingSummary tb ON tb.TicketNumber = t.TicketNumber
+            LEFT JOIN Users d ON d.UserID = t.DriverID
+            LEFT JOIN Users pr ON pr.UserID = t.CheckBy
+            WHERE t.TicketDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
+            ORDER BY t.TicketDate DESC""", *params)
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -713,9 +713,9 @@ def periksa_tiket(no_tiket, user_id, id_area=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"""UPDATE t SET diperiksa_pada = GETDATE(), diperiksa_oleh = ?
-                           FROM transaksi t WHERE t.no_tiket = ? AND t.status_alur = 'SELESAI'
-                             AND t.diperiksa_pada IS NULL{filter_area}""", user_id, no_tiket, *param_area)
+        cursor.execute(f"""UPDATE t SET CheckDate = GETDATE(), CheckBy = ?
+                           FROM WeightBridge t WHERE t.TicketNumber = ? AND t.StatusCode = 'SELESAI'
+                             AND t.CheckDate IS NULL{filter_area}""", user_id, no_tiket, *param_area)
         berhasil = cursor.rowcount > 0
         conn.commit()
         return berhasil
@@ -728,10 +728,10 @@ def get_history_driver(limit=20):
     cursor.execute(f"""
         SELECT TOP {int(limit)} k.NoVehicle AS no_plat, d.UserID AS id_driver, d.UserCode AS kode_personel,
                d.Nama AS nama_driver, d.NoKTP AS nik, d.LicenseNumber AS no_sim, d.IsBlacklisted AS is_blacklisted
-        FROM transaksi t
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN UserProfile d ON t.id_driver = d.UserID
-        ORDER BY t.created_at DESC
+        FROM WeightBridge t
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN UserProfile d ON t.DriverID = d.UserID
+        ORDER BY t.TicketDate DESC
     """)
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -742,17 +742,17 @@ def get_history_driver(limit=20):
 def get_data_sortasi(no_tiket):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT no_tiket, persen_buah_mentah, persen_buah_busuk, persen_tangkai_panjang,
-                             persen_sampah_kotoran, persen_buah_matang, persen_brondolan, total_potongan_kg,
-                             catatan, waktu_sortasi
-                      FROM sortasi WHERE no_tiket = ?""", no_tiket)
+    cursor.execute("""SELECT TicketNumber AS no_tiket, UnripePct AS persen_buah_mentah, RottenPct AS persen_buah_busuk, LongStalkPct AS persen_tangkai_panjang,
+                             DirtPct AS persen_sampah_kotoran, RipePct AS persen_buah_matang, LooseFruitPct AS persen_brondolan, DeductionKg AS total_potongan_kg,
+                             Notes AS catatan, GradingDate AS waktu_sortasi
+                      FROM Grading WHERE TicketNumber = ?""", no_tiket)
     row = cursor.fetchone()
     conn.close()
     return row
 
 # Komponen yang memotong berat: buah mentah + tangkai panjang + sampah/kotoran
-SQL_PERSEN_POTONGAN = ("(COALESCE(persen_buah_mentah, 0) + COALESCE(persen_tangkai_panjang, 0)"
-                       " + COALESCE(persen_sampah_kotoran, 0))")
+SQL_PERSEN_POTONGAN = ("(COALESCE(UnripePct, 0) + COALESCE(LongStalkPct, 0)"
+                       " + COALESCE(DirtPct, 0))")
 
 def hitung_persen_potongan(mentah, tangkai, sampah):
     return round((mentah or 0) + (tangkai or 0) + (sampah or 0), 2)
@@ -767,18 +767,18 @@ def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, 
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_sortasi FROM sortasi WHERE no_tiket = ?", no_tiket)
+    cursor.execute("SELECT GradingID AS id_sortasi FROM Grading WHERE TicketNumber = ?", no_tiket)
     if cursor.fetchone():
-        cursor.execute("""UPDATE sortasi SET persen_buah_mentah=?, persen_buah_busuk=?, persen_tangkai_panjang=?,
-                           persen_sampah_kotoran=?, persen_buah_matang=?, persen_brondolan=?, total_potongan_kg=?,
-                           catatan=?, operator_sortasi_id=?, waktu_sortasi=GETDATE() WHERE no_tiket=?""",
+        cursor.execute("""UPDATE Grading SET UnripePct=?, RottenPct=?, LongStalkPct=?,
+                           DirtPct=?, RipePct=?, LooseFruitPct=?, DeductionKg=?,
+                           Notes=?, GradedBy=?, GradingDate=GETDATE() WHERE TicketNumber=?""",
                        mentah, busuk, tangkai, sampah, matang, brondolan, total_potongan_kg, catatan, operator_id, no_tiket)
     else:
-        cursor.execute("""INSERT INTO sortasi (no_tiket, persen_buah_mentah, persen_buah_busuk, persen_tangkai_panjang,
-                           persen_sampah_kotoran, persen_buah_matang, persen_brondolan, total_potongan_kg, catatan,
-                           operator_sortasi_id, waktu_sortasi) VALUES (?,?,?,?,?,?,?,?,?,?,GETDATE())""",
+        cursor.execute("""INSERT INTO Grading (TicketNumber, UnripePct, RottenPct, LongStalkPct,
+                           DirtPct, RipePct, LooseFruitPct, DeductionKg, Notes,
+                           GradedBy, GradingDate) VALUES (?,?,?,?,?,?,?,?,?,?,GETDATE())""",
                        no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, total_potongan_kg, catatan, operator_id)
-    cursor.execute("UPDATE transaksi SET status_alur = ? WHERE no_tiket = ?",
+    cursor.execute("UPDATE WeightBridge SET StatusCode = ? WHERE TicketNumber = ?",
                    _status_setelah(cursor, no_tiket, 'SORTASI'), no_tiket)
     conn.commit()
     conn.close()
@@ -817,14 +817,14 @@ def get_history_standar(hari=2):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT CAST(l.waktu AS DATETIME) AS updated_at, p.ProductName AS nama_produk,
-                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_ffa') AS FLOAT) AS maks_ffa,
-                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_air') AS FLOAT) AS maks_air,
-                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.Nama AS oleh
-                          FROM log_aktivitas l JOIN Product p ON p.ProductID = TRY_CAST(l.id_baris AS INT)
-                          LEFT JOIN Users u ON u.UserID = l.id_user
-                          WHERE l.kategori = 'STANDAR_MUTU' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-                          ORDER BY l.id_log DESC""", -(int(hari) - 1))
+        cursor.execute("""SELECT CAST(l.LogDate AS DATETIME) AS updated_at, p.ProductName AS nama_produk,
+                                 CAST(JSON_VALUE(l.NewValue, '$.maks_ffa') AS FLOAT) AS maks_ffa,
+                                 CAST(JSON_VALUE(l.NewValue, '$.maks_air') AS FLOAT) AS maks_air,
+                                 CAST(JSON_VALUE(l.NewValue, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.Nama AS oleh
+                          FROM Log l JOIN Product p ON p.ProductID = TRY_CAST(l.RowID AS INT)
+                          LEFT JOIN Users u ON u.UserID = l.CreateBy
+                          WHERE l.Category = 'STANDAR_MUTU' AND l.LogDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+                          ORDER BY l.LogID DESC""", -(int(hari) - 1))
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -833,35 +833,35 @@ def simpan_lab(no_tiket, ffa, air, kotoran, warna, keputusan, no_coa, operator_i
     conn = get_connection()
     cursor = conn.cursor()
     from utils.dokumen import buat_dokumen
-    cursor.execute("SELECT id_lab, id_dokumen FROM lab_hasil WHERE no_tiket = ?", no_tiket)
+    cursor.execute("SELECT LabResultID AS id_lab, COADocID AS id_dokumen FROM LabResult WHERE TicketNumber = ?", no_tiket)
     lama = cursor.fetchone()
     # COA (APPROVE) dicatat di tabel dokumen (jenis COA), cukup sekali per tiket
     id_dokumen = lama.id_dokumen if lama else None
     if no_coa and id_dokumen is None:
         id_dokumen = buat_dokumen(cursor, "COA", no_coa, date.today(), f"COA tiket {no_tiket}", None, operator_id)
     if lama:
-        cursor.execute("""UPDATE lab_hasil SET ffa=?, kadar_air=?, kadar_kotoran=?, warna_locis=?,
-                           keputusan=?, id_dokumen=?, operator_lab_id=?, waktu_pemeriksaan=GETDATE() WHERE no_tiket=?""",
+        cursor.execute("""UPDATE LabResult SET FFA=?, Moisture=?, Dirt=?, LovibondColor=?,
+                           Decision=?, COADocID=?, TestedBy=?, TestDate=GETDATE() WHERE TicketNumber=?""",
                        ffa, air, kotoran, warna, keputusan, id_dokumen, operator_id, no_tiket)
     else:
-        cursor.execute("""INSERT INTO lab_hasil (no_tiket, ffa, kadar_air, kadar_kotoran, warna_locis, keputusan,
-                           id_dokumen, operator_lab_id, waktu_pemeriksaan) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
+        cursor.execute("""INSERT INTO LabResult (TicketNumber, FFA, Moisture, Dirt, LovibondColor, Decision,
+                           COADocID, TestedBy, TestDate) VALUES (?,?,?,?,?,?,?,?,GETDATE())""",
                        no_tiket, ffa, air, kotoran, warna, keputusan, id_dokumen, operator_id)
 
     # APPROVE -> lanjut timbang kedua (bukan langsung SELESAI, supaya netto tetap tercatat)
     if keputusan == 'REJECT':
-        cursor.execute("UPDATE transaksi SET status_alur='REJECTED' WHERE no_tiket=?", no_tiket)
-        cursor.execute("""IF NOT EXISTS (SELECT 1 FROM pembatalan_tiket WHERE no_tiket = ?)
-                          INSERT INTO pembatalan_tiket (no_tiket, jenis, alasan, oleh) VALUES (?, 'REJECT', ?, ?)""",
+        cursor.execute("UPDATE WeightBridge SET StatusCode='REJECTED' WHERE TicketNumber=?", no_tiket)
+        cursor.execute("""IF NOT EXISTS (SELECT 1 FROM TicketVoid WHERE TicketNumber = ?)
+                          INSERT INTO TicketVoid (TicketNumber, VoidType, Reason, VoidBy) VALUES (?, 'REJECT', ?, ?)""",
                        no_tiket, no_tiket, 'Ditolak Lab', operator_id)
     else:
-        cursor.execute("UPDATE transaksi SET status_alur=? WHERE no_tiket=?", _status_setelah(cursor, no_tiket, 'LAB'), no_tiket)
+        cursor.execute("UPDATE WeightBridge SET StatusCode=? WHERE TicketNumber=?", _status_setelah(cursor, no_tiket, 'LAB'), no_tiket)
     conn.commit()
     conn.close()
 
 # Area tiket = area akun Security pembuatnya. Dipakai menyaring List / history per area akun yang membuka
 # (user di site tidak melihat tiket site lain).
-AREA_TIKET = "t.id_comp_area"          # area transaksi (migrasi 041)
+AREA_TIKET = "t.CompAreaID"          # area transaksi (migrasi 041)
 
 
 def _filter_area(id_area):
@@ -874,16 +874,17 @@ def get_history_umum(tabel, limit=10, id_area=None):
     cursor = conn.cursor()
     if tabel not in ("lab_hasil", "sortasi"):          # nama tabel disisipkan ke SQL -> hanya daftar tetap
         raise ValueError(f"Tabel tidak diizinkan: {tabel}")
-    kolom_status = "sr.keputusan" if tabel == 'lab_hasil' else "t.status_alur"
+    kolom_status = "sr.Decision" if tabel == 'lab_hasil' else "t.StatusCode"
+    tabel = "LabResult" if tabel == "lab_hasil" else "Grading"
     cursor.execute(f"""
         SELECT TOP {int(limit)} k.NoVehicle AS no_plat, p.ProductName AS nama_produk, s.SupplierName AS nama_supplier, {kolom_status} AS status_val
         FROM {tabel} sr
-        JOIN transaksi t ON sr.no_tiket = t.no_tiket
-        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN Product p ON t.id_produk = p.ProductID
-        JOIN Supplier s ON t.id_supplier = s.SupplierID
+        JOIN WeightBridge t ON sr.TicketNumber = t.TicketNumber
+        JOIN DetailVehicle k ON t.IDVehicle = k.IDVehicle
+        JOIN Product p ON t.ProductID = p.ProductID
+        JOIN Supplier s ON t.SupplierID = s.SupplierID
         WHERE 1 = 1{_filter_area(id_area)[0]}
-        ORDER BY t.created_at DESC
+        ORDER BY t.TicketDate DESC
     """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]
     data = [dict(zip(columns, row)) for row in cursor.fetchall()]

@@ -93,7 +93,7 @@ erDiagram
         int IDVehicle FK
         int SupplierID FK
         int ProductID FK "NULL"
-        varchar TransactionType "NULL"
+        varchar TransactionType FK "NULL"
         date StartDate
         date EndDate "NULL"
         bit Active
@@ -142,7 +142,7 @@ erDiagram
     Contract {
         int ContractID PK
         varchar ContractNumber UK
-        varchar TransactionType
+        varchar TransactionType FK
         int SupplierID FK
         int ProductID FK
         date ContractDate
@@ -193,25 +193,8 @@ erDiagram
         bigint CreateBy FK "NULL"
         datetime CreateDate
     }
-    kelebihan_do {
-        int id_kelebihan PK
-        varchar no_tiket FK,UK
-        varchar no_tiket_split FK
-        int id_do FK
-        decimal kuota_kg
-        decimal realisasi_kg
-        decimal netto_tiket_kg
-        decimal kelebihan_kg
-        varchar no_do_baru "NULL"
-        varchar status
-        nvarchar catatan "NULL"
-        bigint diajukan_oleh FK "NULL"
-        datetime diajukan_at "NULL"
-        bigint ditetapkan_oleh FK "NULL"
-        datetime ditetapkan_at "NULL"
-        nvarchar alasan_kembali "NULL"
-        bigint id_comp_area FK "NULL"
-        datetime created_at
+    WeightBridgeType {
+        int WeightTypeID PK
     }
     alur {
         int id_alur PK
@@ -225,6 +208,7 @@ erDiagram
     Currency |o--o{ Contract : "CurrencyID"
     Product ||--o{ Contract : "ProductID"
     Supplier ||--o{ Contract : "SupplierID"
+    WeightBridgeType ||--o{ Contract : "TransactionType"
     Contract ||--o| DeliveryOrder : "ContractID"
     VehicleType |o--o{ DetailVehicle : "VehicleType"
     DeliveryOrder ||--o{ DOTransport : "DeliveryOrderID"
@@ -233,7 +217,6 @@ erDiagram
     DeliveryOrder ||--o{ Invoice : "DeliveryOrderID"
     Supplier ||--o{ Invoice : "SupplierID"
     Supplier |o--o{ Invoice : "TransportID"
-    DeliveryOrder ||--o{ kelebihan_do : "id_do"
     ProductType ||--o{ Product : "Category"
     alur ||--o{ Product : "FlowID"
     Currency |o--o{ ProductPrice : "CurrencyID"
@@ -247,4 +230,5 @@ erDiagram
     DetailVehicle ||--o{ VehicleContract : "IDVehicle"
     Product |o--o{ VehicleContract : "ProductID"
     Supplier ||--o{ VehicleContract : "SupplierID"
+    WeightBridgeType |o--o{ VehicleContract : "TransactionType"
     DetailVehicle ||--o{ VehicleDriver : "IDVehicle"

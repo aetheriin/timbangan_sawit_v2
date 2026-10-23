@@ -204,20 +204,20 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT TOP (?) l.id_log, p.UserID AS id_personel, l.aksi,
-               JSON_VALUE(l.nilai_lama, '$.kode_personel') AS kode_personel_lama,
-               JSON_VALUE(l.nilai_baru, '$.kode_personel') AS kode_personel_baru,
-               JSON_VALUE(l.nilai_lama, '$.nik') AS nik_lama, JSON_VALUE(l.nilai_baru, '$.nik') AS nik_baru,
-               JSON_VALUE(l.nilai_lama, '$.nama') AS nama_lama, JSON_VALUE(l.nilai_baru, '$.nama') AS nama_baru,
-               JSON_VALUE(l.nilai_lama, '$.no_sim') AS no_sim_lama, JSON_VALUE(l.nilai_baru, '$.no_sim') AS no_sim_baru,
-               CAST(l.waktu AS DATETIME) AS updated_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh,
+        SELECT TOP (?) l.LogID AS id_log, p.UserID AS id_personel, l.LogActionType AS aksi,
+               JSON_VALUE(l.OldValue, '$.kode_personel') AS kode_personel_lama,
+               JSON_VALUE(l.NewValue, '$.kode_personel') AS kode_personel_baru,
+               JSON_VALUE(l.OldValue, '$.nik') AS nik_lama, JSON_VALUE(l.NewValue, '$.nik') AS nik_baru,
+               JSON_VALUE(l.OldValue, '$.nama') AS nama_lama, JSON_VALUE(l.NewValue, '$.nama') AS nama_baru,
+               JSON_VALUE(l.OldValue, '$.no_sim') AS no_sim_lama, JSON_VALUE(l.NewValue, '$.no_sim') AS no_sim_baru,
+               CAST(l.LogDate AS DATETIME) AS updated_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh,
                p.UserCode AS kode_personel, p.Nama AS nama_personel
-        FROM log_aktivitas l
-        JOIN Users p ON p.UserID = TRY_CAST(l.id_baris AS BIGINT)
-        LEFT JOIN Users u ON l.id_user = u.UserID
+        FROM Log l
+        JOIN Users p ON p.UserID = TRY_CAST(l.RowID AS BIGINT)
+        LEFT JOIN Users u ON l.CreateBy = u.UserID
         LEFT JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
-        WHERE l.kategori = 'PERSONEL' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-        ORDER BY l.id_log DESC
+        WHERE l.Category = 'PERSONEL' AND l.LogDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+        ORDER BY l.LogID DESC
     """, batas, -(hari - 1))
     data = _rows_to_dicts(cursor)
     conn.close()

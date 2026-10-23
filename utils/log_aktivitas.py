@@ -52,14 +52,14 @@ def catat(kategori, aksi, *, tabel=None, id_baris=None, lama=None, baru=None, us
 
 def daftar(kategori, hari=7, batas=300, aksi=None):
     """Baris log satu kategori N hari terakhir, terbaru dulu. nilai_lama / nilai_baru sudah jadi dict."""
-    sql = f"""SELECT TOP {int(batas)} l.id_log, l.waktu, l.aksi, l.tabel, l.id_baris, l.nilai_lama, l.nilai_baru, l.ip,
-                     l.id_user, u.Nama AS oleh, u.UserName AS username, lv.LevelDetCode AS role_oleh, u.UserCode AS kode_oleh
-              FROM log_aktivitas l
-              LEFT JOIN Users u ON u.UserID = l.id_user
+    sql = f"""SELECT TOP {int(batas)} l.LogID AS id_log, l.LogDate AS waktu, l.LogActionType AS aksi, l.TableName AS tabel, l.RowID AS id_baris, l.OldValue AS nilai_lama, l.NewValue AS nilai_baru, l.IPAddress AS ip,
+                     l.CreateBy AS id_user, u.Nama AS oleh, u.UserName AS username, lv.LevelDetCode AS role_oleh, u.UserCode AS kode_oleh
+              FROM Log l
+              LEFT JOIN Users u ON u.UserID = l.CreateBy
               LEFT JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
-              WHERE l.kategori = ? AND l.waktu >= DATEADD(DAY, ?, CAST(GETDATE() AS DATE))
-                    {"AND l.aksi = ?" if aksi else ""}
-              ORDER BY l.id_log DESC"""
+              WHERE l.Category = ? AND l.LogDate >= DATEADD(DAY, ?, CAST(GETDATE() AS DATE))
+                    {"AND l.LogActionType = ?" if aksi else ""}
+              ORDER BY l.LogID DESC"""
     params = [kategori, -(int(hari) - 1)] + ([aksi] if aksi else [])
     conn = get_connection()
     try:
@@ -79,9 +79,9 @@ def verifikasi():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM log_aktivitas")
+        cursor.execute("SELECT COUNT(*) FROM Log")
         jumlah = cursor.fetchone()[0]
-        cursor.execute("SELECT TOP 20 id_log, waktu, kategori, aksi, masalah FROM v_log_rusak ORDER BY id_log")
+        cursor.execute("SELECT TOP 20 LogID AS id_log, LogDate AS waktu, Category AS kategori, LogActionType AS aksi, Problem AS masalah FROM LogIntegrity ORDER BY LogID")
         rusak = _rows_to_dicts(cursor)
     finally:
         conn.close()

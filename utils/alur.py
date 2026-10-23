@@ -33,7 +33,7 @@ WARNA_STATUS = ("abu", "biru", "hijau", "oranye", "merah", "ungu", "kuning", "to
 @cache_ttl(60)
 def daftar_status():
     try:
-        return _query("SELECT kode, nama, warna FROM status_tiket ORDER BY urutan, kode")
+        return _query("SELECT StatusCode AS kode, StatusName AS nama, StatusColor AS warna FROM Status ORDER BY SortOrder, StatusCode")
     except Exception:       # noqa: BLE001 - sebelum migrasi 033 memakai label bawaan di common.js
         return []
 
@@ -42,7 +42,7 @@ def simpan_status(kode, nama, warna):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE status_tiket SET nama = ?, warna = ? WHERE kode = ?", nama, warna, kode)
+        cursor.execute("UPDATE Status SET StatusName = ?, StatusColor = ? WHERE StatusCode = ?", nama, warna, kode)
         if cursor.rowcount == 0:
             raise ValueError("Status tidak ditemukan.")
         conn.commit()

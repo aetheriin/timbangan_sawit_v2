@@ -13,12 +13,12 @@ def data_tiket(no_tiket, id_area=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"""SELECT t.no_tiket, t.status_alur, t.id_supplier, s.SupplierName AS nama_supplier, t.id_produk, p.ProductName AS nama_produk,
-                                  t.id_driver, d.Nama AS nama_driver, t.id_kendaraan, k.NoVehicle AS no_plat
-                           FROM transaksi t JOIN Supplier s ON s.SupplierID = t.id_supplier
-                           JOIN Product p ON p.ProductID = t.id_produk JOIN Users d ON d.UserID = t.id_driver
-                           JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-                           WHERE t.no_tiket = ? AND t.status_alur <> 'VOID'{filter_area}""", no_tiket, *param_area)
+        cursor.execute(f"""SELECT t.TicketNumber AS no_tiket, t.StatusCode AS status_alur, t.SupplierID AS id_supplier, s.SupplierName AS nama_supplier, t.ProductID AS id_produk, p.ProductName AS nama_produk,
+                                  t.DriverID AS id_driver, d.Nama AS nama_driver, t.IDVehicle AS id_kendaraan, k.NoVehicle AS no_plat
+                           FROM WeightBridge t JOIN Supplier s ON s.SupplierID = t.SupplierID
+                           JOIN Product p ON p.ProductID = t.ProductID JOIN Users d ON d.UserID = t.DriverID
+                           JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
+                           WHERE t.TicketNumber = ? AND t.StatusCode <> 'VOID'{filter_area}""", no_tiket, *param_area)
         rows = _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -40,17 +40,18 @@ def _jalankan(data, id_pengaju, id_penyetuju):
     """Diubah hanya bila data tiket masih sama seperti saat diajukan (tidak menimpa perubahan lain)."""
     ubah, lama = data["ubah"], data["lama"]
     kolom = [k for k in KOLOM if k in ubah]
-    set_sql = ", ".join(f"{k} = ?" for k in kolom)
-    cek_sql = " AND ".join(f"{k} = ?" for k in kolom)
+    nama_db = {"id_supplier": "SupplierID", "id_produk": "ProductID", "id_driver": "DriverID", "id_kendaraan": "IDVehicle"}
+    set_sql = ", ".join(f"{nama_db[k]} = ?" for k in kolom)
+    cek_sql = " AND ".join(f"{nama_db[k]} = ?" for k in kolom)
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"UPDATE transaksi SET {set_sql} WHERE no_tiket = ? AND status_alur <> 'VOID' AND {cek_sql}",
+        cursor.execute(f"UPDATE WeightBridge SET {set_sql} WHERE TicketNumber = ? AND StatusCode <> 'VOID' AND {cek_sql}",
                        *[ubah[k] for k in kolom], data["no_tiket"], *[lama[k] for k in kolom])
         if cursor.rowcount == 0:
             raise ValueError("Data tiket sudah berubah atau tiket sudah dibatalkan sejak koreksi diajukan. Silakan tolak pengajuan ini.")
         rincian = {r["label"]: r for r in data.get("_rincian", [])}
-        log_aktivitas.catat("DATA", "KOREKSI_TIKET", tabel="transaksi", id_baris=data["no_tiket"],
+        log_aktivitas.catat("DATA", "KOREKSI_TIKET", tabel="WeightBridge", id_baris=data["no_tiket"],
                             lama={k: v["lama"] for k, v in rincian.items()}, baru={k: v["baru"] for k, v in rincian.items()},
                             user_id=id_penyetuju, cursor=cursor)
         conn.commit()
