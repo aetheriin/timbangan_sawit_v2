@@ -1,5 +1,5 @@
 // ===== ADMIN > ORGANISASI: perusahaan, area perusahaan, Mill (tipe area), departemen (+ area), jabatan =====
-// Perusahaan (CompID) & departemen (DeptID) memakai kode sebagai ID: kode tidak bisa diubah setelah dibuat.
+// Perusahaan (CompID) & departemen (DeptID) memakai kode sebagai ID: saat kode diganti, server ikut memindah semua data terkait.
 const ORG = {
     company: { id: 'id_company', nama: 'Perusahaan', kolom: c => [mono(c.kode), escapeHtml(c.nama), escapeHtml(c.alamat || '-'),
                escapeHtml(c.label_area || '-')] },
@@ -101,8 +101,6 @@ function bukaOrganisasi(jenis, id) {
     const { area, company, ...isi } = r || {};
     isiForm(form, r ? { ...isi, alamat: r.alamat || '', keterangan: r.keterangan || '' } : { [cfg.id]: '' });
     if (jenis === 'department') isiAreaDepartemen(r ? r.area : []);
-    const kode = form.elements.kode;                    // kode = ID perusahaan / departemen: terkunci saat diubah
-    if (kode && (jenis === 'company' || jenis === 'department')) kode.readOnly = !!r;
     form.querySelector('[data-judul]').textContent = `${r ? 'Ubah' : 'Tambah'} ${cfg.nama}`;
     openModal(`modalOrg-${jenis}`);
     form.querySelector('input:not([type=hidden]):not([readonly]), select').focus();

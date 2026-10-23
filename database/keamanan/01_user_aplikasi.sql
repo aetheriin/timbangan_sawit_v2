@@ -35,6 +35,9 @@ GRANT DELETE ON dbo.RequiredDataField TO [weighbridge_app];
 GRANT DELETE ON dbo.TicketVoid TO [weighbridge_app];
 GRANT DELETE ON dbo.ApprovalFlow TO [weighbridge_app];
 GRANT DELETE ON dbo.ApprovalFlowStep TO [weighbridge_app];
+-- Ganti kode perusahaan / departemen (Admin › Organisasi): baris lama dihapus setelah data dipindah ke kode baru
+GRANT DELETE ON dbo.Company TO [weighbridge_app];
+GRANT DELETE ON dbo.Department TO [weighbridge_app];
 -- Log hanya lewat prosedur (rantai hash); tabelnya tidak boleh ditulis langsung
 GRANT EXECUTE ON dbo.sp_WriteLog TO [weighbridge_app];
 DENY INSERT, UPDATE, DELETE ON dbo.Log TO [weighbridge_app];

@@ -26,6 +26,33 @@ def _ubah(sql, *params):
         conn.close()
 
 
+def _ganti_kode(cursor, tabel, kolom, lama, baru, kolom_unik=None):
+    """Ganti kode yang juga dipakai sebagai ID (Company.CompID, Department.DeptID) dalam satu transaksi:
+    salin baris ke kode baru, pindahkan semua baris tabel lain yang menunjuk ke kode lama (dicari dari FK), hapus baris lama.
+    kolom_unik = kolom teks ber-UNIQUE di baris lama yang diberi nilai sementara agar salinan bisa dibuat
+    (pemanggil menulis ulang nilainya sesudah ini). tabel / kolom dari kode, bukan input."""
+    if kolom_unik:
+        cursor.execute(f"UPDATE dbo.[{tabel}] SET [{kolom_unik}] = N'~' + [{kolom}] WHERE [{kolom}] = ?", lama)
+    cursor.execute("""SELECT c.name FROM sys.columns c WHERE c.object_id = OBJECT_ID(?) AND c.is_identity = 0
+                      AND c.is_computed = 0 AND TYPE_NAME(c.user_type_id) NOT IN ('timestamp', 'rowversion')
+                      ORDER BY c.column_id""", f"dbo.{tabel}")
+    kolom_tabel = [r[0] for r in cursor.fetchall()]
+    pilih = ", ".join("?" if k == kolom else "N'~' + ?" if k == kolom_unik else f"[{k}]" for k in kolom_tabel)
+    nilai = [baru for k in kolom_tabel if k in (kolom, kolom_unik)]
+    cursor.execute(f"INSERT INTO dbo.[{tabel}] ({', '.join(f'[{k}]' for k in kolom_tabel)}) "
+                   f"SELECT {pilih} FROM dbo.[{tabel}] WHERE [{kolom}] = ?", *nilai, lama)
+    if cursor.rowcount == 0:
+        raise ValueError("Data tidak ditemukan")
+    cursor.execute("""SELECT OBJECT_SCHEMA_NAME(fk.parent_object_id), OBJECT_NAME(fk.parent_object_id),
+                             COL_NAME(fk.parent_object_id, fk.parent_column_id)
+                      FROM sys.foreign_key_columns fk
+                      WHERE fk.referenced_object_id = OBJECT_ID(?) AND COL_NAME(fk.referenced_object_id, fk.referenced_column_id) = ?""",
+                   f"dbo.{tabel}", kolom)
+    for skema, anak, kol in cursor.fetchall():
+        cursor.execute(f"UPDATE [{skema}].[{anak}] SET [{kol}] = ? WHERE [{kol}] = ?", baru, lama)
+    cursor.execute(f"DELETE FROM dbo.[{tabel}] WHERE [{kolom}] = ?", lama)
+
+
 # ===== COMPANY (CompID = kode perusahaan, mis. YBS) =====
 def daftar_company():
     """Perusahaan + nama area-areanya (label 'OFFICE, REFINERY')."""
@@ -40,14 +67,26 @@ def daftar_company():
 
 
 def simpan_company(id_company, kode, nama, alamat):
-    """id_company None = baru. Kode (CompID) tidak bisa diganti setelah dibuat karena dipakai tabel lain."""
-    if id_company is None:
-        _ubah("INSERT INTO Company (CompID, CompName, CompAddress) VALUES (?, ?, ?)", kode, nama, alamat)
-    else:
-        if kode != id_company:
-            raise ValueError("Kode perusahaan tidak bisa diubah")
-        _ubah("UPDATE Company SET CompName = ?, CompAddress = ? WHERE CompID = ?", nama, alamat, id_company)
+    """id_company None = baru. Kode (CompID) boleh diganti: semua tabel yang memakainya ikut dipindah."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if id_company is None:
+            cursor.execute("INSERT INTO Company (CompID, CompName, CompAddress) VALUES (?, ?, ?)", kode, nama, alamat)
+        else:
+            if kode != id_company:
+                _ganti_kode(cursor, "Company", "CompID", id_company, kode)
+            cursor.execute("UPDATE Company SET CompName = ?, CompAddress = ? WHERE CompID = ?", nama, alamat, kode)
+            if cursor.rowcount == 0:
+                raise ValueError("Data tidak ditemukan")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
     _hapus_cache_area()
+    pt_kelola.hapus()
 
 
 def set_aktif_company(id_company, aktif):
@@ -240,7 +279,7 @@ def department_di_area(id_department, id_area):
 
 
 def simpan_department(id_department, kode, nama, keterangan, daftar_area_id):
-    """id_department None = baru. Kode (DeptID) tidak bisa diganti setelah dibuat. Area yang dilepas dinonaktifkan
+    """id_department None = baru. Kode (DeptID) boleh diganti: semua tabel yang memakainya ikut dipindah. Area yang dilepas dinonaktifkan
     (baris DepartmentDetails tetap ada karena bisa dipakai akun lama)."""
     conn = get_connection()
     try:
@@ -249,7 +288,7 @@ def simpan_department(id_department, kode, nama, keterangan, daftar_area_id):
             cursor.execute("INSERT INTO Department (DeptID, DeptName, Description) VALUES (?, ?, ?)", kode, nama, keterangan)
         else:
             if kode != id_department:
-                raise ValueError("Kode departemen tidak bisa diubah")
+                _ganti_kode(cursor, "Department", "DeptID", id_department, kode, kolom_unik="DeptName")
             cursor.execute("UPDATE Department SET DeptName = ?, Description = ? WHERE DeptID = ?", nama, keterangan, kode)
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
