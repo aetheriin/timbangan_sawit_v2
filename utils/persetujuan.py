@@ -432,11 +432,11 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
             syarat.append("p.status = 'MENUNGGU'")
     rows = _query(f"""SELECT TOP ({int(batas)}) p.id_pengajuan, p.jenis, p.status, p.langkah, p.total_langkah, p.judul, p.alasan,
                              p.data, p.id_company, p.diajukan_oleh, p.created_at, p.selesai_at, p.kategori, u.Nama AS pengaju,
-                             c.CompID AS kode_company, ar.AreaName AS site, kp.nama AS nama_kategori
+                             c.CompID AS kode_company, ar.AreaName AS site, kp.CategoryName AS nama_kategori
                       FROM pengajuan p JOIN Users u ON u.UserID = p.diajukan_oleh
                       JOIN Company c ON c.CompID = p.id_company
                       JOIN CompanyArea ar ON ar.CompAreaID = p.id_comp_area
-                      LEFT JOIN kategori_personel kp ON kp.kode = p.kategori
+                      LEFT JOIN UserCategory kp ON kp.CategoryCode = p.kategori
                       WHERE {' AND '.join(syarat)} ORDER BY CASE p.status WHEN 'MENUNGGU' THEN 0 ELSE 1 END, p.created_at DESC""",
                   *args)
     tahap = _tahap_pengajuan([r["id_pengajuan"] for r in rows])

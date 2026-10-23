@@ -10,13 +10,13 @@ from utils.db_utils import get_connection, _rows_to_dicts, AREA_TIKET
 
 DI_DALAM = "t.waktu_keluar IS NULL AND t.status_alur <> 'VOID'"
 
-_KOLOM = """t.no_tiket, k.no_plat, t.id_driver, d.nama_personel AS supir, d.kode_personel,
+_KOLOM = """t.no_tiket, k.NoVehicle AS no_plat, t.id_driver, d.Nama AS supir, d.UserCode AS kode_personel,
             s.nama_supplier AS customer, p.nama_produk AS produk, t.jenis_transaksi, t.status_alur,
             ISNULL(ang.nama_supplier, '') AS pengangkutan, t.created_at AS waktu_masuk, t.waktu_keluar,
             um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.kode AS kode_alur"""
 _DARI = """FROM transaksi t
-           JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
-           JOIN personel d ON d.id_personel = t.id_driver
+           JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
+           JOIN Users d ON d.UserID = t.id_driver
            JOIN mitra s ON s.id_supplier = t.id_supplier
            JOIN produk p ON p.id_produk = t.id_produk
            LEFT JOIN mitra ang ON ang.id_supplier = t.id_pengangkutan
@@ -50,14 +50,14 @@ def logbook(id_area, tanggal):
 
 def di_dalam(no_plat):
     """Kunjungan plat yang belum dicatat keluar (di area mana pun), atau None."""
-    rows = _query(f"SELECT TOP 1 {_KOLOM} {_DARI} WHERE k.no_plat = ? AND {DI_DALAM} ORDER BY t.created_at DESC", no_plat)
+    rows = _query(f"SELECT TOP 1 {_KOLOM} {_DARI} WHERE k.NoVehicle = ? AND {DI_DALAM} ORDER BY t.created_at DESC", no_plat)
     return rows[0] if rows else None
 
 
 def kendaraan(no_plat):
-    rows = _query("""SELECT k.id_kendaraan, k.no_stnk, k.is_blacklisted, k.is_active, k.id_jenis_kendaraan, jk.nama AS jenis
-                     FROM kendaraan k LEFT JOIN jenis_kendaraan jk ON jk.id_jenis_kendaraan = k.id_jenis_kendaraan
-                     WHERE k.no_plat = ?""", no_plat)
+    rows = _query("""SELECT k.IDVehicle AS id_kendaraan, k.NoSTNK AS no_stnk, CAST(CASE WHEN k.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted, k.Active AS is_active, k.VehicleType AS id_jenis_kendaraan, jk.NameType AS jenis
+                     FROM DetailVehicle k LEFT JOIN VehicleType jk ON jk.VehicleTypeID = k.VehicleType
+                     WHERE k.NoVehicle = ?""", no_plat)
     return rows[0] if rows else None
 
 
@@ -65,39 +65,39 @@ def atur_jenis_kendaraan(no_plat, id_jenis):
     """Jenis kendaraan dipilih security saat masuk -> disimpan di data kendaraan (perubahan tercatat trigger log data)."""
     conn = get_connection()
     try:
-        conn.cursor().execute("""UPDATE kendaraan SET id_jenis_kendaraan = ?
-                                 WHERE no_plat = ? AND ISNULL(id_jenis_kendaraan, 0) <> ?""", id_jenis, no_plat, id_jenis)
+        conn.cursor().execute("""UPDATE DetailVehicle SET VehicleType = ?
+                                 WHERE NoVehicle = ? AND ISNULL(VehicleType, 0) <> ?""", id_jenis, no_plat, id_jenis)
         conn.commit()
     finally:
         conn.close()
 
 
 def supir_terakhir(no_plat):
-    rows = _query("""SELECT TOP 1 t.created_at AS waktu, d.id_personel AS id_driver, d.kode_personel, d.nik,
-                            d.nama_personel AS nama, d.no_sim, d.kategori, d.is_blacklisted, d.is_updated, d.foto_path
-                     FROM transaksi t JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
-                     JOIN v_personel d ON d.id_personel = t.id_driver
-                     WHERE k.no_plat = ? ORDER BY t.created_at DESC""", no_plat)
+    rows = _query("""SELECT TOP 1 t.created_at AS waktu, d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik,
+                            d.Nama AS nama, d.LicenseNumber AS no_sim, d.CategoryCode AS kategori, d.IsBlacklisted AS is_blacklisted, d.IsUpload AS is_updated, d.PhotoPath AS foto_path
+                     FROM transaksi t JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
+                     JOIN UserProfile d ON d.UserID = t.id_driver
+                     WHERE k.NoVehicle = ? ORDER BY t.created_at DESC""", no_plat)
     return rows[0] if rows else None
 
 
 def blacklist_aktif(tipe, id_target):
     """Alasan, sejak kapan, dan penetap blacklist yang berlaku (untuk panel peringatan)."""
-    kolom = "id_personel" if tipe == "PERSONEL" else "id_kendaraan"
-    rows = _query(f"""SELECT TOP 1 b.alasan_blacklist AS alasan, b.created_at AS sejak, u.Nama AS oleh,
+    kolom = "UserID" if tipe == "PERSONEL" else "IDVehicle"
+    rows = _query(f"""SELECT TOP 1 b.Reason AS alasan, b.CreateDate AS sejak, u.Nama AS oleh,
                              dk.no_dokumen AS no_surat
-                      FROM blacklist b JOIN Users u ON u.UserID = b.created_by
-                      LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
-                      WHERE b.{kolom} = ? AND b.dicabut_at IS NULL ORDER BY b.created_at DESC""", id_target)
+                      FROM Blacklist b JOIN Users u ON u.UserID = b.CreateBy
+                      LEFT JOIN dokumen dk ON dk.id_dokumen = b.BlacklistDoc
+                      WHERE b.{kolom} = ? AND b.RevokeDate IS NULL ORDER BY b.CreateDate DESC""", id_target)
     return rows[0] if rows else None
 
 
 def sim_supir(id_personel):
     """SIM aktif yang paling lama berlaku (None bila belum ada)."""
-    rows = _query("""SELECT TOP 1 js.nama AS jenis, s.no_sim, s.berlaku_sampai
-                     FROM personel_sim s JOIN jenis_sim js ON js.id_jenis_sim = s.id_jenis_sim
-                     WHERE s.id_personel = ? AND s.is_active = 1
-                     ORDER BY CASE WHEN s.berlaku_sampai IS NULL THEN 1 ELSE 0 END, s.berlaku_sampai DESC""", id_personel)
+    rows = _query("""SELECT TOP 1 js.LicenseType AS jenis, s.LicenseNumber AS no_sim, s.ExpiredSIM AS berlaku_sampai
+                     FROM LicenseDetail s JOIN License js ON js.LicenseID = s.SIMType
+                     WHERE s.UserID = ? AND s.Active = 1
+                     ORDER BY CASE WHEN s.ExpiredSIM IS NULL THEN 1 ELSE 0 END, s.ExpiredSIM DESC""", id_personel)
     return rows[0] if rows else None
 
 

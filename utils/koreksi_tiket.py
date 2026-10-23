@@ -14,10 +14,10 @@ def data_tiket(no_tiket, id_area=None):
     try:
         cursor = conn.cursor()
         cursor.execute(f"""SELECT t.no_tiket, t.status_alur, t.id_supplier, s.nama_supplier, t.id_produk, p.nama_produk,
-                                  t.id_driver, d.nama_personel AS nama_driver, t.id_kendaraan, k.no_plat
+                                  t.id_driver, d.Nama AS nama_driver, t.id_kendaraan, k.NoVehicle AS no_plat
                            FROM transaksi t JOIN mitra s ON s.id_supplier = t.id_supplier
-                           JOIN produk p ON p.id_produk = t.id_produk JOIN personel d ON d.id_personel = t.id_driver
-                           JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
+                           JOIN produk p ON p.id_produk = t.id_produk JOIN Users d ON d.UserID = t.id_driver
+                           JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
                            WHERE t.no_tiket = ? AND t.status_alur <> 'VOID'{filter_area}""", no_tiket, *param_area)
         rows = _rows_to_dicts(cursor)
     finally:

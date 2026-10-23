@@ -91,25 +91,25 @@ erDiagram
     }
     Users {
         bigint UserID PK
-        bigint CompAreaID FK
-        varchar UserCode "NULL"
-        varchar UserName UK
+        bigint CompAreaID FK "NULL"
+        varchar UserCode UK "NULL"
+        varchar UserName UK "NULL"
         bigint UserDeptID FK "NULL"
-        int UserLevelID FK
-        char NoKTP "NULL"
+        int UserLevelID FK "NULL"
+        varchar CategoryCode FK
+        varchar NoKTP UK "NULL"
         bigint GuestID "NULL"
         nvarchar Nama
         nvarchar Email "NULL"
         varbinary FaceEmbeddingData "NULL"
         nvarchar UploadPath "NULL"
-        nvarchar CurrentHash "NULL"
+        varchar CurrentHash "NULL"
         datetime CreateDate
         datetime UpdateDate
         bit Active
         bit IsUpload
-        bigint BlacklistID "NULL"
+        bigint BlacklistID FK "NULL"
         nvarchar Description "NULL"
-        int PersonnelID FK,UK
         datetime LastLogin "NULL"
         int SessionVersion
     }
@@ -171,8 +171,8 @@ erDiagram
         bit is_libur
         int toleransi_menit
     }
-    personel {
-        int id_personel PK
+    UserCategory {
+        varchar CategoryCode PK
     }
     ActionType ||--o{ AccessMenu : "ActionID"
     LevelDetails |o--o{ AccessMenu : "LevelDetID"
@@ -195,8 +195,8 @@ erDiagram
     CompanyArea ||--o{ perangkat_kiosk : "id_comp_area"
     Company ||--o{ UserCompany : "CompID"
     Users ||--o{ UserCompany : "UserID"
-    CompanyArea ||--o{ Users : "CompAreaID"
-    personel ||--o| Users : "PersonnelID"
+    UserCategory ||--o{ Users : "CategoryCode"
+    CompanyArea |o--o{ Users : "CompAreaID"
     DepartmentDetails |o--o{ Users : "UserDeptID"
-    LevelDetails ||--o{ Users : "UserLevelID"
+    LevelDetails |o--o{ Users : "UserLevelID"
     Users ||--o{ UserSession : "UserID"

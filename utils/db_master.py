@@ -4,20 +4,20 @@ from utils.db_utils import get_connection, _rows_to_dicts, _daftarkan_supir
 
 def daftar_kendaraan(cari="", batas=500):
     sql = f"""
-        SELECT TOP {int(batas)} k.id_kendaraan, k.no_plat, k.no_stnk, k.is_active, k.is_blacklisted, k.created_at,
-               k.id_jenis_kendaraan, jk.nama AS jenis_kendaraan,
+        SELECT TOP {int(batas)} k.IDVehicle AS id_kendaraan, k.NoVehicle AS no_plat, k.NoSTNK AS no_stnk, k.Active AS is_active, CAST(CASE WHEN k.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted, k.CreateDate AS created_at,
+               k.VehicleType AS id_jenis_kendaraan, jk.NameType AS jenis_kendaraan,
                u.id_driver AS id_supir_utama, u.nama_personel AS nama_supir_utama, u.kode_personel AS kode_supir_utama,
-               (SELECT COUNT(*) FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
-                WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND p.is_active = 1) AS jumlah_supir,
-               (SELECT MAX(t.created_at) FROM transaksi t WHERE t.id_kendaraan = k.id_kendaraan) AS transaksi_terakhir
-        FROM kendaraan k
-        LEFT JOIN jenis_kendaraan jk ON jk.id_jenis_kendaraan = k.id_jenis_kendaraan
-        OUTER APPLY (SELECT TOP 1 kd.id_driver, p.nama_personel, p.kode_personel
-                     FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
-                     WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND kd.is_utama = 1
-                       AND p.is_active = 1) u
-        WHERE REPLACE(k.no_plat, ' ', '') LIKE ? OR k.no_stnk LIKE ?
-        ORDER BY k.is_active DESC, k.no_plat"""
+               (SELECT COUNT(*) FROM VehicleDriver kd JOIN Users p ON p.UserID = kd.UserID
+                WHERE kd.IDVehicle = k.IDVehicle AND kd.Active = 1 AND p.Active = 1) AS jumlah_supir,
+               (SELECT MAX(t.created_at) FROM transaksi t WHERE t.id_kendaraan = k.IDVehicle) AS transaksi_terakhir
+        FROM DetailVehicle k
+        LEFT JOIN VehicleType jk ON jk.VehicleTypeID = k.VehicleType
+        OUTER APPLY (SELECT TOP 1 kd.UserID AS id_driver, p.Nama AS nama_personel, p.UserCode AS kode_personel
+                     FROM VehicleDriver kd JOIN Users p ON p.UserID = kd.UserID
+                     WHERE kd.IDVehicle = k.IDVehicle AND kd.Active = 1 AND kd.IsMain = 1
+                       AND p.Active = 1) u
+        WHERE REPLACE(k.NoVehicle, ' ', '') LIKE ? OR k.NoSTNK LIKE ?
+        ORDER BY k.Active DESC, k.NoVehicle"""
     conn = get_connection()
     try:
         cursor = conn.cursor()
@@ -36,7 +36,7 @@ def get_kendaraan(id_kendaraan):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_kendaraan, no_plat, no_stnk, is_active FROM kendaraan WHERE id_kendaraan = ?",
+        cursor.execute("SELECT IDVehicle AS id_kendaraan, NoVehicle AS no_plat, NoSTNK AS no_stnk, Active AS is_active FROM DetailVehicle WHERE IDVehicle = ?",
                        id_kendaraan)
         rows = _rows_to_dicts(cursor)
         return rows[0] if rows else None
@@ -49,11 +49,11 @@ def daftar_jenis_kendaraan(semua=False):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"""SELECT j.id_jenis_kendaraan, j.kode, j.nama, j.is_active, j.berat_kosong_kg, j.muatan_maks_kg, j.kursi,
-                                  (SELECT COUNT(*) FROM kendaraan k WHERE k.id_jenis_kendaraan = j.id_jenis_kendaraan
-                                     AND k.is_active = 1) AS jumlah_kendaraan
-                           FROM jenis_kendaraan j {'' if semua else 'WHERE j.is_active = 1'}
-                           ORDER BY j.is_active DESC, j.id_jenis_kendaraan""")
+        cursor.execute(f"""SELECT j.VehicleTypeID AS id_jenis_kendaraan, j.VehicleTypeCode AS kode, j.NameType AS nama, j.Active AS is_active, j.WeightCar AS berat_kosong_kg, j.MaxLoad AS muatan_maks_kg, j.Seat AS kursi,
+                                  (SELECT COUNT(*) FROM DetailVehicle k WHERE k.VehicleType = j.VehicleTypeID
+                                     AND k.Active = 1) AS jumlah_kendaraan
+                           FROM VehicleType j {'' if semua else 'WHERE j.Active = 1'}
+                           ORDER BY j.Active DESC, j.VehicleTypeID""")
         rows = _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -67,16 +67,16 @@ def simpan_jenis_kendaraan(id_jenis, kode, nama, berat_kosong, muatan_maks, kurs
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_jenis_kendaraan FROM jenis_kendaraan WHERE kode = ? AND id_jenis_kendaraan <> ?", kode, id_jenis or 0)
+        cursor.execute("SELECT VehicleTypeID AS id_jenis_kendaraan FROM VehicleType WHERE VehicleTypeCode = ? AND VehicleTypeID <> ?", kode, id_jenis or 0)
         if cursor.fetchone():
             raise ValueError(f"Kode {kode} sudah dipakai.")
         if id_jenis:
-            cursor.execute("""UPDATE jenis_kendaraan SET kode = ?, nama = ?, berat_kosong_kg = ?, muatan_maks_kg = ?, kursi = ?
-                              WHERE id_jenis_kendaraan = ?""", kode, nama, berat_kosong, muatan_maks, kursi, id_jenis)
+            cursor.execute("""UPDATE VehicleType SET VehicleTypeCode = ?, NameType = ?, WeightCar = ?, MaxLoad = ?, Seat = ?
+                              WHERE VehicleTypeID = ?""", kode, nama, berat_kosong, muatan_maks, kursi, id_jenis)
             if cursor.rowcount == 0:
                 raise ValueError("Jenis kendaraan tidak ditemukan.")
         else:
-            cursor.execute("""INSERT INTO jenis_kendaraan (kode, nama, berat_kosong_kg, muatan_maks_kg, kursi)
+            cursor.execute("""INSERT INTO VehicleType (VehicleTypeCode, NameType, WeightCar, MaxLoad, Seat)
                               VALUES (?, ?, ?, ?, ?)""", kode, nama, berat_kosong, muatan_maks, kursi)
         conn.commit()
     finally:
@@ -87,7 +87,7 @@ def set_aktif_jenis_kendaraan(id_jenis, aktif):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE jenis_kendaraan SET is_active = ? WHERE id_jenis_kendaraan = ?", 1 if aktif else 0, id_jenis)
+        cursor.execute("UPDATE VehicleType SET Active = ? WHERE VehicleTypeID = ?", 1 if aktif else 0, id_jenis)
         if cursor.rowcount == 0:
             raise ValueError("Jenis kendaraan tidak ditemukan.")
         conn.commit()
@@ -103,9 +103,9 @@ def cek_kapasitas(no_tiket):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT k.no_plat, j.nama, j.berat_kosong_kg, j.muatan_maks_kg, v.berat_bruto, v.berat_tara, v.berat_netto
-                          FROM transaksi t JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
-                          JOIN jenis_kendaraan j ON j.id_jenis_kendaraan = k.id_jenis_kendaraan
+        cursor.execute("""SELECT k.NoVehicle AS no_plat, j.NameType AS nama, j.WeightCar AS berat_kosong_kg, j.MaxLoad AS muatan_maks_kg, v.berat_bruto, v.berat_tara, v.berat_netto
+                          FROM transaksi t JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
+                          JOIN VehicleType j ON j.VehicleTypeID = k.VehicleType
                           JOIN v_timbangan v ON v.no_tiket = t.no_tiket
                           WHERE t.no_tiket = ?""", no_tiket)
         r = cursor.fetchone()
@@ -134,7 +134,7 @@ def stnk_dipakai(no_stnk, kecuali=None):
     """No STNK unik (migrasi 014). Kembalikan plat pemakainya, atau None."""
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT id_kendaraan, no_plat FROM kendaraan WHERE no_stnk = ?", no_stnk).fetchone()
+        row = conn.cursor().execute("SELECT IDVehicle AS id_kendaraan, NoVehicle AS no_plat FROM DetailVehicle WHERE NoSTNK = ?", no_stnk).fetchone()
         return row[1] if row and row[0] != kecuali else None
     finally:
         conn.close()
@@ -143,7 +143,7 @@ def stnk_dipakai(no_stnk, kecuali=None):
 def plat_dipakai(no_plat, kecuali=None):
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT id_kendaraan FROM kendaraan WHERE no_plat = ?", no_plat).fetchone()
+        row = conn.cursor().execute("SELECT IDVehicle AS id_kendaraan FROM DetailVehicle WHERE NoVehicle = ?", no_plat).fetchone()
         return bool(row and row[0] != kecuali)
     finally:
         conn.close()
@@ -165,16 +165,16 @@ def simpan_kendaraan(id_kendaraan, no_plat, no_stnk, id_supir_utama, user_id, id
     try:
         cursor = conn.cursor()
         if id_kendaraan is None:
-            cursor.execute("""SET NOCOUNT ON; INSERT INTO kendaraan (no_plat, no_stnk, id_jenis_kendaraan) VALUES (?, ?, ?);
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO DetailVehicle (NoVehicle, NoSTNK, VehicleType) VALUES (?, ?, ?);
                               SELECT CAST(SCOPE_IDENTITY() AS INT)""", no_plat, no_stnk, id_jenis)
             id_kendaraan = cursor.fetchone()[0]
         else:
-            cursor.execute("UPDATE kendaraan SET no_plat = ?, no_stnk = ?, id_jenis_kendaraan = ? WHERE id_kendaraan = ?",
+            cursor.execute("UPDATE DetailVehicle SET NoVehicle = ?, NoSTNK = ?, VehicleType = ? WHERE IDVehicle = ?",
                            no_plat, no_stnk, id_jenis, id_kendaraan)
         if id_supir_utama:
             _daftarkan_supir(cursor, id_kendaraan, id_supir_utama, True, user_id)
         else:
-            cursor.execute("UPDATE kendaraan_driver SET is_utama = 0, updated_at = GETDATE() WHERE id_kendaraan = ?",
+            cursor.execute("UPDATE VehicleDriver SET IsMain = 0, UpdateDate = GETDATE() WHERE IDVehicle = ?",
                            id_kendaraan)
         conn.commit()
         return id_kendaraan
@@ -186,7 +186,7 @@ def set_aktif_kendaraan(id_kendaraan, aktif):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("UPDATE kendaraan SET is_active = ? WHERE id_kendaraan = ?", 1 if aktif else 0, id_kendaraan)
+        cursor.execute("UPDATE DetailVehicle SET Active = ? WHERE IDVehicle = ?", 1 if aktif else 0, id_kendaraan)
         conn.commit()
     finally:
         conn.close()
@@ -197,9 +197,9 @@ def daftar_driver_aktif():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT id_personel, kode_personel, nama_personel, nik FROM personel
-                          WHERE kategori = 'DRIVER' AND is_active = 1 AND is_blacklisted = 0
-                          ORDER BY nama_personel""")
+        cursor.execute("""SELECT UserID AS id_personel, UserCode AS kode_personel, Nama AS nama_personel, NoKTP AS nik FROM Users
+                          WHERE CategoryCode = 'DRIVER' AND Active = 1 AND CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) = 0
+                          ORDER BY Nama""")
         return _rows_to_dicts(cursor)
     finally:
         conn.close()

@@ -1,14 +1,14 @@
 from datetime import datetime
 
 import pyodbc
-from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver
+from utils.db_utils import get_connection, _rows_to_dicts, hitung_hash_driver, user_id_baru
 from utils.personel_utils import PREFIX_KODE, kode_berikutnya
 from utils.face_cache import invalidate as reset_cache_wajah
 from utils import log_aktivitas
 
-KOLOM_PERSONEL = """p.id_personel, p.kode_personel, p.nik, p.nama_personel, p.no_sim, p.kategori,
-                    p.id_jenis_sim, p.kode_jenis_sim, p.sim_berlaku_sampai,
-                    p.is_blacklisted, p.foto_path, p.foto_sumber, p.is_updated, p.is_active, p.updated_at"""
+KOLOM_PERSONEL = """p.UserID AS id_personel, p.UserCode AS kode_personel, p.NoKTP AS nik, p.Nama AS nama_personel, p.LicenseNumber AS no_sim, p.CategoryCode AS kategori,
+                    p.LicenseID AS id_jenis_sim, p.LicenseCode AS kode_jenis_sim, p.ExpiredSIM AS sim_berlaku_sampai,
+                    p.IsBlacklisted AS is_blacklisted, p.PhotoPath AS foto_path, p.PhotoSource AS foto_sumber, p.IsUpload AS is_updated, p.Active AS is_active, p.UpdateDate AS updated_at"""
 
 
 def _normalisasi(r):
@@ -23,18 +23,18 @@ def _normalisasi(r):
 
 
 def get_daftar_personel(kategori=None, cari=None, hanya_blacklist=False, batas=200):
-    sql = f"SELECT TOP (?) {KOLOM_PERSONEL} FROM v_personel p WHERE p.is_active = 1"
+    sql = f"SELECT TOP (?) {KOLOM_PERSONEL} FROM UserProfile p WHERE p.Active = 1"
     params = [batas]
     if kategori:
-        sql += " AND p.kategori = ?"
+        sql += " AND p.CategoryCode = ?"
         params.append(kategori)
     if hanya_blacklist:
-        sql += " AND p.is_blacklisted = 1"
+        sql += " AND p.IsBlacklisted = 1"
     if cari:
-        sql += " AND (p.kode_personel LIKE ? OR p.nik LIKE ? OR p.nama_personel LIKE ? OR CAST(p.id_personel AS VARCHAR) = ?)"
+        sql += " AND (p.UserCode LIKE ? OR p.NoKTP LIKE ? OR p.Nama LIKE ? OR CAST(p.UserID AS VARCHAR) = ?)"
         pola = f"%{cari}%"
         params += [pola, pola, pola, cari.lstrip("0") or "0"]
-    sql += " ORDER BY p.id_personel"
+    sql += " ORDER BY p.UserID"
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(sql, *params)
@@ -46,7 +46,7 @@ def get_daftar_personel(kategori=None, cari=None, hanya_blacklist=False, batas=2
 def get_personel(id_personel):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {KOLOM_PERSONEL} FROM v_personel p WHERE p.id_personel = ?", id_personel)
+    cursor.execute(f"SELECT {KOLOM_PERSONEL} FROM UserProfile p WHERE p.UserID = ?", id_personel)
     data = _rows_to_dicts(cursor)
     conn.close()
     return _normalisasi(data[0]) if data else None
@@ -55,7 +55,7 @@ def get_personel(id_personel):
 def cek_kode_ada(kode, exclude_id=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_personel FROM personel WHERE kode_personel = ? AND id_personel <> ?",
+    cursor.execute("SELECT UserID AS id_personel FROM Users WHERE UserCode = ? AND UserID <> ?",
                    kode, exclude_id or 0)
     ada = cursor.fetchone() is not None
     conn.close()
@@ -74,7 +74,7 @@ def saran_kode_personel(kategori=None):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT kode_personel FROM personel WHERE kode_personel LIKE ?",
+        cursor.execute("SELECT UserCode AS kode_personel FROM Users WHERE UserCode LIKE ?",
                        prefix.replace("[", "[[]").replace("_", "[_]").replace("%", "[%]") + "%")
         kode = [r.kode_personel for r in cursor.fetchall()]
     finally:
@@ -84,7 +84,7 @@ def saran_kode_personel(kategori=None):
 
 def _catat_audit(cursor, id_personel, aksi, lama, baru, user_id):
     """lama / baru: dict {kode_personel, nik, nama, no_sim} (lama None untuk TAMBAH). Dicatat di log_aktivitas."""
-    log_aktivitas.catat("PERSONEL", aksi, tabel="personel", id_baris=id_personel, lama=lama, baru=baru,
+    log_aktivitas.catat("PERSONEL", aksi, tabel="Users", id_baris=id_personel, lama=lama, baru=baru,
                         user_id=user_id, cursor=cursor)
 
 
@@ -93,8 +93,8 @@ def sim_dipakai(no_sim, exclude_id=None):
     """No. SIM aktif milik personel lain."""
     conn = get_connection()
     try:
-        row = conn.cursor().execute("""SELECT TOP 1 id_personel FROM personel_sim
-                                       WHERE no_sim = ? AND is_active = 1 AND id_personel <> ?""",
+        row = conn.cursor().execute("""SELECT TOP 1 UserID AS id_personel FROM LicenseDetail
+                                       WHERE LicenseNumber = ? AND Active = 1 AND UserID <> ?""",
                                     no_sim, exclude_id or 0).fetchone()
         return row is not None
     finally:
@@ -104,34 +104,34 @@ def sim_dipakai(no_sim, exclude_id=None):
 def simpan_sim(cursor, id_personel, no_sim, id_jenis_sim=None, berlaku_sampai=None, user_id=None):
     """SIM aktif personel. Kosong -> SIM aktif dinonaktifkan. Nomor sama -> jenis & masa berlaku diperbarui bila diisi.
     Nomor berbeda -> SIM lama nonaktif (riwayat tetap), SIM baru ditambah. Jenis kosong = BELUM_DIISI (data cepat dari pos)."""
-    cursor.execute("SELECT id_sim, no_sim FROM personel_sim WHERE id_personel = ? AND is_active = 1", id_personel)
+    cursor.execute("SELECT DetailLicenseID AS id_sim, LicenseNumber AS no_sim FROM LicenseDetail WHERE UserID = ? AND Active = 1", id_personel)
     aktif = cursor.fetchall()
     sama = next((x for x in aktif if no_sim and x.no_sim == no_sim), None)
     for x in aktif:
         if x is not sama:
-            cursor.execute("UPDATE personel_sim SET is_active = 0 WHERE id_sim = ?", x.id_sim)
+            cursor.execute("UPDATE LicenseDetail SET Active = 0 WHERE DetailLicenseID = ?", x.id_sim)
     if not no_sim:
         return
     if sama:
         if id_jenis_sim:
-            cursor.execute("UPDATE personel_sim SET id_jenis_sim = ?, berlaku_sampai = ? WHERE id_sim = ?",
+            cursor.execute("UPDATE LicenseDetail SET SIMType = ?, ExpiredSIM = ? WHERE DetailLicenseID = ?",
                            id_jenis_sim, berlaku_sampai, sama.id_sim)
         return
-    cursor.execute("""INSERT INTO personel_sim (id_personel, id_jenis_sim, no_sim, berlaku_sampai, created_by)
-                      VALUES (?, COALESCE(?, (SELECT id_jenis_sim FROM jenis_sim WHERE kode = 'BELUM_DIISI')), ?, ?, ?)""",
+    cursor.execute("""INSERT INTO LicenseDetail (UserID, SIMType, LicenseNumber, ExpiredSIM, CreateBy)
+                      VALUES (?, COALESCE(?, (SELECT LicenseID FROM License WHERE LicenseCode = 'BELUM_DIISI')), ?, ?, ?)""",
                    id_personel, id_jenis_sim, no_sim, berlaku_sampai, user_id)
 
 
 def simpan_wajah(cursor, id_personel, embedding_binary, foto_path, sumber, user_id=None):
     """Wajah baru menjadi wajah utama; wajah lama dinonaktifkan (tidak dikenali lagi, riwayat & foto tetap)."""
-    cursor.execute("UPDATE personel_wajah SET is_utama = 0, is_active = 0 WHERE id_personel = ? AND is_active = 1",
+    cursor.execute("UPDATE FaceRecog SET IsMain = 0, Active = 0 WHERE UserID = ? AND Active = 1",
                    id_personel)
-    cursor.execute("""INSERT INTO personel_wajah (id_personel, embedding, foto_path, sumber, created_by)
+    cursor.execute("""INSERT INTO FaceRecog (UserID, FaceDet, PhotoPath, Source, CreateBy)
                       VALUES (?, ?, ?, ?, ?)""", id_personel, embedding_binary, foto_path, sumber, user_id)
 
 
 def _data_lama(cursor, id_personel):
-    cursor.execute("SELECT kode_personel, nik, nama_personel, no_sim FROM v_personel WHERE id_personel = ?", id_personel)
+    cursor.execute("SELECT UserCode AS kode_personel, NoKTP AS nik, Nama AS nama_personel, LicenseNumber AS no_sim FROM UserProfile WHERE UserID = ?", id_personel)
     r = cursor.fetchone()
     return {"kode_personel": r.kode_personel, "nik": r.nik, "nama": r.nama_personel, "no_sim": r.no_sim}
 
@@ -140,12 +140,10 @@ def insert_personel(nik, nama, no_sim, kategori, kode, embedding_binary, foto_pa
                     id_jenis_sim=None, sim_berlaku=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        """INSERT INTO personel (kode_personel, nik, nama_personel, kategori, current_hash)
-           OUTPUT INSERTED.id_personel
-           VALUES (?, ?, ?, ?, ?)""",
-        kode or None, nik, nama, kategori, hitung_hash_driver(nik, nama, no_sim, datetime.now()))
-    id_personel = cursor.fetchone()[0]
+    id_personel = user_id_baru(cursor)
+    cursor.execute("""INSERT INTO Users (UserID, UserCode, NoKTP, Nama, CategoryCode, CurrentHash)
+                      VALUES (?, ?, ?, ?, ?, ?)""",
+                   id_personel, kode or None, nik, nama, kategori, hitung_hash_driver(nik, nama, no_sim, datetime.now()))
     simpan_sim(cursor, id_personel, no_sim or None, id_jenis_sim, sim_berlaku, user_id)
     if embedding_binary is not None:
         simpan_wajah(cursor, id_personel, embedding_binary, foto_path, foto_sumber, user_id)
@@ -165,10 +163,9 @@ def update_personel(id_personel, kode, nik, nama, no_sim, kategori, user_id,
     lama = _data_lama(cursor, id_personel)
     baru = {"kode_personel": kode or None, "nik": nik, "nama": nama, "no_sim": no_sim or None}
     hash_baru = hitung_hash_driver(nik, nama, no_sim, datetime.now())
-    cursor.execute("""UPDATE personel SET kode_personel = ?, nik = ?, nama_personel = ?, kategori = ?,
-                      is_updated = 1, current_hash = ?, updated_at = GETDATE()
-                      WHERE id_personel = ?""", kode or None, nik, nama, kategori, hash_baru, id_personel)
-    cursor.execute("UPDATE Users SET Nama = ? WHERE PersonnelID = ?", nama, id_personel)     # akun = personel
+    cursor.execute("""UPDATE Users SET UserCode = ?, NoKTP = ?, Nama = ?, CategoryCode = ?,
+                      IsUpload = 1, CurrentHash = ?, UpdateDate = GETDATE()
+                      WHERE UserID = ?""", kode or None, nik, nama, kategori, hash_baru, id_personel)
     simpan_sim(cursor, id_personel, no_sim or None, id_jenis_sim, sim_berlaku, user_id)
     if embedding_binary is not None:
         simpan_wajah(cursor, id_personel, embedding_binary, foto_path, foto_sumber, user_id)
@@ -183,7 +180,7 @@ def akun_personel(id_personel):
     """username akun aktif milik personel ini, atau None."""
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT UserName FROM Users WHERE PersonnelID = ? AND Active = 1", id_personel).fetchone()
+        row = conn.cursor().execute("SELECT UserName FROM Users WHERE UserID = ? AND Active = 1", id_personel).fetchone()
         return row[0] if row else None
     finally:
         conn.close()
@@ -194,9 +191,9 @@ def hapus_personel(id_personel, user_id):
     conn = get_connection()
     cursor = conn.cursor()
     data = _data_lama(cursor, id_personel)
-    cursor.execute("UPDATE personel SET is_active = 0, updated_at = GETDATE() WHERE id_personel = ?", id_personel)
-    cursor.execute("""UPDATE kendaraan_driver SET is_active = 0, is_utama = 0, updated_at = GETDATE()
-                      WHERE id_driver = ?""", id_personel)
+    cursor.execute("UPDATE Users SET Active = 0, UpdateDate = GETDATE() WHERE UserID = ?", id_personel)
+    cursor.execute("""UPDATE VehicleDriver SET Active = 0, IsMain = 0, UpdateDate = GETDATE()
+                      WHERE UserID = ?""", id_personel)
     _catat_audit(cursor, id_personel, "HAPUS", data, data, user_id)
     conn.commit()
     conn.close()
@@ -207,16 +204,16 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT TOP (?) l.id_log, p.id_personel, l.aksi,
+        SELECT TOP (?) l.id_log, p.UserID AS id_personel, l.aksi,
                JSON_VALUE(l.nilai_lama, '$.kode_personel') AS kode_personel_lama,
                JSON_VALUE(l.nilai_baru, '$.kode_personel') AS kode_personel_baru,
                JSON_VALUE(l.nilai_lama, '$.nik') AS nik_lama, JSON_VALUE(l.nilai_baru, '$.nik') AS nik_baru,
                JSON_VALUE(l.nilai_lama, '$.nama') AS nama_lama, JSON_VALUE(l.nilai_baru, '$.nama') AS nama_baru,
                JSON_VALUE(l.nilai_lama, '$.no_sim') AS no_sim_lama, JSON_VALUE(l.nilai_baru, '$.no_sim') AS no_sim_baru,
                CAST(l.waktu AS DATETIME) AS updated_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh,
-               p.kode_personel, p.nama_personel
+               p.UserCode AS kode_personel, p.Nama AS nama_personel
         FROM log_aktivitas l
-        JOIN personel p ON p.id_personel = TRY_CAST(l.id_baris AS INT)
+        JOIN Users p ON p.UserID = TRY_CAST(l.id_baris AS BIGINT)
         LEFT JOIN Users u ON l.id_user = u.UserID
         LEFT JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
         WHERE l.kategori = 'PERSONEL' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
@@ -236,9 +233,9 @@ def daftar_kategori(semua=False):
     try:
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT kode, nama, wajib_sim, boleh_akun, prefix_kode, is_active FROM kategori_personel")
+            cursor.execute("SELECT CategoryCode AS kode, CategoryName AS nama, RequireLicense AS wajib_sim, CanLogin AS boleh_akun, CodePrefix AS prefix_kode, Active AS is_active FROM UserCategory")
         except pyodbc.Error:
-            cursor.execute("SELECT kode, nama, wajib_sim, boleh_akun, NULL AS prefix_kode, is_active FROM kategori_personel")
+            cursor.execute("SELECT CategoryCode AS kode, CategoryName AS nama, RequireLicense AS wajib_sim, CanLogin AS boleh_akun, NULL AS prefix_kode, Active AS is_active FROM UserCategory")
         return {r["kode"]: {**r, "wajib_sim": bool(r["wajib_sim"]), "boleh_akun": bool(r["boleh_akun"]),
                             "is_active": bool(r["is_active"])}
                 for r in _rows_to_dicts(cursor) if semua or r["is_active"]}
@@ -251,7 +248,7 @@ def daftar_jenis_sim():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id_jenis_sim, kode, nama FROM jenis_sim WHERE is_active = 1 ORDER BY id_jenis_sim")
+        cursor.execute("SELECT LicenseID AS id_jenis_sim, LicenseCode AS kode, LicenseType AS nama FROM License WHERE Active = 1 ORDER BY LicenseID")
         return _rows_to_dicts(cursor)
     finally:
         conn.close()

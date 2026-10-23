@@ -21,6 +21,7 @@ SUMBER = {"SCAN_WAJAH": "Scan wajah Form Security", "ABSENSI": "Scan absensi", "
           "POS_MASUK": "Kendaraan masuk di Pos Security", "LAINNYA": "Lainnya"}
 TINDAKAN = ("DITOLAK", "PERINGATAN", "DILOLOSKAN")
 JEDA_DETIK = 60
+KOLOM_DB = {"id_personel": "UserID", "id_kendaraan": "IDVehicle"}      # kunci target -> kolom BlacklistDetection
 
 
 def catat(details, user_id, no_tiket=None):
@@ -48,16 +49,16 @@ def _catat(d, user_id, no_tiket):
     baru = []
     try:
         for kolom, nilai in target:
-            cursor.execute(f"""SELECT TOP 1 1 FROM blacklist_deteksi WHERE {kolom} = ? AND sumber = ?
-                               AND ISNULL(id_user, 0) = ? AND waktu >= DATEADD(SECOND, -{JEDA_DETIK}, GETDATE())""",
+            cursor.execute(f"""SELECT TOP 1 1 FROM BlacklistDetection WHERE {KOLOM_DB[kolom]} = ? AND Source = ?
+                               AND ISNULL(CreateBy, 0) = ? AND DetectDate >= DATEADD(SECOND, -{JEDA_DETIK}, GETDATE())""",
                            nilai, sumber, user_id or 0)
             if cursor.fetchone():
                 continue
-            cursor.execute(f"""SELECT COUNT(*) FROM blacklist_deteksi WHERE {kolom} = ?
-                               AND ISNULL(id_comp_area, 0) = ? AND waktu >= CAST(GETDATE() AS DATE)""", nilai, id_area or 0)
+            cursor.execute(f"""SELECT COUNT(*) FROM BlacklistDetection WHERE {KOLOM_DB[kolom]} = ?
+                               AND ISNULL(CompAreaID, 0) = ? AND DetectDate >= CAST(GETDATE() AS DATE)""", nilai, id_area or 0)
             pertama_hari_ini = cursor.fetchone()[0] == 0
-            cursor.execute(f"""INSERT INTO blacklist_deteksi (id_comp_area, {kolom}, no_plat, sumber, tindakan, jarak_wajah,
-                                                              keterangan, no_tiket, id_user)
+            cursor.execute(f"""INSERT INTO BlacklistDetection (CompAreaID, {KOLOM_DB[kolom]}, NoVehicle, Source, Action, FaceDistance,
+                                                              Description, TicketNumber, CreateBy)
                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                            id_area, nilai, (d.get("no_plat") or None), sumber, tindakan, jarak,
                            (d.get("keterangan") or "")[:300] or None, no_tiket, user_id)
@@ -74,8 +75,8 @@ def _notifikasi(kolom, nilai, id_area, sumber):
     from utils import notifikasi
     from utils.db_organisasi import company_area
     from utils.hak_akses import jabatan_dengan
-    rows = _query("SELECT nama_personel AS nama FROM personel WHERE id_personel = ?" if kolom == "id_personel"
-                  else "SELECT no_plat AS nama FROM kendaraan WHERE id_kendaraan = ?", nilai)
+    rows = _query("SELECT Nama AS nama FROM Users WHERE UserID = ?" if kolom == "id_personel"
+                  else "SELECT NoVehicle AS nama FROM DetailVehicle WHERE IDVehicle = ?", nilai)
     nama = rows[0]["nama"] if rows else "-"
     kode = f"{'P' if kolom == 'id_personel' else 'K'}{nilai}"
     judul, isi = f"Blacklist terdeteksi: {nama}", f"{sumber} · pertama kali hari ini"
@@ -101,20 +102,20 @@ def _query(sql, *params):
 def log_hari(tanggal, id_area):
     """Kejadian satu hari + ringkasan per target (jumlah percobaan, jam pertama / terakhir, kunjungan ke berapa)."""
     from utils.area_filter import sql_area
-    f_area, a_area = sql_area("d.id_comp_area", id_area)
+    f_area, a_area = sql_area("d.CompAreaID", id_area)
     awal = datetime.combine(tanggal, datetime.min.time())
-    rows = _query(f"""SELECT d.id_deteksi, d.waktu, d.id_comp_area, d.id_personel, d.id_kendaraan, d.no_plat, d.sumber,
-                             d.tindakan, d.jarak_wajah, d.keterangan, d.no_tiket, u.Nama AS petugas,
+    rows = _query(f"""SELECT d.DetectionID AS id_deteksi, d.DetectDate AS waktu, d.CompAreaID AS id_comp_area, d.UserID AS id_personel, d.IDVehicle AS id_kendaraan, d.NoVehicle AS no_plat, d.Source AS sumber,
+                             d.Action AS tindakan, d.FaceDistance AS jarak_wajah, d.Description AS keterangan, d.TicketNumber AS no_tiket, u.Nama AS petugas,
                              c.CompID + ' · ' + ar.AreaName AS site, c.CompID AS company,
-                             p.kode_personel, p.nama_personel, p.kategori, k.no_plat AS plat_kendaraan
-                      FROM blacklist_deteksi d
-                      LEFT JOIN Users u ON u.UserID = d.id_user
-                      LEFT JOIN CompanyArea ar ON ar.CompAreaID = d.id_comp_area
+                             p.UserCode AS kode_personel, p.Nama AS nama_personel, p.CategoryCode AS kategori, k.NoVehicle AS plat_kendaraan
+                      FROM BlacklistDetection d
+                      LEFT JOIN Users u ON u.UserID = d.CreateBy
+                      LEFT JOIN CompanyArea ar ON ar.CompAreaID = d.CompAreaID
                       LEFT JOIN Company c ON c.CompID = ar.CompID
-                      LEFT JOIN personel p ON p.id_personel = d.id_personel
-                      LEFT JOIN kendaraan k ON k.id_kendaraan = d.id_kendaraan
-                      WHERE d.waktu >= ? AND d.waktu < ?{f_area}
-                      ORDER BY d.waktu""", awal, awal + timedelta(days=1), *a_area)
+                      LEFT JOIN Users p ON p.UserID = d.UserID
+                      LEFT JOIN DetailVehicle k ON k.IDVehicle = d.IDVehicle
+                      WHERE d.DetectDate >= ? AND d.DetectDate < ?{f_area}
+                      ORDER BY d.DetectDate""", awal, awal + timedelta(days=1), *a_area)
     target = {}
     for r in rows:
         kode = f"P{r['id_personel']}" if r["id_personel"] else f"K{r['id_kendaraan']}"
@@ -153,12 +154,12 @@ def _kunjungan(daftar_target, tanggal, id_area):
     plus 5 tanggal kunjungan sebelumnya."""
     from utils.area_filter import sql_area
     hasil = {}
-    f_area, a_area = sql_area("id_comp_area", id_area)
+    f_area, a_area = sql_area("CompAreaID", id_area)
     batas = datetime.combine(tanggal + timedelta(days=1), datetime.min.time())
     for t in daftar_target:
         kolom, nilai = ("id_personel", int(t["kode"][1:])) if t["kode"][0] == "P" else ("id_kendaraan", int(t["kode"][1:]))
-        rows = _query(f"""SELECT DISTINCT CAST(waktu AS DATE) AS hari FROM blacklist_deteksi
-                          WHERE {kolom} = ? AND waktu < ?{f_area} ORDER BY hari DESC""", nilai, batas, *a_area)
+        rows = _query(f"""SELECT DISTINCT CAST(DetectDate AS DATE) AS hari FROM BlacklistDetection
+                          WHERE {KOLOM_DB[kolom]} = ? AND DetectDate < ?{f_area} ORDER BY hari DESC""", nilai, batas, *a_area)
         hari = [r["hari"] for r in rows]
         sebelumnya = [h for h in hari if h != tanggal][:5]
         hasil[t["kode"]] = {"ke": len(hari) or 1,

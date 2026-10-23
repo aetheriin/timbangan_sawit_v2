@@ -81,12 +81,12 @@ def daftar(status=None, batas=300, id_area=None):
     sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.no_do, x.kuota_kg, x.realisasi_kg,
                      x.netto_tiket_kg, x.kelebihan_kg, x.no_do_baru, x.status, x.catatan, x.alasan_kembali, x.created_at,
                      x.diajukan_at, x.ditetapkan_at, ua.Nama AS diajukan_oleh, ut.Nama AS ditetapkan_oleh,
-                     k.no_plat, p.nama_personel AS supir, m.nama_supplier AS customer, ar.AreaName AS area
+                     k.NoVehicle AS no_plat, p.Nama AS supir, m.nama_supplier AS customer, ar.AreaName AS area
               FROM kelebihan_do x
               JOIN delivery_order d ON d.id_do = x.id_do
               JOIN transaksi t ON t.no_tiket = x.no_tiket
-              JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
-              JOIN personel p ON p.id_personel = t.id_driver
+              JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
+              JOIN Users p ON p.UserID = t.id_driver
               JOIN mitra m ON m.id_supplier = t.id_supplier
               LEFT JOIN Users ua ON ua.UserID = x.diajukan_oleh
               LEFT JOIN Users ut ON ut.UserID = x.ditetapkan_oleh

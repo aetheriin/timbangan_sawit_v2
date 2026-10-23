@@ -5,7 +5,7 @@ erDiagram
         int id_supplier FK
         int id_produk FK
         int id_kendaraan FK
-        int id_driver FK
+        bigint id_driver FK
         int id_pengangkutan FK "NULL"
         int id_kontrak FK "NULL"
         varchar no_do "NULL"
@@ -129,11 +129,8 @@ erDiagram
     mitra {
         int id_supplier PK
     }
-    kendaraan {
-        int id_kendaraan PK
-    }
-    personel {
-        int id_personel PK
+    DetailVehicle {
+        int IDVehicle PK
     }
     delivery_order {
         int id_do PK
@@ -161,9 +158,8 @@ erDiagram
     alur |o--o{ transaksi : "id_alur"
     CompanyArea ||--o{ transaksi : "id_comp_area"
     delivery_order |o--o{ transaksi : "id_do"
-    personel ||--o{ transaksi : "id_driver"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"
-    kendaraan ||--o{ transaksi : "id_kendaraan"
+    DetailVehicle ||--o{ transaksi : "id_kendaraan"
     kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
     mitra |o--o{ transaksi : "id_pengangkutan"
     produk ||--o{ transaksi : "id_produk"

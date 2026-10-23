@@ -21,15 +21,15 @@ def _query(sql, *params):
 def daftar_kategori():
     """Pilihan kategori target: kategori personel aktif + Kendaraan."""
     return ([{"kode": r["kode"], "nama": r["nama"]}
-             for r in _query("SELECT kode, nama FROM kategori_personel WHERE is_active = 1 ORDER BY nama")]
+             for r in _query("SELECT CategoryCode AS kode, CategoryName AS nama FROM UserCategory WHERE Active = 1 ORDER BY CategoryName")]
             + [{"kode": KATEGORI_KENDARAAN[0], "nama": KATEGORI_KENDARAAN[1]}])
 
 
 def daftar():
     """Semua alur beserta tahapnya (peran, jumlah pengguna aktif, peran boleh membuka menu pengajuan)."""
-    alur = _query("""SELECT a.id_alur_persetujuan, a.jenis, a.kategori, a.keterangan, a.is_active, kp.nama AS nama_kategori
-                     FROM alur_persetujuan a LEFT JOIN kategori_personel kp ON kp.kode = a.kategori
-                     ORDER BY a.jenis, CASE WHEN a.kategori IS NULL THEN 1 ELSE 0 END, kp.nama, a.kategori""")
+    alur = _query("""SELECT a.id_alur_persetujuan, a.jenis, a.kategori, a.keterangan, a.is_active, kp.CategoryName AS nama_kategori
+                     FROM alur_persetujuan a LEFT JOIN UserCategory kp ON kp.CategoryCode = a.kategori
+                     ORDER BY a.jenis, CASE WHEN a.kategori IS NULL THEN 1 ELSE 0 END, kp.CategoryName, a.kategori""")
     tahap = _query("""SELECT t.id_alur_persetujuan, t.urutan, t.id_level, l.LevelDetName AS nama, l.DeptID AS id_department, l.LevelID AS id_jabatan,
                              (SELECT COUNT(*) FROM Users u WHERE u.UserLevelID = l.LevelDetID AND u.Active = 1) AS jumlah_user
                       FROM alur_persetujuan_tahap t JOIN LevelDetails l ON l.LevelDetID = t.id_level ORDER BY t.id_alur_persetujuan, t.urutan""")

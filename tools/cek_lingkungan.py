@@ -61,9 +61,9 @@ try:
     baris(True, "Terhubung ke " + cur.execute("SELECT @@SERVERNAME + ' / ' + DB_NAME()").fetchone()[0])
     ver = cur.execute("SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS INT)").fetchone()[0]
     baris(ver >= 13, f"SQL Server versi {ver} (2016 = 13, 2019 = 15, 2022 = 16)", "Butuh SQL Server 2016 SP1 atau lebih baru")
-    for objek, tipe, ket in [("akun", "U", "migrasi 016"), ("mitra", "U", "migrasi 016"), ("log_aktivitas", "U", "migrasi 015"),
+    for objek, tipe, ket in [("Users", "U", "schema.sql"), ("mitra", "U", "migrasi 016"), ("log_aktivitas", "U", "migrasi 015"),
                              ("sp_catat_log", "P", "migrasi 015"), ("kontrak", "U", "migrasi 013"),
-                             ("jenis_kendaraan", "U", "migrasi 014")]:
+                             ("DetailVehicle", "U", "schema.sql tahap 2")]:
         ada = cur.execute("SELECT OBJECT_ID(?, ?)", f"dbo.{objek}", tipe).fetchone()[0] is not None
         baris(ada, f"{objek} ada", f"Database belum versi terbaru: jalankan {ket} (atau database/schema.sql untuk DB baru)")
     n_akun = cur.execute("SELECT COUNT(*) FROM Users WHERE Active = 1").fetchone()[0]

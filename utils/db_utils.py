@@ -204,17 +204,17 @@ def get_semua_produk():
 def get_or_create_kendaraan(no_plat, no_stnk=None):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_kendaraan FROM kendaraan WHERE no_plat = ?", no_plat)
+    cursor.execute("SELECT IDVehicle AS id_kendaraan FROM DetailVehicle WHERE NoVehicle = ?", no_plat)
     row = cursor.fetchone()
     if row:
         if no_stnk:
-            cursor.execute("UPDATE kendaraan SET no_stnk = ? WHERE id_kendaraan = ?", no_stnk, row.id_kendaraan)
+            cursor.execute("UPDATE DetailVehicle SET NoSTNK = ? WHERE IDVehicle = ?", no_stnk, row.id_kendaraan)
             conn.commit()
         conn.close()
         return row.id_kendaraan
-    cursor.execute("INSERT INTO kendaraan (no_plat, no_stnk) VALUES (?, ?)", no_plat, no_stnk)
+    cursor.execute("INSERT INTO DetailVehicle (NoVehicle, NoSTNK) VALUES (?, ?)", no_plat, no_stnk)
     conn.commit()
-    cursor.execute("SELECT id_kendaraan FROM kendaraan WHERE no_plat = ?", no_plat)
+    cursor.execute("SELECT IDVehicle AS id_kendaraan FROM DetailVehicle WHERE NoVehicle = ?", no_plat)
     kendaraan_id = cursor.fetchone().id_kendaraan
     conn.close()
     return kendaraan_id
@@ -222,7 +222,7 @@ def get_or_create_kendaraan(no_plat, no_stnk=None):
 def get_kendaraan_by_plat(no_plat):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_kendaraan, no_plat, no_stnk, is_blacklisted, is_active FROM kendaraan WHERE no_plat = ?", no_plat)
+    cursor.execute("SELECT IDVehicle AS id_kendaraan, NoVehicle AS no_plat, NoSTNK AS no_stnk, CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted, Active AS is_active FROM DetailVehicle WHERE NoVehicle = ?", no_plat)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -238,12 +238,12 @@ def get_supir_kendaraan(id_kendaraan):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
-               d.foto_path, d.is_updated, d.is_blacklisted, kd.is_utama
-        FROM kendaraan_driver kd
-        JOIN v_personel d ON kd.id_driver = d.id_personel
-        WHERE kd.id_kendaraan = ? AND kd.is_active = 1 AND d.is_active = 1
-        ORDER BY kd.is_utama DESC, d.nama_personel
+        SELECT d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik, d.Nama AS nama_driver, d.LicenseNumber AS no_sim,
+               d.PhotoPath AS foto_path, d.IsUpload AS is_updated, d.IsBlacklisted AS is_blacklisted, kd.IsMain AS is_utama
+        FROM VehicleDriver kd
+        JOIN UserProfile d ON kd.UserID = d.UserID
+        WHERE kd.IDVehicle = ? AND kd.Active = 1 AND d.Active = 1
+        ORDER BY kd.IsMain DESC, d.Nama
     """, id_kendaraan)
     data = _rows_to_dicts(cursor)
     conn.close()
@@ -255,15 +255,15 @@ def get_supir_kendaraan(id_kendaraan):
 def _daftarkan_supir(cursor, id_kendaraan, id_driver, is_utama, user_id):
     """Tambah / aktifkan ulang relasi truk-supir. Kalau is_utama, supir lain di truk ini jadi bukan utama."""
     if is_utama:
-        cursor.execute("UPDATE kendaraan_driver SET is_utama = 0, updated_at = GETDATE() WHERE id_kendaraan = ?",
+        cursor.execute("UPDATE VehicleDriver SET IsMain = 0, UpdateDate = GETDATE() WHERE IDVehicle = ?",
                        id_kendaraan)
-    cursor.execute("SELECT id_kendaraan_driver FROM kendaraan_driver WHERE id_kendaraan = ? AND id_driver = ?",
+    cursor.execute("SELECT VehicleDriverID AS id_kendaraan_driver FROM VehicleDriver WHERE IDVehicle = ? AND UserID = ?",
                    id_kendaraan, id_driver)
     if cursor.fetchone():
-        cursor.execute("""UPDATE kendaraan_driver SET is_active = 1, is_utama = ?, updated_at = GETDATE()
-                          WHERE id_kendaraan = ? AND id_driver = ?""", 1 if is_utama else 0, id_kendaraan, id_driver)
+        cursor.execute("""UPDATE VehicleDriver SET Active = 1, IsMain = ?, UpdateDate = GETDATE()
+                          WHERE IDVehicle = ? AND UserID = ?""", 1 if is_utama else 0, id_kendaraan, id_driver)
     else:
-        cursor.execute("""INSERT INTO kendaraan_driver (id_kendaraan, id_driver, is_utama, created_by)
+        cursor.execute("""INSERT INTO VehicleDriver (IDVehicle, UserID, IsMain, CreateBy)
                           VALUES (?, ?, ?, ?)""", id_kendaraan, id_driver, 1 if is_utama else 0, user_id)
 
 def tambah_supir_kendaraan(id_kendaraan, id_driver, is_utama, user_id):
@@ -276,8 +276,8 @@ def tambah_supir_kendaraan(id_kendaraan, id_driver, is_utama, user_id):
 def nonaktifkan_supir_kendaraan(id_kendaraan, id_driver):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""UPDATE kendaraan_driver SET is_active = 0, is_utama = 0, updated_at = GETDATE()
-                      WHERE id_kendaraan = ? AND id_driver = ?""", id_kendaraan, id_driver)
+    cursor.execute("""UPDATE VehicleDriver SET Active = 0, IsMain = 0, UpdateDate = GETDATE()
+                      WHERE IDVehicle = ? AND UserID = ?""", id_kendaraan, id_driver)
     conn.commit()
     conn.close()
 
@@ -376,17 +376,17 @@ def akhiri_kontrak(id_kontrak):
 # Supir adalah personel berkategori DRIVER. Kolom dialias ke nama lama (id_driver, nama_driver)
 # supaya kode & JSON tab Security / Timbangan / Sortasi / Lab tidak perlu berubah.
 
-SQL_KOLOM_DRIVER = """d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
-                      d.kategori, d.is_blacklisted, d.is_updated, d.foto_path"""
+SQL_KOLOM_DRIVER = """d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik, d.Nama AS nama_driver, d.LicenseNumber AS no_sim,
+                      d.CategoryCode AS kategori, d.IsBlacklisted AS is_blacklisted, d.IsUpload AS is_updated, d.PhotoPath AS foto_path"""
 
 def get_all_driver_embeddings():
     """Semua personel aktif (bukan hanya DRIVER), supaya wajah security/karyawan tidak terbaca sebagai supir lain."""
     conn = get_connection()
     cursor = conn.cursor()
     # Semua wajah aktif (personel_wajah, migrasi 009); satu personel bisa punya lebih dari satu
-    cursor.execute("""SELECT p.id_personel, p.nama_personel, w.embedding FROM personel_wajah w
-                      JOIN personel p ON p.id_personel = w.id_personel
-                      WHERE p.is_active = 1 AND w.is_active = 1""")
+    cursor.execute("""SELECT p.UserID AS id_personel, p.Nama AS nama_personel, w.FaceDet AS embedding FROM FaceRecog w
+                      JOIN Users p ON p.UserID = w.UserID
+                      WHERE p.Active = 1 AND w.Active = 1""")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -394,7 +394,7 @@ def get_all_driver_embeddings():
 def get_driver_by_id(driver_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM v_personel d WHERE d.id_personel = ?", driver_id)
+    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM UserProfile d WHERE d.UserID = ?", driver_id)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -404,9 +404,9 @@ def cek_nik_ada(nik, exclude_id=None):
     conn = get_connection()
     cursor = conn.cursor()
     if exclude_id:
-        cursor.execute("SELECT id_personel FROM personel WHERE nik = ? AND id_personel != ?", nik, exclude_id)
+        cursor.execute("SELECT UserID AS id_personel FROM Users WHERE NoKTP = ? AND UserID != ?", nik, exclude_id)
     else:
-        cursor.execute("SELECT id_personel FROM personel WHERE nik = ?", nik)
+        cursor.execute("SELECT UserID AS id_personel FROM Users WHERE NoKTP = ?", nik)
     row = cursor.fetchone()
     conn.close()
     return row is not None
@@ -439,18 +439,18 @@ def update_driver_dengan_audit(driver_id, nik_baru, nama_baru, sim_baru, updated
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT nik, nama_personel, no_sim, kode_personel FROM v_personel WHERE id_personel = ?", driver_id)
+    cursor.execute("SELECT NoKTP AS nik, Nama AS nama_personel, LicenseNumber AS no_sim, UserCode AS kode_personel FROM UserProfile WHERE UserID = ?", driver_id)
     lama = cursor.fetchone()
 
     timestamp = datetime.now()
     hash_baru = hitung_hash_driver(nik_baru, nama_baru, sim_baru, timestamp)
-    cursor.execute("UPDATE personel SET nik=?, nama_personel=?, is_updated=1, current_hash=?, updated_at=GETDATE() WHERE id_personel=?",
+    cursor.execute("UPDATE Users SET NoKTP=?, Nama=?, IsUpload=1, CurrentHash=?, UpdateDate=GETDATE() WHERE UserID=?",
                    nik_baru, nama_baru, hash_baru, driver_id)
     simpan_sim(cursor, driver_id, sim_baru, user_id=updated_by)
     if embedding_binary is not None:
         simpan_wajah(cursor, driver_id, embedding_binary, foto_path, "KAMERA", updated_by)
     from utils import log_aktivitas
-    log_aktivitas.catat("PERSONEL", "UPDATE", tabel="personel", id_baris=driver_id, user_id=updated_by, cursor=cursor,
+    log_aktivitas.catat("PERSONEL", "UPDATE", tabel="Users", id_baris=driver_id, user_id=updated_by, cursor=cursor,
                         lama={"kode_personel": lama.kode_personel, "nik": lama.nik, "nama": lama.nama_personel,
                               "no_sim": lama.no_sim},
                         baru={"kode_personel": lama.kode_personel, "nik": nik_baru, "nama": nama_baru, "no_sim": sim_baru})
@@ -465,11 +465,11 @@ def cari_riwayat_driver_by_plat(no_plat):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT TOP 1 {SQL_KOLOM_DRIVER}, k.id_kendaraan, k.no_stnk
+        SELECT TOP 1 {SQL_KOLOM_DRIVER}, k.IDVehicle AS id_kendaraan, k.NoSTNK AS no_stnk
         FROM transaksi t
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN v_personel d ON t.id_driver = d.id_personel
-        WHERE k.no_plat = ?
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
+        JOIN UserProfile d ON t.id_driver = d.UserID
+        WHERE k.NoVehicle = ?
         ORDER BY t.created_at DESC
     """, no_plat)
     row = cursor.fetchone()
@@ -479,7 +479,7 @@ def cari_riwayat_driver_by_plat(no_plat):
 def cari_driver_by_nik(nik):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM v_personel d WHERE d.nik = ? AND d.is_active = 1", nik)
+    cursor.execute(f"SELECT {SQL_KOLOM_DRIVER} FROM UserProfile d WHERE d.NoKTP = ? AND d.Active = 1", nik)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -497,16 +497,16 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
                t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
-               t.id_comp_area, t.id_alur, t.cara_angkut, t.id_pengangkutan, k.no_plat, k.no_stnk,
-               d.id_personel AS id_driver, d.kode_personel, d.nik, d.nama_personel AS nama_driver, d.no_sim,
-               d.is_updated, d.is_blacklisted, d.foto_path
+               t.id_comp_area, t.id_alur, t.cara_angkut, t.id_pengangkutan, k.NoVehicle AS no_plat, k.NoSTNK AS no_stnk,
+               d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik, d.Nama AS nama_driver, d.LicenseNumber AS no_sim,
+               d.IsUpload AS is_updated, d.IsBlacklisted AS is_blacklisted, d.PhotoPath AS foto_path
         FROM transaksi t
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
-        JOIN v_personel d ON t.id_driver = d.id_personel
+        JOIN UserProfile d ON t.id_driver = d.UserID
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
-          AND (k.no_plat = ? OR t.no_tiket = ?)
+          AND (k.NoVehicle = ? OR t.no_tiket = ?)
         ORDER BY t.created_at DESC
     """, no_plat or '', no_tiket or '')
     row = cursor.fetchone()
@@ -546,10 +546,10 @@ def buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis_transaksi, id_supplier
     )
     # Supir yang membawa truk ini otomatis tercatat di daftar supir truk.
     # Kalau truk belum punya supir sama sekali, supir ini jadi supir utama.
-    cursor.execute("SELECT id_driver FROM kendaraan_driver WHERE id_kendaraan = ? AND id_driver = ? AND is_active = 1",
+    cursor.execute("SELECT UserID AS id_driver FROM VehicleDriver WHERE IDVehicle = ? AND UserID = ? AND Active = 1",
                    kendaraan_id, id_driver)
     if not cursor.fetchone():
-        cursor.execute("SELECT COUNT(*) FROM kendaraan_driver WHERE id_kendaraan = ? AND is_active = 1", kendaraan_id)
+        cursor.execute("SELECT COUNT(*) FROM VehicleDriver WHERE IDVehicle = ? AND Active = 1", kendaraan_id)
         _daftarkan_supir(cursor, kendaraan_id, id_driver, cursor.fetchone()[0] == 0, security_id)
     from utils import log_aktivitas
     log_aktivitas.catat("TIMELINE", "SECURITY_INIT", tabel="transaksi", id_baris=no_tiket, user_id=security_id, cursor=cursor)
@@ -644,10 +644,10 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None, id_area
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT TOP 200 s.nama_supplier, k.no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
+        SELECT TOP 200 s.nama_supplier, k.NoVehicle AS no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
         JOIN mitra s ON t.id_supplier = s.id_supplier
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
         JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
         WHERE t.id_supplier = ? AND {filter_waktu}{_filter_area(id_area)[0]}
         ORDER BY t.created_at DESC
@@ -661,12 +661,12 @@ def get_list_tiket_aktif(id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT t.no_tiket, k.no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
+        SELECT t.no_tiket, k.NoVehicle AS no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
                p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, t.id_alur,
-               t.no_do, d.nama_personel AS supir
+               t.no_do, d.Nama AS supir
         FROM transaksi t
-        LEFT JOIN personel d ON d.id_personel = t.id_driver
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        LEFT JOIN Users d ON d.UserID = t.id_driver
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
         JOIN mitra s ON t.id_supplier = s.id_supplier
         JOIN produk p ON t.id_produk = p.id_produk
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
@@ -687,19 +687,19 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         filter_area, param_area = _filter_area(id_area)
         params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
-            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
+            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.NoVehicle AS no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
                    t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
-                   t.status_alur, t.no_do, d.nama_personel AS supir, t.diperiksa_pada, pr.Nama AS pemeriksa,
+                   t.status_alur, t.no_do, d.Nama AS supir, t.diperiksa_pada, pr.Nama AS pemeriksa,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
                    CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
                         DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
                    END AS lama_menit
             FROM transaksi t
-            JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+            JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
             JOIN mitra s ON t.id_supplier = s.id_supplier
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-            LEFT JOIN personel d ON d.id_personel = t.id_driver
+            LEFT JOIN Users d ON d.UserID = t.id_driver
             LEFT JOIN Users pr ON pr.UserID = t.diperiksa_oleh
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
             ORDER BY t.created_at DESC""", *params)
@@ -726,11 +726,11 @@ def get_history_driver(limit=20):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT TOP {int(limit)} k.no_plat, d.id_personel AS id_driver, d.kode_personel,
-               d.nama_personel AS nama_driver, d.nik, d.no_sim, d.is_blacklisted
+        SELECT TOP {int(limit)} k.NoVehicle AS no_plat, d.UserID AS id_driver, d.UserCode AS kode_personel,
+               d.Nama AS nama_driver, d.NoKTP AS nik, d.LicenseNumber AS no_sim, d.IsBlacklisted AS is_blacklisted
         FROM transaksi t
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
-        JOIN v_personel d ON t.id_driver = d.id_personel
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
+        JOIN UserProfile d ON t.id_driver = d.UserID
         ORDER BY t.created_at DESC
     """)
     columns = [c[0] for c in cursor.description]
@@ -881,10 +881,10 @@ def get_history_umum(tabel, limit=10, id_area=None):
         raise ValueError(f"Tabel tidak diizinkan: {tabel}")
     kolom_status = "sr.keputusan" if tabel == 'lab_hasil' else "t.status_alur"
     cursor.execute(f"""
-        SELECT TOP {int(limit)} k.no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
+        SELECT TOP {int(limit)} k.NoVehicle AS no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
         FROM {tabel} sr
         JOIN transaksi t ON sr.no_tiket = t.no_tiket
-        JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
+        JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
         JOIN produk p ON t.id_produk = p.id_produk
         JOIN mitra s ON t.id_supplier = s.id_supplier
         WHERE 1 = 1{_filter_area(id_area)[0]}

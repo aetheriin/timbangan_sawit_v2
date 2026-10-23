@@ -1067,6 +1067,7 @@ window.KAMUS_EN = {
 "Opsional, hanya jika wajah perlu direkam ulang": "Optional, only if the face needs to be re-recorded",
 "Opsional.": "Optional.",
 "Orang / kendaraan berbeda": "Distinct people / vehicles",
+"Orang ini sudah punya akun": "This person already has an account",
 "Oranye": "Orange",
 "Organisasi": "Organization",
 "otomatis disarankan saat pendaftaran tiket.": "automatically suggested during ticket registration.",

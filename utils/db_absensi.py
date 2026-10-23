@@ -37,9 +37,9 @@ def get_scan_terakhir(id_personel, tanggal):
     """Scan BERHASIL terakhir hari itu dan apakah sudah ada MASUK."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT MAX(waktu) AS terakhir,
-                             SUM(CASE WHEN jenis = 'MASUK' THEN 1 ELSE 0 END) AS jml_masuk
-                      FROM absensi WHERE id_personel = ? AND tanggal = ? AND status = 'BERHASIL'""",
+    cursor.execute("""SELECT MAX(LogDate) AS terakhir,
+                             SUM(CASE WHEN ActivityType = 'MASUK' THEN 1 ELSE 0 END) AS jml_masuk
+                      FROM FaceActivity WHERE UserID = ? AND LogDay = ? AND Status = 'BERHASIL'""",
                    id_personel, tanggal)
     r = cursor.fetchone()
     conn.close()
@@ -50,8 +50,8 @@ def insert_absensi(id_personel, jenis, status, status_waktu, selisih_menit, jara
                    foto_path, perangkat, ip_address, waktu):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""INSERT INTO absensi (id_personel, jenis, status, status_waktu, selisih_menit, jarak_wajah,
-                                           tantangan_liveness, foto_path, perangkat, ip_address, waktu)
+    cursor.execute("""INSERT INTO FaceActivity (UserID, ActivityType, Status, TimeStatus, DiffMinutes, FaceDistance,
+                                           LivenessChallenge, PhotoPath, Device, IPAddress, LogDate)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                    id_personel, jenis, status, status_waktu, selisih_menit, jarak_wajah, tantangan,
                    foto_path, perangkat, ip_address, waktu)
@@ -62,22 +62,22 @@ def insert_absensi(id_personel, jenis, status, status_waktu, selisih_menit, jara
 def get_absensi_harian(tanggal, kategori=None):
     """Satu baris per personel aktif: MASUK pertama & PULANG terakhir hari itu."""
     sql = """
-        SELECT p.id_personel, p.kode_personel, p.nama_personel, p.kategori, p.is_blacklisted,
+        SELECT p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel, p.CategoryCode AS kategori, CAST(CASE WHEN p.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted,
                m.waktu AS jam_masuk, m.status_waktu AS status_masuk, m.selisih_menit AS selisih_masuk,
                k.waktu AS jam_pulang, k.status_waktu AS status_pulang, k.selisih_menit AS selisih_pulang
-        FROM personel p
-        OUTER APPLY (SELECT TOP 1 waktu, status_waktu, selisih_menit FROM absensi a
-                     WHERE a.id_personel = p.id_personel AND a.tanggal = ? AND a.status = 'BERHASIL' AND a.jenis = 'MASUK'
-                     ORDER BY a.waktu) m
-        OUTER APPLY (SELECT TOP 1 waktu, status_waktu, selisih_menit FROM absensi a
-                     WHERE a.id_personel = p.id_personel AND a.tanggal = ? AND a.status = 'BERHASIL' AND a.jenis = 'PULANG'
-                     ORDER BY a.waktu DESC) k
-        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'"""
+        FROM Users p
+        OUTER APPLY (SELECT TOP 1 a.LogDate AS waktu, a.TimeStatus AS status_waktu, a.DiffMinutes AS selisih_menit FROM FaceActivity a
+                     WHERE a.UserID = p.UserID AND a.LogDay = ? AND a.Status = 'BERHASIL' AND a.ActivityType = 'MASUK'
+                     ORDER BY a.LogDate) m
+        OUTER APPLY (SELECT TOP 1 a.LogDate AS waktu, a.TimeStatus AS status_waktu, a.DiffMinutes AS selisih_menit FROM FaceActivity a
+                     WHERE a.UserID = p.UserID AND a.LogDay = ? AND a.Status = 'BERHASIL' AND a.ActivityType = 'PULANG'
+                     ORDER BY a.LogDate DESC) k
+        WHERE p.Active = 1 AND p.CategoryCode <> 'TAMU'"""
     params = [tanggal, tanggal]
     if kategori:
-        sql += " AND p.kategori = ?"
+        sql += " AND p.CategoryCode = ?"
         params.append(kategori)
-    sql += " ORDER BY CASE WHEN p.kode_personel IS NULL THEN 1 ELSE 0 END, p.kode_personel, p.id_personel"
+    sql += " ORDER BY CASE WHEN p.UserCode IS NULL THEN 1 ELSE 0 END, p.UserCode, p.UserID"
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(sql, *params)
@@ -96,17 +96,17 @@ def get_rekap_bulanan(tahun, bulan):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT p.id_personel, p.kode_personel, p.nama_personel, p.kategori,
-               COUNT(DISTINCT CASE WHEN a.jenis = 'MASUK' THEN a.tanggal END) AS hari_hadir,
-               SUM(CASE WHEN a.jenis = 'MASUK' AND a.status_waktu = 'TERLAMBAT' THEN 1 ELSE 0 END) AS jml_terlambat,
-               SUM(CASE WHEN a.jenis = 'MASUK' AND a.status_waktu = 'TERLAMBAT' THEN a.selisih_menit ELSE 0 END) AS menit_terlambat,
-               SUM(CASE WHEN a.jenis = 'PULANG' AND a.status_waktu = 'PULANG_AWAL' THEN 1 ELSE 0 END) AS jml_pulang_awal
-        FROM personel p
-        LEFT JOIN absensi a ON a.id_personel = p.id_personel AND a.status = 'BERHASIL'
-                           AND a.tanggal >= ? AND a.tanggal < ?
-        WHERE p.is_active = 1 AND p.kategori <> 'TAMU'
-        GROUP BY p.id_personel, p.kode_personel, p.nama_personel, p.kategori
-        ORDER BY CASE WHEN p.kode_personel IS NULL THEN 1 ELSE 0 END, p.kode_personel, p.id_personel
+        SELECT p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel, p.CategoryCode AS kategori,
+               COUNT(DISTINCT CASE WHEN a.ActivityType = 'MASUK' THEN a.LogDay END) AS hari_hadir,
+               SUM(CASE WHEN a.ActivityType = 'MASUK' AND a.TimeStatus = 'TERLAMBAT' THEN 1 ELSE 0 END) AS jml_terlambat,
+               SUM(CASE WHEN a.ActivityType = 'MASUK' AND a.TimeStatus = 'TERLAMBAT' THEN a.DiffMinutes ELSE 0 END) AS menit_terlambat,
+               SUM(CASE WHEN a.ActivityType = 'PULANG' AND a.TimeStatus = 'PULANG_AWAL' THEN 1 ELSE 0 END) AS jml_pulang_awal
+        FROM Users p
+        LEFT JOIN FaceActivity a ON a.UserID = p.UserID AND a.Status = 'BERHASIL'
+                           AND a.LogDay >= ? AND a.LogDay < ?
+        WHERE p.Active = 1 AND p.CategoryCode <> 'TAMU'
+        GROUP BY p.UserID, p.UserCode, p.Nama, p.CategoryCode
+        ORDER BY CASE WHEN p.UserCode IS NULL THEN 1 ELSE 0 END, p.UserCode, p.UserID
     """, awal, akhir)
     data = _rows_to_dicts(cursor)
     conn.close()

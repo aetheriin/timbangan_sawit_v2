@@ -22,17 +22,17 @@ def cari_tiket(kata, id_area=None, batas=8):
     filter_area, param_area = _filter_area(id_area)
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} t.no_tiket, k.no_plat, t.no_do, t.status_alur, t.created_at,
-               s.nama_supplier AS customer, p.nama_produk AS produk, d.nama_personel AS supir,
+        SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, t.no_do, t.status_alur, t.created_at,
+               s.nama_supplier AS customer, p.nama_produk AS produk, d.Nama AS supir,
                COALESCE(tb.berat_netto, t.berat_split_kg) AS netto
         FROM transaksi t
-        JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
+        JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
         JOIN mitra s ON s.id_supplier = t.id_supplier
         JOIN produk p ON p.id_produk = t.id_produk
-        JOIN personel d ON d.id_personel = t.id_driver
+        JOIN Users d ON d.UserID = t.id_driver
         LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-        WHERE (t.no_tiket LIKE ? OR REPLACE(k.no_plat, ' ', '') LIKE REPLACE(?, ' ', '') OR t.no_do LIKE ?
-               OR d.nama_personel LIKE ? OR s.nama_supplier LIKE ?){filter_area}
+        WHERE (t.no_tiket LIKE ? OR REPLACE(k.NoVehicle, ' ', '') LIKE REPLACE(?, ' ', '') OR t.no_do LIKE ?
+               OR d.Nama LIKE ? OR s.nama_supplier LIKE ?){filter_area}
         ORDER BY t.created_at DESC""", pola, pola, pola, pola, pola, *param_area)
 
 
@@ -56,19 +56,19 @@ def cari_do(kata, batas=5):
 def cari_personel(kata, batas=5):
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} id_personel, kode_personel, nama_personel, nik, kategori, is_blacklisted
-        FROM personel
-        WHERE is_active = 1 AND (nama_personel LIKE ? OR nik LIKE ? OR kode_personel LIKE ?)
-        ORDER BY nama_personel""", pola, pola, pola)
+        SELECT TOP {int(batas)} UserID AS id_personel, UserCode AS kode_personel, Nama AS nama_personel, NoKTP AS nik, CategoryCode AS kategori, CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted
+        FROM Users
+        WHERE Active = 1 AND (Nama LIKE ? OR NoKTP LIKE ? OR UserCode LIKE ?)
+        ORDER BY Nama""", pola, pola, pola)
 
 
 def cari_kendaraan(kata, batas=5):
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} id_kendaraan, no_plat, no_stnk, is_blacklisted
-        FROM kendaraan
-        WHERE is_active = 1 AND (REPLACE(no_plat, ' ', '') LIKE REPLACE(?, ' ', '') OR no_stnk LIKE ?)
-        ORDER BY no_plat""", pola, pola)
+        SELECT TOP {int(batas)} IDVehicle AS id_kendaraan, NoVehicle AS no_plat, NoSTNK AS no_stnk, CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted
+        FROM DetailVehicle
+        WHERE Active = 1 AND (REPLACE(NoVehicle, ' ', '') LIKE REPLACE(?, ' ', '') OR NoSTNK LIKE ?)
+        ORDER BY NoVehicle""", pola, pola)
 
 
 def cari_akun(kata, batas=8):

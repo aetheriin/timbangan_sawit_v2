@@ -111,4 +111,4 @@ erDiagram
     Users ||--o{ pengajuan_riwayat : "id_user"
     LevelDetails ||--o{ pengajuan_tahap : "id_level"
     pengajuan ||--o{ pengajuan_tahap : "id_pengajuan"
-    LevelDetails ||--o{ Users : "UserLevelID"
+    LevelDetails |o--o{ Users : "UserLevelID"
