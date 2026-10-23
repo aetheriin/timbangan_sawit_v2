@@ -8,6 +8,7 @@
             <button type="button" class="chip chip-active" data-tipe="" data-on-click="filterBlacklist" data-arg="$el">Semua</button>
             <button type="button" class="chip" data-tipe="PERSONEL" data-on-click="filterBlacklist" data-arg="$el">Personel</button>
             <button type="button" class="chip" data-tipe="KENDARAAN" data-on-click="filterBlacklist" data-arg="$el">Kendaraan</button>
+            <button type="button" class="chip" data-tipe="SUPPLIER" data-on-click="filterBlacklist" data-arg="$el">Supplier</button>
         </div>
         <div id="chipStatusBlacklist" class="seg">
             <button type="button" class="chip chip-active" data-status="AKTIF" data-on-click="filterStatusBlacklist" data-arg="$el">Aktif</button>
@@ -19,7 +20,7 @@
         </select>
         <div class="flex-1"></div>
         <div class="relative">
-            <input type="text" id="cariBlacklist" placeholder="Cari nama / alias / NIK / plat / no. surat" class="input-field pl-9 w-72"
+            <input type="text" id="cariBlacklist" placeholder="Cari nama / alias / NIK / plat / supplier / no. surat" class="input-field pl-9 w-72"
                    data-on-input="cariBlacklistTunda">
             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
         </div>

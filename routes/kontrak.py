@@ -10,6 +10,7 @@ from utils.hak_akses import izin, boleh, halaman as lihat_halaman
 from utils.area import company_user
 from utils.db_organisasi import daftar_company
 from utils.db_admin import supplier_boleh
+from utils.db_blacklist import supplier_diblacklist
 
 kontrak_bp = Blueprint("kontrak", __name__)
 
@@ -157,6 +158,11 @@ def do_simpan():
         if db.no_kontrak_dipakai(d["no_kontrak"], kecuali_do=id_do):
             raise ValueError(f"No Kontrak {d['no_kontrak']} sudah punya DO (1 kontrak = 1 DO)")
         angkutan = _angkutan_form(d["qty_kg"])
+        # Supplier Blacklist: tidak boleh dibuatkan kontrak / DO baru (customer maupun pengangkutan)
+        for id_s in [d["id_customer"], *[a["id_pengangkutan"] for a in angkutan if a["id_pengangkutan"]]]:
+            nama_bl = supplier_diblacklist(id_s)
+            if nama_bl:
+                raise ValueError(f"{nama_bl} sedang diblacklist (Blacklist › Supplier). Kontrak / DO tidak bisa disimpan.")
         db.simpan_do(id_do, d, angkutan, current_user.id)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

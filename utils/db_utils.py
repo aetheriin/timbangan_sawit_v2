@@ -184,7 +184,8 @@ def get_semua_supplier():
                              CAST(CASE WHEN EXISTS (SELECT 1 FROM SupplierTypeDetails p WHERE p.SupplierID = s.SupplierID
                                                     AND p.TypeCode = 'CUSTOMER') THEN 1 ELSE 0 END AS BIT) AS is_customer,
                              CAST(CASE WHEN EXISTS (SELECT 1 FROM SupplierTypeDetails p WHERE p.SupplierID = s.SupplierID
-                                                    AND p.TypeCode = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan
+                                                    AND p.TypeCode = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan,
+                             CAST(CASE WHEN s.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted
                       FROM Supplier s WHERE s.Active = 1 ORDER BY s.SupplierName""")
     rows = cursor.fetchall()
     conn.close()

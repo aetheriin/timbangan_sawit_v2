@@ -830,19 +830,20 @@ GO
 
 /* =========================== FACE RECOGNITION =========================== */
 
--- Blacklist orang (TableName 'Users') / kendaraan ('DetailVehicle'). Baris tidak pernah dihapus; dicabut lewat persetujuan.
+-- Blacklist orang (TableName 'Users') / kendaraan ('DetailVehicle') / supplier ('Supplier'). Baris tidak pernah dihapus; dicabut lewat persetujuan.
 -- AliasName, CategoryCode (kategori target saat itu; KENDARAAN untuk kendaraan), CompAreaID = area pengaju.
 CREATE TABLE dbo.Blacklist (
     BlacklistID    BIGINT IDENTITY(1,1) PRIMARY KEY,
     CreateDate     DATETIME NOT NULL CONSTRAINT DF_Blacklist_Create DEFAULT (GETDATE()),
     BlacklistDoc   INT NULL CONSTRAINT FK_Blacklist_Doc REFERENCES dbo.Document (DocumentID),   -- surat; NULL = menyusul
     LogActionType  VARCHAR(20)  NOT NULL CONSTRAINT DF_Blacklist_Action DEFAULT ('BLACKLIST'),
-    TableName      VARCHAR(30)  NOT NULL CONSTRAINT CK_Blacklist_Table CHECK (TableName IN ('Users', 'DetailVehicle')),
-    TargetType     AS CAST(CASE TableName WHEN 'Users' THEN 'PERSONEL' ELSE 'KENDARAAN' END AS VARCHAR(20)) PERSISTED,
+    TableName      VARCHAR(30)  NOT NULL CONSTRAINT CK_Blacklist_Table CHECK (TableName IN ('Users', 'DetailVehicle', 'Supplier')),
+    TargetType     AS CAST(CASE TableName WHEN 'Users' THEN 'PERSONEL' WHEN 'Supplier' THEN 'SUPPLIER' ELSE 'KENDARAAN' END AS VARCHAR(20)) PERSISTED,
     OldValue       NVARCHAR(MAX) NULL CONSTRAINT CK_Blacklist_Old CHECK (OldValue IS NULL OR ISJSON(OldValue) = 1),
     NewValue       NVARCHAR(MAX) NULL CONSTRAINT CK_Blacklist_New CHECK (NewValue IS NULL OR ISJSON(NewValue) = 1),
     UserID         BIGINT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.Users (UserID),
     IDVehicle      INT NULL CONSTRAINT FK_Blacklist_Vehicle REFERENCES dbo.DetailVehicle (IDVehicle),
+    SupplierID     INT NULL CONSTRAINT FK_Blacklist_Supplier REFERENCES dbo.Supplier (SupplierID),
     Reason         VARCHAR(500) NOT NULL,
     CreateBy       BIGINT NOT NULL CONSTRAINT FK_Blacklist_CreateBy REFERENCES dbo.Users (UserID),
     NoVehicle      VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
@@ -855,11 +856,13 @@ CREATE TABLE dbo.Blacklist (
     CategoryCode   VARCHAR(20) NULL,
     CompAreaID     BIGINT NULL CONSTRAINT FK_Blacklist_Area REFERENCES dbo.CompanyArea (CompAreaID),
     CONSTRAINT CK_Blacklist_Target CHECK (
-        (TableName = 'Users'         AND UserID IS NOT NULL AND IDVehicle IS NULL) OR
-        (TableName = 'DetailVehicle' AND IDVehicle IS NOT NULL AND UserID IS NULL))
+        (TableName = 'Users'         AND UserID IS NOT NULL AND IDVehicle IS NULL AND SupplierID IS NULL) OR
+        (TableName = 'DetailVehicle' AND IDVehicle IS NOT NULL AND UserID IS NULL AND SupplierID IS NULL) OR
+        (TableName = 'Supplier'      AND SupplierID IS NOT NULL AND UserID IS NULL AND IDVehicle IS NULL))
 );
 CREATE INDEX IX_Blacklist_User    ON dbo.Blacklist (UserID)    WHERE UserID IS NOT NULL;
 CREATE INDEX IX_Blacklist_Vehicle ON dbo.Blacklist (IDVehicle) WHERE IDVehicle IS NOT NULL;
+CREATE INDEX IX_Blacklist_Supplier ON dbo.Blacklist (SupplierID) WHERE SupplierID IS NOT NULL;
 CREATE INDEX IX_Blacklist_Doc ON dbo.Blacklist (BlacklistDoc);
 ALTER TABLE dbo.Users ADD CONSTRAINT FK_Users_Blacklist FOREIGN KEY (BlacklistID) REFERENCES dbo.Blacklist (BlacklistID);
 ALTER TABLE dbo.DetailVehicle ADD CONSTRAINT FK_DetailVehicle_Blacklist FOREIGN KEY (BlacklistID) REFERENCES dbo.Blacklist (BlacklistID);
@@ -1143,6 +1146,18 @@ BEGIN
     END
 END
 GO
+CREATE OR ALTER TRIGGER dbo.TR_Supplier_BlacklistPermanen ON dbo.Supplier AFTER UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF UPDATE(BlacklistID) AND ISNULL(CAST(SESSION_CONTEXT(N'cabut_blacklist') AS INT), 0) <> 1
+       AND EXISTS (SELECT 1 FROM inserted i JOIN deleted d ON d.SupplierID = i.SupplierID
+                   WHERE d.BlacklistID IS NOT NULL AND i.BlacklistID IS NULL)
+    BEGIN
+        RAISERROR('Blacklist supplier hanya bisa dicabut lewat persetujuan (menu Persetujuan).', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END
+GO
 -- Salin wajah utama aktif ke Users.FaceEmbeddingData / UploadPath
 CREATE OR ALTER TRIGGER dbo.TR_FaceRecog_Utama ON dbo.FaceRecog AFTER INSERT, UPDATE AS
 BEGIN
@@ -1253,7 +1268,7 @@ FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weigh
              ('FORM_SORTASI',     N'Sortasi',                   'FORM',  '/weighbridge?view=form&tab=sortasi',   3),
              ('FORM_LAB',         N'Laboratorium',              'FORM',  '/weighbridge?view=form&tab=lab',       4),
              ('BL_PERSONEL',      N'Visitor & Staff Blacklist', 'BLACKLIST', '/blacklist?tipe=PERSONEL',        1),
-             ('BL_SUPPLIER',      N'Supplier Blacklist',        'BLACKLIST', NULL,                              2),
+             ('BL_SUPPLIER',      N'Supplier Blacklist',        'BLACKLIST', '/blacklist?tipe=SUPPLIER',        2),
              ('BL_KENDARAAN',     N'Vehicle Blacklist',         'BLACKLIST', '/blacklist?tipe=KENDARAAN',       3),
              ('MASTER_DRIVER',    N'Supir',                     'MASTER', '/master?tab=personel',  1),
              ('MASTER_KENDARAAN', N'Kendaraan',                 'MASTER', '/master?tab=kendaraan', 2),

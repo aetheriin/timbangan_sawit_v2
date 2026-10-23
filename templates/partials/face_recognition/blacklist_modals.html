@@ -10,6 +10,7 @@
                 <div class="seg">
                     <button type="button" id="segBlPersonel" class="seg-item seg-item-active" data-on-click="setTipeBlacklist" data-arg="PERSONEL">Personel</button>
                     <button type="button" id="segBlKendaraan" class="seg-item" data-on-click="setTipeBlacklist" data-arg="KENDARAAN">Kendaraan</button>
+                    <button type="button" id="segBlSupplier" class="seg-item" data-on-click="setTipeBlacklist" data-arg="SUPPLIER">Supplier</button>
                 </div>
                 <div class="relative flex-1">
                     <input type="text" id="blCari" placeholder="Cari kode / NIK / nama" class="input-field pl-9"
@@ -64,7 +65,7 @@
                         <input type="text" id="blAlias" maxlength="100" class="input-field" placeholder="Nama lain / panggilan">
                     </div>
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div id="blInfoTerkait" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div id="blPlatBox">
                         <label class="field-label" for="blPlatTerkait">No. Plat Kendaraan</label>
                         <input type="text" id="blPlatTerkait" data-plat maxlength="15" class="input-field uppercase" placeholder="Opsional">

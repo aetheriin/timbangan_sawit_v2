@@ -15,6 +15,7 @@ from utils import db_pos
 from utils.area import area_data, company_user
 from utils.audit_utils import catat_security_audit
 from utils.db_admin import supplier_boleh
+from utils.db_blacklist import supplier_diblacklist
 from utils.db_kontrak import daftar_mitra, id_pengangkutan_dari_nama
 from utils.db_kunjungan import area_akun
 from utils.db_master import stnk_dipakai, daftar_jenis_kendaraan
@@ -199,6 +200,10 @@ def simpan_masuk():
         peringatan.append(f"supir {nama_driver}")
 
     id_angkut = id_pengangkutan_dari_nama(nama_angkut) if nama_angkut else None
+    for id_s in {int(id_supplier), id_angkut} - {None}:          # Supplier Blacklist (customer / pengangkutan)
+        nama_bl = supplier_diblacklist(id_s)
+        if nama_bl:
+            peringatan.append(f"supplier {nama_bl}")
     no_tiket = generate_no_tiket(no_plat)
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis, int(id_supplier), int(id_produk), driver.id_driver, None,
                         current_user.id, id_angkut, area, alur.id_alur_kode("POS_SAJA"), None,

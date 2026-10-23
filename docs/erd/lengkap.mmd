@@ -87,6 +87,7 @@ erDiagram
         nvarchar NewValue "NULL"
         bigint UserID FK "NULL"
         int IDVehicle FK "NULL"
+        int SupplierID FK "NULL"
         varchar Reason
         bigint CreateBy FK
         varchar NoVehicle "NULL"
@@ -744,6 +745,7 @@ erDiagram
     Supplier |o--o{ Blacklist : "CustomerID"
     DetailVehicle |o--o{ Blacklist : "IDVehicle"
     Users |o--o{ Blacklist : "RevokeBy"
+    Supplier |o--o{ Blacklist : "SupplierID"
     Supplier |o--o{ Blacklist : "TransportID"
     Users |o--o{ Blacklist : "UserID"
     CompanyArea |o--o{ BlacklistDetection : "CompAreaID"

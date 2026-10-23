@@ -5,8 +5,8 @@ from datetime import date, datetime
 from utils.db_utils import get_connection, _rows_to_dicts
 from utils.dokumen import buat_dokumen
 
-TIPE_VALID = ("PERSONEL", "KENDARAAN")
-_TARGET = {"PERSONEL": ("Users", "UserID"), "KENDARAAN": ("DetailVehicle", "IDVehicle")}   # tabel & kolom target
+TIPE_VALID = ("PERSONEL", "KENDARAAN", "SUPPLIER")
+_TARGET = {"PERSONEL": ("Users", "UserID"), "KENDARAAN": ("DetailVehicle", "IDVehicle"), "SUPPLIER": ("Supplier", "SupplierID")}   # tabel & kolom target
 
 
 def _format(r):
@@ -28,7 +28,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
                p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel, k.NoVehicle AS no_plat, b.NoVehicle AS no_plat_terkait,
                c.SupplierName AS customer_terkait, a.SupplierName AS pengangkutan_terkait,
                b.RevokeDate AS dicabut_at, b.RevokeReason AS alasan_cabut, uc.Nama AS dicabut_oleh, p.NoKTP AS nik, b.AliasName AS nama_alias, b.CategoryCode AS kategori,
-               CASE WHEN b.TargetType = 'KENDARAAN' THEN 'Kendaraan' ELSE kp.CategoryName END AS nama_kategori,
+               CASE b.TargetType WHEN 'KENDARAAN' THEN 'Kendaraan' WHEN 'SUPPLIER' THEN 'Supplier' ELSE kp.CategoryName END AS nama_kategori,
+               sb.SupplierID AS id_supplier, sb.SupplierCode AS kode_supplier, sb.SupplierName AS nama_supplier,
                arb.AreaName AS lokasi_blacklist, cb.CompID AS company_blacklist,
                COALESCE(sp.waktu, sk.waktu) AS scan_terakhir, sca.AreaName AS lokasi_scan, csa.CompID AS company_scan,
                (SELECT TOP 1 pg.RequestID AS id_pengajuan FROM ApprovalRequest pg WHERE pg.RequestType = 'BLACKLIST_HAPUS' AND pg.Status = 'MENUNGGU'
@@ -42,6 +43,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
         LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
         LEFT JOIN Users p ON b.UserID = p.UserID
         LEFT JOIN DetailVehicle k ON b.IDVehicle = k.IDVehicle
+        LEFT JOIN Supplier sb ON b.SupplierID = sb.SupplierID
         LEFT JOIN Document dk ON dk.DocumentID = b.BlacklistDoc          -- NULL = surat menyusul
         LEFT JOIN UserCategory kp ON kp.CategoryCode = b.CategoryCode
         LEFT JOIN CompanyArea arb ON arb.CompAreaID = b.CompAreaID
@@ -72,8 +74,9 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
     if cari:
         pola = f"%{cari}%"
         sql += """ AND (p.UserCode LIKE ? OR p.Nama LIKE ? OR p.NoKTP LIKE ?
-                        OR k.NoVehicle LIKE ? OR dk.DocNumber LIKE ? OR b.AliasName LIKE ? OR b.NoVehicle LIKE ?)"""
-        params += [pola] * 7
+                        OR k.NoVehicle LIKE ? OR dk.DocNumber LIKE ? OR b.AliasName LIKE ? OR b.NoVehicle LIKE ?
+                        OR sb.SupplierName LIKE ? OR sb.SupplierCode LIKE ?)"""
+        params += [pola] * 9
     sql += " ORDER BY b.CreateDate DESC, b.BlacklistID DESC"
     conn = get_connection()
     cursor = conn.cursor()
@@ -122,6 +125,23 @@ def cari_target(tipe, kata, batas=8):
                 AND (p.UserCode LIKE ? OR p.NoKTP LIKE ? OR p.Nama LIKE ? OR p.LicenseNumber LIKE ?
                      OR CAST(p.UserID AS VARCHAR) = ?)
                 ORDER BY p.Nama""", pola, pola, pola, pola, kata.lstrip("0") or "0")
+        elif tipe == "SUPPLIER":
+            # Kode / nama supplier, jenis (customer / pengangkutan), PT, transaksi 90 hari & terakhir
+            cursor.execute(f"""
+                SELECT TOP {int(batas)} s.SupplierID AS id_target, s.SupplierCode AS kode_supplier, s.SupplierName AS nama_supplier,
+                       s.SupplierAddress AS alamat, s.Active AS is_active,
+                       CAST(CASE WHEN s.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted,
+                       STUFF((SELECT ', ' + st.NameType FROM SupplierTypeDetails td JOIN SupplierType st ON st.TypeCode = td.TypeCode
+                              WHERE td.SupplierID = s.SupplierID FOR XML PATH('')), 1, 2, '') AS jenis,
+                       STUFF((SELECT ', ' + sc.CompID FROM SupplierCompany sc WHERE sc.SupplierID = s.SupplierID
+                              FOR XML PATH('')), 1, 2, '') AS company,
+                       (SELECT COUNT(*) FROM WeightBridge t WHERE (t.SupplierID = s.SupplierID OR t.TransportID = s.SupplierID)
+                          AND t.TicketDate >= DATEADD(DAY, -90, GETDATE())) AS jumlah_tiket_90,
+                       (SELECT MAX(t.TicketDate) FROM WeightBridge t
+                         WHERE t.SupplierID = s.SupplierID OR t.TransportID = s.SupplierID) AS waktu_terakhir
+                FROM Supplier s
+                WHERE s.SupplierCode LIKE ? OR s.SupplierName LIKE ?
+                ORDER BY s.SupplierName""", pola, pola)
         else:
             # Plat + STNK, supir utama, jumlah supir terdaftar, dan transaksi terakhir (supir, customer, angkutan)
             cursor.execute(f"""
@@ -152,6 +172,23 @@ def cari_target(tipe, kata, batas=8):
         conn.close()
 
 
+def info_supplier(id_supplier):
+    """Nama, jenis & produk transaksi terakhir supplier (pengajuan blacklist supplier)."""
+    rows = _query_satu("""SELECT s.SupplierCode AS kode_supplier, s.SupplierName AS nama_supplier, pr.ProductName AS produk_terakhir
+                          FROM Supplier s
+                          OUTER APPLY (SELECT TOP 1 t.ProductID AS id_produk FROM WeightBridge t
+                                       WHERE t.SupplierID = s.SupplierID ORDER BY t.TicketDate DESC) t
+                          LEFT JOIN Product pr ON pr.ProductID = t.id_produk
+                          WHERE s.SupplierID = ?""", id_supplier)
+    return rows[0] if rows else None
+
+
+def supplier_diblacklist(id_supplier):
+    """Nama supplier bila sedang diblacklist, selain itu None (peringatan tiket / kontrak)."""
+    rows = _query_satu("SELECT SupplierName AS nama FROM Supplier WHERE SupplierID = ? AND BlacklistID IS NOT NULL", id_supplier)
+    return rows[0]["nama"] if rows else None
+
+
 def info_kendaraan(id_kendaraan):
     """Plat, supplier / pengangkutan / produk transaksi terakhir kendaraan (pengajuan blacklist kendaraan)."""
     rows = _query_satu("""SELECT k.NoVehicle AS no_plat, s.SupplierName AS customer_terakhir, a.SupplierName AS pengangkutan_terakhir,
@@ -177,6 +214,12 @@ def get_target_personel(id_personel):
         return rows[0] if rows else None
     finally:
         conn.close()
+
+
+def _hapus_cache_supplier(tipe):
+    if tipe == "SUPPLIER":
+        from utils.db_utils import get_semua_supplier
+        get_semua_supplier.hapus()
 
 
 def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, user_id, terkait=None,
@@ -211,6 +254,7 @@ def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, us
         id_blacklist = cursor.fetchone()[0]
         cursor.execute(f"UPDATE {tabel} SET BlacklistID = ? WHERE {kolom} = ?", id_blacklist, id_target)
         conn.commit()
+        _hapus_cache_supplier(tipe)
     except Exception:
         conn.rollback()
         raise
@@ -267,6 +311,12 @@ def nama_target(tipe, id_target):
             raise ValueError("Target tidak ditemukan")
         r = rows[0]
         return (f"{r['kode_personel']} · {r['nama_personel']}" if r["kode_personel"] else r["nama_personel"]), bool(r["is_blacklisted"])
+    if tipe == "SUPPLIER":
+        rows = _query_satu("""SELECT SupplierName AS nama, CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted
+                              FROM Supplier WHERE SupplierID = ?""", id_target)
+        if not rows:
+            raise ValueError("Target tidak ditemukan")
+        return rows[0]["nama"], bool(rows[0]["is_blacklisted"])
     rows = _query_satu("SELECT NoVehicle AS no_plat, CAST(CASE WHEN BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted FROM DetailVehicle WHERE IDVehicle = ?", id_target)
     if not rows:
         raise ValueError("Target tidak ditemukan")
@@ -275,11 +325,12 @@ def nama_target(tipe, id_target):
 
 def get_blacklist(id_blacklist):
     rows = _query_satu("""SELECT b.BlacklistID AS id_blacklist, b.TargetType AS tipe_entitas, b.UserID AS id_personel, b.IDVehicle AS id_kendaraan, b.RevokeDate AS dicabut_at,
-                                 COALESCE(p.Nama, k.NoVehicle) AS nama, p.NoKTP AS nik, b.AliasName AS nama_alias, b.CategoryCode AS kategori,
+                                 COALESCE(p.Nama, k.NoVehicle, sb.SupplierName) AS nama, p.NoKTP AS nik, b.SupplierID AS id_supplier, b.AliasName AS nama_alias, b.CategoryCode AS kategori,
                                  COALESCE(b.NoVehicle, k.NoVehicle) AS no_plat, c.SupplierName AS supplier,
                                  a.SupplierName AS pengangkutan
                           FROM Blacklist b LEFT JOIN Users p ON p.UserID = b.UserID
                           LEFT JOIN DetailVehicle k ON k.IDVehicle = b.IDVehicle
+                          LEFT JOIN Supplier sb ON sb.SupplierID = b.SupplierID
                           LEFT JOIN Supplier c ON c.SupplierID = b.CustomerID
                           LEFT JOIN Supplier a ON a.SupplierID = b.TransportID WHERE b.BlacklistID = ?""", id_blacklist)
     return rows[0] if rows else None
@@ -301,7 +352,8 @@ def cabut_blacklist(id_blacklist, alasan, user_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT TargetType AS tipe_entitas, UserID AS id_personel, IDVehicle AS id_kendaraan, RevokeDate AS dicabut_at FROM Blacklist WITH (UPDLOCK) WHERE BlacklistID = ?",
+        cursor.execute("""SELECT TargetType AS tipe_entitas, UserID AS id_personel, IDVehicle AS id_kendaraan, SupplierID AS id_supplier,
+                                 RevokeDate AS dicabut_at FROM Blacklist WITH (UPDLOCK) WHERE BlacklistID = ?""",
                        id_blacklist)
         r = cursor.fetchone()
         if r is None:
@@ -309,7 +361,7 @@ def cabut_blacklist(id_blacklist, alasan, user_id):
         if r.dicabut_at is not None:
             raise ValueError("Blacklist ini sudah dicabut")
         tabel, kolom = _TARGET[r.tipe_entitas]
-        id_target = r.id_personel if r.tipe_entitas == "PERSONEL" else r.id_kendaraan
+        id_target = {"PERSONEL": r.id_personel, "KENDARAAN": r.id_kendaraan, "SUPPLIER": r.id_supplier}[r.tipe_entitas]
         cursor.execute("UPDATE Blacklist SET RevokeDate = GETDATE(), RevokeBy = ?, RevokeReason = ? WHERE BlacklistID = ?",
                        user_id, (alasan or "")[:500] or None, id_blacklist)
         cursor.execute(f"SELECT MAX(BlacklistID) FROM Blacklist WHERE {kolom} = ? AND RevokeDate IS NULL", id_target)
@@ -318,6 +370,7 @@ def cabut_blacklist(id_blacklist, alasan, user_id):
             cursor.execute("EXEC sp_set_session_context N'cabut_blacklist', 1")
         cursor.execute(f"UPDATE {tabel} SET BlacklistID = ? WHERE {kolom} = ?", sisa, id_target)
         conn.commit()
+        _hapus_cache_supplier(r.tipe_entitas)
     except Exception:
         conn.rollback()
         raise

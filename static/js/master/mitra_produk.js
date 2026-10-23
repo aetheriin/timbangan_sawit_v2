@@ -18,7 +18,7 @@ async function muatMitra() {
     tbody.innerHTML = data.map(s => `
         <tr class="hover:bg-slate-50${s.is_active ? '' : ' text-slate-400'}" data-cari="${escapeHtml(`${s.kode_supplier} ${s.nama_supplier}`.toLowerCase())}">
             <td class="table-cell font-mono">${escapeHtml(s.kode_supplier)}</td>
-            <td class="table-cell">${escapeHtml(s.nama_supplier)}${s.alamat ? `<span class="block text-[11px] text-slate-500">${escapeHtml(s.alamat)}</span>` : ''}</td>
+            <td class="table-cell">${escapeHtml(s.nama_supplier)}${s.is_blacklisted ? ` ${badge('BLACKLIST', WARNA_BADGE.merah)}` : ''}${s.alamat ? `<span class="block text-[11px] text-slate-500">${escapeHtml(s.alamat)}</span>` : ''}</td>
             <td class="table-cell space-x-1">${s.is_customer ? badge('Customer', WARNA_BADGE.biru) : ''}${s.is_angkutan ? badge('Pengangkutan', WARNA_BADGE.oranye) : ''}</td>
             <td class="table-cell">${escapeHtml(labelPt(s.company))}</td>
             <td class="table-cell">${badgeAktif(s.is_active)}</td>

@@ -7,6 +7,7 @@ from utils.face_utils import (embedding_frontal, extract_embedding, extract_embe
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
 from utils.db_kontrak import get_do
+from utils.db_blacklist import supplier_diblacklist
 from utils import verifikasi_state as verif
 from utils.keamanan import id_pos
 from utils.upload_utils import simpan_upload, simpan_frames, hapus_file
@@ -102,6 +103,10 @@ def buat_tiket():
         peringatan.append(f"kendaraan {no_plat}")
     if driver.is_blacklisted:
         peringatan.append(f"supir {nama_driver}")
+    for id_s in {int(id_supplier), id_angkut} - {None}:          # Supplier Blacklist (customer / pengangkutan)
+        nama_bl = supplier_diblacklist(id_s)
+        if nama_bl:
+            peringatan.append(f"supplier {nama_bl}")
 
     v = verif.ambil(id_pos(), current_user.id)
     terverifikasi = bool(v) and str(v["id_driver"]) == str(id_driver)

@@ -164,6 +164,7 @@ def cabut_sesi(id_user):
 # ===== MASTER SUPPLIER & PRODUK =====
 def daftar_supplier():
     rows = _query("""SELECT s.SupplierID AS id_supplier, s.SupplierCode AS kode_supplier, s.SupplierName AS nama_supplier, s.SupplierAddress AS alamat, s.Active AS is_active, s.CreateDate AS created_at,
+                            CAST(CASE WHEN s.BlacklistID IS NULL THEN 0 ELSE 1 END AS BIT) AS is_blacklisted,
                             pc.TypeCode AS peran_customer, pa.TypeCode AS peran_angkutan
                      FROM Supplier s
                      LEFT JOIN SupplierTypeDetails pc ON pc.SupplierID = s.SupplierID AND pc.TypeCode = 'CUSTOMER'

@@ -88,7 +88,7 @@
                                 <select id="formSupplier" class="input-field" data-cari>
                                     <option value="">-- Pilih --</option>
                                     {% for s in supplier_list %}
-                                    <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}</option>
+                                    <option value="{{ s.id_supplier }}">{{ s.nama_supplier }}{{ " · BLACKLIST" if s.is_blacklisted }}</option>
                                     {% endfor %}
                                 </select>
                             </div>

@@ -16,7 +16,7 @@ let timerCariTarget = null;
 window.addEventListener('tabChange', e => {
     if (e.detail === 'blacklist' && !blacklistDimuat) {
         blacklistDimuat = true;
-        // Sub-menu navbar: Visitor & Staff Blacklist (?tipe=PERSONEL) / Vehicle Blacklist (?tipe=KENDARAAN)
+        // Sub-menu navbar: Visitor & Staff (?tipe=PERSONEL) / Supplier (?tipe=SUPPLIER) / Vehicle Blacklist (?tipe=KENDARAAN)
         const tipe = new URLSearchParams(location.search).get('tipe');
         const chip = tipe && document.querySelector(`#chipTipeBlacklist [data-tipe="${CSS.escape(tipe)}"]`);
         if (chip) { aktifkanChip(chip); tipeFilterBlacklist = tipe; }
@@ -25,7 +25,16 @@ window.addEventListener('tabChange', e => {
 });
 
 function namaTarget(r) {
-    return r.tipe_entitas === 'KENDARAAN' ? r.no_plat : formatNamaPersonel(r.kode_personel, r.id_personel, r.nama_personel);
+    if (r.tipe_entitas === 'KENDARAAN') return r.no_plat;
+    if (r.tipe_entitas === 'SUPPLIER') return r.nama_supplier;
+    return formatNamaPersonel(r.kode_personel, r.id_personel, r.nama_personel);
+}
+
+// Teks utama & keterangan kecil baris List Blacklist per tipe target
+function labelBarisBlacklist(r) {
+    if (r.tipe_entitas === 'KENDARAAN') return { utama: r.no_plat, sub: 'Kendaraan', mono: true };
+    if (r.tipe_entitas === 'SUPPLIER') return { utama: r.nama_supplier, sub: `Supplier · ${r.kode_supplier || '-'}`, mono: false };
+    return { utama: r.nama_personel, sub: r.kode_personel || formatIdPersonel(r.id_personel), mono: false };
 }
 
 // ===== RIWAYAT =====
@@ -65,15 +74,16 @@ async function muatBlacklist() {
     const tempat = (area, pt) => area ? `${pt ? `${pt} · ` : ''}${area}` : '';
     tbody.innerHTML = data.map(r => {
         const kendaraan = r.tipe_entitas === 'KENDARAAN';
+        const label = labelBarisBlacklist(r);
         return `<tr class="hover:bg-slate-50 align-top">
             <td class="table-cell"><div class="flex items-center gap-2">
                 <span class="w-1.5 h-8 rounded-full ${r.dicabut_at ? 'bg-slate-300' : 'bg-red-500'} flex-shrink-0"></span>
-                <div class="min-w-0"><p class="font-semibold text-slate-900 whitespace-nowrap ${kendaraan ? 'font-mono' : ''}">${escapeHtml(kendaraan ? r.no_plat : r.nama_personel)}</p>
-                <p class="text-xs text-slate-500">${kendaraan ? 'Kendaraan' : escapeHtml(r.kode_personel || formatIdPersonel(r.id_personel))}</p>
+                <div class="min-w-0"><p class="font-semibold text-slate-900 whitespace-nowrap ${label.mono ? 'font-mono' : ''}">${escapeHtml(label.utama)}</p>
+                <p class="text-xs text-slate-500">${escapeHtml(label.sub)}</p>
                 ${r.dicabut_at ? `<p class="text-xs text-emerald-700">Dicabut ${escapeHtml(r.dicabut_at)} oleh ${escapeHtml(r.dicabut_oleh || '-')}</p>` : ''}</div></div></td>
             ${sel(r.nama_alias)}
             ${sel(r.nik, 'font-mono text-xs')}
-            <td class="table-cell">${r.nama_kategori ? badge(r.nama_kategori, kendaraan ? WARNA_BADGE.abu : WARNA_BADGE.biru) : '-'}</td>
+            <td class="table-cell">${r.nama_kategori ? badge(r.nama_kategori, r.tipe_entitas === 'PERSONEL' ? WARNA_BADGE.biru : WARNA_BADGE.abu) : '-'}</td>
             ${sel(r.customer_terkait)}
             ${sel(kendaraan ? r.no_plat : r.no_plat_terkait, 'font-mono text-xs whitespace-nowrap')}
             <td class="table-cell max-w-xs"><p class="line-clamp-2 text-slate-700" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</p></td>
@@ -150,7 +160,9 @@ function setTipeBlacklist(tipe) {
     tipeBlacklistBaru = tipe;
     document.getElementById('segBlPersonel').classList.toggle('seg-item-active', tipe === 'PERSONEL');
     document.getElementById('segBlKendaraan').classList.toggle('seg-item-active', tipe === 'KENDARAAN');
-    document.getElementById('blCari').placeholder = tipe === 'PERSONEL' ? 'Cari kode / NIK / nama' : 'Ketik No. Plat, mis. BM 8821 KA';
+    document.getElementById('segBlSupplier').classList.toggle('seg-item-active', tipe === 'SUPPLIER');
+    document.getElementById('blCari').placeholder = { PERSONEL: 'Cari kode / NIK / nama', KENDARAAN: 'Ketik No. Plat, mis. BM 8821 KA',
+                                                      SUPPLIER: 'Cari kode / nama supplier' }[tipe];
     document.getElementById('blCari').classList.toggle('uppercase', tipe === 'KENDARAAN');
     document.getElementById('blCari').value = '';
     document.getElementById('blHasilCari').classList.add('hidden');
@@ -173,6 +185,9 @@ async function cariTargetBlacklist() {
     list.innerHTML = hasilCariTarget.map((t, i) => {
         const nama = tipeBlacklistBaru === 'PERSONEL'
             ? `${formatNamaPersonel(t.kode_personel, t.id_target, t.nama_personel)} <span class="text-slate-400">· NIK ${escapeHtml(t.nik)}</span>`
+            : tipeBlacklistBaru === 'SUPPLIER'
+            ? `<span class="font-semibold">${escapeHtml(t.nama_supplier)}</span> <span class="text-slate-400">· ${escapeHtml(t.kode_supplier)}` +
+              `${t.jenis ? ' · ' + escapeHtml(t.jenis) : ''}</span>`
             : `<span class="font-mono font-semibold">${escapeHtml(t.no_plat)}</span> <span class="text-slate-400">· STNK ${escapeHtml(t.no_stnk || '-')}` +
               ` · ${t.id_supir_utama ? 'supir utama ' + escapeHtml(t.nama_supir_utama) : 'belum ada supir utama'}</span>`;
         return t.is_blacklisted
@@ -194,6 +209,18 @@ function pilihTargetBlacklist(index) {
     }
     const t = targetBlacklist;
     box.className = 'border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm flex items-center gap-4';
+    if (tipeBlacklistBaru === 'SUPPLIER') {
+        box.innerHTML = `
+        <i class="fa-solid fa-building text-2xl text-slate-500"></i>
+        <div class="flex-1 space-y-0.5">
+            <p class="font-semibold text-slate-800">${escapeHtml(t.nama_supplier)}</p>
+            <p class="text-xs text-slate-500">${escapeHtml(t.kode_supplier)} · ${escapeHtml(t.jenis || '-')} · PT ${escapeHtml(t.company || 'semua')}</p>
+            ${t.alamat ? `<p class="text-xs text-slate-500">${escapeHtml(t.alamat)}</p>` : ''}
+            <p class="text-xs text-slate-500">${Number(t.jumlah_tiket_90)} tiket dalam 90 hari${t.waktu_terakhir ? ` · terakhir ${escapeHtml(t.waktu_terakhir)}` : ''}</p>
+        </div>
+        ${t.is_active ? badge('Aktif', WARNA_BADGE.hijau) : badge('Nonaktif', WARNA_BADGE.abu)}`;
+        return;
+    }
     box.innerHTML = tipeBlacklistBaru === 'PERSONEL' ? `
         <div class="w-24 h-28 rounded-lg bg-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
             ${t.foto_path ? `<img src="${escapeHtml(urlBerkas(t.foto_path))}" class="w-full h-full object-cover" alt="Foto wajah">`
@@ -225,8 +252,10 @@ function tampilkanTerkait(t) {
     document.getElementById('blTerkait').classList.toggle('hidden', !t);
     if (!t) return;
     const personel = tipeBlacklistBaru === 'PERSONEL';
-    const kategori = personel ? t.kategori : 'KENDARAAN';
-    document.getElementById('blKategori').textContent = personel ? (t.nama_kategori || t.kategori || '-') : 'Kendaraan';
+    const kategori = personel ? t.kategori : tipeBlacklistBaru;
+    document.getElementById('blKategori').textContent = personel ? (t.nama_kategori || t.kategori || '-')
+        : (tipeBlacklistBaru === 'SUPPLIER' ? 'Supplier' : 'Kendaraan');
+    document.getElementById('blInfoTerkait').classList.toggle('hidden', tipeBlacklistBaru === 'SUPPLIER');
     document.getElementById('blAliasBox').classList.toggle('hidden', !personel);
     document.getElementById('blPlatBox').classList.toggle('hidden', !personel);
     document.getElementById('blPlatTerkait').value = personel ? (t.plat_terakhir || '') : '';
@@ -273,9 +302,13 @@ async function simpanBlacklist(btn) {
         Notif.peringatan('Asal supplier wajib diisi untuk Driver'); return;
     }
     if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
-    const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
+    const nama = { PERSONEL: targetBlacklist.nama_personel, KENDARAAN: targetBlacklist.no_plat,
+                   SUPPLIER: targetBlacklist.nama_supplier }[tipeBlacklistBaru];
+    const akibat = tipeBlacklistBaru === 'SUPPLIER'
+        ? 'kontrak / DO baru untuk supplier ini ditolak dan tiketnya ditandai peringatan di semua area.'
+        : 'wajah / kendaraan ini ditolak di semua area.';
     const ok = await Dialog.konfirmasi({ judul: 'Kirim request blacklist?', teksYa: 'Kirim Request', bahaya: true,
-        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui semua tahap, wajah / kendaraan ini ditolak di semua area.` });
+        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui semua tahap, ${akibat}` });
     if (!ok) return;
 
     const formData = new FormData();
@@ -290,8 +323,10 @@ async function simpanBlacklist(btn) {
         formData.append('punya_alias', punyaAlias ? '1' : '0');
         formData.append('nama_alias', punyaAlias ? alias : '');
     }
-    formData.append('id_customer_terkait', idSupplier);
-    formData.append('id_pengangkutan_terkait', document.getElementById('blAngkutTerkait').value);
+    if (tipeBlacklistBaru !== 'SUPPLIER') {
+        formData.append('id_customer_terkait', idSupplier);
+        formData.append('id_pengangkutan_terkait', document.getElementById('blAngkutTerkait').value);
+    }
 
     const data = await denganTombol(btn, () => kirimForm('/api/blacklist/tambah', formData), 'Menyimpan...');
     if (!tampilkanHasil(data)) return;

@@ -455,7 +455,7 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
             "id_pengajuan": r["id_pengajuan"], "jenis": r["jenis"], "nama_jenis": JENIS.get(r["jenis"], r["jenis"]),
             "status": r["status"], "langkah": r["langkah"], "total_langkah": r["total_langkah"], "judul": r["judul"],
             "alasan": r["alasan"], "pengaju": r["pengaju"], "company": r["kode_company"], "site": r["site"],
-            "kategori": r["kategori"], "nama_kategori": r["nama_kategori"] or ("Kendaraan" if r["kategori"] == "KENDARAAN" else None),
+            "kategori": r["kategori"], "nama_kategori": r["nama_kategori"] or {"KENDARAAN": "Kendaraan", "SUPPLIER": "Supplier"}.get(r["kategori"]),
             "waktu": r["created_at"].strftime("%Y-%m-%d %H:%M"), "bisa_setujui": bisa,
             "bisa_batal": (r["status"] == "MENUNGGU" and r["diajukan_oleh"] == user.id
                            and (bool(r["tahap"]) or hak_akses.boleh(MENU_JENIS.get(r["jenis"], ""), "setujui", user=user))),

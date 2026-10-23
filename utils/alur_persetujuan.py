@@ -5,6 +5,7 @@ from utils.db_utils import get_connection, _rows_to_dicts
 from utils.persetujuan import JENIS, MENU_JENIS
 
 KATEGORI_KENDARAAN = ("KENDARAAN", "Kendaraan")
+KATEGORI_SUPPLIER = ("SUPPLIER", "Supplier")
 MAKS_TAHAP = 10
 
 
@@ -22,7 +23,7 @@ def daftar_kategori():
     """Pilihan kategori target: kategori personel aktif + Kendaraan."""
     return ([{"kode": r["kode"], "nama": r["nama"]}
              for r in _query("SELECT CategoryCode AS kode, CategoryName AS nama FROM UserCategory WHERE Active = 1 ORDER BY CategoryName")]
-            + [{"kode": KATEGORI_KENDARAAN[0], "nama": KATEGORI_KENDARAAN[1]}])
+            + [{"kode": k, "nama": n} for k, n in (KATEGORI_KENDARAAN, KATEGORI_SUPPLIER)])
 
 
 def daftar():
@@ -40,8 +41,8 @@ def daftar():
     for a in alur:
         menu = MENU_JENIS.get(a["jenis"], "")
         a["nama_jenis"] = JENIS.get(a["jenis"], a["jenis"])
-        if a["kategori"] == KATEGORI_KENDARAAN[0]:
-            a["nama_kategori"] = KATEGORI_KENDARAAN[1]
+        if a["kategori"] in (KATEGORI_KENDARAAN[0], KATEGORI_SUPPLIER[0]):
+            a["nama_kategori"] = dict((KATEGORI_KENDARAAN, KATEGORI_SUPPLIER))[a["kategori"]]
         a["tahap"] = [{**t, "bisa_lihat": bool(akses.get(t["id_level"], {}).get(menu, {}).get("lihat"))}
                       for t in per_alur.get(a["id_alur_persetujuan"], [])]
     return alur
