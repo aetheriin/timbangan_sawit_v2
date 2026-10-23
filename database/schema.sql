@@ -17,6 +17,7 @@
    Tabel pendukung CPOS: DocumentType, Document, DocumentFile, Flow, FlowStage, FlowStep, Scale (jembatan timbang),
    Notification(Read), WorkSchedule, RequiredDataField, Setting, SettingArea, Device (kiosk), ApprovalRequest,
    ApprovalHistory, ApprovalRequestStep, ApprovalFlow, ApprovalFlowStep. Prosedur log: sp_WriteLog, fn_LogHash.
+   Hak akses (dipakai semua aplikasi): fn_UserAccess, sp_UserMenu, sp_CekAkses (paling bawah).
    Database DIBUAT BARU dari file ini (tidak ada migrasi). Data contoh untuk uji: database/demo_data.sql.
 
    Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
@@ -121,6 +122,7 @@ CREATE TABLE dbo.Menu (
     Icon         VARCHAR(40)   NULL,
     AppCode      VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_App DEFAULT ('CPOS'),   -- CPOS / ANALYTICS / REKAPIN
     SortOrder    INT NOT NULL CONSTRAINT DF_Menu_Sort DEFAULT (0),
+    ActionList   VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_Actions DEFAULT (''),   -- aksi selain View yang berlaku di menu ini: ActionID dipisah koma, mis. '2,3,5'
     CompAreaID   BIGINT        NULL CONSTRAINT FK_Menu_Area REFERENCES dbo.CompanyArea (CompAreaID),   -- NULL = semua area
     Active       BIT NOT NULL CONSTRAINT DF_Menu_Active DEFAULT (1)
 );
@@ -1279,6 +1281,14 @@ FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weigh
              ('AUDIT_LOG',        N'Log Audit',                 'FACE_RECOGNITION', '/face-recognition?tab=audit',    4)
      ) v (kode, nama, induk, url, urut)
 JOIN dbo.Menu p ON p.MenuCode = v.induk;
+-- Aksi yang berlaku per menu (centang di Admin › Hak Akses): 2 Create, 3 Edit, 0 Delete, 5 Approve. Kosong = hanya View.
+-- Halaman yang punya anak (FORM, MASTER, FACE_RECOGNITION) diatur lewat anaknya.
+UPDATE m SET ActionList = v.aksi
+FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', '3'), ('LIST', '3,5'), ('FORM_SECURITY', '2,3'), ('FORM_TIMBANGAN', '2'),
+             ('FORM_SORTASI', '2'), ('FORM_LAB', '2,3'), ('PERSONEL', '2,3,0'), ('MASTER_DRIVER', '2,3,0'),
+             ('MASTER_KENDARAAN', '2,3'), ('MASTER_MITRA', '2,3'), ('MASTER_PRODUK', '2,3'), ('MASTER_KEUANGAN', '2,3'),
+             ('KONTRAK_DO', '2,3'), ('BLACKLIST', '2,0,5'), ('KUNJUNGAN', '2,3'), ('KELEBIHAN_DO', '2,3'),
+             ('POS_SECURITY', '2,3'), ('LOGBOOK', '3')) v (kode, aksi) ON v.kode = m.MenuCode;
 -- Hak akses awal: (peran, menu, tambah, ubah, hapus, setujui). Lihat ikut diberikan.
 DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), t BIT, u BIT, h BIT, s BIT);
 INSERT INTO @hak VALUES
@@ -1941,5 +1951,85 @@ BEGIN
         FETCH NEXT FROM c INTO @k;
     END
     CLOSE c; DEALLOCATE c;
+END
+GO
+
+/* =========================== HAK AKSES BERSAMA (CPOS, ANALYTICS, REKAPIN) ===========================
+   Satu aturan untuk semua aplikasi:
+   - hak diambil dari peran (Users.UserLevelID -> AccessMenu.LevelDetID);
+   - bila pengguna punya baris AccessMenu.UserID untuk sebuah menu, baris itu yang dipakai untuk menu tsb (menambah / mencabut);
+   - Visible = menu itu atau salah satu turunannya (Lv2 / Lv3) boleh dilihat -> induk ikut terlihat;
+   - ShowInMenu = tampil di menu samping (Lv1: ada anak terlihat, Lv2: Visible, Lv3: punya View sendiri);
+   - akun admin sistem (Level.IsAdmin) & akun nonaktif tidak punya hak menu operasional. */
+CREATE OR ALTER FUNCTION dbo.fn_UserAccess (@UserID BIGINT)
+RETURNS TABLE AS RETURN
+WITH peran AS (
+    SELECT u.UserLevelID AS LevelDetID
+    FROM dbo.Users u JOIN dbo.LevelDetails ld ON ld.LevelDetID = u.UserLevelID JOIN dbo.Level lv ON lv.LevelID = ld.LevelID
+    WHERE u.UserID = @UserID AND u.Active = 1 AND lv.IsAdmin = 0
+), hak AS (
+    SELECT a.MenuID, a.ActionID FROM dbo.AccessMenu a
+    WHERE a.Active = 1 AND a.UserID = @UserID AND EXISTS (SELECT 1 FROM peran)
+    UNION ALL
+    SELECT a.MenuID, a.ActionID FROM dbo.AccessMenu a JOIN peran p ON p.LevelDetID = a.LevelDetID
+    WHERE a.Active = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu k WHERE k.UserID = @UserID AND k.MenuID = a.MenuID)
+), per AS (
+    SELECT m.MenuID, m.ParentMenuID,
+           MAX(CASE WHEN h.ActionID = 1 THEN 1 ELSE 0 END) AS V, MAX(CASE WHEN h.ActionID = 2 THEN 1 ELSE 0 END) AS C,
+           MAX(CASE WHEN h.ActionID = 3 THEN 1 ELSE 0 END) AS E, MAX(CASE WHEN h.ActionID = 0 THEN 1 ELSE 0 END) AS D,
+           MAX(CASE WHEN h.ActionID = 5 THEN 1 ELSE 0 END) AS A, MAX(CASE WHEN h.ActionID = 4 THEN 1 ELSE 0 END) AS X
+    FROM dbo.Menu m LEFT JOIN hak h ON h.MenuID = m.MenuID
+    WHERE m.Active = 1
+    GROUP BY m.MenuID, m.ParentMenuID
+), lihat AS (
+    SELECT p.*, CASE WHEN p.V = 1 OR EXISTS (SELECT 1 FROM per c WHERE c.ParentMenuID = p.MenuID AND (c.V = 1
+                     OR EXISTS (SELECT 1 FROM per g WHERE g.ParentMenuID = c.MenuID AND g.V = 1))) THEN 1 ELSE 0 END AS Vis
+    FROM per p
+)
+SELECT m.MenuID, m.MenuCode, m.MenuName, m.MenuLevel, pm.MenuCode AS ParentMenuCode, m.Url, m.Icon, m.AppCode, m.SortOrder,
+       m.ActionList,
+       CAST(l.V AS BIT) AS CanView, CAST(l.Vis AS BIT) AS Visible,
+       CAST(CASE m.MenuLevel WHEN 1 THEN CASE WHEN EXISTS (SELECT 1 FROM lihat c WHERE c.ParentMenuID = m.MenuID AND c.Vis = 1)
+                                              THEN 1 ELSE 0 END
+                             WHEN 2 THEN l.Vis ELSE l.V END AS BIT) AS ShowInMenu,
+       CAST(l.C AS BIT) AS CanCreate, CAST(l.E AS BIT) AS CanEdit, CAST(l.D AS BIT) AS CanDelete,
+       CAST(l.A AS BIT) AS CanApprove, CAST(l.X AS BIT) AS CanVoid
+FROM lihat l
+JOIN dbo.Menu m ON m.MenuID = l.MenuID
+LEFT JOIN dbo.Menu pm ON pm.MenuID = m.ParentMenuID
+WHERE l.Vis = 1 OR l.C = 1 OR l.E = 1 OR l.D = 1 OR l.A = 1 OR l.X = 1;
+GO
+/* Menu & hak pengguna. @AppCode NULL = semua aplikasi (master page); 'ANALYTICS' = menu Analytics beserta grup induknya.
+   Menu samping: ambil baris ShowInMenu = 1, susun per MenuLevel / ParentMenuCode, urut SortOrder. */
+CREATE OR ALTER PROCEDURE dbo.sp_UserMenu
+    @UserID  BIGINT,
+    @AppCode VARCHAR(20) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT * INTO #m FROM dbo.fn_UserAccess(@UserID);
+    SELECT f.* FROM #m f
+    WHERE @AppCode IS NULL OR f.AppCode = @AppCode
+       OR EXISTS (SELECT 1 FROM #m c WHERE c.ParentMenuCode = f.MenuCode AND (c.AppCode = @AppCode
+                  OR EXISTS (SELECT 1 FROM #m g WHERE g.ParentMenuCode = c.MenuCode AND g.AppCode = @AppCode)))
+    ORDER BY f.MenuLevel, f.SortOrder, f.MenuName;
+END
+GO
+/* Boleh / tidak: @Action = nama ActionType (View, Create, Edit, Delete, Approve, Void) atau ActionID.
+   View = halaman boleh dibuka (dirinya atau turunannya boleh dilihat). Hasil: 1 baris kolom Allowed + parameter OUTPUT. */
+CREATE OR ALTER PROCEDURE dbo.sp_CekAkses
+    @UserID   BIGINT,
+    @MenuCode VARCHAR(40),
+    @Action   VARCHAR(100),
+    @Allowed  BIT = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @id INT = COALESCE(TRY_CAST(@Action AS INT), (SELECT ActionID FROM dbo.ActionType WHERE TypeName = @Action AND Active = 1));
+    SELECT @Allowed = CASE @id WHEN 1 THEN f.Visible WHEN 2 THEN f.CanCreate WHEN 3 THEN f.CanEdit WHEN 0 THEN f.CanDelete
+                                WHEN 5 THEN f.CanApprove WHEN 4 THEN f.CanVoid END
+    FROM dbo.fn_UserAccess(@UserID) f WHERE f.MenuCode = @MenuCode;
+    SET @Allowed = ISNULL(@Allowed, 0);
+    SELECT @Allowed AS Allowed;
 END
 GO

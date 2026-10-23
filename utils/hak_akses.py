@@ -4,7 +4,9 @@ Peran = Departemen + Level (jabatan umum), mis. Security · Staff; kode & nama d
 Create (tambah), Edit (ubah), Delete (hapus), Approve (setujui). Pengguna bisa diberi hak khusus per menu (AccessMenu.UserID)
 yang menggantikan hak perannya untuk menu itu saja. Menu 3 level (flowchart navbar): Lv1 grup, Lv2 halaman, Lv3 bagian;
 menu induk terlihat bila dirinya atau salah satu anaknya boleh dilihat. Peran admin (Level.IsAdmin) hanya area Admin.
-Dibaca dari cache memori 30 detik (tidak menambah query per request); disimpan ulang -> hapus_cache()."""
+Aturan hak efektif ada di database (dbo.sp_UserMenu / fn_UserAccess / sp_CekAkses) agar CPOS, Analytics & RekapIn memakai
+aturan yang sama; aksi yang berlaku per menu = Menu.ActionList. Dibaca dari cache memori 30 detik per pengguna
+(tidak menambah query per request); disimpan ulang -> hapus_cache()."""
 import re
 from functools import wraps
 
@@ -17,26 +19,7 @@ from utils.db_utils import get_connection, _rows_to_dicts
 AKSI = ("tambah", "ubah", "hapus")
 # "setujui" = boleh menyetujui / menolak pengajuan di menu itu (mis. tambah & hapus blacklist); di Daftar Tiket =
 # memverifikasi (menandai sudah diperiksa) tiket selesai & menyetujui koreksi tiket (Ubah = mengajukan koreksi).
-# Hanya untuk menu
-# yang punya proses persetujuan (lihat AKSI_MENU); tidak termasuk "aksi apa pun" pada boleh(kode_menu).
-# Aksi yang benar-benar ada di tiap menu (dipakai @izin / boleh di kode). Matriks Hak Akses hanya menampilkan
-# centang untuk aksi ini; yang lain tidak berarti apa-apa. Menu baru yang belum terdaftar di sini = semua aksi.
-AKSI_MENU = {
-    "DASHBOARD": ("ubah",), "LIST": ("ubah", "setujui"), "ABSENSI": (), "AUDIT_LOG": (),
-    "FORM_SECURITY": ("tambah", "ubah"), "FORM_TIMBANGAN": ("tambah",), "FORM_SORTASI": ("tambah",),
-    "FORM_LAB": ("tambah", "ubah"),
-    "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
-    "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"), "MASTER_KEUANGAN": ("tambah", "ubah"),
-    "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus", "setujui"), "KUNJUNGAN": ("tambah", "ubah"),
-    "KELEBIHAN_DO": ("tambah", "ubah"),
-    "POS_SECURITY": ("tambah", "ubah"), "LOGBOOK": ("ubah",),
-    # Sub-halaman Blacklist (navbar Lv3): hanya Lihat; aksi blacklist tetap di menu BLACKLIST
-    "BL_PERSONEL": (), "BL_KENDARAAN": (), "BL_SUPPLIER": (),
-    # Halaman yang belum ada (tautan '#', tahap berikutnya / web lain): hanya Lihat
-    "AN_PR_PO": (), "AN_PO_PI": (), "AN_PVR_KPI": (), "AN_PV_KPI": (), "AN_WB_FRAUD": (), "AN_TBS": (), "AN_COST": (),
-    "FM_IT_HELPDESK": (), "FM_NEW_ITEM": (),
-    "RP_PR": (), "RP_PO": (), "RP_PI": (), "RP_GT": (), "RP_ITEM": (),
-}
+# Tidak termasuk "aksi apa pun" pada boleh(kode_menu). Aksi yang berlaku di tiap menu ada di Menu.ActionList.
 
 
 # ActionType.ActionID untuk tiap aksi (seed schema.sql: 0 Delete, 1 View, 2 Create, 3 Edit, 4 Void, 5 Approve)
@@ -84,20 +67,36 @@ def akses_khusus():
                            WHERE a.UserID IS NOT NULL AND m.Active = 1"""), "id_user")
 
 
+@cache_ttl(30)
+def hak_menu_user(id_user):
+    """Hak efektif dari dbo.sp_UserMenu (aturan sama dengan aplikasi lain):
+    {kode_menu: {"lihat": View sendiri, "terlihat": dirinya / turunannya boleh dilihat, "tambah", "ubah", "hapus", "setujui"}}"""
+    hasil = {}
+    for r in _query("EXEC dbo.sp_UserMenu @UserID = ?", id_user):
+        hasil[r["MenuCode"]] = {"lihat": bool(r["CanView"]), "terlihat": bool(r["Visible"]), "tambah": bool(r["CanCreate"]),
+                                "ubah": bool(r["CanEdit"]), "hapus": bool(r["CanDelete"]), "setujui": bool(r["CanApprove"])}
+    return hasil
+
+
 def hak_user(user):
-    """Hak efektif pengguna: hak peran, ditimpa hak khusus pengguna per menu."""
-    hak = peta_akses().get(user.id_level, {})
-    khusus = akses_khusus().get(getattr(user, "id", None))
-    return {**hak, **khusus} if khusus else hak
+    """Hak efektif pengguna: hak peran, ditimpa hak khusus pengguna per menu (dihitung di database)."""
+    id_user = getattr(user, "id", None)
+    return hak_menu_user(id_user) if id_user is not None else {}
 
 
 @cache_ttl(30)
 def semua_menu():
     """Semua menu aktif (urut) dengan kode induknya: dasar navbar 3 level & pencarian kode halaman."""
     return _query("""SELECT m.MenuID AS id_menu, m.MenuCode AS kode, m.MenuName AS nama, m.Url AS url, m.Icon AS ikon,
-                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk
+                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk, m.ActionList AS daftar_aksi
                      FROM Menu m LEFT JOIN Menu p ON p.MenuID = m.ParentMenuID
                      WHERE m.Active = 1 ORDER BY m.MenuLevel, m.SortOrder, m.MenuName""")
+
+
+def aksi_menu(m):
+    """Aksi selain Lihat yang berlaku di menu (dari Menu.ActionList), urut tambah, ubah, hapus, setujui."""
+    ada = {NAMA_AKSI.get(int(x)) for x in (m.get("daftar_aksi") or "").split(",") if x.strip().isdigit()}
+    return [a for a in ("tambah", "ubah", "hapus", "setujui") if a in ada]
 
 
 @cache_ttl(30)
@@ -146,6 +145,7 @@ def navbar(user, kode_aktif=None, alamat=None):
 
 def hapus_cache():
     peta_akses.hapus()
+    hak_menu_user.hapus()
     akses_khusus.hapus()
     semua_menu.hapus()
     anak_menu.hapus()
@@ -184,11 +184,7 @@ def boleh_lihat(kode_menu, user=None):
     user = user or current_user
     if not getattr(user, "is_authenticated", False) or getattr(user, "is_admin", False):
         return False
-    hak, anak = hak_user(user), anak_menu()
-
-    def lihat(kode):
-        return hak.get(kode, {}).get("lihat") or any(lihat(k) for k in anak.get(kode, ()))
-    return bool(lihat(kode_menu))
+    return bool(hak_user(user).get(kode_menu, {}).get("terlihat"))
 
 
 def tab_lihat(tabs):
@@ -377,12 +373,12 @@ def daftar_menu_akses():
     for g in (m for m in menu if m["level"] == 1):
         for m2 in (m for m in menu if m["induk"] == g["kode"]):
             daftar = [m for m in menu if m["induk"] == m2["kode"]]
-            if m2["kode"] not in punya_anak or AKSI_MENU.get(m2["kode"]):
+            if m2["kode"] not in punya_anak or aksi_menu(m2):
                 daftar = [m2, *daftar]
             for m in daftar:
                 nama = m["nama"] if m["level"] == 2 else f"{per_kode[m['induk']]['nama']} › {m['nama']}"
                 hasil.append({"id_menu": m["id_menu"], "kode": m["kode"], "nama": nama, "induk": g["nama"],
-                              "ada": bool(m["url"]), "aksi": list(AKSI_MENU.get(m["kode"], AKSI))})
+                              "ada": bool(m["url"]), "aksi": aksi_menu(m)})
     return hasil
 
 

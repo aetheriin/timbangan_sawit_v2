@@ -40,6 +40,9 @@ GRANT DELETE ON dbo.Company TO [weighbridge_app];
 GRANT DELETE ON dbo.Department TO [weighbridge_app];
 -- Log hanya lewat prosedur (rantai hash); tabelnya tidak boleh ditulis langsung
 GRANT EXECUTE ON dbo.sp_WriteLog TO [weighbridge_app];
+-- Hak akses bersama (dipakai juga oleh aplikasi Analytics / RekapIn)
+GRANT EXECUTE ON dbo.sp_UserMenu TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_CekAkses TO [weighbridge_app];
 DENY INSERT, UPDATE, DELETE ON dbo.Log TO [weighbridge_app];
 -- Blacklist tidak pernah dihapus (dicabut = RevokeDate diisi lewat persetujuan)
 DENY DELETE ON dbo.Blacklist TO [weighbridge_app];

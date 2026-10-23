@@ -13,12 +13,12 @@ PETA = {3: {"FORM_SECURITY": {"tambah": True, "ubah": True, "hapus": False},
 
 
 def user(id_level=3, is_admin=False):
-    return NS(is_authenticated=True, id_level=id_level, is_admin=is_admin, role="SECURITY")
+    return NS(is_authenticated=True, id=id_level, id_level=id_level, is_admin=is_admin, role="SECURITY")
 
 
 class TestBoleh(unittest.TestCase):
     def setUp(self):
-        p = patch.object(hak_akses, "peta_akses", return_value=PETA)
+        p = patch.object(hak_akses, "hak_menu_user", side_effect=lambda id_user: PETA.get(id_user, {}))
         p.start()
         self.addCleanup(p.stop)
 
@@ -56,13 +56,15 @@ if __name__ == "__main__":
 
 
 class TestAksiMenu(unittest.TestCase):
-    def test_semua_menu_bawaan_punya_daftar_aksi(self):
+    def test_actionlist_menu_bawaan(self):
         import os, re
         schema = open(os.path.join(os.path.dirname(__file__), "..", "database", "schema.sql"), encoding="utf-8").read()
         blok = "".join(re.findall(r"INSERT INTO dbo\.Menu .*?;", schema, re.S))
         kode = set(re.findall(r"\('([A-Z_]+)',\s+N'", blok))
-        self.assertIn("DASHBOARD", kode)
-        kode = {k for k in kode if not k.startswith("G_")}         # grup navbar Lv1
-        induk = {"FORM", "FACE_RECOGNITION", "MASTER"}            # punya anak, tidak tampil di matriks
-        self.assertEqual(kode - induk - set(hak_akses.AKSI_MENU), set())
-        self.assertNotIn("hapus", hak_akses.AKSI_MENU["DASHBOARD"])
+        update = re.search(r"UPDATE m SET ActionList = v\.aksi.*?;", schema, re.S).group(0)
+        aksi = dict(re.findall(r"\('([A-Z_]+)', '([0-9,]*)'\)", update))
+        self.assertIn("DASHBOARD", aksi)
+        self.assertEqual(set(aksi) - kode, set())                 # semua kode di UPDATE memang ada di Menu
+        self.assertNotIn("0", aksi["DASHBOARD"].split(","))
+        self.assertEqual(hak_akses.aksi_menu({"daftar_aksi": aksi["BLACKLIST"]}), ["tambah", "hapus", "setujui"])
+        self.assertEqual(hak_akses.aksi_menu({"daftar_aksi": ""}), [])
