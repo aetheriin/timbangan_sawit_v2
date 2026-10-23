@@ -23,16 +23,16 @@ def cari_tiket(kata, id_area=None, batas=8):
     pola = _pola(kata)
     return _query(f"""
         SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, t.no_do, t.status_alur, t.created_at,
-               s.nama_supplier AS customer, p.nama_produk AS produk, d.Nama AS supir,
+               s.SupplierName AS customer, p.ProductName AS produk, d.Nama AS supir,
                COALESCE(tb.berat_netto, t.berat_split_kg) AS netto
         FROM transaksi t
         JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-        JOIN mitra s ON s.id_supplier = t.id_supplier
-        JOIN produk p ON p.id_produk = t.id_produk
+        JOIN Supplier s ON s.SupplierID = t.id_supplier
+        JOIN Product p ON p.ProductID = t.id_produk
         JOIN Users d ON d.UserID = t.id_driver
         LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
         WHERE (t.no_tiket LIKE ? OR REPLACE(k.NoVehicle, ' ', '') LIKE REPLACE(?, ' ', '') OR t.no_do LIKE ?
-               OR d.Nama LIKE ? OR s.nama_supplier LIKE ?){filter_area}
+               OR d.Nama LIKE ? OR s.SupplierName LIKE ?){filter_area}
         ORDER BY t.created_at DESC""", pola, pola, pola, pola, pola, *param_area)
 
 
@@ -40,17 +40,17 @@ def cari_do(kata, batas=5):
     """DO / kontrak: no. DO, no. kontrak, atau nama customer. Realisasi = total netto tiket DO (tanpa VOID)."""
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} o.no_do, k.no_kontrak, c.nama_supplier AS customer, p.nama_produk AS produk,
-               k.qty_kg, o.is_active, o.berlaku_sampai,
+        SELECT TOP {int(batas)} o.DONumber AS no_do, k.ContractNumber AS no_kontrak, c.SupplierName AS customer, p.ProductName AS produk,
+               k.ContractQty AS qty_kg, o.Active AS is_active, o.ExpiredDate AS berlaku_sampai,
                (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
                 LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
-                WHERE t.id_do = o.id_do AND t.status_alur <> 'VOID') AS realisasi_kg
-        FROM delivery_order o
-        JOIN kontrak k ON k.id_kontrak = o.id_kontrak
-        JOIN mitra c ON c.id_supplier = k.id_customer
-        JOIN produk p ON p.id_produk = k.id_produk
-        WHERE o.no_do LIKE ? OR k.no_kontrak LIKE ? OR c.nama_supplier LIKE ?
-        ORDER BY o.is_active DESC, o.created_at DESC""", pola, pola, pola)
+                WHERE t.id_do = o.DeliveryOrderID AND t.status_alur <> 'VOID') AS realisasi_kg
+        FROM DeliveryOrder o
+        JOIN Contract k ON k.ContractID = o.ContractID
+        JOIN Supplier c ON c.SupplierID = k.SupplierID
+        JOIN Product p ON p.ProductID = k.ProductID
+        WHERE o.DONumber LIKE ? OR k.ContractNumber LIKE ? OR c.SupplierName LIKE ?
+        ORDER BY o.Active DESC, o.CreateDate DESC""", pola, pola, pola)
 
 
 def cari_personel(kata, batas=5):

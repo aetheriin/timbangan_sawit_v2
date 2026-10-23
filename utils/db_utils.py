@@ -180,12 +180,12 @@ def user_id_baru(cursor):
 def get_semua_supplier():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT s.id_supplier, s.nama_supplier,
-                             CAST(CASE WHEN EXISTS (SELECT 1 FROM mitra_peran p WHERE p.id_supplier = s.id_supplier
-                                                    AND p.peran = 'CUSTOMER') THEN 1 ELSE 0 END AS BIT) AS is_customer,
-                             CAST(CASE WHEN EXISTS (SELECT 1 FROM mitra_peran p WHERE p.id_supplier = s.id_supplier
-                                                    AND p.peran = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan
-                      FROM mitra s WHERE s.is_active = 1 ORDER BY s.nama_supplier""")
+    cursor.execute("""SELECT s.SupplierID AS id_supplier, s.SupplierName AS nama_supplier,
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM SupplierTypeDetails p WHERE p.SupplierID = s.SupplierID
+                                                    AND p.TypeCode = 'CUSTOMER') THEN 1 ELSE 0 END AS BIT) AS is_customer,
+                             CAST(CASE WHEN EXISTS (SELECT 1 FROM SupplierTypeDetails p WHERE p.SupplierID = s.SupplierID
+                                                    AND p.TypeCode = 'PENGANGKUTAN') THEN 1 ELSE 0 END AS BIT) AS is_angkutan
+                      FROM Supplier s WHERE s.Active = 1 ORDER BY s.SupplierName""")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -194,7 +194,7 @@ def get_semua_supplier():
 def get_semua_produk():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id_produk, nama_produk, kategori, id_alur FROM produk WHERE is_active = 1 ORDER BY nama_produk")
+    cursor.execute("SELECT ProductID AS id_produk, ProductName AS nama_produk, Category AS kategori, FlowID AS id_alur FROM Product WHERE Active = 1 ORDER BY ProductName")
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -306,13 +306,13 @@ def get_kontrak_kendaraan(id_kendaraan, hanya_aktif=False):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT kk.id_kontrak, kk.no_kontrak, kk.id_supplier, s.nama_supplier, kk.id_produk, p.nama_produk,
-               kk.jenis_transaksi, kk.tanggal_mulai, kk.tanggal_selesai, kk.is_active, kk.keterangan
-        FROM kontrak_kendaraan kk
-        JOIN mitra s ON kk.id_supplier = s.id_supplier
-        LEFT JOIN produk p ON kk.id_produk = p.id_produk
-        WHERE kk.id_kendaraan = ?
-        ORDER BY kk.is_active DESC, kk.tanggal_mulai DESC
+        SELECT kk.VehicleContractID AS id_kontrak, kk.ContractNumber AS no_kontrak, kk.SupplierID AS id_supplier, s.SupplierName AS nama_supplier, kk.ProductID AS id_produk, p.ProductName AS nama_produk,
+               kk.TransactionType AS jenis_transaksi, kk.StartDate AS tanggal_mulai, kk.EndDate AS tanggal_selesai, kk.Active AS is_active, kk.Description AS keterangan
+        FROM VehicleContract kk
+        JOIN Supplier s ON kk.SupplierID = s.SupplierID
+        LEFT JOIN Product p ON kk.ProductID = p.ProductID
+        WHERE kk.IDVehicle = ?
+        ORDER BY kk.Active DESC, kk.StartDate DESC
     """, id_kendaraan)
     data = _rows_to_dicts(cursor)
     conn.close()
@@ -328,7 +328,7 @@ def get_kontrak_kendaraan(id_kendaraan, hanya_aktif=False):
     return data
 
 def _sql_kontrak_berlaku():
-    return "is_active = 1 AND tanggal_mulai <= ? AND (tanggal_selesai IS NULL OR tanggal_selesai >= ?)"
+    return "Active = 1 AND StartDate <= ? AND (EndDate IS NULL OR EndDate >= ?)"
 
 def cari_kontrak_aktif(id_kendaraan, id_supplier, cursor=None):
     """id_kontrak yang berlaku hari ini untuk pasangan truk + supplier, atau None."""
@@ -337,9 +337,9 @@ def cari_kontrak_aktif(id_kendaraan, id_supplier, cursor=None):
         conn = get_connection()
         cursor = conn.cursor()
     hari_ini = date.today()
-    cursor.execute(f"""SELECT TOP 1 id_kontrak FROM kontrak_kendaraan
-                       WHERE id_kendaraan = ? AND id_supplier = ? AND {_sql_kontrak_berlaku()}
-                       ORDER BY tanggal_mulai DESC""", id_kendaraan, id_supplier, hari_ini, hari_ini)
+    cursor.execute(f"""SELECT TOP 1 VehicleContractID AS id_kontrak FROM VehicleContract
+                       WHERE IDVehicle = ? AND SupplierID = ? AND {_sql_kontrak_berlaku()}
+                       ORDER BY StartDate DESC""", id_kendaraan, id_supplier, hari_ini, hari_ini)
     row = cursor.fetchone()
     if tutup:
         conn.close()
@@ -349,9 +349,9 @@ def tambah_kontrak(id_kendaraan, id_supplier, id_produk, jenis_transaksi, no_kon
                    tanggal_mulai, tanggal_selesai, keterangan, user_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""INSERT INTO kontrak_kendaraan
-                      (no_kontrak, id_kendaraan, id_supplier, id_produk, jenis_transaksi,
-                       tanggal_mulai, tanggal_selesai, keterangan, created_by)
+    cursor.execute("""INSERT INTO VehicleContract
+                      (ContractNumber, IDVehicle, SupplierID, ProductID, TransactionType,
+                       StartDate, EndDate, Description, CreateBy)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                    no_kontrak, id_kendaraan, id_supplier, id_produk, jenis_transaksi,
                    tanggal_mulai, tanggal_selesai, keterangan, user_id)
@@ -363,12 +363,12 @@ def akhiri_kontrak(id_kontrak):
     conn = get_connection()
     cursor = conn.cursor()
     hari_ini = date.today()
-    cursor.execute("""UPDATE kontrak_kendaraan SET is_active = 0,
-                      tanggal_selesai = CASE WHEN tanggal_selesai IS NULL OR tanggal_selesai > ? THEN ?
-                                             ELSE tanggal_selesai END
-                      WHERE id_kontrak = ? AND tanggal_mulai <= ?""", hari_ini, hari_ini, id_kontrak, hari_ini)
+    cursor.execute("""UPDATE VehicleContract SET Active = 0,
+                      EndDate = CASE WHEN EndDate IS NULL OR EndDate > ? THEN ?
+                                             ELSE EndDate END
+                      WHERE VehicleContractID = ? AND StartDate <= ?""", hari_ini, hari_ini, id_kontrak, hari_ini)
     if cursor.rowcount == 0:   # kontrak yang belum mulai: cukup dinonaktifkan
-        cursor.execute("UPDATE kontrak_kendaraan SET is_active = 0 WHERE id_kontrak = ?", id_kontrak)
+        cursor.execute("UPDATE VehicleContract SET Active = 0 WHERE VehicleContractID = ?", id_kontrak)
     conn.commit()
     conn.close()
 
@@ -496,14 +496,14 @@ def cari_transaksi_aktif(no_plat=None, no_tiket=None):
     cursor = conn.cursor()
     cursor.execute("""
         SELECT t.no_tiket, t.jenis_transaksi, t.no_do, t.status_alur, t.qr_expired_at,
-               t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.nama_supplier, p.nama_produk, p.kategori,
+               t.created_at, t.qr_reprint_count, t.id_supplier, t.id_produk, s.SupplierName AS nama_supplier, p.ProductName AS nama_produk, p.Category AS kategori,
                t.id_comp_area, t.id_alur, t.cara_angkut, t.id_pengangkutan, k.NoVehicle AS no_plat, k.NoSTNK AS no_stnk,
                d.UserID AS id_driver, d.UserCode AS kode_personel, d.NoKTP AS nik, d.Nama AS nama_driver, d.LicenseNumber AS no_sim,
                d.IsUpload AS is_updated, d.IsBlacklisted AS is_blacklisted, d.PhotoPath AS foto_path
         FROM transaksi t
         JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN mitra s ON t.id_supplier = s.id_supplier
-        JOIN produk p ON t.id_produk = p.id_produk
+        JOIN Supplier s ON t.id_supplier = s.SupplierID
+        JOIN Product p ON t.id_produk = p.ProductID
         JOIN UserProfile d ON t.id_driver = d.UserID
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID')
           AND (k.NoVehicle = ? OR t.no_tiket = ?)
@@ -644,9 +644,9 @@ def get_history_timbangan_by_supplier(id_supplier, hari=7, tanggal=None, id_area
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT TOP 200 s.nama_supplier, k.NoVehicle AS no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
+        SELECT TOP 200 s.SupplierName AS nama_supplier, k.NoVehicle AS no_plat, tb.berat_bruto, tb.berat_tara, tb.berat_netto, t.created_at
         FROM transaksi t
-        JOIN mitra s ON t.id_supplier = s.id_supplier
+        JOIN Supplier s ON t.id_supplier = s.SupplierID
         JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
         JOIN v_timbangan tb ON t.no_tiket = tb.no_tiket
         WHERE t.id_supplier = ? AND {filter_waktu}{_filter_area(id_area)[0]}
@@ -661,14 +661,14 @@ def get_list_tiket_aktif(id_area=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(f"""
-        SELECT t.no_tiket, k.NoVehicle AS no_plat, s.nama_supplier AS supplier, t.status_alur, t.jenis_transaksi,
-               p.nama_produk AS produk, p.kategori AS kategori_produk, t.created_at, t.id_alur,
+        SELECT t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, t.status_alur, t.jenis_transaksi,
+               p.ProductName AS produk, p.Category AS kategori_produk, t.created_at, t.id_alur,
                t.no_do, d.Nama AS supir
         FROM transaksi t
         LEFT JOIN Users d ON d.UserID = t.id_driver
         JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN mitra s ON t.id_supplier = s.id_supplier
-        JOIN produk p ON t.id_produk = p.id_produk
+        JOIN Supplier s ON t.id_supplier = s.SupplierID
+        JOIN Product p ON t.id_produk = p.ProductID
         WHERE t.status_alur NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
           AND ISNULL(t.id_alur, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
         ORDER BY t.created_at DESC
@@ -687,7 +687,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         filter_area, param_area = _filter_area(id_area)
         params = [-int(hari)] + ([int(id_produk)] if id_produk else []) + param_area
         cursor.execute(f"""
-            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.NoVehicle AS no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
+            SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS supplier, p.ProductName AS produk,
                    t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
                    t.status_alur, t.no_do, d.Nama AS supir, t.diperiksa_pada, pr.Nama AS pemeriksa,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
@@ -696,8 +696,8 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
                    END AS lama_menit
             FROM transaksi t
             JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-            JOIN mitra s ON t.id_supplier = s.id_supplier
-            JOIN produk p ON t.id_produk = p.id_produk
+            JOIN Supplier s ON t.id_supplier = s.SupplierID
+            JOIN Product p ON t.id_produk = p.ProductID
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
             LEFT JOIN Users d ON d.UserID = t.id_driver
             LEFT JOIN Users pr ON pr.UserID = t.diperiksa_oleh
@@ -784,7 +784,7 @@ def simpan_sortasi(no_tiket, mentah, busuk, tangkai, sampah, matang, brondolan, 
     conn.close()
     return total_persen_potongan, total_potongan_kg
 
-SQL_STANDAR = "SELECT id_produk, maks_ffa, maks_air, maks_kotoran FROM standar_mutu WHERE id_produk = ?"
+SQL_STANDAR = "SELECT ProductID AS id_produk, StandardFFA AS maks_ffa, StandardMoist AS maks_air, StandardDirt AS maks_kotoran FROM Product WHERE ProductID = ?"
 
 @cache_ttl(300)
 def get_standar_mutu(id_produk):
@@ -792,25 +792,20 @@ def get_standar_mutu(id_produk):
     cursor = conn.cursor()
     cursor.execute(SQL_STANDAR, id_produk)
     row = cursor.fetchone()
-    if not row:
-        cursor.execute("INSERT INTO standar_mutu (id_produk) VALUES (?)", id_produk)
-        conn.commit()
-        cursor.execute(SQL_STANDAR, id_produk)
-        row = cursor.fetchone()
     conn.close()
     return row
 
 def update_standar_mutu(id_produk, maks_ffa, maks_air, maks_kotoran, user_id=None):
-    """Simpan standar (buat baru bila produk belum punya) + catat riwayatnya di log_aktivitas (STANDAR_MUTU)."""
+    """Simpan standar mutu produk + catat riwayatnya di log_aktivitas (STANDAR_MUTU)."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""MERGE standar_mutu AS t USING (SELECT ? AS id_produk) AS s ON t.id_produk = s.id_produk
-                          WHEN MATCHED THEN UPDATE SET maks_ffa = ?, maks_air = ?, maks_kotoran = ?
-                          WHEN NOT MATCHED THEN INSERT (id_produk, maks_ffa, maks_air, maks_kotoran) VALUES (?, ?, ?, ?);""",
-                       id_produk, maks_ffa, maks_air, maks_kotoran, id_produk, maks_ffa, maks_air, maks_kotoran)
+        cursor.execute("UPDATE Product SET StandardFFA = ?, StandardMoist = ?, StandardDirt = ? WHERE ProductID = ?",
+                       maks_ffa, maks_air, maks_kotoran, id_produk)
+        if cursor.rowcount == 0:
+            raise ValueError("Produk tidak ditemukan")
         from utils import log_aktivitas
-        log_aktivitas.catat("STANDAR_MUTU", "STANDAR_UBAH", tabel="standar_mutu", id_baris=id_produk, user_id=user_id,
+        log_aktivitas.catat("STANDAR_MUTU", "STANDAR_UBAH", tabel="Product", id_baris=id_produk, user_id=user_id,
                             baru={"maks_ffa": maks_ffa, "maks_air": maks_air, "maks_kotoran": maks_kotoran}, cursor=cursor)
         conn.commit()
     finally:
@@ -822,11 +817,11 @@ def get_history_standar(hari=2):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT CAST(l.waktu AS DATETIME) AS updated_at, p.nama_produk,
+        cursor.execute("""SELECT CAST(l.waktu AS DATETIME) AS updated_at, p.ProductName AS nama_produk,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_ffa') AS FLOAT) AS maks_ffa,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_air') AS FLOAT) AS maks_air,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.Nama AS oleh
-                          FROM log_aktivitas l JOIN produk p ON p.id_produk = TRY_CAST(l.id_baris AS INT)
+                          FROM log_aktivitas l JOIN Product p ON p.ProductID = TRY_CAST(l.id_baris AS INT)
                           LEFT JOIN Users u ON u.UserID = l.id_user
                           WHERE l.kategori = 'STANDAR_MUTU' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
                           ORDER BY l.id_log DESC""", -(int(hari) - 1))
@@ -881,12 +876,12 @@ def get_history_umum(tabel, limit=10, id_area=None):
         raise ValueError(f"Tabel tidak diizinkan: {tabel}")
     kolom_status = "sr.keputusan" if tabel == 'lab_hasil' else "t.status_alur"
     cursor.execute(f"""
-        SELECT TOP {int(limit)} k.NoVehicle AS no_plat, p.nama_produk, s.nama_supplier, {kolom_status} AS status_val
+        SELECT TOP {int(limit)} k.NoVehicle AS no_plat, p.ProductName AS nama_produk, s.SupplierName AS nama_supplier, {kolom_status} AS status_val
         FROM {tabel} sr
         JOIN transaksi t ON sr.no_tiket = t.no_tiket
         JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-        JOIN produk p ON t.id_produk = p.id_produk
-        JOIN mitra s ON t.id_supplier = s.id_supplier
+        JOIN Product p ON t.id_produk = p.ProductID
+        JOIN Supplier s ON t.id_supplier = s.SupplierID
         WHERE 1 = 1{_filter_area(id_area)[0]}
         ORDER BY t.created_at DESC
     """, *_filter_area(id_area)[1])

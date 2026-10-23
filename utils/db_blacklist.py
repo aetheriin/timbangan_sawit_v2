@@ -26,7 +26,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
                df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.CreateDate AS DATE)) AS tgl_blacklist,
                b.BlacklistDoc AS id_dokumen, b.CreateDate AS created_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh, ar.AreaName AS area_oleh,
                p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel, k.NoVehicle AS no_plat, b.NoVehicle AS no_plat_terkait,
-               c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait,
+               c.SupplierName AS customer_terkait, a.SupplierName AS pengangkutan_terkait,
                b.RevokeDate AS dicabut_at, b.RevokeReason AS alasan_cabut, uc.Nama AS dicabut_oleh, p.NoKTP AS nik, b.AliasName AS nama_alias, b.CategoryCode AS kategori,
                CASE WHEN b.TargetType = 'KENDARAAN' THEN 'Kendaraan' ELSE kp.CategoryName END AS nama_kategori,
                arb.AreaName AS lokasi_blacklist, cb.CompID AS company_blacklist,
@@ -35,8 +35,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
                 AND pg.target = 'BLACKLIST:' + CAST(b.BlacklistID AS VARCHAR(20))) AS id_pengajuan_hapus
         FROM Blacklist b
         LEFT JOIN Users uc ON uc.UserID = b.RevokeBy
-        LEFT JOIN mitra c ON b.CustomerID = c.id_supplier
-        LEFT JOIN mitra a ON b.TransportID = a.id_supplier
+        LEFT JOIN Supplier c ON b.CustomerID = c.SupplierID
+        LEFT JOIN Supplier a ON b.TransportID = a.SupplierID
         JOIN Users u ON b.CreateBy = u.UserID
         JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
         LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
@@ -93,12 +93,12 @@ _SELECT_PERSONEL = """
            tr.produk AS produk_terakhir, tr.created_at AS waktu_terakhir
     FROM UserProfile p
     LEFT JOIN UserCategory kp ON kp.CategoryCode = p.CategoryCode
-    OUTER APPLY (SELECT TOP 1 k.NoVehicle AS no_plat, t.id_supplier, s.nama_supplier AS customer, t.id_pengangkutan,
-                        a.nama_supplier AS pengangkutan, pr.nama_produk AS produk, t.created_at
+    OUTER APPLY (SELECT TOP 1 k.NoVehicle AS no_plat, t.id_supplier, s.SupplierName AS customer, t.id_pengangkutan,
+                        a.SupplierName AS pengangkutan, pr.ProductName AS produk, t.created_at
                  FROM transaksi t JOIN DetailVehicle k ON t.id_kendaraan = k.IDVehicle
-                 JOIN mitra s ON t.id_supplier = s.id_supplier
-                 LEFT JOIN produk pr ON pr.id_produk = t.id_produk
-                 LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
+                 JOIN Supplier s ON t.id_supplier = s.SupplierID
+                 LEFT JOIN Product pr ON pr.ProductID = t.id_produk
+                 LEFT JOIN Supplier a ON t.id_pengangkutan = a.SupplierID
                  WHERE t.id_driver = p.UserID ORDER BY t.created_at DESC) tr
     WHERE p.Active = 1"""
 
@@ -137,13 +137,13 @@ def cari_target(tipe, kata, batas=8):
                 OUTER APPLY (SELECT TOP 1 p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel
                              FROM VehicleDriver kd JOIN Users p ON p.UserID = kd.UserID
                              WHERE kd.IDVehicle = k.IDVehicle AND kd.Active = 1 AND kd.IsMain = 1) u
-                OUTER APPLY (SELECT TOP 1 t.id_driver, p.UserCode AS kode_personel, p.Nama AS nama_personel, s.nama_supplier AS customer,
-                                    t.id_supplier, t.id_pengangkutan, a.nama_supplier AS pengangkutan,
-                                    pr.nama_produk AS produk, t.created_at
+                OUTER APPLY (SELECT TOP 1 t.id_driver, p.UserCode AS kode_personel, p.Nama AS nama_personel, s.SupplierName AS customer,
+                                    t.id_supplier, t.id_pengangkutan, a.SupplierName AS pengangkutan,
+                                    pr.ProductName AS produk, t.created_at
                              FROM transaksi t JOIN Users p ON p.UserID = t.id_driver
-                             JOIN mitra s ON t.id_supplier = s.id_supplier
-                             LEFT JOIN produk pr ON pr.id_produk = t.id_produk
-                             LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
+                             JOIN Supplier s ON t.id_supplier = s.SupplierID
+                             LEFT JOIN Product pr ON pr.ProductID = t.id_produk
+                             LEFT JOIN Supplier a ON t.id_pengangkutan = a.SupplierID
                              WHERE t.id_kendaraan = k.IDVehicle ORDER BY t.created_at DESC) tr
                 WHERE REPLACE(k.NoVehicle, ' ', '') LIKE ?
                 ORDER BY k.NoVehicle""", f"%{kata.replace(' ', '')}%")
@@ -154,15 +154,15 @@ def cari_target(tipe, kata, batas=8):
 
 def info_kendaraan(id_kendaraan):
     """Plat, supplier / pengangkutan / produk transaksi terakhir kendaraan (pengajuan blacklist kendaraan)."""
-    rows = _query_satu("""SELECT k.NoVehicle AS no_plat, s.nama_supplier AS customer_terakhir, a.nama_supplier AS pengangkutan_terakhir,
-                                 pr.nama_produk AS produk_terakhir, t.id_supplier AS id_customer_terakhir,
+    rows = _query_satu("""SELECT k.NoVehicle AS no_plat, s.SupplierName AS customer_terakhir, a.SupplierName AS pengangkutan_terakhir,
+                                 pr.ProductName AS produk_terakhir, t.id_supplier AS id_customer_terakhir,
                                  t.id_pengangkutan AS id_pengangkutan_terakhir
                           FROM DetailVehicle k
                           OUTER APPLY (SELECT TOP 1 t.id_supplier, t.id_pengangkutan, t.id_produk FROM transaksi t
                                        WHERE t.id_kendaraan = k.IDVehicle ORDER BY t.created_at DESC) t
-                          LEFT JOIN mitra s ON s.id_supplier = t.id_supplier
-                          LEFT JOIN mitra a ON a.id_supplier = t.id_pengangkutan
-                          LEFT JOIN produk pr ON pr.id_produk = t.id_produk
+                          LEFT JOIN Supplier s ON s.SupplierID = t.id_supplier
+                          LEFT JOIN Supplier a ON a.SupplierID = t.id_pengangkutan
+                          LEFT JOIN Product pr ON pr.ProductID = t.id_produk
                           WHERE k.IDVehicle = ?""", id_kendaraan)
     return rows[0] if rows else None
 
@@ -276,12 +276,12 @@ def nama_target(tipe, id_target):
 def get_blacklist(id_blacklist):
     rows = _query_satu("""SELECT b.BlacklistID AS id_blacklist, b.TargetType AS tipe_entitas, b.UserID AS id_personel, b.IDVehicle AS id_kendaraan, b.RevokeDate AS dicabut_at,
                                  COALESCE(p.Nama, k.NoVehicle) AS nama, p.NoKTP AS nik, b.AliasName AS nama_alias, b.CategoryCode AS kategori,
-                                 COALESCE(b.NoVehicle, k.NoVehicle) AS no_plat, c.nama_supplier AS supplier,
-                                 a.nama_supplier AS pengangkutan
+                                 COALESCE(b.NoVehicle, k.NoVehicle) AS no_plat, c.SupplierName AS supplier,
+                                 a.SupplierName AS pengangkutan
                           FROM Blacklist b LEFT JOIN Users p ON p.UserID = b.UserID
                           LEFT JOIN DetailVehicle k ON k.IDVehicle = b.IDVehicle
-                          LEFT JOIN mitra c ON c.id_supplier = b.CustomerID
-                          LEFT JOIN mitra a ON a.id_supplier = b.TransportID WHERE b.BlacklistID = ?""", id_blacklist)
+                          LEFT JOIN Supplier c ON c.SupplierID = b.CustomerID
+                          LEFT JOIN Supplier a ON a.SupplierID = b.TransportID WHERE b.BlacklistID = ?""", id_blacklist)
     return rows[0] if rows else None
 
 
@@ -331,5 +331,5 @@ def cabut_blacklist(id_blacklist, alasan, user_id):
 
 def mitra_aktif(id_supplier):
     """Nama mitra aktif, atau None."""
-    rows = _query_satu("SELECT nama_supplier FROM mitra WHERE id_supplier = ? AND is_active = 1", id_supplier)
+    rows = _query_satu("SELECT SupplierName AS nama_supplier FROM Supplier WHERE SupplierID = ? AND Active = 1", id_supplier)
     return rows[0]["nama_supplier"] if rows else None

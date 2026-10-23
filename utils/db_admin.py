@@ -163,12 +163,12 @@ def cabut_sesi(id_user):
 
 # ===== MASTER SUPPLIER & PRODUK =====
 def daftar_supplier():
-    rows = _query("""SELECT s.id_supplier, s.kode_supplier, s.nama_supplier, s.alamat, s.is_active, s.created_at,
-                            pc.peran AS peran_customer, pa.peran AS peran_angkutan
-                     FROM mitra s
-                     LEFT JOIN mitra_peran pc ON pc.id_supplier = s.id_supplier AND pc.peran = 'CUSTOMER'
-                     LEFT JOIN mitra_peran pa ON pa.id_supplier = s.id_supplier AND pa.peran = 'PENGANGKUTAN'
-                     ORDER BY s.is_active DESC, s.nama_supplier""")
+    rows = _query("""SELECT s.SupplierID AS id_supplier, s.SupplierCode AS kode_supplier, s.SupplierName AS nama_supplier, s.SupplierAddress AS alamat, s.Active AS is_active, s.CreateDate AS created_at,
+                            pc.TypeCode AS peran_customer, pa.TypeCode AS peran_angkutan
+                     FROM Supplier s
+                     LEFT JOIN SupplierTypeDetails pc ON pc.SupplierID = s.SupplierID AND pc.TypeCode = 'CUSTOMER'
+                     LEFT JOIN SupplierTypeDetails pa ON pa.SupplierID = s.SupplierID AND pa.TypeCode = 'PENGANGKUTAN'
+                     ORDER BY s.Active DESC, s.SupplierName""")
     pt = company_supplier()
     for r in rows:
         r.update(is_customer=bool(r.pop("peran_customer")), is_angkutan=bool(r.pop("peran_angkutan")),
@@ -181,7 +181,7 @@ def company_supplier():
     """{id_supplier: (id_company, ...)} (tabel mitra_company, migrasi 032). Supplier yang tidak ada di sini = semua PT."""
     hasil = {}
     try:
-        for r in _query("SELECT id_supplier, id_company FROM mitra_company ORDER BY id_company"):
+        for r in _query("SELECT SupplierID AS id_supplier, CompID AS id_company FROM SupplierCompany ORDER BY CompID"):
             hasil.setdefault(r["id_supplier"], []).append(r["id_company"])
     except pyodbc.Error:
         pass
@@ -195,7 +195,7 @@ def supplier_boleh(id_supplier, pt_user):
 
 
 def kode_supplier_dipakai(kode, kecuali=None):
-    rows = _query("SELECT id_supplier FROM mitra WHERE kode_supplier = ?", kode)
+    rows = _query("SELECT SupplierID AS id_supplier FROM Supplier WHERE SupplierCode = ?", kode)
     return any(r["id_supplier"] != kecuali for r in rows)
 
 
@@ -205,20 +205,20 @@ def simpan_supplier(id_supplier, kode, nama, peran, alamat=None, daftar_company=
     try:
         cursor = conn.cursor()
         if id_supplier:
-            cursor.execute("UPDATE mitra SET kode_supplier = ?, nama_supplier = ?, alamat = ? WHERE id_supplier = ?",
+            cursor.execute("UPDATE Supplier SET SupplierCode = ?, SupplierName = ?, SupplierAddress = ? WHERE SupplierID = ?",
                            kode, nama, alamat, id_supplier)
             if cursor.rowcount == 0:
                 raise ValueError("Data tidak ditemukan")
         else:
-            cursor.execute("""SET NOCOUNT ON; INSERT INTO mitra (kode_supplier, nama_supplier, alamat) VALUES (?, ?, ?);
+            cursor.execute("""SET NOCOUNT ON; INSERT INTO Supplier (SupplierCode, SupplierName, SupplierAddress) VALUES (?, ?, ?);
                               SELECT CAST(SCOPE_IDENTITY() AS INT)""", kode, nama, alamat)
             id_supplier = cursor.fetchone()[0]
-        cursor.execute("DELETE FROM mitra_peran WHERE id_supplier = ?", id_supplier)
+        cursor.execute("DELETE FROM SupplierTypeDetails WHERE SupplierID = ?", id_supplier)
         for p in peran:
-            cursor.execute("INSERT INTO mitra_peran (id_supplier, peran) VALUES (?, ?)", id_supplier, p)
-        cursor.execute("DELETE FROM mitra_company WHERE id_supplier = ?", id_supplier)
+            cursor.execute("INSERT INTO SupplierTypeDetails (SupplierID, TypeCode) VALUES (?, ?)", id_supplier, p)
+        cursor.execute("DELETE FROM SupplierCompany WHERE SupplierID = ?", id_supplier)
         for id_c in sorted(set(daftar_company)):
-            cursor.execute("INSERT INTO mitra_company (id_supplier, id_company) VALUES (?, ?)", id_supplier, id_c)
+            cursor.execute("INSERT INTO SupplierCompany (SupplierID, CompID) VALUES (?, ?)", id_supplier, id_c)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -230,33 +230,33 @@ def simpan_supplier(id_supplier, kode, nama, peran, alamat=None, daftar_company=
 
 
 def set_aktif_supplier(id_supplier, aktif):
-    _ubah("UPDATE mitra SET is_active = ? WHERE id_supplier = ?", 1 if aktif else 0, id_supplier)
+    _ubah("UPDATE Supplier SET Active = ? WHERE SupplierID = ?", 1 if aktif else 0, id_supplier)
     get_semua_supplier.hapus()
 
 
 def daftar_produk():
-    return _query("""SELECT p.id_produk, p.nama_produk, p.kategori, p.is_active, p.id_alur, a.nama AS nama_alur,
-                            CASE WHEN s.id_produk IS NULL THEN 0 ELSE 1 END AS ada_standar
-                     FROM produk p LEFT JOIN standar_mutu s ON s.id_produk = p.id_produk
-                     LEFT JOIN alur a ON a.id_alur = p.id_alur
-                     ORDER BY p.is_active DESC, p.nama_produk""")
+    return _query("""SELECT p.ProductID AS id_produk, p.ProductName AS nama_produk, p.Category AS kategori, p.Active AS is_active, p.FlowID AS id_alur, a.nama AS nama_alur,
+                            1 AS ada_standar
+                     FROM Product p
+                     LEFT JOIN alur a ON a.id_alur = p.FlowID
+                     ORDER BY p.Active DESC, p.ProductName""")
 
 
 def nama_produk_dipakai(nama, kecuali=None):
-    rows = _query("SELECT id_produk FROM produk WHERE LOWER(nama_produk) = LOWER(?)", nama)
+    rows = _query("SELECT ProductID AS id_produk FROM Product WHERE LOWER(ProductName) = LOWER(?)", nama)
     return any(r["id_produk"] != kecuali for r in rows)
 
 
 def simpan_produk(id_produk, nama, kategori, id_alur):
     if id_produk:
-        _ubah("UPDATE produk SET nama_produk = ?, kategori = ?, id_alur = ? WHERE id_produk = ?", nama, kategori, id_alur, id_produk)
+        _ubah("UPDATE Product SET ProductName = ?, Category = ?, FlowID = ? WHERE ProductID = ?", nama, kategori, id_alur, id_produk)
     else:
-        _ubah("INSERT INTO produk (nama_produk, kategori, id_alur) VALUES (?, ?, ?)", nama, kategori, id_alur)
+        _ubah("INSERT INTO Product (ProductName, Category, FlowID) VALUES (?, ?, ?)", nama, kategori, id_alur)
     get_semua_produk.hapus()
 
 
 def set_aktif_produk(id_produk, aktif):
-    _ubah("UPDATE produk SET is_active = ? WHERE id_produk = ?", 1 if aktif else 0, id_produk)
+    _ubah("UPDATE Product SET Active = ? WHERE ProductID = ?", 1 if aktif else 0, id_produk)
     get_semua_produk.hapus()
 
 
@@ -303,13 +303,13 @@ def info_database():
 # ===== VOID TIKET (pembatalan_tiket, migrasi 010) =====
 def daftar_tiket(cari="", hari=30, batas=500):
     cari = f"%{cari.strip()}%"
-    return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, s.nama_supplier AS customer, t.no_do, t.jenis_transaksi,
+    return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS customer, t.no_do, t.jenis_transaksi,
                              t.status_alur, t.created_at, pb.jenis AS jenis_batal, pb.alasan AS alasan_void,
                              pb.waktu AS void_at, u.Nama AS void_oleh, pb.id_dokumen,
                              dk.no_dokumen AS no_ba, df.file_path AS file_ba
                       FROM transaksi t
                       JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
-                      JOIN mitra s ON s.id_supplier = t.id_supplier
+                      JOIN Supplier s ON s.SupplierID = t.id_supplier
                       LEFT JOIN pembatalan_tiket pb ON pb.no_tiket = t.no_tiket
                       LEFT JOIN Users u ON u.UserID = pb.oleh
                       LEFT JOIN dokumen dk ON dk.id_dokumen = pb.id_dokumen

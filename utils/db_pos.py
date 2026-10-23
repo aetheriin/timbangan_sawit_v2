@@ -11,15 +11,15 @@ from utils.db_utils import get_connection, _rows_to_dicts, AREA_TIKET
 DI_DALAM = "t.waktu_keluar IS NULL AND t.status_alur <> 'VOID'"
 
 _KOLOM = """t.no_tiket, k.NoVehicle AS no_plat, t.id_driver, d.Nama AS supir, d.UserCode AS kode_personel,
-            s.nama_supplier AS customer, p.nama_produk AS produk, t.jenis_transaksi, t.status_alur,
-            ISNULL(ang.nama_supplier, '') AS pengangkutan, t.created_at AS waktu_masuk, t.waktu_keluar,
+            s.SupplierName AS customer, p.ProductName AS produk, t.jenis_transaksi, t.status_alur,
+            ISNULL(ang.SupplierName, '') AS pengangkutan, t.created_at AS waktu_masuk, t.waktu_keluar,
             um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.kode AS kode_alur"""
 _DARI = """FROM transaksi t
            JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
            JOIN Users d ON d.UserID = t.id_driver
-           JOIN mitra s ON s.id_supplier = t.id_supplier
-           JOIN produk p ON p.id_produk = t.id_produk
-           LEFT JOIN mitra ang ON ang.id_supplier = t.id_pengangkutan
+           JOIN Supplier s ON s.SupplierID = t.id_supplier
+           JOIN Product p ON p.ProductID = t.id_produk
+           LEFT JOIN Supplier ang ON ang.SupplierID = t.id_pengangkutan
            LEFT JOIN Users um ON um.UserID = t.security_id
            LEFT JOIN Users uk ON uk.UserID = t.keluar_oleh
            LEFT JOIN alur a ON a.id_alur = t.id_alur"""

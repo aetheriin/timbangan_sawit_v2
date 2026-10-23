@@ -19,6 +19,8 @@ lab_bp = Blueprint('lab', __name__)
 @login_required
 def lab_standar(id_produk):
     row = get_standar_mutu(id_produk)
+    if row is None:
+        return jsonify({"error": "Produk tidak ditemukan"}), 404
     return jsonify({"maks_ffa": row.maks_ffa, "maks_air": row.maks_air, "maks_kotoran": row.maks_kotoran})
 
 @lab_bp.route("/api/lab/standar/update", methods=["POST"])
@@ -33,7 +35,10 @@ def lab_standar_update():
         return jsonify({"error": "Produk dan semua batas standar wajib diisi angka"}), 400
     if any(v < 0 or v > 100 for v in nilai):
         return jsonify({"error": "Batas standar harus 0 - 100 %"}), 400
-    update_standar_mutu(id_produk, *nilai, user_id=current_user.id)
+    try:
+        update_standar_mutu(id_produk, *nilai, user_id=current_user.id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
     return jsonify({"message": "Standar mutu berhasil diperbarui"}), 200
 
 

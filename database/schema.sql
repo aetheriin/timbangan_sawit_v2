@@ -9,6 +9,9 @@
    Tahap 2: orang & kendaraan: Users (= personel: karyawan, supir, tamu; UserName terisi = punya login), UserCategory,
    License + LicenseDetail (SIM), FaceRecog (wajah), VisitPurpose + Guest (kunjungan), FaceActivity (absensi),
    VehicleType, DetailVehicle, VehicleDriver, Blacklist, BlacklistDetection, view UserProfile.
+   Tahap 3: mitra & kontrak: Currency, Bank, BankDetails, SupplierType (+ SupplierTypeDetails), SupplierGroup, Supplier
+   (+ SupplierCompany), ProductType, Product (+ standar mutu), ProductPrice, DailyPrice, Contract, DeliveryOrder,
+   DOTransport, VehicleContract, Invoice.
    Mulai versi ini database DIBUAT BARU dari file ini; migrasi lama (database/migrations/ 001-043) hanya untuk
    database versi sebelumnya dan tidak dipakai lagi.
 
@@ -313,26 +316,69 @@ OUTER APPLY (SELECT TOP 1 f.FaceDet, f.PhotoPath, f.Source
 GO
 
 -- Customer (membeli / menjual) & pengangkutan pihak ketiga
-CREATE TABLE dbo.mitra (
-    id_supplier    INT IDENTITY(1,1) PRIMARY KEY,
-    kode_supplier  VARCHAR(20)  NOT NULL CONSTRAINT UX_Supplier_Kode UNIQUE,
-    nama_supplier  VARCHAR(100) NOT NULL,
-    is_active      BIT NOT NULL CONSTRAINT DF_Supplier_Aktif DEFAULT (1),
-    created_at     DATETIME NOT NULL CONSTRAINT DF_Supplier_Created DEFAULT (GETDATE()),
-    alamat         NVARCHAR(255) NULL                                  -- migrasi 032
+-- Mata uang, bank & rekening (disiapkan untuk keuangan; belum ada layar)
+CREATE TABLE dbo.Currency (
+    CurrencyID    INT IDENTITY(1,1) PRIMARY KEY,
+    CurrencyCode  VARCHAR(10)   NOT NULL CONSTRAINT UX_Currency_Code UNIQUE,
+    CurrencyName  NVARCHAR(100) NOT NULL,
+    CurrencyRate  DECIMAL(20, 4) NULL,                 -- kurs ke IDR
+    Description   NVARCHAR(255) NULL,
+    Active        BIT NOT NULL CONSTRAINT DF_Currency_Active DEFAULT (1)
 );
--- Supplier hanya berlaku di PT tertentu (migrasi 032); tanpa baris = semua PT
-CREATE TABLE dbo.mitra_company (
-    id_supplier INT NOT NULL CONSTRAINT FK_MitraCompany_Mitra REFERENCES dbo.mitra (id_supplier),
-    id_company  VARCHAR(5) NOT NULL CONSTRAINT FK_MitraCompany_Company REFERENCES dbo.Company (CompID),
-    CONSTRAINT PK_MitraCompany PRIMARY KEY (id_supplier, id_company)
+CREATE TABLE dbo.Bank (
+    BankAccountID  INT IDENTITY(1,1) PRIMARY KEY,
+    BankName       NVARCHAR(300) NOT NULL,
+    BankRegion     NVARCHAR(170) NULL,
+    CurrencyID     INT NULL CONSTRAINT FK_Bank_Currency REFERENCES dbo.Currency (CurrencyID),
+    CompAreaID     BIGINT NULL CONSTRAINT FK_Bank_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    Active         BIT NOT NULL CONSTRAINT DF_Bank_Active DEFAULT (1)
+);
+CREATE TABLE dbo.BankDetails (
+    BankAccountDetailsID  BIGINT IDENTITY(1,1) PRIMARY KEY,
+    BankAccountID         INT NOT NULL CONSTRAINT FK_BankDet_Bank REFERENCES dbo.Bank (BankAccountID),
+    BankAccountCode       NVARCHAR(100) NOT NULL,          -- no. rekening
+    BankName              NVARCHAR(300) NULL,              -- atas nama
+    Balance               DECIMAL(20, 2) NULL,
+    Active                BIT NOT NULL CONSTRAINT DF_BankDet_Active DEFAULT (1)
 );
 GO
--- Peran mitra (migrasi 013, nama tabel migrasi 016): satu mitra boleh customer sekaligus pengangkutan
-CREATE TABLE dbo.mitra_peran (
-    id_supplier  INT NOT NULL CONSTRAINT FK_SupPeran_Supplier REFERENCES dbo.mitra (id_supplier),
-    peran        VARCHAR(20) NOT NULL CONSTRAINT CK_SupPeran_Peran CHECK (peran IN ('CUSTOMER', 'PENGANGKUTAN')),
-    CONSTRAINT PK_SupplierPeran PRIMARY KEY (id_supplier, peran)
+-- Jenis mitra (Customer, Pengangkutan); satu supplier boleh lebih dari satu jenis (SupplierTypeDetails)
+CREATE TABLE dbo.SupplierType (
+    SupplierTypeID  INT IDENTITY(1,1) PRIMARY KEY,
+    TypeCode        VARCHAR(20)   NOT NULL CONSTRAINT UX_SupplierType_Code UNIQUE,
+    NameType        NVARCHAR(255) NOT NULL,
+    Description     NVARCHAR(255) NULL,
+    Active          BIT NOT NULL CONSTRAINT DF_SupplierType_Active DEFAULT (1)
+);
+CREATE TABLE dbo.SupplierGroup (
+    SupplierGroupID  INT IDENTITY(1,1) PRIMARY KEY,
+    NameGroup        NVARCHAR(255) NOT NULL,
+    Description      NVARCHAR(255) NULL,
+    Active           BIT NOT NULL CONSTRAINT DF_SupplierGroup_Active DEFAULT (1)
+);
+-- Supplier = mitra (customer / pengangkutan). BlacklistID: disiapkan untuk Supplier Blacklist
+CREATE TABLE dbo.Supplier (
+    SupplierID            INT IDENTITY(1,1) PRIMARY KEY,
+    SupplierCode          VARCHAR(20)   NOT NULL CONSTRAINT UX_Supplier_Code UNIQUE,
+    SupplierName          VARCHAR(100)  NOT NULL,
+    SupplierAddress       NVARCHAR(255) NULL,
+    SupplierGroupID       INT NULL CONSTRAINT FK_Supplier_Group REFERENCES dbo.SupplierGroup (SupplierGroupID),
+    BankAccountDetailsID  BIGINT NULL CONSTRAINT FK_Supplier_BankDet REFERENCES dbo.BankDetails (BankAccountDetailsID),
+    BlacklistID           BIGINT NULL,
+    Description           NVARCHAR(255) NULL,
+    Active                BIT NOT NULL CONSTRAINT DF_Supplier_Active DEFAULT (1),
+    CreateDate            DATETIME NOT NULL CONSTRAINT DF_Supplier_Create DEFAULT (GETDATE())
+);
+-- Supplier hanya berlaku di PT tertentu; tanpa baris = semua PT
+CREATE TABLE dbo.SupplierCompany (
+    SupplierID  INT NOT NULL CONSTRAINT FK_SupplierComp_Supplier REFERENCES dbo.Supplier (SupplierID),
+    CompID      VARCHAR(5) NOT NULL CONSTRAINT FK_SupplierComp_Company REFERENCES dbo.Company (CompID),
+    CONSTRAINT PK_SupplierCompany PRIMARY KEY (SupplierID, CompID)
+);
+CREATE TABLE dbo.SupplierTypeDetails (
+    SupplierID  INT NOT NULL CONSTRAINT FK_SupTypeDet_Supplier REFERENCES dbo.Supplier (SupplierID),
+    TypeCode    VARCHAR(20) NOT NULL CONSTRAINT FK_SupTypeDet_Type REFERENCES dbo.SupplierType (TypeCode),
+    CONSTRAINT PK_SupplierTypeDetails PRIMARY KEY (SupplierID, TypeCode)
 );
 GO
 
@@ -359,22 +405,38 @@ CREATE TABLE dbo.alur_tahap (
 );
 GO
 
-CREATE TABLE dbo.produk (
-    id_produk    INT IDENTITY(1,1) PRIMARY KEY,
-    nama_produk  VARCHAR(100) NOT NULL,
-    kategori     VARCHAR(20)  NOT NULL,
-    id_alur      INT NOT NULL CONSTRAINT FK_Produk_Alur REFERENCES dbo.alur (id_alur),
-    is_active    BIT NOT NULL CONSTRAINT DF_Produk_Aktif DEFAULT (1),
-    CONSTRAINT CK_Produk_Kategori CHECK (kategori IN ('TBS', 'PRODUK_PKS'))
+CREATE TABLE dbo.ProductType (
+    ProductTypeID    INT IDENTITY(1,1) PRIMARY KEY,
+    ProductTypeCode  VARCHAR(20)   NOT NULL CONSTRAINT UX_ProductType_Code UNIQUE,     -- TBS, PRODUK_PKS
+    ProductTypeName  NVARCHAR(50)  NOT NULL,
+    Description      VARCHAR(150)  NULL,
+    Active           BIT NOT NULL CONSTRAINT DF_ProductType_Active DEFAULT (1)
 );
-GO
-
-CREATE TABLE dbo.standar_mutu (
-    id_produk     INT PRIMARY KEY CONSTRAINT FK_Standar_Produk REFERENCES dbo.produk (id_produk),
-    maks_ffa      FLOAT NOT NULL CONSTRAINT DF_Standar_Ffa DEFAULT (5.0),
-    maks_air      FLOAT NOT NULL CONSTRAINT DF_Standar_Air DEFAULT (0.5),
-    maks_kotoran  FLOAT NOT NULL CONSTRAINT DF_Standar_Kotoran DEFAULT (0.5)
+-- Produk + standar mutu (batas FFA / kadar air / kotoran, dipakai Lab)
+CREATE TABLE dbo.Product (
+    ProductID      INT IDENTITY(1,1) PRIMARY KEY,
+    ProductName    VARCHAR(100) NOT NULL,
+    Category       VARCHAR(20)  NOT NULL CONSTRAINT FK_Product_Type REFERENCES dbo.ProductType (ProductTypeCode),
+    FlowID         INT NOT NULL CONSTRAINT FK_Product_Flow REFERENCES dbo.alur (id_alur),       -- alur tahap tiket
+    StandardFFA    FLOAT NOT NULL CONSTRAINT DF_Product_FFA DEFAULT (5.0),
+    StandardMoist  FLOAT NOT NULL CONSTRAINT DF_Product_Moist DEFAULT (0.5),
+    StandardDirt   FLOAT NOT NULL CONSTRAINT DF_Product_Dirt DEFAULT (0.5),
+    Active         BIT NOT NULL CONSTRAINT DF_Product_Active DEFAULT (1)
 );
+-- Harga per produk per tanggal (disiapkan untuk keuangan; belum ada layar). Void, bukan dihapus
+CREATE TABLE dbo.ProductPrice (
+    ProductPriceID  BIGINT IDENTITY(1,1) PRIMARY KEY,
+    ProductID       INT NOT NULL CONSTRAINT FK_ProductPrice_Product REFERENCES dbo.Product (ProductID),
+    PriceDate       DATE NOT NULL,
+    Price           DECIMAL(14, 2) NOT NULL,
+    CurrencyID      INT NULL CONSTRAINT FK_ProductPrice_Currency REFERENCES dbo.Currency (CurrencyID),
+    CreateDate      DATETIME NOT NULL CONSTRAINT DF_ProductPrice_Create DEFAULT (GETDATE()),
+    CreateBy        BIGINT NULL CONSTRAINT FK_ProductPrice_CreateBy REFERENCES dbo.Users (UserID),
+    IsVoid          BIT NOT NULL CONSTRAINT DF_ProductPrice_Void DEFAULT (0),
+    VoidDate        DATETIME NULL,
+    VoidBy          BIGINT NULL CONSTRAINT FK_ProductPrice_VoidBy REFERENCES dbo.Users (UserID)
+);
+CREATE INDEX IX_ProductPrice_Product_Date ON dbo.ProductPrice (ProductID, PriceDate DESC) WHERE IsVoid = 0;
 GO
 
 -- Jenis kendaraan. Kapasitas: peringatan di timbangan; kosong = tidak dicek
@@ -417,24 +479,24 @@ CREATE INDEX IX_VD_User ON dbo.VehicleDriver (UserID) INCLUDE (IDVehicle, Active
 GO
 
 -- Kontrak per truk (modal Update > Kontrak Truk di Form Security)
-CREATE TABLE dbo.kontrak_kendaraan (
-    id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
-    no_kontrak       VARCHAR(50) NULL,
-    id_kendaraan     INT NOT NULL CONSTRAINT FK_KK_Kendaraan REFERENCES dbo.DetailVehicle (IDVehicle),
-    id_supplier      INT NOT NULL CONSTRAINT FK_KK_Supplier REFERENCES dbo.mitra (id_supplier),
-    id_produk        INT NULL CONSTRAINT FK_KK_Produk REFERENCES dbo.produk (id_produk),
-    jenis_transaksi  VARCHAR(20) NULL,
-    tanggal_mulai    DATE NOT NULL,
-    tanggal_selesai  DATE NULL,
-    is_active        BIT NOT NULL CONSTRAINT DF_KK_Active DEFAULT (1),
-    keterangan       VARCHAR(255) NULL,
-    created_by       BIGINT NULL CONSTRAINT FK_KK_User REFERENCES dbo.Users (UserID),
-    created_at       DATETIME NOT NULL CONSTRAINT DF_KK_Created DEFAULT (GETDATE()),
-    CONSTRAINT CK_KK_Jenis CHECK (jenis_transaksi IS NULL OR jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
-    CONSTRAINT CK_KK_Periode CHECK (tanggal_selesai IS NULL OR tanggal_selesai >= tanggal_mulai)
+CREATE TABLE dbo.VehicleContract (
+    VehicleContractID  INT IDENTITY(1,1) PRIMARY KEY,
+    ContractNumber     VARCHAR(50) NULL,
+    IDVehicle          INT NOT NULL CONSTRAINT FK_VC_Vehicle REFERENCES dbo.DetailVehicle (IDVehicle),
+    SupplierID         INT NOT NULL CONSTRAINT FK_VC_Supplier REFERENCES dbo.Supplier (SupplierID),
+    ProductID          INT NULL CONSTRAINT FK_VC_Product REFERENCES dbo.Product (ProductID),
+    TransactionType    VARCHAR(20) NULL,
+    StartDate          DATE NOT NULL,
+    EndDate            DATE NULL,
+    Active             BIT NOT NULL CONSTRAINT DF_VC_Active DEFAULT (1),
+    Description        VARCHAR(255) NULL,
+    CreateBy           BIGINT NULL CONSTRAINT FK_VC_CreateBy REFERENCES dbo.Users (UserID),
+    CreateDate         DATETIME NOT NULL CONSTRAINT DF_VC_Create DEFAULT (GETDATE()),
+    CONSTRAINT CK_VC_Type CHECK (TransactionType IS NULL OR TransactionType IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
+    CONSTRAINT CK_VC_Period CHECK (EndDate IS NULL OR EndDate >= StartDate)
 );
-CREATE INDEX IX_KK_Kendaraan ON dbo.kontrak_kendaraan (id_kendaraan, is_active);
-CREATE INDEX IX_KK_Kendaraan_Supplier ON dbo.kontrak_kendaraan (id_kendaraan, id_supplier, is_active);
+CREATE INDEX IX_VC_Vehicle ON dbo.VehicleContract (IDVehicle, Active);
+CREATE INDEX IX_VC_Vehicle_Supplier ON dbo.VehicleContract (IDVehicle, SupplierID, Active);
 GO
 
 -- Kontrak & DO (migrasi 013, diisi HO): 1 kontrak = 1 produk = 1 DO; 1 DO boleh beberapa pengangkut
@@ -452,64 +514,85 @@ CREATE TABLE dbo.status_tiket (
     warna  VARCHAR(10)  NOT NULL CONSTRAINT DF_StatusTiket_Warna DEFAULT ('abu'),
     urutan TINYINT NOT NULL CONSTRAINT DF_StatusTiket_Urutan DEFAULT (0)
 );
-CREATE TABLE dbo.kontrak (
-    id_kontrak       INT IDENTITY(1,1) PRIMARY KEY,
-    no_kontrak       VARCHAR(50) NOT NULL CONSTRAINT UX_Kontrak_No UNIQUE,
-    jenis_transaksi  VARCHAR(20) NOT NULL,
-    id_customer      INT NOT NULL CONSTRAINT FK_Kontrak_Customer REFERENCES dbo.mitra (id_supplier),
-    id_produk        INT NOT NULL CONSTRAINT FK_Kontrak_Produk REFERENCES dbo.produk (id_produk),
-    tanggal          DATE NOT NULL CONSTRAINT DF_Kontrak_Tanggal DEFAULT (CAST(GETDATE() AS DATE)),
-    qty_kg           DECIMAL(14, 2) NULL,
-    harga_per_kg     DECIMAL(14, 2) NULL,
-    keterangan       VARCHAR(200) NULL,
-    is_active        BIT NOT NULL CONSTRAINT DF_Kontrak_Aktif DEFAULT (1),
-    created_by       BIGINT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.Users (UserID),
-    created_at       DATETIME NOT NULL CONSTRAINT DF_Kontrak_Created DEFAULT (GETDATE()),
-    -- migrasi 033: PPN & PT pemilik kontrak
-    ppn                BIT NOT NULL CONSTRAINT DF_Kontrak_Ppn DEFAULT (0),
-    harga_termasuk_ppn BIT NOT NULL CONSTRAINT DF_Kontrak_InclPpn DEFAULT (0),
-    id_company         VARCHAR(5) NULL CONSTRAINT FK_Kontrak_Company REFERENCES dbo.Company (CompID),
-    CONSTRAINT CK_Kontrak_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
-    CONSTRAINT CK_Kontrak_Qty CHECK (qty_kg IS NULL OR qty_kg > 0)
+-- Kontrak (diisi HO): 1 kontrak = 1 produk = 1 DO
+CREATE TABLE dbo.Contract (
+    ContractID       INT IDENTITY(1,1) PRIMARY KEY,
+    ContractNumber   VARCHAR(50) NOT NULL CONSTRAINT UX_Contract_No UNIQUE,
+    TransactionType  VARCHAR(20) NOT NULL,
+    SupplierID       INT NOT NULL CONSTRAINT FK_Contract_Supplier REFERENCES dbo.Supplier (SupplierID),   -- customer
+    ProductID        INT NOT NULL CONSTRAINT FK_Contract_Product REFERENCES dbo.Product (ProductID),
+    ContractDate     DATE NOT NULL CONSTRAINT DF_Contract_Date DEFAULT (CAST(GETDATE() AS DATE)),
+    ContractQty      DECIMAL(14, 2) NULL,
+    Price            DECIMAL(14, 2) NULL,
+    PPN              BIT NOT NULL CONSTRAINT DF_Contract_Ppn DEFAULT (0),
+    IncludePPN       BIT NOT NULL CONSTRAINT DF_Contract_InclPpn DEFAULT (0),
+    CurrencyID       INT NULL CONSTRAINT FK_Contract_Currency REFERENCES dbo.Currency (CurrencyID),
+    CompID           VARCHAR(5) NULL CONSTRAINT FK_Contract_Company REFERENCES dbo.Company (CompID),
+    Description      VARCHAR(200) NULL,
+    Active           BIT NOT NULL CONSTRAINT DF_Contract_Active DEFAULT (1),
+    CreateBy         BIGINT NULL CONSTRAINT FK_Contract_CreateBy REFERENCES dbo.Users (UserID),
+    CreateDate       DATETIME NOT NULL CONSTRAINT DF_Contract_Create DEFAULT (GETDATE()),
+    CONSTRAINT CK_Contract_Type CHECK (TransactionType IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
+    CONSTRAINT CK_Contract_Qty CHECK (ContractQty IS NULL OR ContractQty > 0)
 );
 GO
-CREATE TABLE dbo.delivery_order (
-    id_do           INT IDENTITY(1,1) PRIMARY KEY,
-    no_do           VARCHAR(50) NOT NULL CONSTRAINT UX_DO_No UNIQUE,
-    id_kontrak      INT NOT NULL CONSTRAINT FK_DO_Kontrak REFERENCES dbo.kontrak (id_kontrak),
-    tanggal_do      DATE NOT NULL CONSTRAINT DF_DO_Tanggal DEFAULT (CAST(GETDATE() AS DATE)),
-    berlaku_sampai  DATE NULL,
-    keterangan      VARCHAR(200) NULL,
-    is_active       BIT NOT NULL CONSTRAINT DF_DO_Aktif DEFAULT (1),
-    created_by      BIGINT NULL CONSTRAINT FK_DO_User REFERENCES dbo.Users (UserID),
-    created_at      DATETIME NOT NULL CONSTRAINT DF_DO_Created DEFAULT (GETDATE())
+CREATE TABLE dbo.DeliveryOrder (
+    DeliveryOrderID  INT IDENTITY(1,1) PRIMARY KEY,
+    DONumber         VARCHAR(50) NOT NULL CONSTRAINT UX_DO_Number UNIQUE,
+    ContractID       INT NOT NULL CONSTRAINT FK_DO_Contract REFERENCES dbo.Contract (ContractID),
+    DODate           DATE NOT NULL CONSTRAINT DF_DO_Date DEFAULT (CAST(GETDATE() AS DATE)),
+    ExpiredDate      DATE NULL,
+    Description      VARCHAR(200) NULL,
+    Active           BIT NOT NULL CONSTRAINT DF_DO_Active DEFAULT (1),
+    CreateBy         BIGINT NULL CONSTRAINT FK_DO_CreateBy REFERENCES dbo.Users (UserID),
+    CreateDate       DATETIME NOT NULL CONSTRAINT DF_DO_Create DEFAULT (GETDATE())
 );
-CREATE UNIQUE INDEX UX_DO_Kontrak ON dbo.delivery_order (id_kontrak);     -- 1 kontrak = 1 DO
+CREATE UNIQUE INDEX UX_DO_Contract ON dbo.DeliveryOrder (ContractID);     -- 1 kontrak = 1 DO
 GO
-CREATE TABLE dbo.do_pengangkutan (
-    id_do_angkut     INT IDENTITY(1,1) PRIMARY KEY,
-    id_do            INT NOT NULL CONSTRAINT FK_DoAngkut_DO REFERENCES dbo.delivery_order (id_do),
-    cara_angkut      VARCHAR(15) NOT NULL,
-    id_pengangkutan  INT NULL CONSTRAINT FK_DoAngkut_Supplier REFERENCES dbo.mitra (id_supplier),
-    qty_kg           DECIMAL(14, 2) NULL,               -- alokasi (opsional), total <= kontrak.qty_kg
-    ongkos_per_kg    DECIMAL(14, 2) NULL,               -- ongkos angkut (migrasi 033)
-    CONSTRAINT CK_DoAngkut_Cara CHECK (cara_angkut IN ('PENGIRIM', 'PENERIMA', 'PIHAK_KETIGA')),
-    CONSTRAINT CK_DoAngkut_PihakKetiga CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
-                                              OR (cara_angkut <> 'PIHAK_KETIGA' AND id_pengangkutan IS NULL)),
-    CONSTRAINT UX_DoAngkut UNIQUE (id_do, cara_angkut, id_pengangkutan)
+-- Pengangkutan per DO (boleh beberapa): PENGIRIM / PENERIMA / PIHAK_KETIGA (TransportID)
+CREATE TABLE dbo.DOTransport (
+    DOTransportID    INT IDENTITY(1,1) PRIMARY KEY,
+    DeliveryOrderID  INT NOT NULL CONSTRAINT FK_DOTrans_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
+    TransportMode    VARCHAR(15) NOT NULL,
+    TransportID      INT NULL CONSTRAINT FK_DOTrans_Supplier REFERENCES dbo.Supplier (SupplierID),
+    DOQty            DECIMAL(14, 2) NULL,               -- alokasi (opsional), total <= Contract.ContractQty
+    PriceTransport   DECIMAL(14, 2) NULL,               -- ongkos angkut per kg
+    CONSTRAINT CK_DOTrans_Mode CHECK (TransportMode IN ('PENGIRIM', 'PENERIMA', 'PIHAK_KETIGA')),
+    CONSTRAINT CK_DOTrans_ThirdParty CHECK ((TransportMode = 'PIHAK_KETIGA' AND TransportID IS NOT NULL)
+                                            OR (TransportMode <> 'PIHAK_KETIGA' AND TransportID IS NULL)),
+    CONSTRAINT UX_DOTransport UNIQUE (DeliveryOrderID, TransportMode, TransportID)
+);
+GO
+-- Tagihan per DO (disiapkan untuk keuangan; belum ada layar)
+CREATE TABLE dbo.Invoice (
+    InvoiceID        BIGINT IDENTITY(1,1) PRIMARY KEY,
+    InvoiceNumber    VARCHAR(100) NOT NULL CONSTRAINT UX_Invoice_No UNIQUE,
+    InvoiceDate      DATE NOT NULL,
+    DeliveryOrderID  INT NOT NULL CONSTRAINT FK_Invoice_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
+    SupplierID       INT NOT NULL CONSTRAINT FK_Invoice_Supplier REFERENCES dbo.Supplier (SupplierID),
+    TransportID      INT NULL CONSTRAINT FK_Invoice_Transport REFERENCES dbo.Supplier (SupplierID),
+    PriceTransport   DECIMAL(14, 2) NULL,
+    DOQty            DECIMAL(14, 2) NULL,
+    DOShipped        DECIMAL(14, 2) NULL,
+    Amount           DECIMAL(20, 2) NULL,
+    CurrencyID       INT NULL CONSTRAINT FK_Invoice_Currency REFERENCES dbo.Currency (CurrencyID),
+    PaidDate         DATE NULL,
+    Active           BIT NOT NULL CONSTRAINT DF_Invoice_Active DEFAULT (1),
+    CreateBy         BIGINT NULL CONSTRAINT FK_Invoice_CreateBy REFERENCES dbo.Users (UserID),
+    CreateDate       DATETIME NOT NULL CONSTRAINT DF_Invoice_Create DEFAULT (GETDATE())
 );
 GO
 
--- Dashboard: harga per tanggal (diisi HO)
-CREATE TABLE dbo.harga_harian (
-    tanggal       DATE PRIMARY KEY,
-    harga_cpo     DECIMAL(12,2) NOT NULL,
-    harga_kernel  DECIMAL(12,2) NOT NULL,
-    oer_cpo       DECIMAL(5,2)  NOT NULL,
-    biaya_olah    DECIMAL(12,2) NOT NULL,
-    updated_by    BIGINT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.Users (UserID),
-    updated_at    DATETIME NOT NULL CONSTRAINT DF_Harga_Updated DEFAULT (GETDATE()),
-    CONSTRAINT CK_Harga_Oer CHECK (oer_cpo BETWEEN 0 AND 100)
+-- Dashboard: harga CPO & kernel, OER, biaya olah per tanggal (diisi HO)
+CREATE TABLE dbo.DailyPrice (
+    PriceDate       DATE PRIMARY KEY,
+    CPOPrice        DECIMAL(12,2) NOT NULL,
+    KernelPrice     DECIMAL(12,2) NOT NULL,
+    OERCPO          DECIMAL(5,2)  NOT NULL,
+    ProcessingCost  DECIMAL(12,2) NOT NULL,
+    UpdateBy        BIGINT NULL CONSTRAINT FK_DailyPrice_UpdateBy REFERENCES dbo.Users (UserID),
+    UpdateDate      DATETIME NOT NULL CONSTRAINT DF_DailyPrice_Update DEFAULT (GETDATE()),
+    CONSTRAINT CK_DailyPrice_Oer CHECK (OERCPO BETWEEN 0 AND 100)
 );
 GO
 
@@ -547,12 +630,12 @@ GO
 CREATE TABLE dbo.transaksi (
     no_tiket           VARCHAR(50) PRIMARY KEY,
     jenis_transaksi    VARCHAR(20) NOT NULL,
-    id_supplier        INT NOT NULL CONSTRAINT FK_Trx_Supplier REFERENCES dbo.mitra (id_supplier),     -- customer (dari DO)
-    id_produk          INT NOT NULL CONSTRAINT FK_Trx_Produk REFERENCES dbo.produk (id_produk),
+    id_supplier        INT NOT NULL CONSTRAINT FK_Trx_Supplier REFERENCES dbo.Supplier (SupplierID),     -- customer (dari DO)
+    id_produk          INT NOT NULL CONSTRAINT FK_Trx_Produk REFERENCES dbo.Product (ProductID),
     id_kendaraan       INT NOT NULL CONSTRAINT FK_Trx_Kendaraan REFERENCES dbo.DetailVehicle (IDVehicle),
     id_driver          BIGINT NOT NULL CONSTRAINT FK_Trx_Driver REFERENCES dbo.Users (UserID),
-    id_pengangkutan    INT NULL CONSTRAINT FK_Trx_Angkut REFERENCES dbo.mitra (id_supplier),
-    id_kontrak         INT NULL CONSTRAINT FK_Trx_Kontrak REFERENCES dbo.kontrak_kendaraan (id_kontrak),
+    id_pengangkutan    INT NULL CONSTRAINT FK_Trx_Angkut REFERENCES dbo.Supplier (SupplierID),
+    id_kontrak         INT NULL CONSTRAINT FK_Trx_Kontrak REFERENCES dbo.VehicleContract (VehicleContractID),
     no_do              VARCHAR(50) NULL,
     status_alur        VARCHAR(30) NOT NULL CONSTRAINT DF_Trx_Status DEFAULT ('SECURITY_REGISTER'),
     is_qr_active       BIT NOT NULL CONSTRAINT DF_Trx_QrAktif DEFAULT (1),
@@ -563,7 +646,7 @@ CREATE TABLE dbo.transaksi (
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
     id_comp_area       BIGINT NOT NULL CONSTRAINT FK_Trx_Area REFERENCES dbo.CompanyArea (CompAreaID),          -- area akun Security (migrasi 041)
     id_alur            INT NULL CONSTRAINT FK_Trx_Alur REFERENCES dbo.alur (id_alur),                       -- alur tahap tiket (dari produk)
-    id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
+    id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
     cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
     no_tiket_induk     VARCHAR(50) NULL CONSTRAINT FK_Trx_Induk REFERENCES dbo.transaksi (no_tiket),   -- tiket split kelebihan DO (migrasi 022)
     berat_split_kg     DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
@@ -656,7 +739,7 @@ CREATE TABLE dbo.kelebihan_do (
     id_kelebihan     INT IDENTITY(1,1) PRIMARY KEY,
     no_tiket         VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Tiket REFERENCES dbo.transaksi (no_tiket),
     no_tiket_split   VARCHAR(50)    NOT NULL CONSTRAINT FK_Lebih_Split REFERENCES dbo.transaksi (no_tiket),
-    id_do            INT            NOT NULL CONSTRAINT FK_Lebih_DO REFERENCES dbo.delivery_order (id_do),
+    id_do            INT            NOT NULL CONSTRAINT FK_Lebih_DO REFERENCES dbo.DeliveryOrder (DeliveryOrderID),
     kuota_kg         DECIMAL(14, 2) NOT NULL,
     realisasi_kg     DECIMAL(14, 2) NOT NULL,
     netto_tiket_kg   DECIMAL(14, 2) NOT NULL,
@@ -749,8 +832,8 @@ CREATE TABLE dbo.Blacklist (
     Reason         VARCHAR(500) NOT NULL,
     CreateBy       BIGINT NOT NULL CONSTRAINT FK_Blacklist_CreateBy REFERENCES dbo.Users (UserID),
     NoVehicle      VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
-    CustomerID     INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.mitra (id_supplier),
-    TransportID    INT NULL CONSTRAINT FK_Blacklist_Transport REFERENCES dbo.mitra (id_supplier),
+    CustomerID     INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.Supplier (SupplierID),
+    TransportID    INT NULL CONSTRAINT FK_Blacklist_Transport REFERENCES dbo.Supplier (SupplierID),
     RevokeDate     DATETIME NULL,
     RevokeBy       BIGINT NULL CONSTRAINT FK_Blacklist_RevokeBy REFERENCES dbo.Users (UserID),
     RevokeReason   NVARCHAR(500) NULL,
@@ -766,6 +849,7 @@ CREATE INDEX IX_Blacklist_Vehicle ON dbo.Blacklist (IDVehicle) WHERE IDVehicle I
 CREATE INDEX IX_Blacklist_Doc ON dbo.Blacklist (BlacklistDoc);
 ALTER TABLE dbo.Users ADD CONSTRAINT FK_Users_Blacklist FOREIGN KEY (BlacklistID) REFERENCES dbo.Blacklist (BlacklistID);
 ALTER TABLE dbo.DetailVehicle ADD CONSTRAINT FK_DetailVehicle_Blacklist FOREIGN KEY (BlacklistID) REFERENCES dbo.Blacklist (BlacklistID);
+ALTER TABLE dbo.Supplier ADD CONSTRAINT FK_Supplier_Blacklist FOREIGN KEY (BlacklistID) REFERENCES dbo.Blacklist (BlacklistID);
 GO
 
 -- Jadwal kerja per area (migrasi 014): absensi memakai jadwal area akun yang men-scan
@@ -1218,6 +1302,10 @@ INSERT INTO dbo.status_tiket (kode, nama, warna, urutan) VALUES
     ('REJECTED', N'Ditolak', 'merah', 7), ('VOID', N'Dibatalkan', 'abu', 8);
 INSERT INTO dbo.VehicleType (VehicleTypeCode, NameType) VALUES
     ('TRUK', N'Truk'), ('DUMP_TRUK', N'Dump Truk'), ('TANGKI', N'Truk Tangki'), ('PICKUP', N'Pick-up'), ('LAINNYA', N'Lainnya');
+INSERT INTO dbo.Currency (CurrencyCode, CurrencyName, CurrencyRate) VALUES
+    ('IDR', N'Rupiah Indonesia', 1), ('USD', N'U.S. Dollar', NULL), ('MYR', N'Ringgit Malaysia', NULL), ('EUR', N'Euro', NULL);
+INSERT INTO dbo.SupplierType (TypeCode, NameType) VALUES ('CUSTOMER', N'Customer / Supplier'), ('PENGANGKUTAN', N'Pengangkutan');
+INSERT INTO dbo.ProductType (ProductTypeCode, ProductTypeName) VALUES ('TBS', N'TBS'), ('PRODUK_PKS', N'Produk PKS');
 -- Alur tahap (migrasi 012; unit timbang dihapus di migrasi 041)
 INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
     ('SECURITY', N'Security', 1), ('TIMBANG_1', N'Timbang Masuk', 2), ('SORTASI', N'Sortasi', 3),
@@ -1420,20 +1508,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_mitra ON dbo.mitra AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Supplier ON dbo.Supplier AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_supplier AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_supplier AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.SupplierID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.SupplierID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_supplier AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_supplier AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.SupplierID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.SupplierID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1441,7 +1529,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'mitra', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Supplier', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1449,20 +1537,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_produk ON dbo.produk AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Product ON dbo.Product AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_produk AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_produk AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.ProductID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.ProductID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_produk AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_produk AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.ProductID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.ProductID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1470,36 +1558,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'produk', @id_baris = @k,
-                 @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
-        END
-        FETCH NEXT FROM c INTO @k;
-    END
-    CLOSE c; DEALLOCATE c;
-END
-GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_standar_mutu ON dbo.standar_mutu AFTER INSERT, UPDATE, DELETE AS
-BEGIN
-    SET NOCOUNT ON;
-    IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
-    DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_produk AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_produk AS NVARCHAR(100)) FROM inserted i;
-    DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
-    DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
-    OPEN c; FETCH NEXT FROM c INTO @k;
-    WHILE @@FETCH_STATUS = 0
-    BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_produk AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_produk AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
-        IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
-        BEGIN
-            SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'standar_mutu', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Product', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1565,20 +1624,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_kontrak ON dbo.kontrak AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Contract ON dbo.Contract AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_kontrak AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_kontrak AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.ContractID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.ContractID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_kontrak AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_kontrak AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.ContractID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.ContractID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1586,7 +1645,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'kontrak', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Contract', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1594,20 +1653,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_delivery_order ON dbo.delivery_order AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_DeliveryOrder ON dbo.DeliveryOrder AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_do AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_do AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.DeliveryOrderID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.DeliveryOrderID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_do AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_do AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.DeliveryOrderID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.DeliveryOrderID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1615,7 +1674,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'delivery_order', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'DeliveryOrder', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1652,20 +1711,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_harga_harian ON dbo.harga_harian AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_DailyPrice ON dbo.DailyPrice AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(CONVERT(VARCHAR(10), d.tanggal, 23) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONVERT(VARCHAR(10), i.tanggal, 23) AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(CONVERT(VARCHAR(10), d.tanggal, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(CONVERT(VARCHAR(10), i.tanggal, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1673,7 +1732,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'harga_harian', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'DailyPrice', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;

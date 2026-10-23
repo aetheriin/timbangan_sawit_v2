@@ -42,13 +42,14 @@ KELOMPOK = [
     ("02_personel_dokumen", "Orang (Users), SIM, wajah, kunjungan, absensi, blacklist & dokumen",
      ["UserCategory", "Users", "License", "LicenseDetail", "FaceRecog", "VisitPurpose", "Guest", "FaceActivity",
       "Blacklist", "BlacklistDetection", "jenis_dokumen", "dokumen", "dokumen_file", "DetailVehicle", "CompanyArea"]),
-    ("03_mitra_kontrak", "Mitra, kendaraan, produk, kontrak & DO",
-     ["mitra", "mitra_peran", "mitra_company", "Company", "VehicleType", "DetailVehicle", "VehicleDriver", "kontrak_kendaraan",
-      "kontrak", "delivery_order", "do_pengangkutan", "kelebihan_do", "produk", "standar_mutu", "alur", "harga_harian", "Users"]),
+    ("03_mitra_kontrak", "Supplier, bank, produk, harga, kontrak, DO & invoice",
+     ["Currency", "Bank", "BankDetails", "SupplierType", "SupplierTypeDetails", "SupplierGroup", "Supplier", "SupplierCompany",
+      "Company", "VehicleType", "DetailVehicle", "VehicleDriver", "VehicleContract", "ProductType", "Product", "ProductPrice",
+      "DailyPrice", "Contract", "DeliveryOrder", "DOTransport", "Invoice", "kelebihan_do", "alur", "Users"]),
     ("04_proses_tiket", "Proses tiket & Pos Security: alur, jembatan, timbang, sortasi, lab, pembatalan",
      ["transaksi", "jenis_transaksi", "status_tiket", "tahap", "alur", "alur_tahap", "CompanyArea", "jembatan_timbang", "penimbangan",
-      "sortasi", "lab_hasil", "pembatalan_tiket", "produk", "mitra", "DetailVehicle", "delivery_order",
-      "kontrak_kendaraan", "dokumen", "Users"]),
+      "sortasi", "lab_hasil", "pembatalan_tiket", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
+      "VehicleContract", "dokumen", "Users"]),
     ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
      ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
       "LevelDetails", "notifikasi", "notifikasi_baca", "Users", "CompanyArea"]),
@@ -90,8 +91,8 @@ for kode, judul, tabel in KELOMPOK:
     # tabel pendukung (milik kelompok lain) cukup ditampilkan PK-nya
     pendukung = {"01_organisasi_akses": {"UserCategory"}, "02_personel_dokumen": {"Users", "DetailVehicle", "CompanyArea"},
                  "03_mitra_kontrak": {"Users", "alur", "Company"},
-                 "04_proses_tiket": {"CompanyArea", "produk", "mitra", "DetailVehicle", "delivery_order",
-                                     "kontrak_kendaraan", "dokumen", "Users"},
+                 "04_proses_tiket": {"CompanyArea", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
+                                     "VehicleContract", "dokumen", "Users"},
                  "05_log_persetujuan": {"Users", "CompanyArea"}}[kode]
     hasil[kode] = diagram(tabel, utama - pendukung, tanpa_akun=kode in ("03_mitra_kontrak", "04_proses_tiket"))
 folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "erd")

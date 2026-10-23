@@ -16,17 +16,17 @@ def proses_tiket_selesai(no_tiket, user_id):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("""SELECT t.id_do, d.no_do, k.qty_kg, v.berat_netto, t.no_tiket_induk
+        cursor.execute("""SELECT t.id_do, d.DONumber AS no_do, k.ContractQty AS qty_kg, v.berat_netto, t.no_tiket_induk
                           FROM transaksi t
-                          JOIN delivery_order d ON d.id_do = t.id_do
-                          JOIN kontrak k ON k.id_kontrak = d.id_kontrak
+                          JOIN DeliveryOrder d ON d.DeliveryOrderID = t.id_do
+                          JOIN Contract k ON k.ContractID = d.ContractID
                           JOIN v_timbangan v ON v.no_tiket = t.no_tiket
                           WHERE t.no_tiket = ?""", no_tiket)
         r = cursor.fetchone()
         if not r or r.qty_kg is None or r.berat_netto is None or r.no_tiket_induk:
             return None
         # Kunci baris DO supaya dua tiket yang selesai bersamaan tidak menghitung kuota yang sama
-        cursor.execute("SELECT id_do FROM delivery_order WITH (UPDLOCK, HOLDLOCK) WHERE id_do = ?", r.id_do)
+        cursor.execute("SELECT DeliveryOrderID AS id_do FROM DeliveryOrder WITH (UPDLOCK, HOLDLOCK) WHERE DeliveryOrderID = ?", r.id_do)
         cursor.execute("""SELECT COALESCE(SUM(v.berat_netto), 0)
                           FROM transaksi t JOIN v_timbangan v ON v.no_tiket = t.no_tiket
                           WHERE t.id_do = ? AND t.no_tiket_induk IS NULL
@@ -78,16 +78,16 @@ def daftar(status=None, batas=300, id_area=None):
     sql_a, args_a = sql_area("x.id_comp_area", id_area)
     if sql_a:
         syarat.append(sql_a[5:]); args.extend(args_a)
-    sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.no_do, x.kuota_kg, x.realisasi_kg,
+    sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.DONumber AS no_do, x.kuota_kg, x.realisasi_kg,
                      x.netto_tiket_kg, x.kelebihan_kg, x.no_do_baru, x.status, x.catatan, x.alasan_kembali, x.created_at,
                      x.diajukan_at, x.ditetapkan_at, ua.Nama AS diajukan_oleh, ut.Nama AS ditetapkan_oleh,
-                     k.NoVehicle AS no_plat, p.Nama AS supir, m.nama_supplier AS customer, ar.AreaName AS area
+                     k.NoVehicle AS no_plat, p.Nama AS supir, m.SupplierName AS customer, ar.AreaName AS area
               FROM kelebihan_do x
-              JOIN delivery_order d ON d.id_do = x.id_do
+              JOIN DeliveryOrder d ON d.DeliveryOrderID = x.id_do
               JOIN transaksi t ON t.no_tiket = x.no_tiket
               JOIN DetailVehicle k ON k.IDVehicle = t.id_kendaraan
               JOIN Users p ON p.UserID = t.id_driver
-              JOIN mitra m ON m.id_supplier = t.id_supplier
+              JOIN Supplier m ON m.SupplierID = t.id_supplier
               LEFT JOIN Users ua ON ua.UserID = x.diajukan_oleh
               LEFT JOIN Users ut ON ut.UserID = x.ditetapkan_oleh
               LEFT JOIN CompanyArea ar ON ar.CompAreaID = x.id_comp_area
@@ -142,7 +142,7 @@ def ajukan(id_kelebihan, no_do_baru, catatan, user_id, id_area=None):
               (no_do_baru, catatan, user_id), "KELEBIHAN_DO_AJUKAN", user_id, id_area=id_area)
     conn = get_connection()
     try:
-        conn.cursor().execute("""UPDATE transaksi SET no_do = ?, id_do = (SELECT id_do FROM delivery_order WHERE no_do = ?)
+        conn.cursor().execute("""UPDATE transaksi SET DONumber = ?, DeliveryOrderID = (SELECT DeliveryOrderID AS id_do FROM DeliveryOrder WHERE DONumber = ?)
                                  WHERE no_tiket = ?""", no_do_baru, no_do_baru, r.no_tiket_split)
         conn.commit()
     finally:

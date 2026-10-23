@@ -123,20 +123,20 @@ erDiagram
         bigint oleh FK "NULL"
         datetime waktu
     }
-    produk {
-        int id_produk PK
+    Product {
+        int ProductID PK
     }
-    mitra {
-        int id_supplier PK
+    Supplier {
+        int SupplierID PK
     }
     DetailVehicle {
         int IDVehicle PK
     }
-    delivery_order {
-        int id_do PK
+    DeliveryOrder {
+        int DeliveryOrderID PK
     }
-    kontrak_kendaraan {
-        int id_kontrak PK
+    VehicleContract {
+        int VehicleContractID PK
     }
     dokumen {
         int id_dokumen PK
@@ -153,15 +153,15 @@ erDiagram
     transaksi ||--o| pembatalan_tiket : "no_tiket"
     jembatan_timbang ||--o{ penimbangan : "id_jembatan"
     transaksi ||--o{ penimbangan : "no_tiket"
-    alur ||--o{ produk : "id_alur"
+    alur ||--o{ Product : "FlowID"
     transaksi ||--o| sortasi : "no_tiket"
     alur |o--o{ transaksi : "id_alur"
     CompanyArea ||--o{ transaksi : "id_comp_area"
-    delivery_order |o--o{ transaksi : "id_do"
+    DeliveryOrder |o--o{ transaksi : "id_do"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"
     DetailVehicle ||--o{ transaksi : "id_kendaraan"
-    kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
-    mitra |o--o{ transaksi : "id_pengangkutan"
-    produk ||--o{ transaksi : "id_produk"
-    mitra ||--o{ transaksi : "id_supplier"
+    VehicleContract |o--o{ transaksi : "id_kontrak"
+    Supplier |o--o{ transaksi : "id_pengangkutan"
+    Product ||--o{ transaksi : "id_produk"
+    Supplier ||--o{ transaksi : "id_supplier"
     transaksi |o--o{ transaksi : "no_tiket_induk"

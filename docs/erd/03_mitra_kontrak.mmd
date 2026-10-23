@@ -1,19 +1,60 @@
 erDiagram
-    mitra {
-        int id_supplier PK
-        varchar kode_supplier UK
-        varchar nama_supplier
-        bit is_active
-        datetime created_at
-        nvarchar alamat "NULL"
+    Currency {
+        int CurrencyID PK
+        varchar CurrencyCode UK
+        nvarchar CurrencyName
+        decimal CurrencyRate "NULL"
+        nvarchar Description "NULL"
+        bit Active
     }
-    mitra_peran {
-        int id_supplier PK,FK
-        varchar peran PK
+    Bank {
+        int BankAccountID PK
+        nvarchar BankName
+        nvarchar BankRegion "NULL"
+        int CurrencyID FK "NULL"
+        bigint CompAreaID FK "NULL"
+        bit Active
     }
-    mitra_company {
-        int id_supplier PK,FK
-        varchar id_company PK,FK
+    BankDetails {
+        bigint BankAccountDetailsID PK
+        int BankAccountID FK
+        nvarchar BankAccountCode
+        nvarchar BankName "NULL"
+        decimal Balance "NULL"
+        bit Active
+    }
+    SupplierType {
+        int SupplierTypeID PK
+        varchar TypeCode UK
+        nvarchar NameType
+        nvarchar Description "NULL"
+        bit Active
+    }
+    SupplierTypeDetails {
+        int SupplierID PK,FK
+        varchar TypeCode PK,FK
+    }
+    SupplierGroup {
+        int SupplierGroupID PK
+        nvarchar NameGroup
+        nvarchar Description "NULL"
+        bit Active
+    }
+    Supplier {
+        int SupplierID PK
+        varchar SupplierCode UK
+        varchar SupplierName
+        nvarchar SupplierAddress "NULL"
+        int SupplierGroupID FK "NULL"
+        bigint BankAccountDetailsID FK "NULL"
+        bigint BlacklistID FK "NULL"
+        nvarchar Description "NULL"
+        bit Active
+        datetime CreateDate
+    }
+    SupplierCompany {
+        int SupplierID PK,FK
+        varchar CompID PK,FK
     }
     Company {
         varchar CompID PK
@@ -46,55 +87,111 @@ erDiagram
         datetime CreateDate
         datetime UpdateDate
     }
-    kontrak_kendaraan {
-        int id_kontrak PK
-        varchar no_kontrak "NULL"
-        int id_kendaraan FK
-        int id_supplier FK
-        int id_produk FK "NULL"
-        varchar jenis_transaksi "NULL"
-        date tanggal_mulai
-        date tanggal_selesai "NULL"
-        bit is_active
-        varchar keterangan "NULL"
-        bigint created_by FK "NULL"
-        datetime created_at
+    VehicleContract {
+        int VehicleContractID PK
+        varchar ContractNumber "NULL"
+        int IDVehicle FK
+        int SupplierID FK
+        int ProductID FK "NULL"
+        varchar TransactionType "NULL"
+        date StartDate
+        date EndDate "NULL"
+        bit Active
+        varchar Description "NULL"
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
     }
-    kontrak {
-        int id_kontrak PK
-        varchar no_kontrak UK
-        varchar jenis_transaksi
-        int id_customer FK
-        int id_produk FK
-        date tanggal
-        decimal qty_kg "NULL"
-        decimal harga_per_kg "NULL"
-        varchar keterangan "NULL"
-        bit is_active
-        bigint created_by FK "NULL"
-        datetime created_at
-        bit ppn
-        bit harga_termasuk_ppn
-        varchar id_company FK "NULL"
+    ProductType {
+        int ProductTypeID PK
+        varchar ProductTypeCode UK
+        nvarchar ProductTypeName
+        varchar Description "NULL"
+        bit Active
     }
-    delivery_order {
-        int id_do PK
-        varchar no_do UK
-        int id_kontrak FK,UK
-        date tanggal_do
-        date berlaku_sampai "NULL"
-        varchar keterangan "NULL"
-        bit is_active
-        bigint created_by FK "NULL"
-        datetime created_at
+    Product {
+        int ProductID PK
+        varchar ProductName
+        varchar Category FK
+        int FlowID FK
+        float StandardFFA
+        float StandardMoist
+        float StandardDirt
+        bit Active
     }
-    do_pengangkutan {
-        int id_do_angkut PK
-        int id_do FK
-        varchar cara_angkut
-        int id_pengangkutan FK "NULL"
-        decimal qty_kg "NULL"
-        decimal ongkos_per_kg "NULL"
+    ProductPrice {
+        bigint ProductPriceID PK
+        int ProductID FK
+        date PriceDate
+        decimal Price
+        int CurrencyID FK "NULL"
+        datetime CreateDate
+        bigint CreateBy FK "NULL"
+        bit IsVoid
+        datetime VoidDate "NULL"
+        bigint VoidBy FK "NULL"
+    }
+    DailyPrice {
+        date PriceDate PK
+        decimal CPOPrice
+        decimal KernelPrice
+        decimal OERCPO
+        decimal ProcessingCost
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
+    }
+    Contract {
+        int ContractID PK
+        varchar ContractNumber UK
+        varchar TransactionType
+        int SupplierID FK
+        int ProductID FK
+        date ContractDate
+        decimal ContractQty "NULL"
+        decimal Price "NULL"
+        bit PPN
+        bit IncludePPN
+        int CurrencyID FK "NULL"
+        varchar CompID FK "NULL"
+        varchar Description "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
+    }
+    DeliveryOrder {
+        int DeliveryOrderID PK
+        varchar DONumber UK
+        int ContractID FK,UK
+        date DODate
+        date ExpiredDate "NULL"
+        varchar Description "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
+    }
+    DOTransport {
+        int DOTransportID PK
+        int DeliveryOrderID FK
+        varchar TransportMode
+        int TransportID FK "NULL"
+        decimal DOQty "NULL"
+        decimal PriceTransport "NULL"
+    }
+    Invoice {
+        bigint InvoiceID PK
+        varchar InvoiceNumber UK
+        date InvoiceDate
+        int DeliveryOrderID FK
+        int SupplierID FK
+        int TransportID FK "NULL"
+        decimal PriceTransport "NULL"
+        decimal DOQty "NULL"
+        decimal DOShipped "NULL"
+        decimal Amount "NULL"
+        int CurrencyID FK "NULL"
+        date PaidDate "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
     }
     kelebihan_do {
         int id_kelebihan PK
@@ -116,48 +213,38 @@ erDiagram
         bigint id_comp_area FK "NULL"
         datetime created_at
     }
-    produk {
-        int id_produk PK
-        varchar nama_produk
-        varchar kategori
-        int id_alur FK
-        bit is_active
-    }
-    standar_mutu {
-        int id_produk PK,FK
-        float maks_ffa
-        float maks_air
-        float maks_kotoran
-    }
     alur {
         int id_alur PK
-    }
-    harga_harian {
-        date tanggal PK
-        decimal harga_cpo
-        decimal harga_kernel
-        decimal oer_cpo
-        decimal biaya_olah
-        bigint updated_by FK "NULL"
-        datetime updated_at
     }
     Users {
         bigint UserID PK
     }
-    kontrak ||--o| delivery_order : "id_kontrak"
+    Currency |o--o{ Bank : "CurrencyID"
+    Bank ||--o{ BankDetails : "BankAccountID"
+    Company |o--o{ Contract : "CompID"
+    Currency |o--o{ Contract : "CurrencyID"
+    Product ||--o{ Contract : "ProductID"
+    Supplier ||--o{ Contract : "SupplierID"
+    Contract ||--o| DeliveryOrder : "ContractID"
     VehicleType |o--o{ DetailVehicle : "VehicleType"
-    delivery_order ||--o{ do_pengangkutan : "id_do"
-    mitra |o--o{ do_pengangkutan : "id_pengangkutan"
-    delivery_order ||--o{ kelebihan_do : "id_do"
-    Company |o--o{ kontrak : "id_company"
-    mitra ||--o{ kontrak : "id_customer"
-    produk ||--o{ kontrak : "id_produk"
-    DetailVehicle ||--o{ kontrak_kendaraan : "id_kendaraan"
-    produk |o--o{ kontrak_kendaraan : "id_produk"
-    mitra ||--o{ kontrak_kendaraan : "id_supplier"
-    Company ||--o{ mitra_company : "id_company"
-    mitra ||--o{ mitra_company : "id_supplier"
-    mitra ||--o{ mitra_peran : "id_supplier"
-    alur ||--o{ produk : "id_alur"
-    produk ||--o| standar_mutu : "id_produk"
+    DeliveryOrder ||--o{ DOTransport : "DeliveryOrderID"
+    Supplier |o--o{ DOTransport : "TransportID"
+    Currency |o--o{ Invoice : "CurrencyID"
+    DeliveryOrder ||--o{ Invoice : "DeliveryOrderID"
+    Supplier ||--o{ Invoice : "SupplierID"
+    Supplier |o--o{ Invoice : "TransportID"
+    DeliveryOrder ||--o{ kelebihan_do : "id_do"
+    ProductType ||--o{ Product : "Category"
+    alur ||--o{ Product : "FlowID"
+    Currency |o--o{ ProductPrice : "CurrencyID"
+    Product ||--o{ ProductPrice : "ProductID"
+    BankDetails |o--o{ Supplier : "BankAccountDetailsID"
+    SupplierGroup |o--o{ Supplier : "SupplierGroupID"
+    Company ||--o{ SupplierCompany : "CompID"
+    Supplier ||--o{ SupplierCompany : "SupplierID"
+    Supplier ||--o{ SupplierTypeDetails : "SupplierID"
+    SupplierType ||--o{ SupplierTypeDetails : "TypeCode"
+    DetailVehicle ||--o{ VehicleContract : "IDVehicle"
+    Product |o--o{ VehicleContract : "ProductID"
+    Supplier ||--o{ VehicleContract : "SupplierID"
     DetailVehicle ||--o{ VehicleDriver : "IDVehicle"

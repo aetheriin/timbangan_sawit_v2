@@ -14,6 +14,22 @@ erDiagram
         varchar Description "NULL"
         bit Active
     }
+    Bank {
+        int BankAccountID PK
+        nvarchar BankName
+        nvarchar BankRegion "NULL"
+        int CurrencyID FK "NULL"
+        bigint CompAreaID FK "NULL"
+        bit Active
+    }
+    BankDetails {
+        bigint BankAccountDetailsID PK
+        int BankAccountID FK
+        nvarchar BankAccountCode
+        nvarchar BankName "NULL"
+        decimal Balance "NULL"
+        bit Active
+    }
     Blacklist {
         bigint BlacklistID PK
         datetime CreateDate
@@ -68,6 +84,60 @@ erDiagram
         nvarchar AreaDesc "NULL"
         nvarchar AreaAddress "NULL"
         bit Active
+        datetime CreateDate
+    }
+    Contract {
+        int ContractID PK
+        varchar ContractNumber UK
+        varchar TransactionType
+        int SupplierID FK
+        int ProductID FK
+        date ContractDate
+        decimal ContractQty "NULL"
+        decimal Price "NULL"
+        bit PPN
+        bit IncludePPN
+        int CurrencyID FK "NULL"
+        varchar CompID FK "NULL"
+        varchar Description "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
+    }
+    Currency {
+        int CurrencyID PK
+        varchar CurrencyCode UK
+        nvarchar CurrencyName
+        decimal CurrencyRate "NULL"
+        nvarchar Description "NULL"
+        bit Active
+    }
+    DOTransport {
+        int DOTransportID PK
+        int DeliveryOrderID FK
+        varchar TransportMode
+        int TransportID FK "NULL"
+        decimal DOQty "NULL"
+        decimal PriceTransport "NULL"
+    }
+    DailyPrice {
+        date PriceDate PK
+        decimal CPOPrice
+        decimal KernelPrice
+        decimal OERCPO
+        decimal ProcessingCost
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
+    }
+    DeliveryOrder {
+        int DeliveryOrderID PK
+        varchar DONumber UK
+        int ContractID FK,UK
+        date DODate
+        date ExpiredDate "NULL"
+        varchar Description "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
         datetime CreateDate
     }
     Department {
@@ -132,6 +202,23 @@ erDiagram
         datetime CheckInDate
         datetime CheckOutDate "NULL"
         bigint CreateBy FK
+    }
+    Invoice {
+        bigint InvoiceID PK
+        varchar InvoiceNumber UK
+        date InvoiceDate
+        int DeliveryOrderID FK
+        int SupplierID FK
+        int TransportID FK "NULL"
+        decimal PriceTransport "NULL"
+        decimal DOQty "NULL"
+        decimal DOShipped "NULL"
+        decimal Amount "NULL"
+        int CurrencyID FK "NULL"
+        date PaidDate "NULL"
+        bit Active
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
     }
     Level {
         int LevelID PK
@@ -201,6 +288,68 @@ erDiagram
         int Term "NULL"
         nvarchar Description "NULL"
     }
+    Product {
+        int ProductID PK
+        varchar ProductName
+        varchar Category FK
+        int FlowID FK
+        float StandardFFA
+        float StandardMoist
+        float StandardDirt
+        bit Active
+    }
+    ProductPrice {
+        bigint ProductPriceID PK
+        int ProductID FK
+        date PriceDate
+        decimal Price
+        int CurrencyID FK "NULL"
+        datetime CreateDate
+        bigint CreateBy FK "NULL"
+        bit IsVoid
+        datetime VoidDate "NULL"
+        bigint VoidBy FK "NULL"
+    }
+    ProductType {
+        int ProductTypeID PK
+        varchar ProductTypeCode UK
+        nvarchar ProductTypeName
+        varchar Description "NULL"
+        bit Active
+    }
+    Supplier {
+        int SupplierID PK
+        varchar SupplierCode UK
+        varchar SupplierName
+        nvarchar SupplierAddress "NULL"
+        int SupplierGroupID FK "NULL"
+        bigint BankAccountDetailsID FK "NULL"
+        bigint BlacklistID FK "NULL"
+        nvarchar Description "NULL"
+        bit Active
+        datetime CreateDate
+    }
+    SupplierCompany {
+        int SupplierID PK,FK
+        varchar CompID PK,FK
+    }
+    SupplierGroup {
+        int SupplierGroupID PK
+        nvarchar NameGroup
+        nvarchar Description "NULL"
+        bit Active
+    }
+    SupplierType {
+        int SupplierTypeID PK
+        varchar TypeCode UK
+        nvarchar NameType
+        nvarchar Description "NULL"
+        bit Active
+    }
+    SupplierTypeDetails {
+        int SupplierID PK,FK
+        varchar TypeCode PK,FK
+    }
     UserCategory {
         varchar CategoryCode PK
         nvarchar CategoryName
@@ -246,6 +395,20 @@ erDiagram
         nvarchar Description "NULL"
         datetime LastLogin "NULL"
         int SessionVersion
+    }
+    VehicleContract {
+        int VehicleContractID PK
+        varchar ContractNumber "NULL"
+        int IDVehicle FK
+        int SupplierID FK
+        int ProductID FK "NULL"
+        varchar TransactionType "NULL"
+        date StartDate
+        date EndDate "NULL"
+        bit Active
+        varchar Description "NULL"
+        bigint CreateBy FK "NULL"
+        datetime CreateDate
     }
     VehicleDriver {
         int VehicleDriverID PK
@@ -296,25 +459,6 @@ erDiagram
         tinyint urutan PK
         varchar kode_tahap FK
     }
-    delivery_order {
-        int id_do PK
-        varchar no_do UK
-        int id_kontrak FK,UK
-        date tanggal_do
-        date berlaku_sampai "NULL"
-        varchar keterangan "NULL"
-        bit is_active
-        bigint created_by FK "NULL"
-        datetime created_at
-    }
-    do_pengangkutan {
-        int id_do_angkut PK
-        int id_do FK
-        varchar cara_angkut
-        int id_pengangkutan FK "NULL"
-        decimal qty_kg "NULL"
-        decimal ongkos_per_kg "NULL"
-    }
     dokumen {
         int id_dokumen PK
         int id_jenis FK
@@ -334,15 +478,6 @@ erDiagram
         char sha256 "NULL"
         tinyint urutan
         datetime created_at
-    }
-    harga_harian {
-        date tanggal PK
-        decimal harga_cpo
-        decimal harga_kernel
-        decimal oer_cpo
-        decimal biaya_olah
-        bigint updated_by FK "NULL"
-        datetime updated_at
     }
     jadwal_kerja {
         bigint id_comp_area PK,FK
@@ -411,37 +546,6 @@ erDiagram
         varchar form PK
         varchar kolom PK
     }
-    kontrak {
-        int id_kontrak PK
-        varchar no_kontrak UK
-        varchar jenis_transaksi
-        int id_customer FK
-        int id_produk FK
-        date tanggal
-        decimal qty_kg "NULL"
-        decimal harga_per_kg "NULL"
-        varchar keterangan "NULL"
-        bit is_active
-        bigint created_by FK "NULL"
-        datetime created_at
-        bit ppn
-        bit harga_termasuk_ppn
-        varchar id_company FK "NULL"
-    }
-    kontrak_kendaraan {
-        int id_kontrak PK
-        varchar no_kontrak "NULL"
-        int id_kendaraan FK
-        int id_supplier FK
-        int id_produk FK "NULL"
-        varchar jenis_transaksi "NULL"
-        date tanggal_mulai
-        date tanggal_selesai "NULL"
-        bit is_active
-        varchar keterangan "NULL"
-        bigint created_by FK "NULL"
-        datetime created_at
-    }
     lab_hasil {
         int id_lab PK
         varchar no_tiket FK,UK
@@ -468,22 +572,6 @@ erDiagram
         varchar ip "NULL"
         char hash_sebelum "NULL"
         char hash_baris
-    }
-    mitra {
-        int id_supplier PK
-        varchar kode_supplier UK
-        varchar nama_supplier
-        bit is_active
-        datetime created_at
-        nvarchar alamat "NULL"
-    }
-    mitra_company {
-        int id_supplier PK,FK
-        varchar id_company PK,FK
-    }
-    mitra_peran {
-        int id_supplier PK,FK
-        varchar peran PK
     }
     notifikasi {
         int id_notifikasi PK
@@ -573,13 +661,6 @@ erDiagram
         bit is_active
         datetime created_at
     }
-    produk {
-        int id_produk PK
-        varchar nama_produk
-        varchar kategori
-        int id_alur FK
-        bit is_active
-    }
     sortasi {
         int id_sortasi PK
         varchar no_tiket FK,UK
@@ -593,12 +674,6 @@ erDiagram
         varchar catatan "NULL"
         bigint operator_sortasi_id FK "NULL"
         datetime waktu_sortasi "NULL"
-    }
-    standar_mutu {
-        int id_produk PK,FK
-        float maks_ffa
-        float maks_air
-        float maks_kotoran
     }
     status_tiket {
         varchar kode PK
@@ -648,13 +723,16 @@ erDiagram
     LevelDetails ||--o{ alur_persetujuan_tahap : "id_level"
     alur ||--o{ alur_tahap : "id_alur"
     tahap ||--o{ alur_tahap : "kode_tahap"
+    CompanyArea |o--o{ Bank : "CompAreaID"
+    Currency |o--o{ Bank : "CurrencyID"
+    Bank ||--o{ BankDetails : "BankAccountID"
     dokumen |o--o{ Blacklist : "BlacklistDoc"
     CompanyArea |o--o{ Blacklist : "CompAreaID"
     Users ||--o{ Blacklist : "CreateBy"
-    mitra |o--o{ Blacklist : "CustomerID"
+    Supplier |o--o{ Blacklist : "CustomerID"
     DetailVehicle |o--o{ Blacklist : "IDVehicle"
     Users |o--o{ Blacklist : "RevokeBy"
-    mitra |o--o{ Blacklist : "TransportID"
+    Supplier |o--o{ Blacklist : "TransportID"
     Users |o--o{ Blacklist : "UserID"
     CompanyArea |o--o{ BlacklistDetection : "CompAreaID"
     Users |o--o{ BlacklistDetection : "CreateBy"
@@ -662,17 +740,23 @@ erDiagram
     Users |o--o{ BlacklistDetection : "UserID"
     Company ||--o{ CompanyArea : "CompID"
     Mill |o--o{ CompanyArea : "MillID"
-    Users |o--o{ delivery_order : "created_by"
-    kontrak ||--o| delivery_order : "id_kontrak"
+    Company |o--o{ Contract : "CompID"
+    Users |o--o{ Contract : "CreateBy"
+    Currency |o--o{ Contract : "CurrencyID"
+    Product ||--o{ Contract : "ProductID"
+    Supplier ||--o{ Contract : "SupplierID"
+    Users |o--o{ DailyPrice : "UpdateBy"
+    Contract ||--o| DeliveryOrder : "ContractID"
+    Users |o--o{ DeliveryOrder : "CreateBy"
     CompanyArea ||--o{ DepartmentDetails : "CompAreaID"
     Department ||--o{ DepartmentDetails : "DeptID"
     Blacklist |o--o{ DetailVehicle : "BlacklistID"
     VehicleType |o--o{ DetailVehicle : "VehicleType"
-    delivery_order ||--o{ do_pengangkutan : "id_do"
-    mitra |o--o{ do_pengangkutan : "id_pengangkutan"
     Users ||--o{ dokumen : "created_by"
     jenis_dokumen ||--o{ dokumen : "id_jenis"
     dokumen ||--o{ dokumen_file : "id_dokumen"
+    DeliveryOrder ||--o{ DOTransport : "DeliveryOrderID"
+    Supplier |o--o{ DOTransport : "TransportID"
     Users |o--o{ FaceActivity : "UserID"
     Users |o--o{ FaceRecog : "CreateBy"
     Users ||--o| FaceRecog : "UserID"
@@ -681,23 +765,19 @@ erDiagram
     VisitPurpose ||--o{ Guest : "PurposeID"
     Users ||--o{ Guest : "UserID"
     Users ||--o{ Guest : "VisitToID"
-    Users |o--o{ harga_harian : "updated_by"
+    Users |o--o{ Invoice : "CreateBy"
+    Currency |o--o{ Invoice : "CurrencyID"
+    DeliveryOrder ||--o{ Invoice : "DeliveryOrderID"
+    Supplier ||--o{ Invoice : "SupplierID"
+    Supplier |o--o{ Invoice : "TransportID"
     CompanyArea ||--o{ jadwal_kerja : "id_comp_area"
     CompanyArea ||--o{ jembatan_timbang : "id_comp_area"
     Users |o--o{ kelebihan_do : "diajukan_oleh"
     Users |o--o{ kelebihan_do : "ditetapkan_oleh"
     CompanyArea |o--o{ kelebihan_do : "id_comp_area"
-    delivery_order ||--o{ kelebihan_do : "id_do"
+    DeliveryOrder ||--o{ kelebihan_do : "id_do"
     transaksi ||--o| kelebihan_do : "no_tiket"
     transaksi ||--o{ kelebihan_do : "no_tiket_split"
-    Users |o--o{ kontrak : "created_by"
-    Company |o--o{ kontrak : "id_company"
-    mitra ||--o{ kontrak : "id_customer"
-    produk ||--o{ kontrak : "id_produk"
-    Users |o--o{ kontrak_kendaraan : "created_by"
-    DetailVehicle ||--o{ kontrak_kendaraan : "id_kendaraan"
-    produk |o--o{ kontrak_kendaraan : "id_produk"
-    mitra ||--o{ kontrak_kendaraan : "id_supplier"
     dokumen |o--o{ lab_hasil : "id_dokumen"
     transaksi ||--o| lab_hasil : "no_tiket"
     Users |o--o{ lab_hasil : "operator_lab_id"
@@ -711,9 +791,6 @@ erDiagram
     Users |o--o{ log_aktivitas : "id_user"
     CompanyArea |o--o{ Menu : "CompAreaID"
     Menu |o--o{ Menu : "ParentMenuID"
-    Company ||--o{ mitra_company : "id_company"
-    mitra ||--o{ mitra_company : "id_supplier"
-    mitra ||--o{ mitra_peran : "id_supplier"
     CompanyArea |o--o{ notifikasi : "id_comp_area"
     Company |o--o{ notifikasi : "id_company"
     LevelDetails |o--o{ notifikasi : "id_level"
@@ -739,21 +816,32 @@ erDiagram
     transaksi ||--o{ penimbangan : "no_tiket"
     Users |o--o{ penimbangan : "operator"
     CompanyArea ||--o{ perangkat_kiosk : "id_comp_area"
-    alur ||--o{ produk : "id_alur"
+    ProductType ||--o{ Product : "Category"
+    alur ||--o{ Product : "FlowID"
+    Users |o--o{ ProductPrice : "CreateBy"
+    Currency |o--o{ ProductPrice : "CurrencyID"
+    Product ||--o{ ProductPrice : "ProductID"
+    Users |o--o{ ProductPrice : "VoidBy"
     transaksi ||--o| sortasi : "no_tiket"
     Users |o--o{ sortasi : "operator_sortasi_id"
-    produk ||--o| standar_mutu : "id_produk"
+    BankDetails |o--o{ Supplier : "BankAccountDetailsID"
+    Blacklist |o--o{ Supplier : "BlacklistID"
+    SupplierGroup |o--o{ Supplier : "SupplierGroupID"
+    Company ||--o{ SupplierCompany : "CompID"
+    Supplier ||--o{ SupplierCompany : "SupplierID"
+    Supplier ||--o{ SupplierTypeDetails : "SupplierID"
+    SupplierType ||--o{ SupplierTypeDetails : "TypeCode"
     Users |o--o{ transaksi : "diperiksa_oleh"
     alur |o--o{ transaksi : "id_alur"
     CompanyArea ||--o{ transaksi : "id_comp_area"
-    delivery_order |o--o{ transaksi : "id_do"
+    DeliveryOrder |o--o{ transaksi : "id_do"
     Users ||--o{ transaksi : "id_driver"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"
     DetailVehicle ||--o{ transaksi : "id_kendaraan"
-    kontrak_kendaraan |o--o{ transaksi : "id_kontrak"
-    mitra |o--o{ transaksi : "id_pengangkutan"
-    produk ||--o{ transaksi : "id_produk"
-    mitra ||--o{ transaksi : "id_supplier"
+    VehicleContract |o--o{ transaksi : "id_kontrak"
+    Supplier |o--o{ transaksi : "id_pengangkutan"
+    Product ||--o{ transaksi : "id_produk"
+    Supplier ||--o{ transaksi : "id_supplier"
     Users |o--o{ transaksi : "keluar_oleh"
     transaksi |o--o{ transaksi : "no_tiket_induk"
     Users ||--o{ transaksi : "security_id"
@@ -765,6 +853,10 @@ erDiagram
     DepartmentDetails |o--o{ Users : "UserDeptID"
     LevelDetails |o--o{ Users : "UserLevelID"
     Users ||--o{ UserSession : "UserID"
+    Users |o--o{ VehicleContract : "CreateBy"
+    DetailVehicle ||--o{ VehicleContract : "IDVehicle"
+    Product |o--o{ VehicleContract : "ProductID"
+    Supplier ||--o{ VehicleContract : "SupplierID"
     Users |o--o{ VehicleDriver : "CreateBy"
     DetailVehicle ||--o{ VehicleDriver : "IDVehicle"
     Users ||--o{ VehicleDriver : "UserID"

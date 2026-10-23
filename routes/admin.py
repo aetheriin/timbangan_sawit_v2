@@ -1134,12 +1134,12 @@ def kolom_wajib_simpan():
 
 # Nama tabel yang dicatat trigger log perubahan data (migrasi 034) untuk pilihan filter
 TABEL_LOG_DATA = {
-    "akun": "Pengguna", "company": "Perusahaan", "comp_area": "Area Perusahaan", "lokasi": "Mill", "department": "Departemen",
-    "level": "Jabatan", "mitra": "Supplier", "produk": "Produk", "standar_mutu": "Standar Mutu", "kendaraan": "Kendaraan",
-    "jenis_kendaraan": "Jenis Kendaraan", "kontrak": "Kontrak", "delivery_order": "DO", "jembatan_timbang": "Jembatan Timbang",
-    "mill": "Unit Timbang", "harga_harian": "Harga Harian", "pengaturan": "Pengaturan", "pengaturan_area": "Pengaturan Area",
-    "status_tiket": "Status Tiket", "kategori_personel": "Kategori Personel", "jenis_sim": "Jenis SIM",
-    "keperluan_kunjungan": "Keperluan Kunjungan", "transaksi": "Tiket",
+    "Users": "Pengguna", "Company": "Perusahaan", "CompanyArea": "Area Perusahaan", "Mill": "Mill", "Department": "Departemen",
+    "LevelDetails": "Jabatan", "Supplier": "Supplier", "Product": "Produk & Standar Mutu", "DetailVehicle": "Kendaraan",
+    "VehicleType": "Jenis Kendaraan", "Contract": "Kontrak", "DeliveryOrder": "DO", "jembatan_timbang": "Jembatan Timbang",
+    "DailyPrice": "Harga Harian", "pengaturan": "Pengaturan", "pengaturan_area": "Pengaturan Area",
+    "status_tiket": "Status Tiket", "UserCategory": "Kategori Personel", "License": "Jenis SIM",
+    "VisitPurpose": "Keperluan Kunjungan", "transaksi": "Tiket",
 }
 
 
