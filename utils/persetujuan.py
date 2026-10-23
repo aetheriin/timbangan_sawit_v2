@@ -278,7 +278,11 @@ def _ajukan_berjenjang(jenis, target, judul, alasan, data, user_id, kategori, ta
 
 
 def _ambil(cursor, id_pengajuan):
-    cursor.execute("SELECT * FROM ApprovalRequest WITH (UPDLOCK) WHERE RequestID = ?", id_pengajuan)
+    cursor.execute("""SELECT RequestID AS id_pengajuan, RequestType AS jenis, Status AS status, CurrentStep AS langkah,
+                             TotalSteps AS total_langkah, CompID AS id_company, CompAreaID AS id_comp_area, Target AS target,
+                             Title AS judul, Reason AS alasan, Data AS data, RequestBy AS diajukan_oleh, CreateDate AS created_at,
+                             FinishDate AS selesai_at, CategoryCode AS kategori
+                      FROM ApprovalRequest WITH (UPDLOCK) WHERE RequestID = ?""", id_pengajuan)
     rows = _rows_to_dicts(cursor)
     if not rows:
         raise ValueError("Pengajuan tidak ditemukan")

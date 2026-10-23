@@ -17,8 +17,7 @@
    Tabel pendukung CPOS: DocumentType, Document, DocumentFile, Flow, FlowStage, FlowStep, Scale (jembatan timbang),
    Notification(Read), WorkSchedule, RequiredDataField, Setting, SettingArea, Device (kiosk), ApprovalRequest,
    ApprovalHistory, ApprovalRequestStep, ApprovalFlow, ApprovalFlowStep. Prosedur log: sp_WriteLog, fn_LogHash.
-   Mulai versi ini database DIBUAT BARU dari file ini; migrasi lama (database/migrations/ 001-043) hanya untuk
-   database versi sebelumnya dan tidak dipakai lagi.
+   Database DIBUAT BARU dari file ini (tidak ada migrasi). Data contoh untuk uji: database/demo_data.sql.
 
    Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
    Login awal: admin / admin12345 (wajib ganti password saat login pertama).
