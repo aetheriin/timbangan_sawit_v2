@@ -134,7 +134,7 @@ def do_simpan():
              "tanggal_do": _tanggal("tanggal_do", True), "berlaku_sampai": _tanggal("berlaku_sampai", False),
              "keterangan": (f.get("keterangan") or "").strip()[:200] or None,
              "ppn": f.get("ppn") == "1", "harga_termasuk_ppn": f.get("harga_termasuk_ppn") == "1",
-             "id_company": _id("id_company")}
+             "id_company": (request.form.get("id_company") or "").strip().upper()}
         if d["id_company"] not in {c["id_company"] for c in _company_user()}:
             raise ValueError("Pilih perusahaan pemilik kontrak dari daftar")
         if not d["ppn"]:

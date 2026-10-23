@@ -53,11 +53,11 @@ def catat(kategori, aksi, *, tabel=None, id_baris=None, lama=None, baru=None, us
 def daftar(kategori, hari=7, batas=300, aksi=None):
     """Baris log satu kategori N hari terakhir, terbaru dulu. nilai_lama / nilai_baru sudah jadi dict."""
     sql = f"""SELECT TOP {int(batas)} l.id_log, l.waktu, l.aksi, l.tabel, l.id_baris, l.nilai_lama, l.nilai_baru, l.ip,
-                     l.id_user, u.nama AS oleh, u.username, lv.kode AS role_oleh, p.kode_personel AS kode_oleh
+                     l.id_user, u.Nama AS oleh, u.UserName AS username, lv.LevelDetCode AS role_oleh, p.kode_personel AS kode_oleh
               FROM log_aktivitas l
-              LEFT JOIN akun u ON u.id_user = l.id_user
-              LEFT JOIN level lv ON lv.id_level = u.id_level
-              LEFT JOIN personel p ON p.id_personel = u.id_personel
+              LEFT JOIN Users u ON u.UserID = l.id_user
+              LEFT JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
+              LEFT JOIN personel p ON p.id_personel = u.PersonnelID
               WHERE l.kategori = ? AND l.waktu >= DATEADD(DAY, ?, CAST(GETDATE() AS DATE))
                     {"AND l.aksi = ?" if aksi else ""}
               ORDER BY l.id_log DESC"""

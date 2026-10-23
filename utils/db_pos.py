@@ -13,15 +13,15 @@ DI_DALAM = "t.waktu_keluar IS NULL AND t.status_alur <> 'VOID'"
 _KOLOM = """t.no_tiket, k.no_plat, t.id_driver, d.nama_personel AS supir, d.kode_personel,
             s.nama_supplier AS customer, p.nama_produk AS produk, t.jenis_transaksi, t.status_alur,
             ISNULL(ang.nama_supplier, '') AS pengangkutan, t.created_at AS waktu_masuk, t.waktu_keluar,
-            um.nama AS petugas_masuk, uk.nama AS petugas_keluar, a.kode AS kode_alur"""
+            um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.kode AS kode_alur"""
 _DARI = """FROM transaksi t
            JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
            JOIN personel d ON d.id_personel = t.id_driver
            JOIN mitra s ON s.id_supplier = t.id_supplier
            JOIN produk p ON p.id_produk = t.id_produk
            LEFT JOIN mitra ang ON ang.id_supplier = t.id_pengangkutan
-           LEFT JOIN akun um ON um.id_user = t.security_id
-           LEFT JOIN akun uk ON uk.id_user = t.keluar_oleh
+           LEFT JOIN Users um ON um.UserID = t.security_id
+           LEFT JOIN Users uk ON uk.UserID = t.keluar_oleh
            LEFT JOIN alur a ON a.id_alur = t.id_alur"""
 
 
@@ -84,9 +84,9 @@ def supir_terakhir(no_plat):
 def blacklist_aktif(tipe, id_target):
     """Alasan, sejak kapan, dan penetap blacklist yang berlaku (untuk panel peringatan)."""
     kolom = "id_personel" if tipe == "PERSONEL" else "id_kendaraan"
-    rows = _query(f"""SELECT TOP 1 b.alasan_blacklist AS alasan, b.created_at AS sejak, u.nama AS oleh,
+    rows = _query(f"""SELECT TOP 1 b.alasan_blacklist AS alasan, b.created_at AS sejak, u.Nama AS oleh,
                              dk.no_dokumen AS no_surat
-                      FROM blacklist b JOIN akun u ON u.id_user = b.created_by
+                      FROM blacklist b JOIN Users u ON u.UserID = b.created_by
                       LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                       WHERE b.{kolom} = ? AND b.dicabut_at IS NULL ORDER BY b.created_at DESC""", id_target)
     return rows[0] if rows else None

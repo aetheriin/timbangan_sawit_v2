@@ -66,8 +66,8 @@ def daftar():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT k.id_pos, k.nama, k.lokasi, k.id_comp_area, a.nama AS area, k.is_active, k.created_at
-                          FROM perangkat_kiosk k LEFT JOIN comp_area a ON a.id_comp_area = k.id_comp_area
+        cursor.execute("""SELECT k.id_pos, k.nama, k.lokasi, k.id_comp_area, a.AreaName AS area, k.is_active, k.created_at
+                          FROM perangkat_kiosk k LEFT JOIN CompanyArea a ON a.CompAreaID = k.id_comp_area
                           ORDER BY k.id_pos""")
         return _rows_to_dicts(cursor)
     finally:

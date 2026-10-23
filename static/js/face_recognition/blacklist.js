@@ -16,6 +16,10 @@ let timerCariTarget = null;
 window.addEventListener('tabChange', e => {
     if (e.detail === 'blacklist' && !blacklistDimuat) {
         blacklistDimuat = true;
+        // Sub-menu navbar: Visitor & Staff Blacklist (?tipe=PERSONEL) / Vehicle Blacklist (?tipe=KENDARAAN)
+        const tipe = new URLSearchParams(location.search).get('tipe');
+        const chip = tipe && document.querySelector(`#chipTipeBlacklist [data-tipe="${CSS.escape(tipe)}"]`);
+        if (chip) { aktifkanChip(chip); tipeFilterBlacklist = tipe; }
         muatBlacklist();
     }
 });

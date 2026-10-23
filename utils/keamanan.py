@@ -110,7 +110,7 @@ def pasang_cookie(app):
         return {"sesi_idle_detik": pengaturan.nilai("SESI_IDLE_MENIT") * 60, "status_tiket": alur.daftar_status,
                 "kolom_wajib": kolom_wajib.per_form_html,
                 "boleh": hak_akses.boleh, "boleh_lihat": hak_akses.boleh_lihat, "tab_lihat": hak_akses.tab_lihat,
-                "menu_sidebar": hak_akses.menu_sidebar, "versi_aplikasi": versi_aplikasi}
+                "menu_sidebar": hak_akses.menu_sidebar, "navbar": hak_akses.navbar, "versi_aplikasi": versi_aplikasi}
 
 
 def mulai_sesi(user, sesi_versi=0):

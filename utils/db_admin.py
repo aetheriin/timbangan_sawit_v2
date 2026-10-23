@@ -31,63 +31,75 @@ def _ubah(sql, *params, pesan_kosong="Data tidak ditemukan"):
         conn.close()
 
 
-# ===== USER (level, department, area dari tabel; hak akses di utils/hak_akses.py) =====
-# Akun = personel yang bisa login (migrasi 031): nama, NIK, email & kategori disimpan di personel.
-_SELECT_USER = """SELECT u.id_user, u.username, u.nama, u.id_level, lv.kode AS role, lv.nama AS nama_level, lv.is_admin, lv.id_jabatan,
-                         u.id_department, ISNULL(d.nama, 'Admin sistem') AS department, u.id_comp_area, co.kode + ' · ' + a.nama AS area,
-                         u.is_active, u.last_login, u.created_at, u.id_personel, p.kode_personel, p.nik, p.email,
-                         p.kategori,
-                         (SELECT COUNT(*) FROM akun_akses x WHERE x.id_user = u.id_user) AS jumlah_akses_khusus
-                  FROM akun u JOIN level lv ON lv.id_level = u.id_level
-                  LEFT JOIN department d ON d.id_department = u.id_department
-                  JOIN comp_area a ON a.id_comp_area = u.id_comp_area
-                  JOIN company co ON co.id_company = a.id_company
-                  JOIN personel p ON p.id_personel = u.id_personel"""
+# ===== USER (Users + LevelDetails = peran + DepartmentDetails; hak akses di utils/hak_akses.py) =====
+# Akun = personel yang bisa login: nama & NIK juga disimpan di personel (digabung ke Users di tahap 2).
+_SELECT_USER = """SELECT u.UserID AS id_user, u.UserName AS username, u.Nama AS nama, u.UserLevelID AS id_level,
+                         ld.LevelDetCode AS role, ld.LevelDetName AS nama_level, lv.IsAdmin AS is_admin, ld.LevelID AS id_jabatan,
+                         dd.DeptID AS id_department, ISNULL(d.DeptName, 'Admin sistem') AS department, u.CompAreaID AS id_comp_area,
+                         a.CompID + ' · ' + a.AreaName AS area, u.Active AS is_active, u.LastLogin AS last_login,
+                         u.CreateDate AS created_at, u.PersonnelID AS id_personel, p.kode_personel, p.nik, p.email, p.kategori,
+                         (SELECT COUNT(DISTINCT x.MenuID) FROM AccessMenu x WHERE x.UserID = u.UserID) AS jumlah_akses_khusus
+                  FROM Users u JOIN LevelDetails ld ON ld.LevelDetID = u.UserLevelID JOIN Level lv ON lv.LevelID = ld.LevelID
+                  LEFT JOIN DepartmentDetails dd ON dd.DeptDetailID = u.UserDeptID
+                  LEFT JOIN Department d ON d.DeptID = dd.DeptID
+                  JOIN CompanyArea a ON a.CompAreaID = u.CompAreaID
+                  JOIN personel p ON p.id_personel = u.PersonnelID"""
 
 
 def daftar_user():
-    return _query(_SELECT_USER + " ORDER BY u.is_active DESC, lv.is_admin DESC, lv.nama, u.nama")
+    return _query(_SELECT_USER + " ORDER BY u.Active DESC, lv.IsAdmin DESC, ld.LevelDetName, u.Nama")
 
 
 def get_user(id_user):
-    rows = _query(_SELECT_USER + " WHERE u.id_user = ?", id_user)
+    rows = _query(_SELECT_USER + " WHERE u.UserID = ?", id_user)
     return rows[0] if rows else None
 
 
 def username_dipakai(username, kecuali=None):
-    rows = _query("SELECT id_user FROM akun WHERE LOWER(username) = LOWER(?)", username)
+    rows = _query("SELECT UserID AS id_user FROM Users WHERE LOWER(UserName) = LOWER(?)", username)
     return any(r["id_user"] != kecuali for r in rows)
 
 
 def jumlah_admin_aktif(kecuali=None):
-    rows = _query("""SELECT u.id_user FROM akun u JOIN level lv ON lv.id_level = u.id_level
-                     WHERE lv.is_admin = 1 AND lv.is_active = 1 AND u.is_active = 1""")
+    rows = _query("""SELECT u.UserID AS id_user FROM Users u JOIN LevelDetails ld ON ld.LevelDetID = u.UserLevelID
+                     JOIN Level lv ON lv.LevelID = ld.LevelID WHERE lv.IsAdmin = 1 AND ld.Active = 1 AND u.Active = 1""")
     return len([r for r in rows if r["id_user"] != kecuali])
 
 
 def personel_untuk_nik(nik):
     """Personel dengan NIK ini (untuk dihubungkan ke akun baru) beserta akunnya bila sudah punya."""
     rows = _query("""SELECT p.id_personel, p.nama_personel, p.kategori, k.nama AS nama_kategori, k.boleh_akun,
-                            u.username AS akun
+                            u.UserName AS akun
                      FROM personel p LEFT JOIN kategori_personel k ON k.kode = p.kategori
-                     LEFT JOIN akun u ON u.id_personel = p.id_personel WHERE p.nik = ?""", nik)
+                     LEFT JOIN Users u ON u.PersonnelID = p.id_personel WHERE p.nik = ?""", nik)
     return rows[0] if rows else None
+
+
+def _dept_detail(cursor, id_department, id_comp_area):
+    """DeptDetailID departemen ini di area user (DepartmentDetails); None untuk admin sistem."""
+    if not id_department:
+        return None
+    row = cursor.execute("SELECT DeptDetailID FROM DepartmentDetails WHERE DeptID = ? AND CompAreaID = ? AND Active = 1",
+                         id_department, id_comp_area).fetchone()
+    if not row:
+        raise ValueError("Departemen ini tidak ada di area yang dipilih. Atur di Admin › Organisasi › Departemen")
+    return row[0]
 
 
 def tambah_user(username, id_level, id_department, id_comp_area, password_hash, personel):
     """personel = {id_personel (None = buat baru), nama, nik}. Personel yang sudah ada (dicari dari NIK) dihubungkan ke
-    akun ini; personel baru berkategori Karyawan. Password pertama ikut dicatat di riwayat."""
-    from utils.db_utils import catat_riwayat_password
+    akun ini; personel baru berkategori Karyawan. Password pertama wajib diganti saat login."""
+    from utils.db_utils import simpan_password, user_id_baru
     conn = get_connection()
     try:
         cursor = conn.cursor()
         id_personel = _simpan_personel_akun(cursor, personel)
-        cursor.execute("""SET NOCOUNT ON; INSERT INTO akun (username, nama, id_level, id_department, id_comp_area, password,
-                                                           id_personel)
-                          VALUES (?, ?, ?, ?, ?, ?, ?); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
-                       username, personel["nama"], id_level, id_department, id_comp_area, password_hash, id_personel)
-        id_user = cursor.fetchone()[0]
-        catat_riwayat_password(cursor, id_user, password_hash)
+        id_user = user_id_baru(cursor)
+        cursor.execute("""INSERT INTO Users (UserID, UserName, Nama, UserLevelID, UserDeptID, CompAreaID, PersonnelID, NoKTP)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       id_user, username, personel["nama"], id_level, _dept_detail(cursor, id_department, id_comp_area),
+                       id_comp_area, id_personel, personel.get("nik"))
+        simpan_password(cursor, id_user, password_hash, wajib_ganti=True)
         conn.commit()
         return id_user
     except Exception:
@@ -109,15 +121,16 @@ def _simpan_personel_akun(cursor, d):
 
 
 def ubah_user(id_user, id_level, id_department, id_comp_area, personel):
-    """Ganti level -> sesi lama dicabut (sesi_versi naik) supaya hak akses baru langsung berlaku."""
+    """Ganti peran -> sesi lama dicabut (SessionVersion naik) supaya hak akses baru langsung berlaku."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
         _simpan_personel_akun(cursor, personel)
-        cursor.execute("""UPDATE akun SET nama = ?, sesi_versi = sesi_versi + CASE WHEN id_level <> ? THEN 1 ELSE 0 END,
-                          id_level = ?, id_department = ?, id_comp_area = ?, updated_at = GETDATE()
-                          WHERE id_user = ?""",
-                       personel["nama"], id_level, id_level, id_department, id_comp_area, id_user)
+        cursor.execute("""UPDATE Users SET Nama = ?, SessionVersion = SessionVersion + CASE WHEN UserLevelID <> ? THEN 1 ELSE 0 END,
+                          UserLevelID = ?, UserDeptID = ?, CompAreaID = ?, NoKTP = ?, UpdateDate = GETDATE()
+                          WHERE UserID = ?""",
+                       personel["nama"], id_level, id_level, _dept_detail(cursor, id_department, id_comp_area), id_comp_area,
+                       personel.get("nik"), id_user)
         if cursor.rowcount == 0:
             raise ValueError("Data tidak ditemukan")
         conn.commit()
@@ -130,16 +143,15 @@ def ubah_user(id_user, id_level, id_department, id_comp_area, personel):
 
 
 def reset_password(id_user, password_hash):
-    # password_changed_at = NULL -> user wajib mengganti password ini saat login berikutnya
-    from utils.db_utils import catat_riwayat_password
+    # MustChange = 1 -> user wajib mengganti password ini saat login berikutnya
+    from utils.db_utils import simpan_password
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""UPDATE akun SET password = ?, password_changed_at = NULL, sesi_versi = sesi_versi + 1,
-                          updated_at = GETDATE() WHERE id_user = ?""", password_hash, id_user)
+        cursor.execute("UPDATE Users SET SessionVersion = SessionVersion + 1, UpdateDate = GETDATE() WHERE UserID = ?", id_user)
         if cursor.rowcount == 0:
             raise ValueError("Data tidak ditemukan")
-        catat_riwayat_password(cursor, id_user, password_hash)
+        simpan_password(cursor, id_user, password_hash, wajib_ganti=True)
         conn.commit()
     finally:
         conn.close()
@@ -147,13 +159,13 @@ def reset_password(id_user, password_hash):
 
 
 def set_aktif_user(id_user, aktif):
-    _ubah("""UPDATE akun SET is_active = ?, sesi_versi = sesi_versi + 1, updated_at = GETDATE()
-             WHERE id_user = ?""", 1 if aktif else 0, id_user)
+    _ubah("""UPDATE Users SET Active = ?, SessionVersion = SessionVersion + 1, UpdateDate = GETDATE()
+             WHERE UserID = ?""", 1 if aktif else 0, id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
 def cabut_sesi(id_user):
-    _ubah("UPDATE akun SET sesi_versi = sesi_versi + 1 WHERE id_user = ?", id_user)
+    _ubah("UPDATE Users SET SessionVersion = SessionVersion + 1 WHERE UserID = ?", id_user)
     get_user_by_id.hapus()          # perubahan user / sesi langsung berlaku
 
 
@@ -301,13 +313,13 @@ def daftar_tiket(cari="", hari=30, batas=500):
     cari = f"%{cari.strip()}%"
     return _query(f"""SELECT TOP {int(batas)} t.no_tiket, k.no_plat, s.nama_supplier AS customer, t.no_do, t.jenis_transaksi,
                              t.status_alur, t.created_at, pb.jenis AS jenis_batal, pb.alasan AS alasan_void,
-                             pb.waktu AS void_at, u.nama AS void_oleh, pb.id_dokumen,
+                             pb.waktu AS void_at, u.Nama AS void_oleh, pb.id_dokumen,
                              dk.no_dokumen AS no_ba, df.file_path AS file_ba
                       FROM transaksi t
                       JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
                       JOIN mitra s ON s.id_supplier = t.id_supplier
                       LEFT JOIN pembatalan_tiket pb ON pb.no_tiket = t.no_tiket
-                      LEFT JOIN akun u ON u.id_user = pb.oleh
+                      LEFT JOIN Users u ON u.UserID = pb.oleh
                       LEFT JOIN dokumen dk ON dk.id_dokumen = pb.id_dokumen
                       OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                    WHERE f.id_dokumen = pb.id_dokumen ORDER BY f.urutan) df

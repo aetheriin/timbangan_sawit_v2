@@ -36,22 +36,22 @@ null_of = {(t, k["nama"]): k["null"] for t, ks in kolom.items() for k in ks}
 
 KELOMPOK = [
     ("01_organisasi_akses", "Organisasi, akun & hak akses",
-     ["company", "lokasi", "comp_area", "department", "department_company", "jabatan", "level", "menu", "level_akses", "akun",
-      "akun_akses", "akun_company", "password_riwayat", "sesi_login", "pengaturan", "pengaturan_area", "kolom_wajib",
+     ["Company", "Mill", "CompanyArea", "Department", "DepartmentDetails", "Level", "LevelDetails", "Menu", "ActionType",
+      "AccessMenu", "Users", "PasswordManager", "UserCompany", "UserSession", "pengaturan", "pengaturan_area", "kolom_wajib",
       "perangkat_kiosk", "jadwal_kerja", "personel"]),
     ("02_personel_dokumen", "Personel, wajah, kunjungan, absensi, blacklist & dokumen",
      ["kategori_personel", "personel", "jenis_sim", "personel_sim", "personel_wajah", "keperluan_kunjungan", "kunjungan", "absensi",
-      "blacklist", "blacklist_deteksi", "jenis_dokumen", "dokumen", "dokumen_file", "kendaraan", "comp_area"]),
+      "blacklist", "blacklist_deteksi", "jenis_dokumen", "dokumen", "dokumen_file", "kendaraan", "CompanyArea"]),
     ("03_mitra_kontrak", "Mitra, kendaraan, produk, kontrak & DO",
-     ["mitra", "mitra_peran", "mitra_company", "company", "jenis_kendaraan", "kendaraan", "kendaraan_driver", "kontrak_kendaraan",
+     ["mitra", "mitra_peran", "mitra_company", "Company", "jenis_kendaraan", "kendaraan", "kendaraan_driver", "kontrak_kendaraan",
       "kontrak", "delivery_order", "do_pengangkutan", "kelebihan_do", "produk", "standar_mutu", "alur", "harga_harian", "personel"]),
     ("04_proses_tiket", "Proses tiket & Pos Security: alur, jembatan, timbang, sortasi, lab, pembatalan",
-     ["transaksi", "jenis_transaksi", "status_tiket", "tahap", "alur", "alur_tahap", "comp_area", "jembatan_timbang", "penimbangan",
+     ["transaksi", "jenis_transaksi", "status_tiket", "tahap", "alur", "alur_tahap", "CompanyArea", "jembatan_timbang", "penimbangan",
       "sortasi", "lab_hasil", "pembatalan_tiket", "produk", "mitra", "kendaraan", "personel", "delivery_order",
-      "kontrak_kendaraan", "dokumen", "akun"]),
+      "kontrak_kendaraan", "dokumen", "Users"]),
     ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
      ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
-      "level", "notifikasi", "notifikasi_baca", "akun", "comp_area"]),
+      "LevelDetails", "notifikasi", "notifikasi_baca", "Users", "CompanyArea"]),
 ]
 
 def entitas(t, ringkas=False):
@@ -79,7 +79,7 @@ def diagram(tabel, utama, tanpa_akun=False):
         out.append(entitas(t, ringkas=t not in utama))
     for f in fk:
         if f["anak"] in tabel and f["induk"] in tabel and (f["anak"] in utama or f["induk"] in utama):
-            if tanpa_akun and f["induk"] == "akun" and "akun" not in utama:
+            if tanpa_akun and f["induk"] == "Users" and "Users" not in utama:
                 continue
             out.append(relasi(f))
     return "\n".join(out)
@@ -88,11 +88,11 @@ hasil = {"lengkap": diagram(sorted(kolom), set(kolom))}
 for kode, judul, tabel in KELOMPOK:
     utama = {t for t in tabel}
     # tabel pendukung (milik kelompok lain) cukup ditampilkan PK-nya
-    pendukung = {"01_organisasi_akses": {"personel"}, "02_personel_dokumen": {"kendaraan", "comp_area"},
-                 "03_mitra_kontrak": {"personel", "alur", "company"},
-                 "04_proses_tiket": {"comp_area", "produk", "mitra", "kendaraan", "personel", "delivery_order",
-                                     "kontrak_kendaraan", "dokumen", "akun"},
-                 "05_log_persetujuan": {"akun", "comp_area"}}[kode]
+    pendukung = {"01_organisasi_akses": {"personel"}, "02_personel_dokumen": {"kendaraan", "CompanyArea"},
+                 "03_mitra_kontrak": {"personel", "alur", "Company"},
+                 "04_proses_tiket": {"CompanyArea", "produk", "mitra", "kendaraan", "personel", "delivery_order",
+                                     "kontrak_kendaraan", "dokumen", "Users"},
+                 "05_log_persetujuan": {"Users", "CompanyArea"}}[kode]
     hasil[kode] = diagram(tabel, utama - pendukung, tanpa_akun=kode not in ("01_organisasi_akses", "05_log_persetujuan"))
 folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "erd")
 os.makedirs(folder, exist_ok=True)

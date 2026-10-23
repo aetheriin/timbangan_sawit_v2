@@ -74,7 +74,7 @@ def cari_kendaraan(kata, batas=5):
 def cari_akun(kata, batas=8):
     pola = _pola(kata)
     return _query(f"""
-        SELECT TOP {int(batas)} u.id_user, u.nama, u.username, u.is_active, l.nama AS nama_level, a.nama AS area
-        FROM akun u JOIN level l ON l.id_level = u.id_level JOIN comp_area a ON a.id_comp_area = u.id_comp_area
-        WHERE u.nama LIKE ? OR u.username LIKE ?
-        ORDER BY u.is_active DESC, u.nama""", pola, pola)
+        SELECT TOP {int(batas)} u.UserID AS id_user, u.Nama AS nama, u.UserName AS username, u.Active AS is_active, l.LevelDetName AS nama_level, a.AreaName AS area
+        FROM Users u JOIN LevelDetails l ON l.LevelDetID = u.UserLevelID JOIN CompanyArea a ON a.CompAreaID = u.CompAreaID
+        WHERE u.Nama LIKE ? OR u.UserName LIKE ?
+        ORDER BY u.Active DESC, u.Nama""", pola, pola)

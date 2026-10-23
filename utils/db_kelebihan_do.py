@@ -50,7 +50,7 @@ def proses_tiket_selesai(no_tiket, user_id):
                                  0, driver_photo_path, security_id, id_jembatan, id_comp_area, id_alur,
                                  NULL, cara_angkut, no_tiket, ?
                           FROM transaksi WHERE no_tiket = ?""", split, lebih, no_tiket)
-        cursor.execute("SELECT id_comp_area FROM akun WHERE id_user = ?", user_id)
+        cursor.execute("SELECT CompAreaID FROM Users WHERE UserID = ?", user_id)
         area = (cursor.fetchone() or [None])[0]
         cursor.execute("""INSERT INTO kelebihan_do (no_tiket, no_tiket_split, id_do, kuota_kg, realisasi_kg, netto_tiket_kg,
                                                     kelebihan_kg, id_comp_area)
@@ -80,17 +80,17 @@ def daftar(status=None, batas=300, id_area=None):
         syarat.append(sql_a[5:]); args.extend(args_a)
     sql = f"""SELECT TOP ({int(batas)}) x.id_kelebihan, x.no_tiket, x.no_tiket_split, d.no_do, x.kuota_kg, x.realisasi_kg,
                      x.netto_tiket_kg, x.kelebihan_kg, x.no_do_baru, x.status, x.catatan, x.alasan_kembali, x.created_at,
-                     x.diajukan_at, x.ditetapkan_at, ua.nama AS diajukan_oleh, ut.nama AS ditetapkan_oleh,
-                     k.no_plat, p.nama_personel AS supir, m.nama_supplier AS customer, ar.nama AS area
+                     x.diajukan_at, x.ditetapkan_at, ua.Nama AS diajukan_oleh, ut.Nama AS ditetapkan_oleh,
+                     k.no_plat, p.nama_personel AS supir, m.nama_supplier AS customer, ar.AreaName AS area
               FROM kelebihan_do x
               JOIN delivery_order d ON d.id_do = x.id_do
               JOIN transaksi t ON t.no_tiket = x.no_tiket
               JOIN kendaraan k ON k.id_kendaraan = t.id_kendaraan
               JOIN personel p ON p.id_personel = t.id_driver
               JOIN mitra m ON m.id_supplier = t.id_supplier
-              LEFT JOIN akun ua ON ua.id_user = x.diajukan_oleh
-              LEFT JOIN akun ut ON ut.id_user = x.ditetapkan_oleh
-              LEFT JOIN comp_area ar ON ar.id_comp_area = x.id_comp_area
+              LEFT JOIN Users ua ON ua.UserID = x.diajukan_oleh
+              LEFT JOIN Users ut ON ut.UserID = x.ditetapkan_oleh
+              LEFT JOIN CompanyArea ar ON ar.CompAreaID = x.id_comp_area
               {("WHERE " + " AND ".join(syarat)) if syarat else ""}
               ORDER BY CASE x.status WHEN 'MENUNGGU' THEN 0 WHEN 'DIKEMBALIKAN' THEN 1 WHEN 'DIAJUKAN' THEN 2 ELSE 3 END,
                        x.created_at DESC"""

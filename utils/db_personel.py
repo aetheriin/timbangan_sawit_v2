@@ -168,7 +168,7 @@ def update_personel(id_personel, kode, nik, nama, no_sim, kategori, user_id,
     cursor.execute("""UPDATE personel SET kode_personel = ?, nik = ?, nama_personel = ?, kategori = ?,
                       is_updated = 1, current_hash = ?, updated_at = GETDATE()
                       WHERE id_personel = ?""", kode or None, nik, nama, kategori, hash_baru, id_personel)
-    cursor.execute("UPDATE akun SET nama = ? WHERE id_personel = ?", nama, id_personel)     # akun = personel (migrasi 031)
+    cursor.execute("UPDATE Users SET Nama = ? WHERE PersonnelID = ?", nama, id_personel)     # akun = personel
     simpan_sim(cursor, id_personel, no_sim or None, id_jenis_sim, sim_berlaku, user_id)
     if embedding_binary is not None:
         simpan_wajah(cursor, id_personel, embedding_binary, foto_path, foto_sumber, user_id)
@@ -183,7 +183,7 @@ def akun_personel(id_personel):
     """username akun aktif milik personel ini, atau None."""
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT username FROM akun WHERE id_personel = ? AND is_active = 1", id_personel).fetchone()
+        row = conn.cursor().execute("SELECT UserName FROM Users WHERE PersonnelID = ? AND Active = 1", id_personel).fetchone()
         return row[0] if row else None
     finally:
         conn.close()
@@ -213,12 +213,12 @@ def get_riwayat_perubahan_personel(hari=7, batas=300):
                JSON_VALUE(l.nilai_lama, '$.nik') AS nik_lama, JSON_VALUE(l.nilai_baru, '$.nik') AS nik_baru,
                JSON_VALUE(l.nilai_lama, '$.nama') AS nama_lama, JSON_VALUE(l.nilai_baru, '$.nama') AS nama_baru,
                JSON_VALUE(l.nilai_lama, '$.no_sim') AS no_sim_lama, JSON_VALUE(l.nilai_baru, '$.no_sim') AS no_sim_baru,
-               CAST(l.waktu AS DATETIME) AS updated_at, u.nama AS oleh, lv.kode AS role_oleh,
+               CAST(l.waktu AS DATETIME) AS updated_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh,
                p.kode_personel, p.nama_personel
         FROM log_aktivitas l
         JOIN personel p ON p.id_personel = TRY_CAST(l.id_baris AS INT)
-        LEFT JOIN akun u ON l.id_user = u.id_user
-        LEFT JOIN level lv ON lv.id_level = u.id_level
+        LEFT JOIN Users u ON l.id_user = u.UserID
+        LEFT JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
         WHERE l.kategori = 'PERSONEL' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
         ORDER BY l.id_log DESC
     """, batas, -(hari - 1))

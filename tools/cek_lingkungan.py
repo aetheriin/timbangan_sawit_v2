@@ -66,7 +66,7 @@ try:
                              ("jenis_kendaraan", "U", "migrasi 014")]:
         ada = cur.execute("SELECT OBJECT_ID(?, ?)", f"dbo.{objek}", tipe).fetchone()[0] is not None
         baris(ada, f"{objek} ada", f"Database belum versi terbaru: jalankan {ket} (atau database/schema.sql untuk DB baru)")
-    n_akun = cur.execute("SELECT COUNT(*) FROM akun WHERE is_active = 1").fetchone()[0]
+    n_akun = cur.execute("SELECT COUNT(*) FROM Users WHERE Active = 1").fetchone()[0]
     baris(n_akun > 0, f"{n_akun} akun aktif")
     rusak = cur.execute("SELECT COUNT(*) FROM v_log_rusak").fetchone()[0]
     baris(rusak == 0, "Rantai log utuh" if rusak == 0 else f"{rusak} baris log rusak")

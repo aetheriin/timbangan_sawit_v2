@@ -14,19 +14,19 @@ erDiagram
         datetime qr_expired_at
         int qr_reprint_count
         varchar driver_photo_path "NULL"
-        int security_id FK
+        bigint security_id FK
         int id_jembatan FK "NULL"
+        bigint id_comp_area FK
+        int id_alur FK "NULL"
         int id_do FK "NULL"
         varchar cara_angkut
         varchar no_tiket_induk FK "NULL"
         decimal berat_split_kg "NULL"
         datetime created_at
         datetime diperiksa_pada "NULL"
-        int diperiksa_oleh FK "NULL"
+        bigint diperiksa_oleh FK "NULL"
         datetime waktu_keluar "NULL"
-        int keluar_oleh FK "NULL"
-        int id_comp_area FK
-        int id_alur FK "NULL"
+        bigint keluar_oleh FK "NULL"
     }
     jenis_transaksi {
         varchar kode PK
@@ -56,12 +56,12 @@ erDiagram
         tinyint urutan PK
         varchar kode_tahap FK
     }
-    comp_area {
-        int id_comp_area PK
+    CompanyArea {
+        bigint CompAreaID PK
     }
     jembatan_timbang {
         int id_jembatan PK
-        int id_comp_area FK
+        bigint id_comp_area FK
         varchar kode
         nvarchar nama
         varchar port
@@ -86,7 +86,7 @@ erDiagram
         int id_jembatan FK
         decimal berat_kg
         datetime waktu
-        int operator FK "NULL"
+        bigint operator FK "NULL"
         char hash "NULL"
     }
     sortasi {
@@ -100,7 +100,7 @@ erDiagram
         float persen_brondolan "NULL"
         float total_potongan_kg "NULL"
         varchar catatan "NULL"
-        int operator_sortasi_id FK "NULL"
+        bigint operator_sortasi_id FK "NULL"
         datetime waktu_sortasi "NULL"
     }
     lab_hasil {
@@ -112,7 +112,7 @@ erDiagram
         varchar warna_locis "NULL"
         varchar keputusan "NULL"
         int id_dokumen FK "NULL"
-        int operator_lab_id FK "NULL"
+        bigint operator_lab_id FK "NULL"
         datetime waktu_pemeriksaan "NULL"
     }
     pembatalan_tiket {
@@ -120,7 +120,7 @@ erDiagram
         varchar jenis
         nvarchar alasan
         int id_dokumen FK "NULL"
-        int oleh FK "NULL"
+        bigint oleh FK "NULL"
         datetime waktu
     }
     produk {
@@ -144,12 +144,12 @@ erDiagram
     dokumen {
         int id_dokumen PK
     }
-    akun {
-        int id_user PK
+    Users {
+        bigint UserID PK
     }
     alur ||--o{ alur_tahap : "id_alur"
     tahap ||--o{ alur_tahap : "kode_tahap"
-    comp_area ||--o{ jembatan_timbang : "id_comp_area"
+    CompanyArea ||--o{ jembatan_timbang : "id_comp_area"
     dokumen |o--o{ lab_hasil : "id_dokumen"
     transaksi ||--o| lab_hasil : "no_tiket"
     dokumen |o--o{ pembatalan_tiket : "id_dokumen"
@@ -159,7 +159,7 @@ erDiagram
     alur ||--o{ produk : "id_alur"
     transaksi ||--o| sortasi : "no_tiket"
     alur |o--o{ transaksi : "id_alur"
-    comp_area ||--o{ transaksi : "id_comp_area"
+    CompanyArea ||--o{ transaksi : "id_comp_area"
     delivery_order |o--o{ transaksi : "id_do"
     personel ||--o{ transaksi : "id_driver"
     jembatan_timbang |o--o{ transaksi : "id_jembatan"

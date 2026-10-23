@@ -22,34 +22,34 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
     sql = """
         SELECT TOP (?) b.id_blacklist, b.tipe_entitas, dk.no_dokumen AS no_surat_blacklist, b.alasan_blacklist,
                df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
-               b.id_dokumen, b.created_at, u.nama AS oleh, lv.kode AS role_oleh, ar.nama AS area_oleh,
+               b.id_dokumen, b.created_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh, ar.AreaName AS area_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
                c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait,
-               b.dicabut_at, b.alasan_cabut, uc.nama AS dicabut_oleh, p.nik, b.nama_alias, b.kategori,
+               b.dicabut_at, b.alasan_cabut, uc.Nama AS dicabut_oleh, p.nik, b.nama_alias, b.kategori,
                CASE WHEN b.tipe_entitas = 'KENDARAAN' THEN 'Kendaraan' ELSE kp.nama END AS nama_kategori,
-               arb.nama AS lokasi_blacklist, cb.kode AS company_blacklist,
-               COALESCE(sp.waktu, sk.waktu) AS scan_terakhir, sca.nama AS lokasi_scan, csa.kode AS company_scan,
+               arb.AreaName AS lokasi_blacklist, cb.CompID AS company_blacklist,
+               COALESCE(sp.waktu, sk.waktu) AS scan_terakhir, sca.AreaName AS lokasi_scan, csa.CompID AS company_scan,
                (SELECT TOP 1 pg.id_pengajuan FROM pengajuan pg WHERE pg.jenis = 'BLACKLIST_HAPUS' AND pg.status = 'MENUNGGU'
                 AND pg.target = 'BLACKLIST:' + CAST(b.id_blacklist AS VARCHAR(20))) AS id_pengajuan_hapus
         FROM blacklist b
-        LEFT JOIN akun uc ON uc.id_user = b.dicabut_oleh
+        LEFT JOIN Users uc ON uc.UserID = b.dicabut_oleh
         LEFT JOIN mitra c ON b.id_customer_terkait = c.id_supplier
         LEFT JOIN mitra a ON b.id_pengangkutan_terkait = a.id_supplier
-        JOIN akun u ON b.created_by = u.id_user
-        JOIN level lv ON lv.id_level = u.id_level
-        LEFT JOIN comp_area ar ON ar.id_comp_area = u.id_comp_area
+        JOIN Users u ON b.created_by = u.UserID
+        JOIN LevelDetails lv ON lv.LevelDetID = u.UserLevelID
+        LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
         LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen          -- NULL = surat menyusul
         LEFT JOIN kategori_personel kp ON kp.kode = b.kategori
-        LEFT JOIN comp_area arb ON arb.id_comp_area = b.id_comp_area
-        LEFT JOIN company cb ON cb.id_company = arb.id_company
+        LEFT JOIN CompanyArea arb ON arb.CompAreaID = b.id_comp_area
+        LEFT JOIN Company cb ON cb.CompID = arb.CompID
         OUTER APPLY (SELECT TOP 1 d.waktu, d.id_comp_area FROM blacklist_deteksi d
                      WHERE b.id_personel IS NOT NULL AND d.id_personel = b.id_personel ORDER BY d.waktu DESC) sp
         OUTER APPLY (SELECT TOP 1 d.waktu, d.id_comp_area FROM blacklist_deteksi d
                      WHERE b.id_kendaraan IS NOT NULL AND d.id_kendaraan = b.id_kendaraan ORDER BY d.waktu DESC) sk
-        LEFT JOIN comp_area sca ON sca.id_comp_area = COALESCE(sp.id_comp_area, sk.id_comp_area)
-        LEFT JOIN company csa ON csa.id_company = sca.id_company
+        LEFT JOIN CompanyArea sca ON sca.CompAreaID = COALESCE(sp.id_comp_area, sk.id_comp_area)
+        LEFT JOIN Company csa ON csa.CompID = sca.CompID
         OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
         WHERE 1 = 1"""
     params = [batas]
@@ -60,8 +60,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
         sql += " AND b.kategori = ?"
         params.append(kategori)
     if pt is not None:
-        ids = sorted(pt) or [-1]
-        sql += f" AND (b.id_comp_area IS NULL OR arb.id_company IN ({', '.join('?' * len(ids))}))"
+        ids = sorted(pt) or [""]           # daftar kosong = tidak ada perusahaan yang cocok
+        sql += f" AND (b.id_comp_area IS NULL OR arb.CompID IN ({', '.join('?' * len(ids))}))"
         params += ids
     if status == "AKTIF":
         sql += " AND b.dicabut_at IS NULL"
@@ -242,9 +242,9 @@ def get_surat_blacklist(tipe, id_target):
     cursor = conn.cursor()
     cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist,
                               COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
-                              df.file_path AS file_surat_blacklist, u.nama AS oleh, ar.nama AS area_oleh
-                       FROM blacklist b JOIN akun u ON b.created_by = u.id_user
-                       LEFT JOIN comp_area ar ON ar.id_comp_area = u.id_comp_area
+                              df.file_path AS file_surat_blacklist, u.Nama AS oleh, ar.AreaName AS area_oleh
+                       FROM blacklist b JOIN Users u ON b.created_by = u.UserID
+                       LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
                        LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen
                        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
                                     WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df

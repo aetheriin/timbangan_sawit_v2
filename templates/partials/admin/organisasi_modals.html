@@ -8,7 +8,7 @@
         <div class="p-6 grid grid-cols-3 gap-3">
             <input type="hidden" name="id_company">
             <div><label class="field-label" for="orgCompKode">Kode</label>
-                <input type="text" id="orgCompKode" name="kode" required maxlength="10" class="input-field uppercase"></div>
+                <input type="text" id="orgCompKode" name="kode" required maxlength="5" class="input-field uppercase"></div>
             <div class="col-span-2"><label class="field-label" for="orgCompNama">Nama</label>
                 <input type="text" id="orgCompNama" name="nama" required maxlength="100" class="input-field"></div>
             <div class="col-span-3"><label class="field-label" for="orgCompAlamat">Alamat</label>
@@ -83,13 +83,17 @@
         </div>
         <div class="p-6 space-y-3">
             <input type="hidden" name="id_department">
-            <div><label class="field-label" for="orgDeptNama">Nama</label>
-                <input type="text" id="orgDeptNama" name="nama" required maxlength="100" class="input-field"></div>
+            <div class="grid grid-cols-3 gap-3">
+                <div><label class="field-label" for="orgDeptKode">Kode</label>
+                    <input type="text" id="orgDeptKode" name="kode" required maxlength="5" placeholder="TBG" class="input-field uppercase"></div>
+                <div class="col-span-2"><label class="field-label" for="orgDeptNama">Nama</label>
+                    <input type="text" id="orgDeptNama" name="nama" required maxlength="100" class="input-field"></div>
+            </div>
             <div><label class="field-label" for="orgDeptKet">Keterangan</label>
                 <input type="text" id="orgDeptKet" name="keterangan" maxlength="255" class="input-field"></div>
-            <div><p class="field-label">Dimiliki Perusahaan</p>
-                <div id="orgDeptCompany" class="max-h-56 overflow-y-auto rounded-lg border border-slate-200 p-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"></div>
-                <p class="field-hint">Kosongkan semua centang bila departemen ini ada di semua perusahaan.</p></div>
+            <div><p class="field-label">Ada di Area</p>
+                <div id="orgDeptArea" class="max-h-56 overflow-y-auto rounded-lg border border-slate-200 p-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm"></div>
+                <p class="field-hint">Pengguna hanya bisa diberi departemen yang ada di areanya (Location SITE / HO mengikuti Mill area).</p></div>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-department" class="btn-secondary">Batal</button>

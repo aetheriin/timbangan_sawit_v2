@@ -4,8 +4,10 @@
    (setara schema awal + migrasi 001-022). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
    (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
 
-   Database yang SUDAH berjalan TIDAK memakai file ini: cukup jalankan migrasi yang belum
-   (database/migrations/), atau pindahkan dengan backup / restore (docs/DOKUMENTASI.md).
+   ERD Ladder Desk (tahap 1: organisasi & hak akses berbahasa Inggris: Company, Mill, CompanyArea, Department(Details),
+   Level(Details), Users, PasswordManager, Menu 3 level, ActionType, AccessMenu, UserCompany, UserSession).
+   Mulai versi ini database DIBUAT BARU dari file ini; migrasi lama (database/migrations/ 001-043) hanya untuk
+   database versi sebelumnya dan tidak dipakai lagi.
 
    Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
    Login awal: admin / admin12345 (wajib ganti password saat login pertama).
@@ -22,107 +24,118 @@ GO
 USE [DbSistemTimbangan]
 GO
 
-/* =========================== ORGANISASI & HAK AKSES (migrasi 008) =========================== */
-CREATE TABLE dbo.company (
-    id_company  INT IDENTITY(1,1) PRIMARY KEY,
-    kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Company_Kode UNIQUE,
-    nama        NVARCHAR(100) NOT NULL,
-    alamat      NVARCHAR(255) NULL,                -- migrasi 029
-    is_active   BIT NOT NULL CONSTRAINT DF_Company_Aktif DEFAULT (1),
-    created_at  DATETIME NOT NULL CONSTRAINT DF_Company_Created DEFAULT (GETDATE())
+/* =========================== ORGANISASI & HAK AKSES (ERD Ladder Desk, tahap 1) ===========================
+   Company (kode VARCHAR(5) sbg ID) -> CompanyArea (area milik perusahaan, bertipe Mill).
+   Department + DepartmentDetails (departemen yang ada di sebuah area, Location SITE/HO).
+   Level (jabatan umum) + LevelDetails (= PERAN: Departemen + Level; CompAreaID NULL = berlaku di semua area).
+   Menu 3 level (ParentMenuID) + ActionType + AccessMenu (hak per peran = LevelDetID, atau per pengguna = UserID). */
+CREATE TABLE dbo.Company (
+    CompID       VARCHAR(5)       NOT NULL PRIMARY KEY,           -- kode perusahaan, mis. YBS, SUN
+    CompName     NVARCHAR(100) NOT NULL,
+    CompAddress  NVARCHAR(255) NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_Company_Active DEFAULT (1),
+    Description  NVARCHAR(255) NULL,
+    CreateDate   DATETIME NOT NULL CONSTRAINT DF_Company_Create DEFAULT (GETDATE())
 );
--- Mill = tipe area (tabel lokasi, migrasi 025 & 030), sama untuk semua PT: 300 HO, 600 PKS, DOWNSTREAM, TANGKI. is_pusat = kantor pusat
-CREATE TABLE dbo.lokasi (
-    id_lokasi   INT IDENTITY(1,1) PRIMARY KEY,
-    kode        VARCHAR(10)   NOT NULL CONSTRAINT UX_Lokasi_Kode UNIQUE,
-    nama        NVARCHAR(100) NOT NULL,
-    keterangan  NVARCHAR(255) NULL,                -- migrasi 030
-    is_pusat    BIT NOT NULL CONSTRAINT DF_Lokasi_Pusat DEFAULT (0),
-    is_active   BIT NOT NULL CONSTRAINT DF_Lokasi_Aktif DEFAULT (1),
-    created_at  DATETIME NOT NULL CONSTRAINT DF_Lokasi_Dibuat DEFAULT (GETDATE())
+-- Mill = tipe area, sama untuk semua perusahaan (HO, PKS, REFINERY, ...). IsHeadOffice = kantor pusat
+CREATE TABLE dbo.Mill (
+    MillID       BIGINT IDENTITY(1,1) PRIMARY KEY,
+    MillCode     VARCHAR(10)   NOT NULL CONSTRAINT UX_Mill_Code UNIQUE,
+    MillName     NVARCHAR(50)  NOT NULL,
+    IsHeadOffice BIT NOT NULL CONSTRAINT DF_Mill_HO DEFAULT (0),
+    Active       BIT NOT NULL CONSTRAINT DF_Mill_Active DEFAULT (1),
+    Description  NVARCHAR(255) NULL,
+    CreateDate   DATETIME NOT NULL CONSTRAINT DF_Mill_Create DEFAULT (GETDATE())
 );
--- Area Perusahaan (CompanyArea, migrasi 030): nama sendiri per perusahaan (OFFICE, REFINERY, LOADING RAMP) + Mill (tipe).
--- Kode ikut kode Mill. Dipakai akun, jembatan, pos, unit timbang, jadwal, dan tiket sebagai "perusahaan · area".
-CREATE TABLE dbo.comp_area (
-    id_comp_area INT IDENTITY(1,1) PRIMARY KEY,
-    id_company   INT NOT NULL CONSTRAINT FK_Area_Company REFERENCES dbo.company (id_company),
-    kode         VARCHAR(10)   NOT NULL,
-    nama         NVARCHAR(100) NOT NULL,
-    alamat       NVARCHAR(255) NULL,
-    is_active    BIT NOT NULL CONSTRAINT DF_Area_Aktif DEFAULT (1),
-    created_at   DATETIME NOT NULL CONSTRAINT DF_Area_Created DEFAULT (GETDATE()),
-    id_lokasi    INT NULL CONSTRAINT FK_Area_Lokasi REFERENCES dbo.lokasi (id_lokasi),
-    keterangan   NVARCHAR(255) NULL                 -- migrasi 030
+-- Area milik perusahaan (YBS · OFFICE, YBS · REFINERY). AreaCode ikut MillCode.
+CREATE TABLE dbo.CompanyArea (
+    CompAreaID   BIGINT IDENTITY(1,1) PRIMARY KEY,
+    CompID       VARCHAR(5)       NOT NULL CONSTRAINT FK_CompArea_Company REFERENCES dbo.Company (CompID),
+    MillID       BIGINT        NULL CONSTRAINT FK_CompArea_Mill REFERENCES dbo.Mill (MillID),
+    AreaCode     VARCHAR(10)   NOT NULL,
+    AreaName     NVARCHAR(100) NOT NULL,
+    AreaDesc     NVARCHAR(255) NULL,
+    AreaAddress  NVARCHAR(255) NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_CompArea_Active DEFAULT (1),
+    CreateDate   DATETIME NOT NULL CONSTRAINT DF_CompArea_Create DEFAULT (GETDATE())
 );
-CREATE UNIQUE INDEX UX_Area_CompanyNama ON dbo.comp_area (id_company, nama);
-CREATE TABLE dbo.department (
-    id_department INT IDENTITY(1,1) PRIMARY KEY,
-    nama          NVARCHAR(100) NOT NULL CONSTRAINT UX_Department_Nama UNIQUE,
-    keterangan    NVARCHAR(255) NULL,
-    is_active     BIT NOT NULL CONSTRAINT DF_Department_Aktif DEFAULT (1)
+CREATE UNIQUE INDEX UX_CompArea_CompName ON dbo.CompanyArea (CompID, AreaName);
+CREATE TABLE dbo.Department (
+    DeptID       VARCHAR(5)       NOT NULL PRIMARY KEY,           -- kode departemen, mis. TBG, HRD
+    DeptName     NVARCHAR(120) NOT NULL CONSTRAINT UX_Department_Name UNIQUE,
+    Description  NVARCHAR(255) NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_Department_Active DEFAULT (1)
 );
--- Perusahaan yang memiliki departemen (DepartmentDetails, migrasi 040); tanpa baris = semua perusahaan
-CREATE TABLE dbo.department_company (
-    id_department INT NOT NULL CONSTRAINT FK_DeptCompany_Dept REFERENCES dbo.department (id_department),
-    id_company    INT NOT NULL CONSTRAINT FK_DeptCompany_Company REFERENCES dbo.company (id_company),
-    CONSTRAINT PK_DepartmentCompany PRIMARY KEY (id_department, id_company)
+-- Departemen yang ada di sebuah area; akun memakai baris ini (Users.UserDeptID)
+CREATE TABLE dbo.DepartmentDetails (
+    DeptDetailID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    CompAreaID   BIGINT        NOT NULL CONSTRAINT FK_DeptDet_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    DeptID       VARCHAR(5)       NOT NULL CONSTRAINT FK_DeptDet_Dept REFERENCES dbo.Department (DeptID),
+    Location     NVARCHAR(120) NOT NULL CONSTRAINT DF_DeptDet_Location DEFAULT ('SITE'),   -- SITE / HO
+    Description  NVARCHAR(255) NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_DeptDet_Active DEFAULT (1),
+    CONSTRAINT UX_DeptDet_AreaDept UNIQUE (CompAreaID, DeptID)
 );
--- Jabatan umum (ERD Level, migrasi 042): Admin, Manager, Supervisor, Staff, Magang; ditambah di Admin › Organisasi
-CREATE TABLE dbo.jabatan (
-    id_jabatan  INT IDENTITY(1,1) PRIMARY KEY,
-    nama        NVARCHAR(100) NOT NULL CONSTRAINT UX_Jabatan_Nama UNIQUE,
-    keterangan  NVARCHAR(255) NULL,
-    is_admin    BIT NOT NULL CONSTRAINT DF_Jabatan_Admin DEFAULT (0),   -- admin sistem: hanya menu Admin, tanpa departemen
-    urutan      INT NOT NULL CONSTRAINT DF_Jabatan_Urutan DEFAULT (100),
-    is_active   BIT NOT NULL CONSTRAINT DF_Jabatan_Aktif DEFAULT (1)
+-- Jabatan umum: Admin, Manager, Supervisor, Staff, Magang (ditambah di Admin › Organisasi)
+CREATE TABLE dbo.Level (
+    LevelID      INT IDENTITY(1,1) PRIMARY KEY,
+    LevelName    NVARCHAR(120) NOT NULL CONSTRAINT UX_Level_Name UNIQUE,
+    Description  NVARCHAR(255) NULL,
+    IsAdmin      BIT NOT NULL CONSTRAINT DF_Level_Admin DEFAULT (0),     -- admin sistem: hanya menu Admin
+    SortOrder    INT NOT NULL CONSTRAINT DF_Level_Sort DEFAULT (100),
+    Active       BIT NOT NULL CONSTRAINT DF_Level_Active DEFAULT (1)
 );
--- Peran = departemen + jabatan (migrasi 042); hak menu (level_akses) & halaman awal menempel di sini.
--- Kode & nama ("Security · Staff") dibuat otomatis saat hak akses gabungan itu pertama disimpan.
-CREATE TABLE dbo.level (
-    id_level      INT IDENTITY(1,1) PRIMARY KEY,
-    kode          VARCHAR(30)   NOT NULL CONSTRAINT UX_Level_Kode UNIQUE,
-    nama          NVARCHAR(100) NOT NULL,
-    is_admin      BIT NOT NULL CONSTRAINT DF_Level_Admin DEFAULT (0),
-    halaman_awal  VARCHAR(100)  NOT NULL CONSTRAINT DF_Level_Awal DEFAULT ('/weighbridge'),
-    keterangan    NVARCHAR(255) NULL,
-    is_active     BIT NOT NULL CONSTRAINT DF_Level_Aktif DEFAULT (1),
-    id_department INT NULL CONSTRAINT FK_Level_Department REFERENCES dbo.department (id_department),   -- NULL = admin sistem
-    id_jabatan    INT NULL CONSTRAINT FK_Level_Jabatan REFERENCES dbo.jabatan (id_jabatan)
+-- Peran = Departemen + Level (mis. "Security · Staff"); hak menu (AccessMenu) & halaman awal menempel di sini.
+-- CompAreaID NULL = berlaku di semua area. Dibuat otomatis saat hak akses / akun pertama memakai gabungan ini.
+CREATE TABLE dbo.LevelDetails (
+    LevelDetID   INT IDENTITY(1,1) PRIMARY KEY,
+    CompAreaID   BIGINT        NULL CONSTRAINT FK_LevelDet_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    LevelID      INT           NOT NULL CONSTRAINT FK_LevelDet_Level REFERENCES dbo.Level (LevelID),
+    DeptID       VARCHAR(5)       NULL CONSTRAINT FK_LevelDet_Dept REFERENCES dbo.Department (DeptID),   -- NULL = admin sistem
+    LevelDetCode VARCHAR(30)   NOT NULL CONSTRAINT UX_LevelDet_Code UNIQUE,
+    LevelDetName NVARCHAR(120) NOT NULL,
+    HomeUrl      VARCHAR(100)  NOT NULL CONSTRAINT DF_LevelDet_Home DEFAULT ('/weighbridge?view=list'),
+    Description  NVARCHAR(255) NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_LevelDet_Active DEFAULT (1)
 );
-CREATE UNIQUE INDEX UX_Level_Peran ON dbo.level (id_department, id_jabatan) WHERE id_department IS NOT NULL AND id_jabatan IS NOT NULL;
-CREATE TABLE dbo.menu (
-    id_menu    INT IDENTITY(1,1) PRIMARY KEY,
-    kode       VARCHAR(40)   NOT NULL CONSTRAINT UX_Menu_Kode UNIQUE,
-    nama       NVARCHAR(100) NOT NULL,
-    url        VARCHAR(200)  NULL,
-    ikon       VARCHAR(40)   NULL,
-    id_parent  INT NULL CONSTRAINT FK_Menu_Parent REFERENCES dbo.menu (id_menu),
-    urutan     INT NOT NULL CONSTRAINT DF_Menu_Urutan DEFAULT (0),
-    is_active  BIT NOT NULL CONSTRAINT DF_Menu_Aktif DEFAULT (1)
+CREATE UNIQUE INDEX UX_LevelDet_Role ON dbo.LevelDetails (DeptID, LevelID) WHERE CompAreaID IS NULL AND DeptID IS NOT NULL;
+-- Menu 3 level (flowchart navbar): Lv1 grup, Lv2 halaman, Lv3 bagian / sub-halaman. Url NULL = belum ada (tautan '#').
+CREATE TABLE dbo.Menu (
+    MenuID       INT IDENTITY(1,1) PRIMARY KEY,
+    MenuCode     VARCHAR(40)   NOT NULL CONSTRAINT UX_Menu_Code UNIQUE,
+    MenuName     NVARCHAR(100) NOT NULL,
+    Description  NVARCHAR(255) NULL,
+    ParentMenuID INT           NULL CONSTRAINT FK_Menu_Parent REFERENCES dbo.Menu (MenuID),
+    MenuLevel    TINYINT       NOT NULL CONSTRAINT DF_Menu_Level DEFAULT (2) CONSTRAINT CK_Menu_Level CHECK (MenuLevel BETWEEN 1 AND 3),
+    Url          VARCHAR(200)  NULL,
+    Icon         VARCHAR(40)   NULL,
+    AppCode      VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_App DEFAULT ('CPOS'),   -- CPOS / ANALYTICS / REKAPIN
+    SortOrder    INT NOT NULL CONSTRAINT DF_Menu_Sort DEFAULT (0),
+    CompAreaID   BIGINT        NULL CONSTRAINT FK_Menu_Area REFERENCES dbo.CompanyArea (CompAreaID),   -- NULL = semua area
+    Active       BIT NOT NULL CONSTRAINT DF_Menu_Active DEFAULT (1)
 );
-CREATE TABLE dbo.level_akses (
-    id_level     INT NOT NULL CONSTRAINT FK_LevelAkses_Level REFERENCES dbo.level (id_level),
-    id_menu      INT NOT NULL CONSTRAINT FK_LevelAkses_Menu REFERENCES dbo.menu (id_menu),
-    bisa_tambah  BIT NOT NULL CONSTRAINT DF_LevelAkses_Tambah DEFAULT (0),
-    bisa_ubah    BIT NOT NULL CONSTRAINT DF_LevelAkses_Ubah DEFAULT (0),
-    bisa_hapus   BIT NOT NULL CONSTRAINT DF_LevelAkses_Hapus DEFAULT (0),
-    bisa_lihat   BIT NOT NULL CONSTRAINT DF_LevelAkses_Lihat DEFAULT (1),     -- halaman / tab boleh dibuka (migrasi 026)
-    bisa_setujui BIT NOT NULL CONSTRAINT DF_LevelAkses_Setujui DEFAULT (0),   -- menyetujui pengajuan di menu itu (migrasi 029)
-    CONSTRAINT PK_LevelAkses PRIMARY KEY (id_level, id_menu)
+CREATE TABLE dbo.ActionType (
+    ActionID     INT           NOT NULL PRIMARY KEY,
+    TypeName     VARCHAR(100)  NOT NULL CONSTRAINT UX_ActionType_Name UNIQUE,
+    Description  VARCHAR(255)  NULL,
+    Active       BIT NOT NULL CONSTRAINT DF_ActionType_Active DEFAULT (1)
 );
--- Hak akses khusus per pengguna (AccessMenu.UserID, migrasi 031): menimpa hak jabatan untuk menu itu saja
-CREATE TABLE dbo.akun_akses (
-    id_user      INT NOT NULL,                      -- FK ke akun ditambahkan setelah tabel akun dibuat
-    id_menu      INT NOT NULL CONSTRAINT FK_AkunAkses_Menu REFERENCES dbo.menu (id_menu),
-    bisa_lihat   BIT NOT NULL CONSTRAINT DF_AkunAkses_Lihat DEFAULT (0),
-    bisa_tambah  BIT NOT NULL CONSTRAINT DF_AkunAkses_Tambah DEFAULT (0),
-    bisa_ubah    BIT NOT NULL CONSTRAINT DF_AkunAkses_Ubah DEFAULT (0),
-    bisa_hapus   BIT NOT NULL CONSTRAINT DF_AkunAkses_Hapus DEFAULT (0),
-    bisa_setujui BIT NOT NULL CONSTRAINT DF_AkunAkses_Setujui DEFAULT (0),
-    CONSTRAINT PK_AkunAkses PRIMARY KEY (id_user, id_menu)
+-- Hak menu: satu baris per menu x aksi, untuk peran (LevelDetID) ATAU pengguna (UserID, hak khusus).
+-- Pengguna yang punya baris untuk sebuah menu memakai barisnya sendiri untuk menu itu (Active 0 = dicabut).
+CREATE TABLE dbo.AccessMenu (
+    AccessMenuID INT IDENTITY(1,1) PRIMARY KEY,
+    MenuID       INT    NOT NULL CONSTRAINT FK_AccessMenu_Menu REFERENCES dbo.Menu (MenuID),
+    ActionID     INT    NOT NULL CONSTRAINT FK_AccessMenu_Action REFERENCES dbo.ActionType (ActionID),
+    LevelDetID   INT    NULL CONSTRAINT FK_AccessMenu_LevelDet REFERENCES dbo.LevelDetails (LevelDetID),
+    UserID       BIGINT NULL,                       -- FK ke Users ditambahkan setelah tabel Users dibuat
+    Active       BIT NOT NULL CONSTRAINT DF_AccessMenu_Active DEFAULT (1),
+    CreateDate   DATETIME NOT NULL CONSTRAINT DF_AccessMenu_Create DEFAULT (GETDATE()),
+    CONSTRAINT CK_AccessMenu_Target CHECK ((LevelDetID IS NULL AND UserID IS NOT NULL) OR (LevelDetID IS NOT NULL AND UserID IS NULL))
 );
+CREATE UNIQUE INDEX UX_AccessMenu_Level ON dbo.AccessMenu (LevelDetID, MenuID, ActionID) WHERE LevelDetID IS NOT NULL;
+CREATE UNIQUE INDEX UX_AccessMenu_User ON dbo.AccessMenu (UserID, MenuID, ActionID) WHERE UserID IS NOT NULL;
 GO
-/* Isi awal company, area, department, level, menu, level_akses ada di bagian DATA AWAL (paling bawah). */
+/* Isi awal ada di bagian DATA AWAL (paling bawah). */
 
 /* =========================== MASTER =========================== */
 
@@ -155,38 +168,51 @@ CREATE UNIQUE INDEX UX_Personel_Kode ON dbo.personel (kode_personel) WHERE kode_
 CREATE INDEX IX_Personel_Aktif_Kategori ON dbo.personel (is_active, kategori) INCLUDE (kode_personel, nama_personel);
 GO
 
--- Akun login (migrasi 016: dulu users). id_personel = tautan opsional ke data personel / wajah petugas
-CREATE TABLE dbo.akun (
-    id_user      INT IDENTITY(1,1) PRIMARY KEY,
-    nama         VARCHAR(100) NOT NULL,
-    username     VARCHAR(50)  NOT NULL CONSTRAINT UX_Users_Username UNIQUE,
-    password     VARCHAR(255) NOT NULL,                         -- hash pbkdf2
-    id_level      INT NOT NULL CONSTRAINT FK_Users_Level REFERENCES dbo.level (id_level),
-    id_department INT NULL CONSTRAINT FK_Users_Department REFERENCES dbo.department (id_department),   -- NULL = akun admin sistem (migrasi 037)
-    id_comp_area  INT NOT NULL CONSTRAINT FK_Users_Area REFERENCES dbo.comp_area (id_comp_area),
-    id_personel  INT NOT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),   -- akun = personel yang bisa login
-    is_active    BIT NOT NULL CONSTRAINT DF_Users_Aktif DEFAULT (1),
-    last_login   DATETIME NULL,
-    sesi_versi   INT NOT NULL CONSTRAINT DF_Users_SesiVersi DEFAULT (0),   -- naik = semua sesi user dicabut
-    password_changed_at DATETIME NULL,                          -- NULL = wajib ganti password saat login
-    created_at   DATETIME NOT NULL CONSTRAINT DF_Users_Created DEFAULT (GETDATE()),
-    updated_at   DATETIME NOT NULL CONSTRAINT DF_Users_Modified DEFAULT (GETDATE())
+-- Pengguna (ERD Users). UserID = YYMMDD + urutan 4 digit (mis. 2601010001), dibuat aplikasi.
+-- PersonnelID = tautan ke data personel / wajah (sementara, digabung ke Users di tahap 2).
+CREATE TABLE dbo.Users (
+    UserID            BIGINT        NOT NULL PRIMARY KEY,
+    CompAreaID        BIGINT        NOT NULL CONSTRAINT FK_Users_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    UserCode          VARCHAR(20)   NULL,
+    UserName          VARCHAR(50)   NOT NULL CONSTRAINT UX_Users_UserName UNIQUE,     -- username login
+    UserDeptID        BIGINT        NULL CONSTRAINT FK_Users_DeptDet REFERENCES dbo.DepartmentDetails (DeptDetailID),   -- NULL = admin sistem
+    UserLevelID       INT           NOT NULL CONSTRAINT FK_Users_LevelDet REFERENCES dbo.LevelDetails (LevelDetID),
+    NoKTP             CHAR(16)      NULL,
+    GuestID           BIGINT        NULL,
+    Nama              NVARCHAR(100) NOT NULL,
+    Email             NVARCHAR(100) NULL,
+    FaceEmbeddingData VARBINARY(MAX) NULL,
+    UploadPath        NVARCHAR(200) NULL,
+    CurrentHash       NVARCHAR(64)  NULL,
+    CreateDate        DATETIME NOT NULL CONSTRAINT DF_Users_Create DEFAULT (GETDATE()),
+    UpdateDate        DATETIME NOT NULL CONSTRAINT DF_Users_Update DEFAULT (GETDATE()),
+    Active            BIT NOT NULL CONSTRAINT DF_Users_Active DEFAULT (1),
+    IsUpload          BIT NOT NULL CONSTRAINT DF_Users_Upload DEFAULT (0),
+    BlacklistID       BIGINT        NULL,
+    Description       NVARCHAR(255) NULL,
+    PersonnelID       INT           NOT NULL CONSTRAINT FK_Users_Personel REFERENCES dbo.personel (id_personel),
+    LastLogin         DATETIME      NULL,
+    SessionVersion    INT NOT NULL CONSTRAINT DF_Users_SessVer DEFAULT (0)       -- naik = semua sesi user dicabut
 );
-CREATE UNIQUE INDEX UX_Akun_Personel ON dbo.akun (id_personel);
--- PT yang dikelola user kantor pusat (migrasi 026). Kosong = semua PT
--- Riwayat password (PasswordManager.History, migrasi 031): menolak pemakaian ulang N password terakhir
-CREATE TABLE dbo.password_riwayat (
-    id_riwayat INT IDENTITY(1,1) PRIMARY KEY,
-    id_user    INT NOT NULL CONSTRAINT FK_PwRiwayat_Akun REFERENCES dbo.akun (id_user),
-    password   VARCHAR(255) NOT NULL,
-    dibuat     DATETIME NOT NULL CONSTRAINT DF_PwRiwayat_Dibuat DEFAULT (GETDATE())
+CREATE UNIQUE INDEX UX_Users_Personnel ON dbo.Users (PersonnelID);
+-- Password (hash) + riwayat (History JSON: hash terakhir, terbaru dulu) untuk menolak pemakaian ulang.
+-- MustChange = 1 -> wajib buat password baru saat login.
+CREATE TABLE dbo.PasswordManager (
+    UserID      BIGINT        NOT NULL PRIMARY KEY CONSTRAINT FK_PwMgr_User REFERENCES dbo.Users (UserID),
+    UserPasswd  VARCHAR(255)  NOT NULL,
+    CreateDate  DATETIME NOT NULL CONSTRAINT DF_PwMgr_Create DEFAULT (GETDATE()),
+    MustChange  BIT NOT NULL CONSTRAINT DF_PwMgr_Must DEFAULT (1),
+    History     NVARCHAR(MAX) NOT NULL CONSTRAINT DF_PwMgr_History DEFAULT (N'[]')
+                CONSTRAINT CK_PwMgr_History CHECK (ISJSON(History) = 1),
+    Term        INT           NULL,
+    Description NVARCHAR(255) NULL
 );
-CREATE INDEX IX_PwRiwayat_User ON dbo.password_riwayat (id_user, dibuat DESC);
-ALTER TABLE dbo.akun_akses ADD CONSTRAINT FK_AkunAkses_Akun FOREIGN KEY (id_user) REFERENCES dbo.akun (id_user);
-CREATE TABLE dbo.akun_company (
-    id_user     INT NOT NULL CONSTRAINT FK_AkunCompany_Akun REFERENCES dbo.akun (id_user),
-    id_company  INT NOT NULL CONSTRAINT FK_AkunCompany_Company REFERENCES dbo.company (id_company),
-    CONSTRAINT PK_AkunCompany PRIMARY KEY (id_user, id_company)
+ALTER TABLE dbo.AccessMenu ADD CONSTRAINT FK_AccessMenu_User FOREIGN KEY (UserID) REFERENCES dbo.Users (UserID);
+-- Perusahaan yang dikelola user kantor pusat. Kosong = semua perusahaan
+CREATE TABLE dbo.UserCompany (
+    UserID  BIGINT  NOT NULL CONSTRAINT FK_UserComp_User REFERENCES dbo.Users (UserID),
+    CompID  VARCHAR(5) NOT NULL CONSTRAINT FK_UserComp_Company REFERENCES dbo.Company (CompID),
+    CONSTRAINT PK_UserCompany PRIMARY KEY (UserID, CompID)
 );
 GO
 
@@ -204,7 +230,7 @@ CREATE TABLE dbo.personel_sim (
     no_sim          VARCHAR(30) NOT NULL,
     berlaku_sampai  DATE NULL,                 -- NULL hanya untuk data lama yang belum dilengkapi
     is_active       BIT NOT NULL CONSTRAINT DF_PersonelSim_Aktif DEFAULT (1),
-    created_by      INT NULL CONSTRAINT FK_PersonelSim_User REFERENCES dbo.akun (id_user),
+    created_by      BIGINT NULL CONSTRAINT FK_PersonelSim_User REFERENCES dbo.Users (UserID),
     created_at      DATETIME NOT NULL CONSTRAINT DF_PersonelSim_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_PersonelSim_NoAktif ON dbo.personel_sim (no_sim) WHERE is_active = 1;
@@ -217,7 +243,7 @@ CREATE TABLE dbo.personel_wajah (
     sumber       VARCHAR(10)  NULL CONSTRAINT CK_PersonelWajah_Sumber CHECK (sumber IN ('UPLOAD', 'KAMERA')),
     is_utama     BIT NOT NULL CONSTRAINT DF_PersonelWajah_Utama DEFAULT (1),
     is_active    BIT NOT NULL CONSTRAINT DF_PersonelWajah_Aktif DEFAULT (1),
-    created_by   INT NULL CONSTRAINT FK_PersonelWajah_User REFERENCES dbo.akun (id_user),
+    created_by   BIGINT NULL CONSTRAINT FK_PersonelWajah_User REFERENCES dbo.Users (UserID),
     created_at   DATETIME NOT NULL CONSTRAINT DF_PersonelWajah_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_PersonelWajah_Utama ON dbo.personel_wajah (id_personel) WHERE is_utama = 1 AND is_active = 1;
@@ -235,11 +261,11 @@ CREATE TABLE dbo.kunjungan (
     keterangan       NVARCHAR(255) NULL,
     asal_perusahaan  NVARCHAR(100) NULL,
     no_plat          VARCHAR(15)   NULL,
-    id_comp_area     INT NOT NULL CONSTRAINT FK_Kunjungan_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area     BIGINT NOT NULL CONSTRAINT FK_Kunjungan_Area REFERENCES dbo.CompanyArea (CompAreaID),
     foto_masuk_path  VARCHAR(255)  NULL,      -- snapshot wajah saat datang
     waktu_masuk      DATETIME NOT NULL CONSTRAINT DF_Kunjungan_Masuk DEFAULT (GETDATE()),
     waktu_keluar     DATETIME NULL,           -- NULL = tamu masih di dalam
-    dicatat_oleh     INT NOT NULL CONSTRAINT FK_Kunjungan_User REFERENCES dbo.akun (id_user),
+    dicatat_oleh     BIGINT NOT NULL CONSTRAINT FK_Kunjungan_User REFERENCES dbo.Users (UserID),
     CONSTRAINT CK_Kunjungan_Keluar CHECK (waktu_keluar IS NULL OR waktu_keluar >= waktu_masuk)
 );
 CREATE INDEX IX_Kunjungan_Masuk ON dbo.kunjungan (waktu_masuk DESC);
@@ -259,7 +285,7 @@ CREATE TABLE dbo.dokumen (
     no_dokumen  NVARCHAR(100) NOT NULL,
     tanggal     DATE NOT NULL,
     perihal     NVARCHAR(255) NULL,
-    created_by  INT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.akun (id_user),
+    created_by  BIGINT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.Users (UserID),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Dokumen_Created DEFAULT (GETDATE())
 );
 CREATE INDEX IX_Dokumen_Jenis_No ON dbo.dokumen (id_jenis, no_dokumen);
@@ -304,7 +330,7 @@ CREATE TABLE dbo.mitra (
 -- Supplier hanya berlaku di PT tertentu (migrasi 032); tanpa baris = semua PT
 CREATE TABLE dbo.mitra_company (
     id_supplier INT NOT NULL CONSTRAINT FK_MitraCompany_Mitra REFERENCES dbo.mitra (id_supplier),
-    id_company  INT NOT NULL CONSTRAINT FK_MitraCompany_Company REFERENCES dbo.company (id_company),
+    id_company  VARCHAR(5) NOT NULL CONSTRAINT FK_MitraCompany_Company REFERENCES dbo.Company (CompID),
     CONSTRAINT PK_MitraCompany PRIMARY KEY (id_supplier, id_company)
 );
 GO
@@ -389,7 +415,7 @@ CREATE TABLE dbo.kendaraan_driver (
     id_driver     INT NOT NULL CONSTRAINT FK_KD_Driver REFERENCES dbo.personel (id_personel),
     is_utama      BIT NOT NULL CONSTRAINT DF_KD_Utama DEFAULT (0),
     is_active     BIT NOT NULL CONSTRAINT DF_KD_Active DEFAULT (1),
-    created_by    INT NULL CONSTRAINT FK_KD_User REFERENCES dbo.akun (id_user),
+    created_by    BIGINT NULL CONSTRAINT FK_KD_User REFERENCES dbo.Users (UserID),
     created_at    DATETIME NOT NULL CONSTRAINT DF_KD_Created DEFAULT (GETDATE()),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_KD_Updated DEFAULT (GETDATE()),
     CONSTRAINT UQ_KD_Kendaraan_Driver UNIQUE (id_kendaraan, id_driver)
@@ -409,7 +435,7 @@ CREATE TABLE dbo.kontrak_kendaraan (
     tanggal_selesai  DATE NULL,
     is_active        BIT NOT NULL CONSTRAINT DF_KK_Active DEFAULT (1),
     keterangan       VARCHAR(255) NULL,
-    created_by       INT NULL CONSTRAINT FK_KK_User REFERENCES dbo.akun (id_user),
+    created_by       BIGINT NULL CONSTRAINT FK_KK_User REFERENCES dbo.Users (UserID),
     created_at       DATETIME NOT NULL CONSTRAINT DF_KK_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_KK_Jenis CHECK (jenis_transaksi IS NULL OR jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_KK_Periode CHECK (tanggal_selesai IS NULL OR tanggal_selesai >= tanggal_mulai)
@@ -444,12 +470,12 @@ CREATE TABLE dbo.kontrak (
     harga_per_kg     DECIMAL(14, 2) NULL,
     keterangan       VARCHAR(200) NULL,
     is_active        BIT NOT NULL CONSTRAINT DF_Kontrak_Aktif DEFAULT (1),
-    created_by       INT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.akun (id_user),
+    created_by       BIGINT NULL CONSTRAINT FK_Kontrak_User REFERENCES dbo.Users (UserID),
     created_at       DATETIME NOT NULL CONSTRAINT DF_Kontrak_Created DEFAULT (GETDATE()),
     -- migrasi 033: PPN & PT pemilik kontrak
     ppn                BIT NOT NULL CONSTRAINT DF_Kontrak_Ppn DEFAULT (0),
     harga_termasuk_ppn BIT NOT NULL CONSTRAINT DF_Kontrak_InclPpn DEFAULT (0),
-    id_company         INT NULL CONSTRAINT FK_Kontrak_Company REFERENCES dbo.company (id_company),
+    id_company         VARCHAR(5) NULL CONSTRAINT FK_Kontrak_Company REFERENCES dbo.Company (CompID),
     CONSTRAINT CK_Kontrak_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Kontrak_Qty CHECK (qty_kg IS NULL OR qty_kg > 0)
 );
@@ -462,7 +488,7 @@ CREATE TABLE dbo.delivery_order (
     berlaku_sampai  DATE NULL,
     keterangan      VARCHAR(200) NULL,
     is_active       BIT NOT NULL CONSTRAINT DF_DO_Aktif DEFAULT (1),
-    created_by      INT NULL CONSTRAINT FK_DO_User REFERENCES dbo.akun (id_user),
+    created_by      BIGINT NULL CONSTRAINT FK_DO_User REFERENCES dbo.Users (UserID),
     created_at      DATETIME NOT NULL CONSTRAINT DF_DO_Created DEFAULT (GETDATE())
 );
 CREATE UNIQUE INDEX UX_DO_Kontrak ON dbo.delivery_order (id_kontrak);     -- 1 kontrak = 1 DO
@@ -488,7 +514,7 @@ CREATE TABLE dbo.harga_harian (
     harga_kernel  DECIMAL(12,2) NOT NULL,
     oer_cpo       DECIMAL(5,2)  NOT NULL,
     biaya_olah    DECIMAL(12,2) NOT NULL,
-    updated_by    INT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.akun (id_user),
+    updated_by    BIGINT NULL CONSTRAINT FK_Harga_User REFERENCES dbo.Users (UserID),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_Harga_Updated DEFAULT (GETDATE()),
     CONSTRAINT CK_Harga_Oer CHECK (oer_cpo BETWEEN 0 AND 100)
 );
@@ -499,7 +525,7 @@ GO
 -- Jembatan timbang per area (migrasi 011)
 CREATE TABLE dbo.jembatan_timbang (
     id_jembatan   INT IDENTITY(1,1) PRIMARY KEY,
-    id_comp_area  INT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area  BIGINT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.CompanyArea (CompAreaID),
     kode          VARCHAR(10)   NOT NULL,
     nama          NVARCHAR(100) NOT NULL,
     port          VARCHAR(100)  NOT NULL,                 -- COM3 / /dev/ttyUSB0 / socket://IP:PORT (alat serial-to-LAN)
@@ -540,9 +566,9 @@ CREATE TABLE dbo.transaksi (
     qr_expired_at      DATETIME NOT NULL,
     qr_reprint_count   INT NOT NULL CONSTRAINT DF_Trx_Reprint DEFAULT (0),
     driver_photo_path  VARCHAR(255) NULL,
-    security_id        INT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.akun (id_user),
+    security_id        BIGINT NOT NULL CONSTRAINT FK_Trx_Security REFERENCES dbo.Users (UserID),
     id_jembatan        INT NULL CONSTRAINT FK_Trx_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),   -- jembatan timbang masuk
-    id_comp_area       INT NOT NULL CONSTRAINT FK_Trx_Area REFERENCES dbo.comp_area (id_comp_area),          -- area akun Security (migrasi 041)
+    id_comp_area       BIGINT NOT NULL CONSTRAINT FK_Trx_Area REFERENCES dbo.CompanyArea (CompAreaID),          -- area akun Security (migrasi 041)
     id_alur            INT NULL CONSTRAINT FK_Trx_Alur REFERENCES dbo.alur (id_alur),                       -- alur tahap tiket (dari produk)
     id_do              INT NULL CONSTRAINT FK_Trx_DO REFERENCES dbo.delivery_order (id_do),
     cara_angkut        VARCHAR(15) NOT NULL,                        -- PENGIRIM / PENERIMA / PIHAK_KETIGA (id_pengangkutan)
@@ -550,9 +576,9 @@ CREATE TABLE dbo.transaksi (
     berat_split_kg     DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
     created_at         DATETIME NOT NULL CONSTRAINT DF_Trx_Created DEFAULT (GETDATE()),
     diperiksa_pada     DATETIME NULL,                               -- verifikasi tiket selesai (migrasi 033)
-    diperiksa_oleh     INT NULL CONSTRAINT FK_Trx_Pemeriksa REFERENCES dbo.akun (id_user),
+    diperiksa_oleh     BIGINT NULL CONSTRAINT FK_Trx_Pemeriksa REFERENCES dbo.Users (UserID),
     waktu_keluar       DATETIME NULL,                               -- jam keluar gerbang, Logbook (migrasi 039)
-    keluar_oleh        INT NULL CONSTRAINT FK_Trx_Keluar REFERENCES dbo.akun (id_user),
+    keluar_oleh        BIGINT NULL CONSTRAINT FK_Trx_Keluar REFERENCES dbo.Users (UserID),
     CONSTRAINT CK_Trx_Jenis CHECK (jenis_transaksi IN ('PEMBELIAN', 'PENJUALAN', 'PENIMBANGAN_SAJA')),
     CONSTRAINT CK_Trx_CaraAngkut CHECK ((cara_angkut = 'PIHAK_KETIGA' AND id_pengangkutan IS NOT NULL)
                                         OR (cara_angkut IN ('PENGIRIM', 'PENERIMA') AND id_pengangkutan IS NULL)),
@@ -573,7 +599,7 @@ CREATE TABLE dbo.pembatalan_tiket (
     jenis       VARCHAR(10)   NOT NULL CONSTRAINT CK_Batal_Jenis CHECK (jenis IN ('VOID', 'REJECT')),
     alasan      NVARCHAR(255) NOT NULL,
     id_dokumen  INT NULL CONSTRAINT FK_Batal_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
-    oleh        INT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.akun (id_user),           -- NULL hanya data lama
+    oleh        BIGINT NULL CONSTRAINT FK_Batal_User REFERENCES dbo.Users (UserID),           -- NULL hanya data lama
     waktu       DATETIME NOT NULL CONSTRAINT DF_Batal_Waktu DEFAULT (GETDATE())
 );
 CREATE INDEX IX_Batal_Waktu ON dbo.pembatalan_tiket (waktu DESC);
@@ -586,7 +612,7 @@ CREATE TABLE dbo.penimbangan (
     id_jembatan  INT NOT NULL CONSTRAINT FK_Penimbangan_Jembatan REFERENCES dbo.jembatan_timbang (id_jembatan),
     berat_kg     DECIMAL(10, 2) NOT NULL,
     waktu        DATETIME NOT NULL CONSTRAINT DF_Penimbangan_Waktu DEFAULT (GETDATE()),
-    operator     INT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.akun (id_user),   -- NULL hanya data lama
+    operator     BIGINT NULL CONSTRAINT FK_Penimbangan_Operator REFERENCES dbo.Users (UserID),   -- NULL hanya data lama
     hash         CHAR(64) NULL,
     CONSTRAINT PK_Penimbangan PRIMARY KEY (no_tiket, ke)
 );
@@ -645,12 +671,12 @@ CREATE TABLE dbo.kelebihan_do (
     no_do_baru       VARCHAR(50)    NULL,
     status           VARCHAR(15)    NOT NULL CONSTRAINT DF_Lebih_Status DEFAULT ('MENUNGGU'),
     catatan          NVARCHAR(255)  NULL,
-    diajukan_oleh    INT NULL CONSTRAINT FK_Lebih_Aju REFERENCES dbo.akun (id_user),
+    diajukan_oleh    BIGINT NULL CONSTRAINT FK_Lebih_Aju REFERENCES dbo.Users (UserID),
     diajukan_at      DATETIME NULL,
-    ditetapkan_oleh  INT NULL CONSTRAINT FK_Lebih_Tetap REFERENCES dbo.akun (id_user),
+    ditetapkan_oleh  BIGINT NULL CONSTRAINT FK_Lebih_Tetap REFERENCES dbo.Users (UserID),
     ditetapkan_at    DATETIME NULL,
     alasan_kembali   NVARCHAR(255)  NULL,
-    id_comp_area     INT NULL CONSTRAINT FK_Lebih_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area     BIGINT NULL CONSTRAINT FK_Lebih_Area REFERENCES dbo.CompanyArea (CompAreaID),
     created_at       DATETIME NOT NULL CONSTRAINT DF_Lebih_Created DEFAULT (GETDATE()),
     CONSTRAINT UX_Lebih_Tiket UNIQUE (no_tiket),
     CONSTRAINT CK_Lebih_Status CHECK (status IN ('MENUNGGU', 'DIAJUKAN', 'SELESAI', 'DIKEMBALIKAN')),
@@ -660,20 +686,20 @@ CREATE TABLE dbo.kelebihan_do (
 CREATE TABLE dbo.notifikasi (
     id_notifikasi  INT IDENTITY(1,1) PRIMARY KEY,
     kode_menu      VARCHAR(40)    NOT NULL,
-    id_comp_area   INT NULL CONSTRAINT FK_Notif_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area   BIGINT NULL CONSTRAINT FK_Notif_Area REFERENCES dbo.CompanyArea (CompAreaID),
     judul          NVARCHAR(150)  NOT NULL,
     isi            NVARCHAR(500)  NULL,
     tautan         VARCHAR(200)   NULL,
     waktu          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE()),
     -- Sasaran (migrasi 027): jabatan di PT tertentu, atau satu user. Keduanya NULL = per menu (kode_menu)
-    id_level       INT NULL CONSTRAINT FK_Notif_Level REFERENCES dbo.level (id_level),
-    id_company     INT NULL CONSTRAINT FK_Notif_Company REFERENCES dbo.company (id_company),
-    id_user        INT NULL CONSTRAINT FK_Notif_User REFERENCES dbo.akun (id_user)
+    id_level       INT NULL CONSTRAINT FK_Notif_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    id_company     VARCHAR(5) NULL CONSTRAINT FK_Notif_Company REFERENCES dbo.Company (CompID),
+    id_user        BIGINT NULL CONSTRAINT FK_Notif_User REFERENCES dbo.Users (UserID)
 );
 CREATE INDEX IX_Notif_Waktu ON dbo.notifikasi (waktu DESC);
 CREATE TABLE dbo.notifikasi_baca (
     id_notifikasi  INT NOT NULL CONSTRAINT FK_NotifBaca_Notif REFERENCES dbo.notifikasi (id_notifikasi),
-    id_user        INT NOT NULL CONSTRAINT FK_NotifBaca_User REFERENCES dbo.akun (id_user),
+    id_user        BIGINT NOT NULL CONSTRAINT FK_NotifBaca_User REFERENCES dbo.Users (UserID),
     dibaca_at      DATETIME NOT NULL CONSTRAINT DF_NotifBaca_Waktu DEFAULT (GETDATE()),
     CONSTRAINT PK_NotifBaca PRIMARY KEY (id_notifikasi, id_user)
 );
@@ -691,7 +717,7 @@ CREATE TABLE dbo.sortasi (
     persen_brondolan        FLOAT NULL,
     total_potongan_kg       FLOAT NULL,
     catatan                 VARCHAR(500) NULL,
-    operator_sortasi_id     INT NULL CONSTRAINT FK_Sortasi_Operator REFERENCES dbo.akun (id_user),
+    operator_sortasi_id     BIGINT NULL CONSTRAINT FK_Sortasi_Operator REFERENCES dbo.Users (UserID),
     waktu_sortasi           DATETIME NULL
 );
 GO
@@ -706,7 +732,7 @@ CREATE TABLE dbo.lab_hasil (
     warna_locis        VARCHAR(50) NULL,
     keputusan          VARCHAR(20) NULL,
     id_dokumen         INT NULL CONSTRAINT FK_Lab_Dokumen REFERENCES dbo.dokumen (id_dokumen),   -- COA (APPROVE), migrasi 014
-    operator_lab_id    INT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.akun (id_user),
+    operator_lab_id    BIGINT NULL CONSTRAINT FK_Lab_Operator REFERENCES dbo.Users (UserID),
     waktu_pemeriksaan  DATETIME NULL,
     CONSTRAINT CK_Lab_Keputusan CHECK (keputusan IS NULL OR keputusan IN ('APPROVE', 'REJECT'))
 );
@@ -721,19 +747,19 @@ CREATE TABLE dbo.blacklist (
     id_kendaraan          INT NULL CONSTRAINT FK_Blacklist_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
     alasan_blacklist      VARCHAR(500) NOT NULL,
     id_dokumen            INT NULL CONSTRAINT FK_Blacklist_Dokumen REFERENCES dbo.dokumen (id_dokumen),       -- surat; NULL = menyusul (migrasi 021)
-    created_by            INT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.akun (id_user),
+    created_by            BIGINT NOT NULL CONSTRAINT FK_Blacklist_User REFERENCES dbo.Users (UserID),
     created_at            DATETIME NOT NULL CONSTRAINT DF_Blacklist_Created DEFAULT (GETDATE()),
     no_plat_terkait          VARCHAR(15) NULL,                  -- plat saat itu (supir / tamu)
     id_customer_terkait      INT NULL CONSTRAINT FK_Blacklist_Customer REFERENCES dbo.mitra (id_supplier),
     id_pengangkutan_terkait  INT NULL CONSTRAINT FK_Blacklist_Angkut REFERENCES dbo.mitra (id_supplier),
     -- Dicabut lewat persetujuan (migrasi 027); baris tidak pernah dihapus
     dicabut_at               DATETIME NULL,
-    dicabut_oleh             INT NULL CONSTRAINT FK_Blacklist_Pencabut REFERENCES dbo.akun (id_user),
+    dicabut_oleh             BIGINT NULL CONSTRAINT FK_Blacklist_Pencabut REFERENCES dbo.Users (UserID),
     alasan_cabut             NVARCHAR(500) NULL,
     -- Blacklist berjenjang (migrasi 043): alias, kategori target saat itu (KENDARAAN untuk kendaraan), lokasi = area pengaju
     nama_alias               NVARCHAR(100) NULL,
     kategori                 VARCHAR(20) NULL,
-    id_comp_area             INT NULL CONSTRAINT FK_Blacklist_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area             BIGINT NULL CONSTRAINT FK_Blacklist_Area REFERENCES dbo.CompanyArea (CompAreaID),
     CONSTRAINT CK_Blacklist_Tipe CHECK (tipe_entitas IN ('PERSONEL', 'KENDARAAN')),
     CONSTRAINT CK_Blacklist_Target CHECK (
         (tipe_entitas = 'PERSONEL'  AND id_personel IS NOT NULL AND id_kendaraan IS NULL) OR
@@ -746,7 +772,7 @@ GO
 
 -- Jadwal kerja per area (migrasi 014): absensi memakai jadwal area akun yang men-scan
 CREATE TABLE dbo.jadwal_kerja (
-    id_comp_area     INT NOT NULL CONSTRAINT FK_Jadwal_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area     BIGINT NOT NULL CONSTRAINT FK_Jadwal_Area REFERENCES dbo.CompanyArea (CompAreaID),
     hari             TINYINT NOT NULL,                          -- 1 = Senin ... 7 = Minggu
     nama_hari        VARCHAR(10) NOT NULL,
     jam_masuk        TIME(0) NULL,
@@ -793,17 +819,17 @@ CREATE TABLE dbo.kolom_wajib (
 CREATE TABLE dbo.pengaturan (
     kunci       VARCHAR(50)  PRIMARY KEY,
     nilai       VARCHAR(200) NOT NULL,
-    updated_by  INT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.akun (id_user),
+    updated_by  BIGINT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.Users (UserID),
     updated_at  DATETIME NOT NULL CONSTRAINT DF_Pengaturan_Updated DEFAULT (GETDATE())
 );
 GO
 
 -- Pengaturan operasional per area (migrasi 014), menimpa nilai global di tabel pengaturan
 CREATE TABLE dbo.pengaturan_area (
-    id_comp_area  INT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area  BIGINT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.CompanyArea (CompAreaID),
     kunci         VARCHAR(50)  NOT NULL,
     nilai         VARCHAR(200) NOT NULL,
-    updated_by    INT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.akun (id_user),
+    updated_by    BIGINT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.Users (UserID),
     updated_at    DATETIME NOT NULL CONSTRAINT DF_PengArea_Updated DEFAULT (GETDATE()),
     CONSTRAINT PK_PengaturanArea PRIMARY KEY (id_comp_area, kunci)
 );
@@ -814,7 +840,7 @@ CREATE TABLE dbo.perangkat_kiosk (
     nama        VARCHAR(100) NOT NULL,
     lokasi      VARCHAR(100) NULL,
     token_hash  CHAR(64)     NOT NULL,
-    id_comp_area INT NOT NULL CONSTRAINT FK_Kiosk_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area BIGINT NOT NULL CONSTRAINT FK_Kiosk_Area REFERENCES dbo.CompanyArea (CompAreaID),
     is_active   BIT NOT NULL CONSTRAINT DF_Kiosk_Aktif DEFAULT (1),
     created_at  DATETIME NOT NULL CONSTRAINT DF_Kiosk_Created DEFAULT (GETDATE()),
     CONSTRAINT CK_Kiosk_Id CHECK (id_pos NOT LIKE '%[^A-Z0-9_-]%')
@@ -825,8 +851,8 @@ GO
 CREATE TABLE dbo.log_aktivitas (
     id_log         BIGINT IDENTITY(1,1) PRIMARY KEY,
     waktu          DATETIME2(3) NOT NULL,
-    id_user        INT NULL CONSTRAINT FK_Log_User REFERENCES dbo.akun (id_user),     -- NULL = kiosk / sistem
-    id_comp_area   INT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_user        BIGINT NULL CONSTRAINT FK_Log_User REFERENCES dbo.Users (UserID),     -- NULL = kiosk / sistem
+    id_comp_area   BIGINT NULL CONSTRAINT FK_Log_Area REFERENCES dbo.CompanyArea (CompAreaID),
     kategori       VARCHAR(20)  NOT NULL,      -- ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, TIMELINE, ...
     aksi           VARCHAR(40)  NOT NULL,
     tabel          VARCHAR(50)  NULL,
@@ -845,7 +871,7 @@ GO
 
 /* Isi yang di-hash (dipakai juga untuk verifikasi) */
 CREATE OR ALTER FUNCTION dbo.fn_hash_log (
-    @hash_sebelum CHAR(64), @waktu DATETIME2(3), @id_user INT, @kategori VARCHAR(20), @aksi VARCHAR(40),
+    @hash_sebelum CHAR(64), @waktu DATETIME2(3), @id_user BIGINT, @kategori VARCHAR(20), @aksi VARCHAR(40),
     @tabel VARCHAR(50), @id_baris VARCHAR(100), @nilai_lama NVARCHAR(MAX), @nilai_baru NVARCHAR(MAX), @ip VARCHAR(45))
 RETURNS CHAR(64)
 AS
@@ -858,8 +884,8 @@ GO
 
 CREATE OR ALTER PROCEDURE dbo.sp_catat_log
     @kategori VARCHAR(20), @aksi VARCHAR(40), @tabel VARCHAR(50) = NULL, @id_baris VARCHAR(100) = NULL,
-    @nilai_lama NVARCHAR(MAX) = NULL, @nilai_baru NVARCHAR(MAX) = NULL, @id_user INT = NULL,
-    @id_comp_area INT = NULL, @ip VARCHAR(45) = NULL, @waktu DATETIME2(3) = NULL
+    @nilai_lama NVARCHAR(MAX) = NULL, @nilai_baru NVARCHAR(MAX) = NULL, @id_user BIGINT = NULL,
+    @id_comp_area BIGINT = NULL, @ip VARCHAR(45) = NULL, @waktu DATETIME2(3) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -870,7 +896,7 @@ BEGIN
     DECLARE @prev CHAR(64) = (SELECT TOP 1 hash_baris FROM dbo.log_aktivitas ORDER BY id_log DESC);
     SET @waktu = COALESCE(@waktu, SYSDATETIME());
     IF @id_comp_area IS NULL AND @id_user IS NOT NULL
-        SET @id_comp_area = (SELECT id_comp_area FROM dbo.akun WHERE id_user = @id_user);
+        SET @id_comp_area = (SELECT CompAreaID FROM dbo.Users WHERE UserID = @id_user);
     INSERT INTO dbo.log_aktivitas (waktu, id_user, id_comp_area, kategori, aksi, tabel, id_baris, nilai_lama, nilai_baru,
                                    ip, hash_sebelum, hash_baris)
     VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
@@ -900,26 +926,27 @@ WHERE x.hash_baris <> x.hash_hitung
 GO
 
 
-/* Sesi login dari semua PC (Admin > Sesi Aktif, paksa keluar, 1 user 1 perangkat) - migrasi 007 */
-CREATE TABLE dbo.sesi_login (
-    sid             VARCHAR(24)  NOT NULL PRIMARY KEY,
-    user_id         INT          NOT NULL CONSTRAINT FK_SesiLogin_User REFERENCES dbo.akun (id_user),
-    ip              VARCHAR(45)  NULL,
-    agen            VARCHAR(200) NULL,
-    login_at        DATETIME     NOT NULL DEFAULT GETDATE(),
-    terakhir_aktif  DATETIME     NOT NULL DEFAULT GETDATE(),
-    berakhir_at     DATETIME     NULL,
-    alasan          VARCHAR(20)  NULL
+/* Sesi login dari semua PC (Admin > Sesi Aktif, paksa keluar, 1 user 1 perangkat) */
+CREATE TABLE dbo.UserSession (
+    SessionID   VARCHAR(24)  NOT NULL PRIMARY KEY,
+    UserID      BIGINT       NOT NULL CONSTRAINT FK_UserSession_User REFERENCES dbo.Users (UserID),
+    IPAddress   VARCHAR(45)  NULL,
+    UserAgent   VARCHAR(200) NULL,
+    LoginDate   DATETIME     NOT NULL CONSTRAINT DF_UserSession_Login DEFAULT (GETDATE()),
+    LastActive  DATETIME     NOT NULL CONSTRAINT DF_UserSession_Active DEFAULT (GETDATE()),
+    EndDate     DATETIME     NULL,
+    EndReason   VARCHAR(20)  NULL
 );
-CREATE INDEX IX_SesiLogin_User ON dbo.sesi_login (user_id, berakhir_at);
-CREATE INDEX IX_SesiLogin_Aktif ON dbo.sesi_login (berakhir_at, terakhir_aktif);
+CREATE INDEX IX_UserSession_User ON dbo.UserSession (UserID, EndDate);
+CREATE INDEX IX_UserSession_Active ON dbo.UserSession (EndDate, LastActive);
 GO
+
 
 /* =========================== LOG VALIDASI BLACKLIST (migrasi 028) =========================== */
 CREATE TABLE dbo.blacklist_deteksi (
     id_deteksi    BIGINT IDENTITY(1,1) PRIMARY KEY,
     waktu         DATETIME      NOT NULL CONSTRAINT DF_BlDeteksi_Waktu DEFAULT (GETDATE()),
-    id_comp_area  INT           NULL CONSTRAINT FK_BlDeteksi_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_comp_area  BIGINT           NULL CONSTRAINT FK_BlDeteksi_Area REFERENCES dbo.CompanyArea (CompAreaID),
     id_personel   INT           NULL CONSTRAINT FK_BlDeteksi_Personel REFERENCES dbo.personel (id_personel),
     id_kendaraan  INT           NULL CONSTRAINT FK_BlDeteksi_Kendaraan REFERENCES dbo.kendaraan (id_kendaraan),
     no_plat       VARCHAR(15)   NULL,
@@ -928,7 +955,7 @@ CREATE TABLE dbo.blacklist_deteksi (
     jarak_wajah   FLOAT         NULL,
     keterangan    NVARCHAR(300) NULL,
     no_tiket      VARCHAR(50)   NULL,
-    id_user       INT           NULL CONSTRAINT FK_BlDeteksi_User REFERENCES dbo.akun (id_user),
+    id_user       BIGINT           NULL CONSTRAINT FK_BlDeteksi_User REFERENCES dbo.Users (UserID),
     CONSTRAINT CK_BlDeteksi_Target CHECK (id_personel IS NOT NULL OR id_kendaraan IS NOT NULL)
 );
 CREATE INDEX IX_BlDeteksi_Area_Waktu ON dbo.blacklist_deteksi (id_comp_area, waktu DESC);
@@ -944,13 +971,13 @@ CREATE TABLE dbo.pengajuan (
                    CONSTRAINT CK_Pengajuan_Status CHECK (status IN ('MENUNGGU', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
     langkah        TINYINT        NOT NULL CONSTRAINT DF_Pengajuan_Langkah DEFAULT (1),
     total_langkah  TINYINT        NOT NULL,
-    id_company     INT            NOT NULL CONSTRAINT FK_Pengajuan_Company REFERENCES dbo.company (id_company),
-    id_comp_area   INT            NOT NULL CONSTRAINT FK_Pengajuan_Area REFERENCES dbo.comp_area (id_comp_area),
+    id_company     VARCHAR(5)            NOT NULL CONSTRAINT FK_Pengajuan_Company REFERENCES dbo.Company (CompID),
+    id_comp_area   BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_Area REFERENCES dbo.CompanyArea (CompAreaID),
     target         VARCHAR(50)    NOT NULL,
     judul          NVARCHAR(200)  NOT NULL,
     alasan         NVARCHAR(500)  NULL,
     data           NVARCHAR(MAX)  NULL CONSTRAINT CK_Pengajuan_Json CHECK (data IS NULL OR ISJSON(data) = 1),
-    diajukan_oleh  INT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.akun (id_user),
+    diajukan_oleh  BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.Users (UserID),
     created_at     DATETIME       NOT NULL CONSTRAINT DF_Pengajuan_Dibuat DEFAULT (GETDATE()),
     selesai_at     DATETIME       NULL,
     kategori       VARCHAR(20)    NULL                -- kategori target (memilih alur persetujuan, migrasi 043)
@@ -961,8 +988,8 @@ CREATE TABLE dbo.pengajuan_riwayat (
     id_pengajuan  INT           NOT NULL CONSTRAINT FK_PengRiwayat_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
     langkah       TINYINT       NOT NULL,
     aksi          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (aksi IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN', 'DILEWATI')),
-    id_level      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.level (id_level),
-    id_user       INT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.akun (id_user),
+    id_level      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    id_user       BIGINT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.Users (UserID),
     catatan       NVARCHAR(500) NULL,
     waktu         DATETIME      NOT NULL CONSTRAINT DF_PengRiwayat_Waktu DEFAULT (GETDATE())
 );
@@ -981,14 +1008,14 @@ CREATE TABLE dbo.alur_persetujuan_tahap (
     id_tahap            INT IDENTITY(1,1) PRIMARY KEY,
     id_alur_persetujuan INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Alur REFERENCES dbo.alur_persetujuan (id_alur_persetujuan),
     urutan              TINYINT NOT NULL,
-    id_level            INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Level REFERENCES dbo.level (id_level),
+    id_level            INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
     CONSTRAINT UX_AlurSetujuTahap_Urutan UNIQUE (id_alur_persetujuan, urutan)
 );
 -- Salinan tahap saat diajukan (perubahan alur tidak mengganggu pengajuan yang berjalan)
 CREATE TABLE dbo.pengajuan_tahap (
     id_pengajuan INT NOT NULL CONSTRAINT FK_PengTahap_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
     urutan       TINYINT NOT NULL,
-    id_level     INT NOT NULL CONSTRAINT FK_PengTahap_Level REFERENCES dbo.level (id_level),
+    id_level     INT NOT NULL CONSTRAINT FK_PengTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
     CONSTRAINT PK_PengTahap PRIMARY KEY (id_pengajuan, urutan)
 );
 GO
@@ -1043,86 +1070,132 @@ INSERT INTO dbo.jenis_sim (kode, nama, is_active) VALUES ('BELUM_DIISI', N'Belum
 INSERT INTO dbo.keperluan_kunjungan (nama) VALUES
     (N'Rapat / Bertemu'), (N'Pengiriman Barang'), (N'Perbaikan / Servis'), (N'Audit / Inspeksi'), (N'Lainnya');
 GO
--- Organisasi, level (pengganti role), menu, dan hak akses awal (sama dengan migrasi 008)
-INSERT INTO dbo.company (kode, nama) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)'), ('HO', N'HEAD OFFICE');
-INSERT INTO dbo.lokasi (kode, nama, keterangan, is_pusat) VALUES ('300', N'HO', N'Kantor pusat', 1),
+-- Organisasi, peran, menu (sidebar master page, 3 level), dan hak akses awal (ERD Ladder Desk)
+INSERT INTO dbo.Company (CompID, CompName) VALUES ('PT', N'Perusahaan (ubah di Admin › Organisasi)'), ('HO', N'HEAD OFFICE');
+INSERT INTO dbo.Mill (MillCode, MillName, Description, IsHeadOffice) VALUES ('300', N'HO', N'Kantor pusat', 1),
     ('400', N'OFFICE', N'Kantor cabang di site', 0), ('600', N'PKS', NULL, 0);
-INSERT INTO dbo.comp_area (id_company, id_lokasi, kode, nama)
-SELECT c.id_company, l.id_lokasi, l.kode, v.nama
-FROM (VALUES ('PT', '600', N'PKS'), ('HO', '300', N'HEAD OFFICE')) v (company, lokasi, nama)
-JOIN dbo.company c ON c.kode = v.company JOIN dbo.lokasi l ON l.kode = v.lokasi;
-INSERT INTO dbo.department (nama) VALUES (N'Umum'), (N'Security'), (N'Timbangan'), (N'Sortasi'), (N'Laboratorium'), (N'Head Office');
-INSERT INTO dbo.jabatan (nama, is_admin, urutan) VALUES
+INSERT INTO dbo.CompanyArea (CompID, MillID, AreaCode, AreaName)
+SELECT v.comp, m.MillID, m.MillCode, v.nama
+FROM (VALUES ('PT', '600', N'PKS'), ('HO', '300', N'HEAD OFFICE')) v (comp, mill, nama)
+JOIN dbo.Mill m ON m.MillCode = v.mill;
+INSERT INTO dbo.Department (DeptID, DeptName) VALUES
+    ('UMUM', N'Umum'), ('SEC', N'Security'), ('TBG', N'Timbangan'), ('SRT', N'Sortasi'), ('LAB', N'Laboratorium'), ('HO', N'Head Office');
+INSERT INTO dbo.DepartmentDetails (CompAreaID, DeptID, Location)
+SELECT a.CompAreaID, d.DeptID, CASE WHEN m.IsHeadOffice = 1 THEN 'HO' ELSE 'SITE' END
+FROM dbo.CompanyArea a JOIN dbo.Mill m ON m.MillID = a.MillID JOIN dbo.Department d
+  ON (m.IsHeadOffice = 0 AND d.DeptID IN ('UMUM', 'SEC', 'TBG', 'SRT', 'LAB')) OR (m.IsHeadOffice = 1 AND d.DeptID IN ('UMUM', 'HO'));
+INSERT INTO dbo.Level (LevelName, IsAdmin, SortOrder) VALUES
     (N'Admin', 1, 1), (N'Manager', 0, 2), (N'Supervisor', 0, 3), (N'Staff', 0, 4), (N'Magang', 0, 5);
--- Peran awal (departemen · jabatan); kode tetap dipakai data awal hak akses di bawah
-INSERT INTO dbo.level (kode, nama, is_admin, halaman_awal, id_department, id_jabatan)
-SELECT v.kode, CASE WHEN d.nama IS NULL THEN v.jabatan ELSE d.nama + N' · ' + v.jabatan END, v.adm, v.awal,
-       d.id_department, j.id_jabatan
-FROM (VALUES ('ADMIN',            N'Admin',   NULL,             1, '/admin'),
-             ('HO',               N'Manager', N'Head Office',   0, '/dashboard'),
-             ('SECURITY',         N'Staff',   N'Security',      0, '/pos-security'),
-             ('OPERATOR_TIMBANG', N'Staff',   N'Timbangan',     0, '/weighbridge?tab=timbangan'),
-             ('SORTASI',          N'Staff',   N'Sortasi',       0, '/weighbridge?tab=sortasi'),
-             ('LAB',              N'Staff',   N'Laboratorium',  0, '/weighbridge?tab=lab')) v (kode, jabatan, dept, adm, awal)
-JOIN dbo.jabatan j ON j.nama = v.jabatan
-LEFT JOIN dbo.department d ON d.nama = v.dept;
-INSERT INTO dbo.menu (kode, nama, url, ikon, urutan) VALUES
-    ('DASHBOARD',        N'Dashboard',        '/dashboard',            'fa-chart-line',    10),
-    ('LIST',             N'Daftar Tiket',     '/weighbridge?view=list', 'fa-list',         20),
-    ('FORM',             N'Stasiun Timbang',  '/weighbridge?view=form', 'fa-file-pen',     30),
-    ('FACE_RECOGNITION', N'Pengenalan Wajah', '/face-recognition',     'fa-face-smile',    40),
-    ('KONTRAK_DO',       N'Kontrak & DO',     '/kontrak',              'fa-file-contract', 50),
-    ('BLACKLIST',        N'Blacklist',        '/blacklist',            'fa-ban',           45),
-    ('KUNJUNGAN',        N'Tamu',             '/tamu',                 'fa-id-card',       46),
-    ('KELEBIHAN_DO',     N'Kelebihan DO',     '/kelebihan-do',         'fa-scale-unbalanced', 55),
-    ('MASTER',           N'Data Master',      '/master',               'fa-database',      60),
-    ('POS_SECURITY',     N'Pos Security',     '/pos-security',         'fa-shield-halved', 15),   -- migrasi 038
-    ('LOGBOOK',          N'Logbook Kendaraan', '/logbook',             'fa-book',          16);
-INSERT INTO dbo.menu (kode, nama, id_parent, urutan)
-SELECT v.kode, v.nama, p.id_menu, v.urutan
-FROM (VALUES ('FORM_SECURITY',    N'Stasiun Timbang › Security',          'FORM', 1),
-             ('FORM_TIMBANGAN',   N'Stasiun Timbang › Timbangan',         'FORM', 2),
-             ('FORM_SORTASI',     N'Stasiun Timbang › Sortasi',           'FORM', 3),
-             ('FORM_LAB',         N'Stasiun Timbang › Laboratorium',      'FORM', 4),
-             ('ABSENSI',          N'Pengenalan Wajah › Absensi', 'FACE_RECOGNITION', 1),
-             ('PERSONEL',         N'Pengenalan Wajah › Personel', 'FACE_RECOGNITION', 2),
-             ('AUDIT_LOG',        N'Pengenalan Wajah › Log Audit', 'FACE_RECOGNITION', 4),
-             ('MASTER_DRIVER',    N'Data Master › Supir',     'MASTER', 1),
-             ('MASTER_KENDARAAN', N'Data Master › Kendaraan',  'MASTER', 2),
-             ('MASTER_MITRA',     N'Data Master › Supplier',   'MASTER', 3),
-             ('MASTER_PRODUK',    N'Data Master › Produk',     'MASTER', 4)) v (kode, nama, induk, urutan)
-JOIN dbo.menu p ON p.kode = v.induk;
-INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
-SELECT l.id_level, m.id_menu, v.t, v.u, v.h
-FROM (VALUES ('HO',               'DASHBOARD',        0, 1, 0),
-             ('HO',               'PERSONEL',         1, 1, 1),
-             ('HO',               'BLACKLIST',        1, 0, 0),
-             ('HO',               'KONTRAK_DO',       1, 1, 1),
-             ('HO',               'MASTER_DRIVER',    1, 1, 1),
-             ('HO',               'MASTER_KENDARAAN', 1, 1, 0),
-             ('HO',               'KELEBIHAN_DO',     0, 1, 0),
-             ('OPERATOR_TIMBANG', 'KELEBIHAN_DO',     1, 0, 0),
-             ('HO',               'MASTER_MITRA',     1, 1, 0),
-             ('HO',               'MASTER_PRODUK',    1, 1, 0),
-             ('SECURITY',         'FORM_SECURITY',    1, 1, 0),
-             ('SECURITY',         'MASTER_DRIVER',    1, 1, 1),
-             ('SECURITY',         'MASTER_KENDARAAN', 1, 1, 0),
-             ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN',   1, 0, 0),
-             ('SORTASI',          'FORM_SORTASI',     1, 0, 0),
-             ('LAB',              'FORM_LAB',         1, 1, 0),
-             ('SECURITY',         'POS_SECURITY',     1, 1, 0),
-             ('SECURITY',         'LOGBOOK',          0, 1, 0),
-             ('HO',               'POS_SECURITY',     0, 0, 0),
-             ('HO',               'LOGBOOK',          0, 0, 0)) v (lv, mn, t, u, h)
-JOIN dbo.level l ON l.kode = v.lv
-JOIN dbo.menu m ON m.kode = v.mn;
+-- Peran awal (Departemen · Level); kode dipakai data awal hak akses di bawah
+INSERT INTO dbo.LevelDetails (LevelDetCode, LevelDetName, LevelID, DeptID, HomeUrl)
+SELECT v.kode, CASE WHEN d.DeptName IS NULL THEN l.LevelName ELSE d.DeptName + N' · ' + l.LevelName END, l.LevelID, d.DeptID, v.awal
+FROM (VALUES ('ADMIN',            N'Admin',   NULL,   '/admin'),
+             ('HO',               N'Manager', 'HO',   '/dashboard'),
+             ('SECURITY',         N'Staff',   'SEC',  '/pos-security'),
+             ('OPERATOR_TIMBANG', N'Staff',   'TBG',  '/weighbridge?tab=timbangan'),
+             ('SORTASI',          N'Staff',   'SRT',  '/weighbridge?tab=sortasi'),
+             ('LAB',              N'Staff',   'LAB',  '/weighbridge?tab=lab')) v (kode, lvl, dept, awal)
+JOIN dbo.Level l ON l.LevelName = v.lvl
+LEFT JOIN dbo.Department d ON d.DeptID = v.dept;
+INSERT INTO dbo.ActionType (ActionID, TypeName, Description) VALUES
+    (0, 'Delete', N'Hapus'), (1, 'View', N'Lihat halaman / bagian'), (2, 'Create', N'Tambah'), (3, 'Edit', N'Ubah'),
+    (4, 'Void', N'Batalkan'), (5, 'Approve', N'Setujui pengajuan');
+-- Menu Lv1 (grup sidebar master page)
+INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
+    ('G_DASHBOARD',  N'Dashboard',            1, 'fa-gauge',       10),
+    ('G_ANALYTICAL', N'Analytical Dashboard', 1, 'fa-chart-column', 20),
+    ('G_MILLS',      N'Mills Operation',      1, 'fa-industry',    30),
+    ('G_FORMS',      N'Forms',                1, 'fa-file-lines',  40),
+    ('G_REPORTS',    N'Reports',              1, 'fa-chart-pie',   50),
+    ('G_MASTER',     N'Master',               1, 'fa-database',    60);
+-- Menu Lv2 (halaman). Url NULL = halaman belum ada (tahap berikutnya / web lain)
+INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, Icon, AppCode, SortOrder)
+SELECT v.kode, v.nama, p.MenuID, 2, v.url, v.ikon, v.app, v.urut
+FROM (VALUES ('DASHBOARD',       N'Dashboard',                  'G_DASHBOARD',  '/dashboard',             'fa-chart-line',       'CPOS', 10),
+             ('AN_PR_PO',        N'PR & PO Outstanding',        'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 10),
+             ('AN_PO_PI',        N'PO & PI Outstanding',        'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 20),
+             ('AN_PVR_KPI',      N'PVR KPI',                    'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 30),
+             ('AN_PV_KPI',       N'PV KPI',                     'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 40),
+             ('AN_WB_FRAUD',     N'Weighbridge Fraud Analyst',  'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 50),
+             ('AN_TBS',          N'TBS Transaction Analyst',    'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 60),
+             ('AN_COST',         N'Transaction Cost Analyst',   'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 70),
+             ('LIST',            N'Tickets',                    'G_MILLS',      '/weighbridge?view=list', 'fa-list',             'CPOS', 10),
+             ('FORM',            N'Stasiun Timbang',            'G_MILLS',      '/weighbridge?view=form', 'fa-file-pen',         'CPOS', 20),
+             ('POS_SECURITY',    N'Pos Security',               'G_MILLS',      '/pos-security',          'fa-shield-halved',    'CPOS', 30),
+             ('LOGBOOK',         N'Logbook Kendaraan',          'G_MILLS',      '/logbook',               'fa-book',             'CPOS', 40),
+             ('KELEBIHAN_DO',    N'Kelebihan DO',               'G_MILLS',      '/kelebihan-do',          'fa-scale-unbalanced', 'CPOS', 50),
+             ('KUNJUNGAN',       N'Visitor & Staff Logs',       'G_FORMS',      '/tamu',                  'fa-id-card',          'CPOS', 10),
+             ('FM_IT_HELPDESK',  N'IT Helpdesk',                'G_FORMS',      NULL, 'fa-headset',    'CPOS', 20),
+             ('FM_NEW_ITEM',     N'New Item Request',           'G_FORMS',      NULL, 'fa-box-open',   'CPOS', 30),
+             ('RP_PR',           N'Purchase Request',           'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 10),
+             ('RP_PO',           N'Purchase Orders',            'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 20),
+             ('RP_PI',           N'Purchase Invoice',           'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 30),
+             ('RP_GT',           N'Goods Transfer',             'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 40),
+             ('RP_ITEM',         N'Item Transaction Reports',   'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 50),
+             ('BLACKLIST',       N'Blacklist',                  'G_MASTER',     '/blacklist',             'fa-ban',              'CPOS', 10),
+             ('MASTER',          N'Data Master',                'G_MASTER',     '/master',                'fa-database',         'CPOS', 20),
+             ('KONTRAK_DO',      N'Kontrak & DO',               'G_MASTER',     '/kontrak',               'fa-file-contract',    'CPOS', 30),
+             ('FACE_RECOGNITION', N'Pengenalan Wajah',          'G_MASTER',     '/face-recognition',      'fa-face-smile',       'CPOS', 40)
+     ) v (kode, nama, induk, url, ikon, app, urut)
+JOIN dbo.Menu p ON p.MenuCode = v.induk;
+-- Menu Lv3 (bagian halaman / sub-halaman)
+INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, SortOrder)
+SELECT v.kode, v.nama, p.MenuID, 3, v.url, v.urut
+FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weighbridge?view=form&tab=security',  1),
+             ('FORM_TIMBANGAN',   N'Timbangan',                 'FORM',  '/weighbridge?view=form&tab=timbangan', 2),
+             ('FORM_SORTASI',     N'Sortasi',                   'FORM',  '/weighbridge?view=form&tab=sortasi',   3),
+             ('FORM_LAB',         N'Laboratorium',              'FORM',  '/weighbridge?view=form&tab=lab',       4),
+             ('BL_PERSONEL',      N'Visitor & Staff Blacklist', 'BLACKLIST', '/blacklist?tipe=PERSONEL',        1),
+             ('BL_SUPPLIER',      N'Supplier Blacklist',        'BLACKLIST', NULL,                              2),
+             ('BL_KENDARAAN',     N'Vehicle Blacklist',         'BLACKLIST', '/blacklist?tipe=KENDARAAN',       3),
+             ('MASTER_DRIVER',    N'Supir',                     'MASTER', '/master?tab=personel',  1),
+             ('MASTER_KENDARAAN', N'Kendaraan',                 'MASTER', '/master?tab=kendaraan', 2),
+             ('MASTER_MITRA',     N'Supplier',                  'MASTER', '/master?tab=mitra',     3),
+             ('MASTER_PRODUK',    N'Produk',                    'MASTER', '/master?tab=produk',    4),
+             ('ABSENSI',          N'Absensi',                   'FACE_RECOGNITION', '/face-recognition?tab=absensi',  1),
+             ('PERSONEL',         N'Personel',                  'FACE_RECOGNITION', '/face-recognition?tab=personel', 2),
+             ('AUDIT_LOG',        N'Log Audit',                 'FACE_RECOGNITION', '/face-recognition?tab=audit',    4)
+     ) v (kode, nama, induk, url, urut)
+JOIN dbo.Menu p ON p.MenuCode = v.induk;
+-- Hak akses awal: (peran, menu, tambah, ubah, hapus, setujui). Lihat ikut diberikan.
+DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), t BIT, u BIT, h BIT, s BIT);
+INSERT INTO @hak VALUES
+    ('HO', 'DASHBOARD', 0, 1, 0, 0), ('HO', 'PERSONEL', 1, 1, 1, 0), ('HO', 'BLACKLIST', 1, 0, 0, 1),
+    ('HO', 'KONTRAK_DO', 1, 1, 1, 0), ('HO', 'MASTER_DRIVER', 1, 1, 1, 0), ('HO', 'MASTER_KENDARAAN', 1, 1, 0, 0),
+    ('HO', 'KELEBIHAN_DO', 0, 1, 0, 0), ('OPERATOR_TIMBANG', 'KELEBIHAN_DO', 1, 0, 0, 0),
+    ('HO', 'MASTER_MITRA', 1, 1, 0, 0), ('HO', 'MASTER_PRODUK', 1, 1, 0, 0),
+    ('SECURITY', 'FORM_SECURITY', 1, 1, 0, 0), ('SECURITY', 'MASTER_DRIVER', 1, 1, 1, 0), ('SECURITY', 'MASTER_KENDARAAN', 1, 1, 0, 0),
+    ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN', 1, 0, 0, 0), ('SORTASI', 'FORM_SORTASI', 1, 0, 0, 0), ('LAB', 'FORM_LAB', 1, 1, 0, 0),
+    ('SECURITY', 'POS_SECURITY', 1, 1, 0, 0), ('SECURITY', 'LOGBOOK', 0, 1, 0, 0), ('SECURITY', 'KUNJUNGAN', 1, 1, 0, 0),
+    ('HO', 'POS_SECURITY', 0, 0, 0, 0), ('HO', 'LOGBOOK', 0, 0, 0, 0);
+-- Semua peran non-admin awalnya boleh melihat semua halaman CPOS yang sudah ada (kecuali menu pos: hanya yang diberi di atas)
+INSERT INTO @hak (peran, menu, t, u, h, s)
+SELECT ld.LevelDetCode, m.MenuCode, 0, 0, 0, 0
+FROM dbo.LevelDetails ld JOIN dbo.Level l ON l.LevelID = ld.LevelID CROSS JOIN dbo.Menu m
+WHERE l.IsAdmin = 0 AND m.AppCode = 'CPOS' AND m.Url IS NOT NULL AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK')
+  AND NOT EXISTS (SELECT 1 FROM @hak x WHERE x.peran = ld.LevelDetCode AND x.menu = m.MenuCode);
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
+SELECT m.MenuID, a.ActionID, ld.LevelDetID
+FROM @hak h JOIN dbo.LevelDetails ld ON ld.LevelDetCode = h.peran JOIN dbo.Menu m ON m.MenuCode = h.menu
+CROSS APPLY (VALUES (1, 1), (2, h.t), (3, h.u), (0, h.h), (5, h.s)) a (ActionID, ada)
+WHERE a.ada = 1;
+-- Induk (Lv2 / Lv1) ikut terlihat bila ada anak yang terlihat (flowchart: menu ditampilkan per level)
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
+SELECT DISTINCT p.MenuID, 1, x.LevelDetID
+FROM dbo.AccessMenu x JOIN dbo.Menu m ON m.MenuID = x.MenuID JOIN dbo.Menu p ON p.MenuID = m.ParentMenuID
+WHERE x.ActionID = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu y WHERE y.LevelDetID = x.LevelDetID AND y.MenuID = p.MenuID AND y.ActionID = 1);
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
+SELECT DISTINCT p.MenuID, 1, x.LevelDetID
+FROM dbo.AccessMenu x JOIN dbo.Menu m ON m.MenuID = x.MenuID JOIN dbo.Menu p ON p.MenuID = m.ParentMenuID
+WHERE x.ActionID = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu y WHERE y.LevelDetID = x.LevelDetID AND y.MenuID = p.MenuID AND y.ActionID = 1);
+GO
 -- Jembatan timbang awal (migrasi 011)
 INSERT INTO dbo.jembatan_timbang (id_comp_area, kode, nama, port)
-SELECT MIN(id_comp_area), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.comp_area;
+SELECT MIN(CompAreaID), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.CompanyArea;
 -- Jadwal kerja awal per area (migrasi 014)
 INSERT INTO dbo.jadwal_kerja (id_comp_area, hari, nama_hari, jam_masuk, jam_pulang, is_libur)
-SELECT a.id_comp_area, v.hari, v.nama, v.masuk, v.pulang, v.libur
-FROM dbo.comp_area a
+SELECT a.CompAreaID, v.hari, v.nama, v.masuk, v.pulang, v.libur
+FROM dbo.CompanyArea a
 CROSS JOIN (VALUES (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17:00', 0), (3, 'Rabu', '08:00', '17:00', 0),
                    (4, 'Kamis', '08:00', '17:00', 0), (5, 'Jumat', '08:00', '17:00', 0), (6, 'Sabtu', '08:00', '12:00', 0),
                    (7, 'Minggu', NULL, NULL, 1)) v (hari, nama, masuk, pulang, libur);
@@ -1152,45 +1225,33 @@ FROM (VALUES ('TBS', 1, 'SECURITY'), ('TBS', 2, 'TIMBANG_1'), ('TBS', 3, 'SORTAS
              ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1'),
              ('POS_SAJA', 1, 'SECURITY')) v (alur, urutan, tahap)
 JOIN dbo.alur a ON a.kode = v.alur;
--- Hak menu Tamu (KUNJUNGAN) untuk Security
-INSERT INTO dbo.level_akses (id_level, id_menu, bisa_tambah, bisa_ubah, bisa_hapus)
-SELECT l.id_level, m.id_menu, 1, 1, 0
-FROM dbo.level l CROSS JOIN dbo.menu m
-WHERE l.kode = 'SECURITY' AND m.kode = 'KUNJUNGAN';
--- Head Office menyetujui pengajuan blacklist (atur di Admin › Level & Hak Akses, kolom Setujui)
-UPDATE a SET bisa_setujui = 1 FROM dbo.level_akses a JOIN dbo.level l ON l.id_level = a.id_level
-JOIN dbo.menu m ON m.id_menu = a.id_menu WHERE l.kode = 'HO' AND m.kode = 'BLACKLIST';
--- Semua jabatan non-admin awalnya boleh melihat semua halaman (atur di Admin › Level & Hak Akses)
-INSERT INTO dbo.level_akses (id_level, id_menu, bisa_lihat)
-SELECT l.id_level, m.id_menu, 1 FROM dbo.level l CROSS JOIN dbo.menu m
-WHERE l.is_admin = 0 AND m.kode NOT IN ('POS_SECURITY', 'LOGBOOK')       -- menu pos: hanya jabatan yang diberi di atas
-  AND NOT EXISTS (SELECT 1 FROM dbo.level_akses a WHERE a.id_level = l.id_level AND a.id_menu = m.id_menu);
-GO
--- Akun super admin pertama: admin / admin12345. password_changed_at NULL -> wajib buat password baru saat login pertama
+-- Akun super admin pertama: admin / admin12345. MustChange = 1 -> wajib buat password baru saat login pertama
 INSERT INTO dbo.personel (nik, nama_personel, kategori) VALUES (NULL, 'Super Admin', 'EMPLOYEE');
-INSERT INTO dbo.akun (nama, username, password, id_level, id_department, id_comp_area, id_personel)
-SELECT 'Super Admin', 'admin',
-       'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419',
-       (SELECT id_level FROM dbo.level WHERE kode = 'ADMIN'), NULL,
-       (SELECT MIN(id_comp_area) FROM dbo.comp_area), SCOPE_IDENTITY();
-INSERT INTO dbo.password_riwayat (id_user, password) SELECT id_user, password FROM dbo.akun;
+INSERT INTO dbo.Users (UserID, UserName, Nama, UserLevelID, UserDeptID, CompAreaID, PersonnelID)
+SELECT CAST(FORMAT(GETDATE(), 'yyMMdd') AS BIGINT) * 10000 + 1, 'admin', 'Super Admin',
+       (SELECT LevelDetID FROM dbo.LevelDetails WHERE LevelDetCode = 'ADMIN'), NULL,
+       (SELECT MIN(CompAreaID) FROM dbo.CompanyArea), SCOPE_IDENTITY();
+INSERT INTO dbo.PasswordManager (UserID, UserPasswd, MustChange, History)
+SELECT UserID, 'pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419', 1,
+       N'["pbkdf2:sha256:1000000$zkbmkQ6HN9jaUBF5$c6b4177f0ac7789efa50b5d512d6b1ae6bd86963b81d2ba9b9208d3349801419"]'
+FROM dbo.Users;
 GO
 
 /* Log perubahan data (migrasi 034): isi lama & baru tiap baris ke log_aktivitas kategori DATA */
-CREATE OR ALTER TRIGGER dbo.TR_LogData_company ON dbo.company AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Company ON dbo.Company AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_company AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_company AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.CompID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.CompID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_company AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_company AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CompID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CompID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1198,7 +1259,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'company', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Company', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1206,20 +1267,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_comp_area ON dbo.comp_area AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_CompanyArea ON dbo.CompanyArea AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_comp_area AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_comp_area AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.CompAreaID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.CompAreaID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_comp_area AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_comp_area AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CompAreaID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CompAreaID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1227,7 +1288,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'comp_area', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'CompanyArea', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1235,20 +1296,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_lokasi ON dbo.lokasi AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Mill ON dbo.Mill AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_lokasi AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_lokasi AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.MillID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.MillID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_lokasi AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_lokasi AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.MillID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.MillID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1256,7 +1317,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'lokasi', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Mill', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1264,20 +1325,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_department ON dbo.department AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Department ON dbo.Department AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_department AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_department AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.DeptID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.DeptID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_department AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_department AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.DeptID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.DeptID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1285,7 +1346,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'department', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Department', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1293,20 +1354,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_level ON dbo.level AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_LevelDetails ON dbo.LevelDetails AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_level AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_level AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.LevelDetID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.LevelDetID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_level AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_level AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.LevelDetID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.LevelDetID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
@@ -1314,7 +1375,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'level', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'LevelDetails', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1322,28 +1383,28 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_akun ON dbo.akun AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Users ON dbo.Users AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_user AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_user AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.UserID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.UserID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_user AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_user AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @lama = JSON_MODIFY(@lama, '$.password', NULL); SET @baru = JSON_MODIFY(@baru, '$.password', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.last_login', NULL); SET @baru = JSON_MODIFY(@baru, '$.last_login', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.sesi_versi', NULL); SET @baru = JSON_MODIFY(@baru, '$.sesi_versi', NULL);
-        SET @lama = JSON_MODIFY(@lama, '$.updated_at', NULL); SET @baru = JSON_MODIFY(@baru, '$.updated_at', NULL);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.UserID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.UserID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
+        SET @lama = JSON_MODIFY(@lama, '$.UpdateDate', NULL); SET @baru = JSON_MODIFY(@baru, '$.UpdateDate', NULL);
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'akun', @id_baris = @k,
+            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Users', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1358,7 +1419,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_supplier AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_supplier AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1387,7 +1448,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_produk AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_produk AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1416,7 +1477,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_produk AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_produk AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1445,7 +1506,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_kendaraan AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_kendaraan AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1474,7 +1535,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_jenis_kendaraan AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_jenis_kendaraan AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1503,7 +1564,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_kontrak AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_kontrak AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1532,7 +1593,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_do AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_do AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1561,7 +1622,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_jembatan AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_jembatan AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1590,7 +1651,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(CONVERT(VARCHAR(10), d.tanggal, 23) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONVERT(VARCHAR(10), i.tanggal, 23) AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1619,7 +1680,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.kunci AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.kunci AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1648,7 +1709,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(CONCAT(d.id_comp_area, '|', d.kunci) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONCAT(i.id_comp_area, '|', i.kunci) AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1677,7 +1738,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.kode AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.kode AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1706,7 +1767,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.kode AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.kode AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1735,7 +1796,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_jenis_sim AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_jenis_sim AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
@@ -1764,7 +1825,7 @@ BEGIN
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
     INSERT INTO @kunci (k) SELECT CAST(d.id_keperluan AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_keperluan AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
-            @id_user INT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS INT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
+            @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0

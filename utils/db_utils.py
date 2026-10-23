@@ -55,15 +55,20 @@ def cek_koneksi_db():
     finally:
         conn.close()
 
-# ===== USERS =====
+# ===== USERS (ERD Ladder Desk: Users + LevelDetails = peran + PasswordManager) =====
+_KOLOM_USER = """u.UserID AS id_user, u.UserName AS username, u.Nama AS nama, ld.LevelDetCode AS role,
+                 ld.LevelDetName AS nama_level, u.UserLevelID AS id_level, lv.IsAdmin AS is_admin, ld.HomeUrl AS halaman_awal,
+                 u.SessionVersion AS sesi_versi"""
+_DARI_USER = """FROM Users u JOIN LevelDetails ld ON ld.LevelDetID = u.UserLevelID JOIN Level lv ON lv.LevelID = ld.LevelID"""
+
 
 def get_user_by_username(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT u.id_user, u.username, u.password, u.nama, l.kode AS role, l.nama AS nama_level, u.id_level, l.is_admin,
-                             l.halaman_awal, u.sesi_versi, u.password_changed_at
-                      FROM akun u JOIN level l ON l.id_level = u.id_level
-                      WHERE u.username = ? AND u.is_active = 1 AND l.is_active = 1""", username)
+    cursor.execute(f"""SELECT {_KOLOM_USER}, pm.UserPasswd AS password,
+                              CASE WHEN pm.MustChange = 1 THEN NULL ELSE pm.CreateDate END AS password_changed_at
+                       {_DARI_USER} JOIN PasswordManager pm ON pm.UserID = u.UserID
+                       WHERE u.UserName = ? AND u.Active = 1 AND ld.Active = 1""", username)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -73,10 +78,7 @@ def get_user_by_id(user_id):
     conn = get_connection()
     cursor = conn.cursor()
     # User yang dinonaktifkan langsung kehilangan sesi (flask-login memanggil ini setiap request)
-    cursor.execute("""SELECT u.id_user, u.username, u.nama, l.kode AS role, l.nama AS nama_level, u.id_level, l.is_admin, l.halaman_awal,
-                             u.sesi_versi
-                      FROM akun u JOIN level l ON l.id_level = u.id_level
-                      WHERE u.id_user = ? AND u.is_active = 1 AND l.is_active = 1""", user_id)
+    cursor.execute(f"SELECT {_KOLOM_USER} {_DARI_USER} WHERE u.UserID = ? AND u.Active = 1 AND ld.Active = 1", user_id)
     row = cursor.fetchone()
     conn.close()
     return row
@@ -84,7 +86,7 @@ def get_user_by_id(user_id):
 def get_password_hash(user_id):
     conn = get_connection()
     try:
-        row = conn.cursor().execute("SELECT password FROM akun WHERE id_user = ?", user_id).fetchone()
+        row = conn.cursor().execute("SELECT UserPasswd FROM PasswordManager WHERE UserID = ?", user_id).fetchone()
         return row[0] if row else None
     finally:
         conn.close()
@@ -94,27 +96,36 @@ def ganti_password_sendiri(user_id, password_hash):
     conn = get_connection()
     try:
         cursor = conn.cursor()
+        simpan_password(cursor, user_id, password_hash, wajib_ganti=False)
         cursor.execute("""SET NOCOUNT ON; DECLARE @o TABLE (v INT);
-                          UPDATE akun SET password = ?, password_changed_at = GETDATE(), sesi_versi = sesi_versi + 1,
-                          updated_at = GETDATE() OUTPUT INSERTED.sesi_versi INTO @o WHERE id_user = ?; SELECT v FROM @o""",
-                       password_hash, user_id)
+                          UPDATE Users SET SessionVersion = SessionVersion + 1, UpdateDate = GETDATE()
+                          OUTPUT INSERTED.SessionVersion INTO @o WHERE UserID = ?; SELECT v FROM @o""", user_id)
         versi = cursor.fetchone()[0]
-        catat_riwayat_password(cursor, user_id, password_hash)
         conn.commit()
     finally:
         conn.close()
     get_user_by_id.hapus()
     return versi
 
-def catat_riwayat_password(cursor, user_id, password_hash):
-    """History di PasswordManager (tabel password_riwayat, migrasi 031); disimpan secukupnya untuk pengecekan."""
-    cursor.execute("INSERT INTO password_riwayat (id_user, password) VALUES (?, ?)", user_id, password_hash)
-    cursor.execute("""DELETE FROM password_riwayat WHERE id_user = ? AND id_riwayat NOT IN
-                      (SELECT TOP 12 id_riwayat FROM password_riwayat WHERE id_user = ? ORDER BY id_riwayat DESC)""",
-                   user_id, user_id)
+RIWAYAT_PASSWORD_MAKS = 12
+
+
+def simpan_password(cursor, user_id, password_hash, wajib_ganti):
+    """Isi / ganti password di PasswordManager; hash baru masuk paling depan History (disimpan secukupnya)."""
+    import json
+    row = cursor.execute("SELECT History FROM PasswordManager WITH (UPDLOCK) WHERE UserID = ?", user_id).fetchone()
+    riwayat = [password_hash] + (json.loads(row[0] or "[]") if row else [])
+    riwayat = json.dumps(riwayat[:RIWAYAT_PASSWORD_MAKS])
+    if row:
+        cursor.execute("""UPDATE PasswordManager SET UserPasswd = ?, CreateDate = GETDATE(), MustChange = ?, History = ?
+                          WHERE UserID = ?""", password_hash, 1 if wajib_ganti else 0, riwayat, user_id)
+    else:
+        cursor.execute("INSERT INTO PasswordManager (UserID, UserPasswd, MustChange, History) VALUES (?, ?, ?, ?)",
+                       user_id, password_hash, 1 if wajib_ganti else 0, riwayat)
 
 def password_pernah_dipakai(user_id, password):
     """True bila password sama dengan salah satu dari N password terakhir (Pengaturan › PASSWORD_RIWAYAT)."""
+    import json
     from werkzeug.security import check_password_hash
     from utils import pengaturan
     n = pengaturan.nilai("PASSWORD_RIWAYAT")
@@ -122,11 +133,10 @@ def password_pernah_dipakai(user_id, password):
         return False
     conn = get_connection()
     try:
-        rows = conn.cursor().execute("SELECT TOP (?) password FROM password_riwayat WHERE id_user = ? ORDER BY id_riwayat DESC",
-                                     n, user_id).fetchall()
+        row = conn.cursor().execute("SELECT History FROM PasswordManager WHERE UserID = ?", user_id).fetchone()
     finally:
         conn.close()
-    return any(check_password_hash(r[0], password) for r in rows)
+    return any(check_password_hash(h, password) for h in (json.loads(row[0] or "[]") if row else [])[:n])
 
 def pesan_riwayat_password():
     from utils import pengaturan
@@ -140,8 +150,8 @@ def naikkan_sesi_versi(user_id):
     try:
         cursor = conn.cursor()
         cursor.execute("""SET NOCOUNT ON; DECLARE @o TABLE (v INT);
-                          UPDATE akun SET sesi_versi = sesi_versi + 1 OUTPUT INSERTED.sesi_versi INTO @o WHERE id_user = ?;
-                          SELECT v FROM @o""", user_id)
+                          UPDATE Users SET SessionVersion = SessionVersion + 1 OUTPUT INSERTED.SessionVersion INTO @o
+                          WHERE UserID = ?; SELECT v FROM @o""", user_id)
         versi = cursor.fetchone()[0]
         conn.commit()
     finally:
@@ -152,10 +162,17 @@ def naikkan_sesi_versi(user_id):
 def catat_login_terakhir(user_id):
     conn = get_connection()
     try:
-        conn.cursor().execute("UPDATE akun SET last_login = GETDATE() WHERE id_user = ?", user_id)
+        conn.cursor().execute("UPDATE Users SET LastLogin = GETDATE() WHERE UserID = ?", user_id)
         conn.commit()
     finally:
         conn.close()
+
+def user_id_baru(cursor):
+    """UserID format Ladder Desk: YYMMDD + urutan 4 digit (mis. 2601010001)."""
+    cursor.execute("""SET NOCOUNT ON; DECLARE @p BIGINT = CAST(FORMAT(GETDATE(), 'yyMMdd') AS BIGINT) * 10000;
+                      SELECT ISNULL(MAX(UserID), @p) + 1 FROM Users WITH (UPDLOCK, HOLDLOCK)
+                      WHERE UserID > @p AND UserID < @p + 10000""")
+    return cursor.fetchone()[0]
 
 # ===== SUPPLIER / PRODUK =====
 
@@ -672,7 +689,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
         cursor.execute(f"""
             SELECT TOP {int(batas)} t.created_at, t.no_tiket, k.no_plat, s.nama_supplier AS supplier, p.nama_produk AS produk,
                    t.jenis_transaksi, tb.berat_bruto, tb.berat_tara, COALESCE(tb.berat_netto, t.berat_split_kg) AS berat_netto,
-                   t.status_alur, t.no_do, d.nama_personel AS supir, t.diperiksa_pada, pr.nama AS pemeriksa,
+                   t.status_alur, t.no_do, d.nama_personel AS supir, t.diperiksa_pada, pr.Nama AS pemeriksa,
                    -- lama truk di dalam: tiket dibuat Security s/d timbang terakhir (hanya tiket yang sudah selesai)
                    CASE WHEN t.status_alur IN ('SELESAI', 'REJECTED') THEN
                         DATEDIFF(MINUTE, t.created_at, (SELECT MAX(pn.waktu) FROM penimbangan pn WHERE pn.no_tiket = t.no_tiket))
@@ -683,7 +700,7 @@ def get_history_produk(id_produk=None, hari=7, batas=500, id_area=None):
             JOIN produk p ON t.id_produk = p.id_produk
             LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
             LEFT JOIN personel d ON d.id_personel = t.id_driver
-            LEFT JOIN akun pr ON pr.id_user = t.diperiksa_oleh
+            LEFT JOIN Users pr ON pr.UserID = t.diperiksa_oleh
             WHERE t.created_at >= DATEADD(day, ?, CAST(GETDATE() AS DATE)) {filter_produk}{filter_area}
             ORDER BY t.created_at DESC""", *params)
         return _rows_to_dicts(cursor)
@@ -808,9 +825,9 @@ def get_history_standar(hari=2):
         cursor.execute("""SELECT CAST(l.waktu AS DATETIME) AS updated_at, p.nama_produk,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_ffa') AS FLOAT) AS maks_ffa,
                                  CAST(JSON_VALUE(l.nilai_baru, '$.maks_air') AS FLOAT) AS maks_air,
-                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.nama AS oleh
+                                 CAST(JSON_VALUE(l.nilai_baru, '$.maks_kotoran') AS FLOAT) AS maks_kotoran, u.Nama AS oleh
                           FROM log_aktivitas l JOIN produk p ON p.id_produk = TRY_CAST(l.id_baris AS INT)
-                          LEFT JOIN akun u ON u.id_user = l.id_user
+                          LEFT JOIN Users u ON u.UserID = l.id_user
                           WHERE l.kategori = 'STANDAR_MUTU' AND l.waktu >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
                           ORDER BY l.id_log DESC""", -(int(hari) - 1))
         return _rows_to_dicts(cursor)

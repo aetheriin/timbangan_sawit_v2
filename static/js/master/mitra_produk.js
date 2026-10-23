@@ -42,7 +42,7 @@ function bukaMitra(id) {
     form.reset();
     const { company, ...isi } = s || {};
     isiForm(form, s ? { ...isi, alamat: s.alamat || '' } : { id_supplier: '', is_customer: true });
-    form.querySelectorAll('[name=company]').forEach(c => { c.checked = (company || []).includes(Number(c.value)); });
+    form.querySelectorAll('[name=company]').forEach(c => { c.checked = (company || []).includes(c.value); });
     document.getElementById('judulModalMitra').textContent = s ? 'Ubah Supplier' : 'Tambah Supplier';
     openModal('modalMitra');
     document.getElementById('mitraKode').focus();

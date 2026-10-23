@@ -22,6 +22,15 @@
   .sidebar-section { @apply px-3 pt-1 pb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase; }
   .sidebar-link { @apply w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition whitespace-nowrap; }
   .sidebar-link-active { @apply bg-slate-900 text-white shadow-sm hover:bg-slate-900 hover:text-white; }
+  /* Navbar 3 level: grup (Lv1) bisa dilipat, bagian (Lv3) di bawah halaman aktif, halaman belum ada tampil redup */
+  .sidebar-grup + .sidebar-grup { @apply mt-1; }
+  .sidebar-grup-judul { @apply flex items-center justify-between cursor-pointer select-none list-none pt-3 hover:text-slate-600; }
+  .sidebar-grup-judul::-webkit-details-marker { display: none; }
+  .sidebar-grup-panah { @apply text-[9px] transition-transform; }
+  .sidebar-grup:not([open]) .sidebar-grup-panah { @apply -rotate-90; }
+  .sidebar-sublink { @apply ml-6 pl-4 py-1.5 flex text-[13px] font-medium text-slate-500 border-l-2 border-slate-200 hover:text-slate-900 whitespace-nowrap; }
+  .sidebar-sublink-aktif { @apply text-slate-900 font-bold border-amber-500; }
+  .sidebar-link-nanti { @apply opacity-50; }
   .sidebar-link-ikon { @apply w-4 text-center text-slate-400; }
   .sidebar-link-active .sidebar-link-ikon { @apply text-white; }
   .sidebar-badge { @apply ml-auto text-[10px] font-bold px-2 py-0.5 rounded-md border; }

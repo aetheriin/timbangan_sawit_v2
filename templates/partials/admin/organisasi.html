@@ -2,7 +2,7 @@
 {% for key, judul, kolom in [('company', 'Perusahaan', ['Kode', 'Nama', 'Alamat', 'Area']),
                              ('area', 'Area Perusahaan', ['Perusahaan', 'Kode', 'Nama Area', 'Mill', 'Keterangan', 'Pengguna Aktif']),
                              ('lokasi', 'Mill (tipe area, sama untuk semua perusahaan)', ['Kode', 'Nama', 'Keterangan', 'Dipakai Area']),
-                             ('department', 'Departemen', ['Nama', 'Keterangan', 'Perusahaan', 'Pengguna Aktif']),
+                             ('department', 'Departemen', ['Kode', 'Nama', 'Keterangan', 'Ada di Area', 'Pengguna Aktif']),
                              ('jabatan', 'Jabatan (hak menu per departemen diatur di Level & Hak Akses)', ['Urutan', 'Nama', 'Keterangan', 'Dipakai di Departemen', 'Pengguna Aktif'])] %}
 <div class="section-box">
     {% call section_header('org-' ~ key, judul) %}

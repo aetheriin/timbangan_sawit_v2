@@ -34,10 +34,10 @@ PROFIL = ("mode", "data_bits", "parity", "stop_bits", "format_data", "pola", "fa
 @cache_ttl(30)
 def daftar_jembatan():
     """Jembatan + profil indikator (migrasi 017). Sebelum migrasi 017 profil memakai nilai bawaan (perilaku lama)."""
-    dasar = """SELECT j.id_jembatan, j.id_comp_area, a.nama AS area, j.kode, j.nama, j.port, j.baudrate,
+    dasar = """SELECT j.id_jembatan, j.id_comp_area, a.AreaName AS area, j.kode, j.nama, j.port, j.baudrate,
                       j.is_active, j.created_at{tambahan}
-               FROM jembatan_timbang j JOIN comp_area a ON a.id_comp_area = j.id_comp_area
-               ORDER BY j.is_active DESC, a.nama, j.kode"""
+               FROM jembatan_timbang j JOIN CompanyArea a ON a.CompAreaID = j.id_comp_area
+               ORDER BY j.is_active DESC, a.AreaName, j.kode"""
     try:
         rows = _query(dasar.format(tambahan="".join(f", j.{k}" for k in PROFIL)))
     except Exception:       # noqa: BLE001 - kolom profil belum ada (migrasi 017 belum dijalankan)

@@ -104,13 +104,13 @@ def log_hari(tanggal, id_area):
     f_area, a_area = sql_area("d.id_comp_area", id_area)
     awal = datetime.combine(tanggal, datetime.min.time())
     rows = _query(f"""SELECT d.id_deteksi, d.waktu, d.id_comp_area, d.id_personel, d.id_kendaraan, d.no_plat, d.sumber,
-                             d.tindakan, d.jarak_wajah, d.keterangan, d.no_tiket, u.nama AS petugas,
-                             c.kode + ' · ' + ar.nama AS site, c.kode AS company,
+                             d.tindakan, d.jarak_wajah, d.keterangan, d.no_tiket, u.Nama AS petugas,
+                             c.CompID + ' · ' + ar.AreaName AS site, c.CompID AS company,
                              p.kode_personel, p.nama_personel, p.kategori, k.no_plat AS plat_kendaraan
                       FROM blacklist_deteksi d
-                      LEFT JOIN akun u ON u.id_user = d.id_user
-                      LEFT JOIN comp_area ar ON ar.id_comp_area = d.id_comp_area
-                      LEFT JOIN company c ON c.id_company = ar.id_company
+                      LEFT JOIN Users u ON u.UserID = d.id_user
+                      LEFT JOIN CompanyArea ar ON ar.CompAreaID = d.id_comp_area
+                      LEFT JOIN Company c ON c.CompID = ar.CompID
                       LEFT JOIN personel p ON p.id_personel = d.id_personel
                       LEFT JOIN kendaraan k ON k.id_kendaraan = d.id_kendaraan
                       WHERE d.waktu >= ? AND d.waktu < ?{f_area}

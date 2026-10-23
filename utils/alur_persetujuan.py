@@ -30,9 +30,9 @@ def daftar():
     alur = _query("""SELECT a.id_alur_persetujuan, a.jenis, a.kategori, a.keterangan, a.is_active, kp.nama AS nama_kategori
                      FROM alur_persetujuan a LEFT JOIN kategori_personel kp ON kp.kode = a.kategori
                      ORDER BY a.jenis, CASE WHEN a.kategori IS NULL THEN 1 ELSE 0 END, kp.nama, a.kategori""")
-    tahap = _query("""SELECT t.id_alur_persetujuan, t.urutan, t.id_level, l.nama, l.id_department, l.id_jabatan,
-                             (SELECT COUNT(*) FROM akun u WHERE u.id_level = l.id_level AND u.is_active = 1) AS jumlah_user
-                      FROM alur_persetujuan_tahap t JOIN level l ON l.id_level = t.id_level ORDER BY t.id_alur_persetujuan, t.urutan""")
+    tahap = _query("""SELECT t.id_alur_persetujuan, t.urutan, t.id_level, l.LevelDetName AS nama, l.DeptID AS id_department, l.LevelID AS id_jabatan,
+                             (SELECT COUNT(*) FROM Users u WHERE u.UserLevelID = l.LevelDetID AND u.Active = 1) AS jumlah_user
+                      FROM alur_persetujuan_tahap t JOIN LevelDetails l ON l.LevelDetID = t.id_level ORDER BY t.id_alur_persetujuan, t.urutan""")
     akses = hak_akses.peta_akses()
     per_alur = {}
     for t in tahap:

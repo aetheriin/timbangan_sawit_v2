@@ -9,7 +9,7 @@ CARA_ANGKUT = ("PENGIRIM", "PENERIMA", "PIHAK_KETIGA")
 _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transaksi, k.id_customer,
                     c.nama_supplier AS nama_customer, k.id_produk, p.nama_produk, k.tanggal AS tanggal_kontrak,
                     k.qty_kg, k.harga_per_kg, k.keterangan, k.ppn, k.harga_termasuk_ppn, k.id_company,
-                    co.kode AS kode_company, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at,
+                    co.CompID AS kode_company, o.tanggal_do, o.berlaku_sampai, o.is_active, o.created_at,
                     -- realisasi: total netto tiket DO ini (tanpa VOID)
                     (SELECT SUM(COALESCE(tb.berat_netto, t.berat_split_kg)) FROM transaksi t
                      LEFT JOIN v_timbangan tb ON tb.no_tiket = t.no_tiket
@@ -18,7 +18,7 @@ _SELECT = """SELECT o.id_do, o.no_do, o.id_kontrak, k.no_kontrak, k.jenis_transa
              JOIN kontrak k ON k.id_kontrak = o.id_kontrak
              JOIN mitra c ON c.id_supplier = k.id_customer
              JOIN produk p ON p.id_produk = k.id_produk
-             LEFT JOIN company co ON co.id_company = k.id_company"""
+             LEFT JOIN Company co ON co.CompID = k.id_company"""
 
 
 def _query(sql, *params):

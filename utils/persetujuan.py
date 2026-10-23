@@ -88,7 +88,7 @@ def nama_tahap(daftar_level):
 
 
 def _level_user(user_id):
-    rows = _query("SELECT id_level FROM akun WHERE id_user = ?", user_id)
+    rows = _query("SELECT UserLevelID AS id_level FROM Users WHERE UserID = ?", user_id)
     return rows[0]["id_level"] if rows else None
 
 
@@ -426,16 +426,16 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
     else:
         pt = company_user(user.id)
         if pt is not None:
-            ids = sorted(pt) or [-1]
+            ids = sorted(pt) or [""]           # daftar kosong = tidak ada perusahaan yang cocok
             syarat.append(f"(p.id_company IN ({', '.join('?' * len(ids))}) OR p.diajukan_oleh = ?)"); args += [*ids, user.id]
         if mode == "menunggu":
             syarat.append("p.status = 'MENUNGGU'")
     rows = _query(f"""SELECT TOP ({int(batas)}) p.id_pengajuan, p.jenis, p.status, p.langkah, p.total_langkah, p.judul, p.alasan,
-                             p.data, p.id_company, p.diajukan_oleh, p.created_at, p.selesai_at, p.kategori, u.nama AS pengaju,
-                             c.kode AS kode_company, ar.nama AS site, kp.nama AS nama_kategori
-                      FROM pengajuan p JOIN akun u ON u.id_user = p.diajukan_oleh
-                      JOIN company c ON c.id_company = p.id_company
-                      JOIN comp_area ar ON ar.id_comp_area = p.id_comp_area
+                             p.data, p.id_company, p.diajukan_oleh, p.created_at, p.selesai_at, p.kategori, u.Nama AS pengaju,
+                             c.CompID AS kode_company, ar.AreaName AS site, kp.nama AS nama_kategori
+                      FROM pengajuan p JOIN Users u ON u.UserID = p.diajukan_oleh
+                      JOIN Company c ON c.CompID = p.id_company
+                      JOIN CompanyArea ar ON ar.CompAreaID = p.id_comp_area
                       LEFT JOIN kategori_personel kp ON kp.kode = p.kategori
                       WHERE {' AND '.join(syarat)} ORDER BY CASE p.status WHEN 'MENUNGGU' THEN 0 ELSE 1 END, p.created_at DESC""",
                   *args)
@@ -473,8 +473,8 @@ def _riwayat_semua(ids):
     hasil = {}
     for i in range(0, len(ids), 500):
         bagian = ids[i:i + 500]
-        for r in _query(f"""SELECT r.id_pengajuan, r.langkah, r.aksi, r.catatan, r.waktu, u.nama
-                            FROM pengajuan_riwayat r JOIN akun u ON u.id_user = r.id_user
+        for r in _query(f"""SELECT r.id_pengajuan, r.langkah, r.aksi, r.catatan, r.waktu, u.Nama AS nama
+                            FROM pengajuan_riwayat r JOIN Users u ON u.UserID = r.id_user
                             WHERE r.id_pengajuan IN ({', '.join('?' * len(bagian))}) ORDER BY r.waktu, r.id_riwayat""", *bagian):
             hasil.setdefault(r["id_pengajuan"], []).append(
                 {"langkah": r["langkah"], "aksi": r["aksi"], "catatan": r["catatan"], "oleh": r["nama"],
@@ -484,7 +484,7 @@ def _riwayat_semua(ids):
 
 @cache_ttl(30)
 def _nama_jabatan():
-    return {r["id_level"]: r["nama"] for r in _query("SELECT id_level, nama FROM level")}
+    return {r["id_level"]: r["nama"] for r in _query("SELECT LevelDetID AS id_level, LevelDetName AS nama FROM LevelDetails")}
 
 
 def jumlah_menunggu(user):

@@ -135,7 +135,7 @@ def mitra_simpan():
         if alamat and len(alamat) > 255:
             raise ValueError("Alamat maksimal 255 karakter")
         semua = {c["id_company"] for c in daftar_company()}
-        pt = {int(v) for v in request.form.getlist("company") if v.isdigit()}
+        pt = {v.strip().upper() for v in request.form.getlist("company") if v.strip()}
         if pt - semua:
             raise ValueError("Pilih perusahaan dari daftar")
         db_admin.simpan_supplier(id_supplier, kode, nama, peran, alamat, pt)

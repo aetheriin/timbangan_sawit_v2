@@ -2,8 +2,8 @@ erDiagram
     log_aktivitas {
         bigint id_log PK
         datetime2 waktu
-        int id_user FK "NULL"
-        int id_comp_area FK "NULL"
+        bigint id_user FK "NULL"
+        bigint id_comp_area FK "NULL"
         varchar kategori
         varchar aksi
         varchar tabel "NULL"
@@ -20,15 +20,16 @@ erDiagram
         varchar status
         tinyint langkah
         tinyint total_langkah
-        int id_company FK
-        int id_comp_area FK
+        varchar id_company FK
+        bigint id_comp_area FK
         varchar target
         nvarchar judul
         nvarchar alasan "NULL"
         nvarchar data "NULL"
-        int diajukan_oleh FK
+        bigint diajukan_oleh FK
         datetime created_at
         datetime selesai_at "NULL"
+        varchar kategori "NULL"
     }
     pengajuan_riwayat {
         int id_riwayat PK
@@ -36,40 +37,78 @@ erDiagram
         tinyint langkah
         varchar aksi
         int id_level FK "NULL"
-        int id_user FK
+        bigint id_user FK
         nvarchar catatan "NULL"
         datetime waktu
+    }
+    pengajuan_tahap {
+        int id_pengajuan PK,FK
+        tinyint urutan PK
+        int id_level FK
+    }
+    alur_persetujuan {
+        int id_alur_persetujuan PK
+        varchar jenis
+        varchar kategori "NULL"
+        nvarchar keterangan "NULL"
+        bit is_active
+        datetime created_at
+    }
+    alur_persetujuan_tahap {
+        int id_tahap PK
+        int id_alur_persetujuan FK
+        tinyint urutan
+        int id_level FK
+    }
+    LevelDetails {
+        int LevelDetID PK
+        bigint CompAreaID FK "NULL"
+        int LevelID FK
+        varchar DeptID FK "NULL"
+        varchar LevelDetCode UK
+        nvarchar LevelDetName
+        varchar HomeUrl
+        nvarchar Description "NULL"
+        bit Active
     }
     notifikasi {
         int id_notifikasi PK
         varchar kode_menu
-        int id_comp_area FK "NULL"
+        bigint id_comp_area FK "NULL"
         nvarchar judul
         nvarchar isi "NULL"
         varchar tautan "NULL"
         datetime waktu
         int id_level FK "NULL"
-        int id_company FK "NULL"
-        int id_user FK "NULL"
+        varchar id_company FK "NULL"
+        bigint id_user FK "NULL"
     }
     notifikasi_baca {
         int id_notifikasi PK,FK
-        int id_user PK,FK
+        bigint id_user PK,FK
         datetime dibaca_at
     }
-    akun {
-        int id_user PK
+    Users {
+        bigint UserID PK
     }
-    comp_area {
-        int id_comp_area PK
+    CompanyArea {
+        bigint CompAreaID PK
     }
-    comp_area |o--o{ log_aktivitas : "id_comp_area"
-    akun |o--o{ log_aktivitas : "id_user"
-    comp_area |o--o{ notifikasi : "id_comp_area"
-    akun |o--o{ notifikasi : "id_user"
+    alur_persetujuan ||--o{ alur_persetujuan_tahap : "id_alur_persetujuan"
+    LevelDetails ||--o{ alur_persetujuan_tahap : "id_level"
+    CompanyArea |o--o{ LevelDetails : "CompAreaID"
+    CompanyArea |o--o{ log_aktivitas : "id_comp_area"
+    Users |o--o{ log_aktivitas : "id_user"
+    CompanyArea |o--o{ notifikasi : "id_comp_area"
+    LevelDetails |o--o{ notifikasi : "id_level"
+    Users |o--o{ notifikasi : "id_user"
     notifikasi ||--o{ notifikasi_baca : "id_notifikasi"
-    akun ||--o{ notifikasi_baca : "id_user"
-    akun ||--o{ pengajuan : "diajukan_oleh"
-    comp_area ||--o{ pengajuan : "id_comp_area"
+    Users ||--o{ notifikasi_baca : "id_user"
+    Users ||--o{ pengajuan : "diajukan_oleh"
+    CompanyArea ||--o{ pengajuan : "id_comp_area"
+    LevelDetails |o--o{ pengajuan_riwayat : "id_level"
     pengajuan ||--o{ pengajuan_riwayat : "id_pengajuan"
-    akun ||--o{ pengajuan_riwayat : "id_user"
+    Users ||--o{ pengajuan_riwayat : "id_user"
+    LevelDetails ||--o{ pengajuan_tahap : "id_level"
+    pengajuan ||--o{ pengajuan_tahap : "id_pengajuan"
+    LevelDetails ||--o{ Users : "UserLevelID"

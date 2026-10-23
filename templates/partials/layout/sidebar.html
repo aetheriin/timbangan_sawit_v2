@@ -26,18 +26,29 @@
         </a>
         {% endfor %}
     {% else %}
-        <div class="sidebar-section">Menu</div>
-        {# Menu dari tabel menu; hanya yang boleh dilihat jabatan user (Admin › Level & Hak Akses, kolom Lihat). #}
+        {# Navbar 3 level (flowchart): grup Lv1 -> halaman Lv2 -> bagian Lv3, hanya yang boleh dilihat peran / pengguna
+           (Admin › Level & Hak Akses, kolom Lihat). Halaman yang belum ada (Url kosong) tampil redup dengan tautan '#'. #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
                                   'kelebihan_do': 'KELEBIHAN_DO', 'pos': 'POS_SECURITY', 'logbook': 'LOGBOOK'}.get(halaman) %}{% endif %}
-        {% for m in menu_sidebar() if boleh_lihat(m.kode) %}
-        <a href="{{ m.url }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
-           class="sidebar-link{% if m.kode == aktif %} sidebar-link-active{% endif %}">
-            <i class="fa-solid {{ m.ikon or 'fa-circle' }} sidebar-link-ikon"></i><span class="truncate">{{ m.nama }}</span>
-            {% if m.kode == 'FORM' %}<span class="ml-auto w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 flex-shrink-0" title="Berat timbangan tampil langsung"></span>{% endif %}
-        </a>
+        {% for g in navbar(current_user, aktif, request.full_path.rstrip('?')) %}
+        <details class="sidebar-grup" open>
+            <summary class="sidebar-section sidebar-grup-judul"><span class="truncate">{{ g.nama }}</span>
+                <i class="fa-solid fa-chevron-down sidebar-grup-panah"></i></summary>
+            {% for m in g.anak %}
+            <a href="{{ m.url or '#' }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
+               class="sidebar-link{% if m.aktif %} sidebar-link-active{% endif %}{% if not m.url %} sidebar-link-nanti{% endif %}"
+               {% if not m.url %}title="Segera hadir" aria-disabled="true"{% endif %}>
+                <i class="fa-solid {{ m.ikon or 'fa-circle' }} sidebar-link-ikon"></i><span class="truncate">{{ m.nama }}</span>
+                {% if m.kode == 'FORM' %}<span class="ml-auto w-2 h-2 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20 flex-shrink-0" title="Berat timbangan tampil langsung"></span>{% endif %}
+            </a>
+            {% if m.aktif or m.anak | selectattr('aktif') | list %}{% for c in m.anak %}
+            <a href="{{ c.url or '#' }}" class="sidebar-sublink{% if c.aktif %} sidebar-sublink-aktif{% endif %}{% if not c.url %} sidebar-link-nanti{% endif %}"
+               {% if not c.url %}title="Segera hadir" aria-disabled="true"{% endif %}><span class="truncate">{{ c.nama }}</span></a>
+            {% endfor %}{% endif %}
+            {% endfor %}
+        </details>
         {% endfor %}
     {% endif %}
     </nav>

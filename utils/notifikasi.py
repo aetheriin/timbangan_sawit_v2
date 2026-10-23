@@ -60,7 +60,7 @@ def _syarat(user, id_area):
         pt = company_user(user.id)
         f_pt = "" if pt is None else f" AND (n.id_company IS NULL OR n.id_company IN ({', '.join('?' * len(pt or [0]))}))"
         bagian.append(f"(n.id_user IS NULL AND n.id_level = ?{f_pt})")
-        args += [user.id_level, *((sorted(pt) or [-1]) if pt is not None else [])]
+        args += [user.id_level, *((sorted(pt) or [""]) if pt is not None else [])]
     return "(" + " OR ".join(bagian) + ")", args
 
 
@@ -81,11 +81,11 @@ def daftar(user, batas=30, id_area=None):
         for buat_syarat in (_syarat, _syarat_lama):
             syarat, args = buat_syarat(user, id_area)
             try:
-                cursor.execute(f"""SELECT TOP ({int(batas)}) n.id_notifikasi, n.judul, n.isi, n.tautan, n.waktu, ar.nama AS area,
+                cursor.execute(f"""SELECT TOP ({int(batas)}) n.id_notifikasi, n.judul, n.isi, n.tautan, n.waktu, ar.AreaName AS area,
                                           CASE WHEN b.id_user IS NULL THEN 0 ELSE 1 END AS dibaca
                                    FROM notifikasi n
                                    LEFT JOIN notifikasi_baca b ON b.id_notifikasi = n.id_notifikasi AND b.id_user = ?
-                                   LEFT JOIN comp_area ar ON ar.id_comp_area = n.id_comp_area
+                                   LEFT JOIN CompanyArea ar ON ar.CompAreaID = n.id_comp_area
                                    WHERE {syarat} AND n.waktu >= DATEADD(DAY, -{HARI_SIMPAN}, GETDATE())
                                    ORDER BY n.waktu DESC""", user.id, *args)
                 break

@@ -42,7 +42,7 @@ function tampilDepartemen() {
 }
 
 function pilihDepartemen(id) {
-    deptDipilih = id === 'admin' ? 'admin' : Number(id);
+    deptDipilih = id === 'admin' ? 'admin' : String(id);
     jabatanDipilih = null;
     tampilDepartemen();
     tampilLevel();
@@ -96,7 +96,8 @@ async function pilihJabatan(id) {
     awal.disabled = false;
     pastikanPilihanAwal(data.halaman_awal);
     awal.value = data.halaman_awal;
-    // Dikelompokkan: Halaman Utama (menu tanpa induk) lalu tiap induk (Stasiun Timbang, Pengenalan Wajah, ...).
+    // Dikelompokkan per grup navbar (menu Lv1: Dashboard, Mills Operation, Forms, Master, ...); bagian Lv3 ditulis
+    // "Halaman › Bagian". Halaman yang belum ada (tautan '#') diberi tanda.
     // Kelompok yang sudah ada centangnya langsung terbuka; sisanya tertutup dan bisa dibuka lewat panah.
     const grup = [];
     data.menu.forEach(m => {
@@ -118,7 +119,7 @@ async function pilihJabatan(id) {
                         <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">${escapeHtml(g.nama)}</span>
                         <span class="ml-auto text-[11px] font-normal text-slate-500" data-jumlah-grup="${i}"></span>
                     </span></td></tr>` +
-            g.menu.map(m => `<tr class="hover:bg-slate-50${buka ? '' : ' hidden'}" data-grup="${i}"><td class="table-cell pl-9">${escapeHtml(m.nama.split(' › ').pop())}</td>
+            g.menu.map(m => `<tr class="hover:bg-slate-50${buka ? '' : ' hidden'}" data-grup="${i}"><td class="table-cell pl-9">${escapeHtml(m.nama)}${m.ada ? '' : ' <span class="text-[11px] text-slate-400">(belum ada)</span>'}</td>
                 ${kotak(m, 'lihat', true)}${kotak(m, 'tambah', m.aksi.includes('tambah'))}${kotak(m, 'ubah', m.aksi.includes('ubah'))}${kotak(m, 'hapus', m.aksi.includes('hapus'))}${kotak(m, 'setujui', m.aksi.includes('setujui'))}</tr>`).join('');
     }).join('');
     ringkasAkses();

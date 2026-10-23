@@ -1,136 +1,152 @@
 erDiagram
-    company {
-        int id_company PK
-        varchar kode UK
-        nvarchar nama
-        bit is_active
-        datetime created_at
-        nvarchar alamat "NULL"
+    Company {
+        varchar CompID PK
+        nvarchar CompName
+        nvarchar CompAddress "NULL"
+        bit Active
+        nvarchar Description "NULL"
+        datetime CreateDate
     }
-    lokasi {
-        int id_lokasi PK
-        varchar kode UK
-        nvarchar nama
-        bit is_pusat
-        bit is_active
-        datetime created_at
-        nvarchar keterangan "NULL"
+    Mill {
+        bigint MillID PK
+        varchar MillCode UK
+        nvarchar MillName
+        bit IsHeadOffice
+        bit Active
+        nvarchar Description "NULL"
+        datetime CreateDate
     }
-    comp_area {
-        int id_comp_area PK
-        int id_company FK
-        varchar kode
-        nvarchar nama
-        nvarchar alamat "NULL"
-        bit is_active
-        datetime created_at
-        int id_lokasi FK "NULL"
-        nvarchar keterangan "NULL"
+    CompanyArea {
+        bigint CompAreaID PK
+        varchar CompID FK
+        bigint MillID FK "NULL"
+        varchar AreaCode
+        nvarchar AreaName
+        nvarchar AreaDesc "NULL"
+        nvarchar AreaAddress "NULL"
+        bit Active
+        datetime CreateDate
     }
-    department {
-        int id_department PK
-        nvarchar nama UK
-        nvarchar keterangan "NULL"
-        bit is_active
+    Department {
+        varchar DeptID PK
+        nvarchar DeptName UK
+        nvarchar Description "NULL"
+        bit Active
     }
-    department_company {
-        int id_department PK,FK
-        int id_company PK,FK
+    DepartmentDetails {
+        bigint DeptDetailID PK
+        bigint CompAreaID FK
+        varchar DeptID FK
+        nvarchar Location
+        nvarchar Description "NULL"
+        bit Active
     }
-    jabatan {
-        int id_jabatan PK
-        nvarchar nama UK
-        nvarchar keterangan "NULL"
-        bit is_admin
-        int urutan
-        bit is_active
+    Level {
+        int LevelID PK
+        nvarchar LevelName UK
+        nvarchar Description "NULL"
+        bit IsAdmin
+        int SortOrder
+        bit Active
     }
-    level {
-        int id_level PK
-        varchar kode UK
-        nvarchar nama
-        bit is_admin
-        varchar halaman_awal
-        nvarchar keterangan "NULL"
-        bit is_active
-        int id_department FK "NULL"
-        int id_jabatan FK "NULL"
+    LevelDetails {
+        int LevelDetID PK
+        bigint CompAreaID FK "NULL"
+        int LevelID FK
+        varchar DeptID FK "NULL"
+        varchar LevelDetCode UK
+        nvarchar LevelDetName
+        varchar HomeUrl
+        nvarchar Description "NULL"
+        bit Active
     }
-    menu {
-        int id_menu PK
-        varchar kode UK
-        nvarchar nama
-        varchar url "NULL"
-        varchar ikon "NULL"
-        int id_parent FK "NULL"
-        int urutan
-        bit is_active
+    Menu {
+        int MenuID PK
+        varchar MenuCode UK
+        nvarchar MenuName
+        nvarchar Description "NULL"
+        int ParentMenuID FK "NULL"
+        tinyint MenuLevel
+        varchar Url "NULL"
+        varchar Icon "NULL"
+        varchar AppCode
+        int SortOrder
+        bigint CompAreaID FK "NULL"
+        bit Active
     }
-    level_akses {
-        int id_level PK,FK
-        int id_menu PK,FK
-        bit bisa_tambah
-        bit bisa_ubah
-        bit bisa_hapus
-        bit bisa_lihat
-        bit bisa_setujui
+    ActionType {
+        int ActionID PK
+        varchar TypeName UK
+        varchar Description "NULL"
+        bit Active
     }
-    akun {
-        int id_user PK
-        varchar nama
-        varchar username UK
-        varchar password
-        int id_level FK
-        int id_department FK "NULL"
-        int id_comp_area FK
-        int id_personel FK,UK
-        bit is_active
-        datetime last_login "NULL"
-        int sesi_versi
-        datetime password_changed_at "NULL"
-        datetime created_at
-        datetime updated_at
+    AccessMenu {
+        int AccessMenuID PK
+        int MenuID FK
+        int ActionID FK
+        int LevelDetID FK "NULL"
+        bigint UserID FK "NULL"
+        bit Active
+        datetime CreateDate
     }
-    akun_akses {
-        int id_user PK,FK
-        int id_menu PK,FK
-        bit bisa_lihat
-        bit bisa_tambah
-        bit bisa_ubah
-        bit bisa_hapus
-        bit bisa_setujui
+    Users {
+        bigint UserID PK
+        bigint CompAreaID FK
+        varchar UserCode "NULL"
+        varchar UserName UK
+        bigint UserDeptID FK "NULL"
+        int UserLevelID FK
+        char NoKTP "NULL"
+        bigint GuestID "NULL"
+        nvarchar Nama
+        nvarchar Email "NULL"
+        varbinary FaceEmbeddingData "NULL"
+        nvarchar UploadPath "NULL"
+        nvarchar CurrentHash "NULL"
+        datetime CreateDate
+        datetime UpdateDate
+        bit Active
+        bit IsUpload
+        bigint BlacklistID "NULL"
+        nvarchar Description "NULL"
+        int PersonnelID FK,UK
+        datetime LastLogin "NULL"
+        int SessionVersion
     }
-    akun_company {
-        int id_user PK,FK
-        int id_company PK,FK
+    PasswordManager {
+        bigint UserID PK,FK
+        varchar UserPasswd
+        datetime CreateDate
+        bit MustChange
+        nvarchar History
+        int Term "NULL"
+        nvarchar Description "NULL"
     }
-    password_riwayat {
-        int id_riwayat PK
-        int id_user FK
-        varchar password
-        datetime dibuat
+    UserCompany {
+        bigint UserID PK,FK
+        varchar CompID PK,FK
     }
-    sesi_login {
-        varchar sid PK
-        int user_id FK
-        varchar ip "NULL"
-        varchar agen "NULL"
-        datetime login_at
-        datetime terakhir_aktif
-        datetime berakhir_at "NULL"
-        varchar alasan "NULL"
+    UserSession {
+        varchar SessionID PK
+        bigint UserID FK
+        varchar IPAddress "NULL"
+        varchar UserAgent "NULL"
+        datetime LoginDate
+        datetime LastActive
+        datetime EndDate "NULL"
+        varchar EndReason "NULL"
     }
     pengaturan {
         varchar kunci PK
         varchar nilai
-        int updated_by FK "NULL"
+        bigint updated_by FK "NULL"
         datetime updated_at
     }
     pengaturan_area {
-        int id_comp_area PK,FK
+        bigint id_comp_area PK,FK
         varchar kunci PK
         varchar nilai
-        int updated_by FK "NULL"
+        bigint updated_by FK "NULL"
         datetime updated_at
     }
     kolom_wajib {
@@ -142,12 +158,12 @@ erDiagram
         varchar nama
         varchar lokasi "NULL"
         char token_hash
-        int id_comp_area FK
+        bigint id_comp_area FK
         bit is_active
         datetime created_at
     }
     jadwal_kerja {
-        int id_comp_area PK,FK
+        bigint id_comp_area PK,FK
         tinyint hari PK
         varchar nama_hari
         time jam_masuk "NULL"
@@ -158,27 +174,29 @@ erDiagram
     personel {
         int id_personel PK
     }
-    comp_area ||--o{ akun : "id_comp_area"
-    department |o--o{ akun : "id_department"
-    level ||--o{ akun : "id_level"
-    personel ||--o| akun : "id_personel"
-    menu ||--o{ akun_akses : "id_menu"
-    akun ||--o{ akun_akses : "id_user"
-    company ||--o{ akun_company : "id_company"
-    akun ||--o{ akun_company : "id_user"
-    company ||--o{ comp_area : "id_company"
-    lokasi |o--o{ comp_area : "id_lokasi"
-    company ||--o{ department_company : "id_company"
-    department ||--o{ department_company : "id_department"
-    comp_area ||--o{ jadwal_kerja : "id_comp_area"
-    department |o--o{ level : "id_department"
-    jabatan |o--o{ level : "id_jabatan"
-    level ||--o{ level_akses : "id_level"
-    menu ||--o{ level_akses : "id_menu"
-    menu |o--o{ menu : "id_parent"
-    akun ||--o{ password_riwayat : "id_user"
-    akun |o--o{ pengaturan : "updated_by"
-    comp_area ||--o{ pengaturan_area : "id_comp_area"
-    akun |o--o{ pengaturan_area : "updated_by"
-    comp_area ||--o{ perangkat_kiosk : "id_comp_area"
-    akun ||--o{ sesi_login : "user_id"
+    ActionType ||--o{ AccessMenu : "ActionID"
+    LevelDetails |o--o{ AccessMenu : "LevelDetID"
+    Menu ||--o{ AccessMenu : "MenuID"
+    Users |o--o{ AccessMenu : "UserID"
+    Company ||--o{ CompanyArea : "CompID"
+    Mill |o--o{ CompanyArea : "MillID"
+    CompanyArea ||--o{ DepartmentDetails : "CompAreaID"
+    Department ||--o{ DepartmentDetails : "DeptID"
+    CompanyArea ||--o{ jadwal_kerja : "id_comp_area"
+    CompanyArea |o--o{ LevelDetails : "CompAreaID"
+    Department |o--o{ LevelDetails : "DeptID"
+    Level ||--o{ LevelDetails : "LevelID"
+    CompanyArea |o--o{ Menu : "CompAreaID"
+    Menu |o--o{ Menu : "ParentMenuID"
+    Users ||--o| PasswordManager : "UserID"
+    Users |o--o{ pengaturan : "updated_by"
+    CompanyArea ||--o{ pengaturan_area : "id_comp_area"
+    Users |o--o{ pengaturan_area : "updated_by"
+    CompanyArea ||--o{ perangkat_kiosk : "id_comp_area"
+    Company ||--o{ UserCompany : "CompID"
+    Users ||--o{ UserCompany : "UserID"
+    CompanyArea ||--o{ Users : "CompAreaID"
+    personel ||--o| Users : "PersonnelID"
+    DepartmentDetails |o--o{ Users : "UserDeptID"
+    LevelDetails ||--o{ Users : "UserLevelID"
+    Users ||--o{ UserSession : "UserID"
