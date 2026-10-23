@@ -1,87 +1,70 @@
 """Pembatas percobaan login: LOGIN_MAKS_GAGAL kali salah dalam LOGIN_JENDELA_MENIT -> dikunci LOGIN_KUNCI_MENIT
 (per username dan per IP). Nilainya diatur di Admin > Pengaturan Site (bawaan 5x / 15 menit / 15 menit).
 
-Disimpan di memori proses (waitress = 1 proses), cukup untuk aplikasi di jaringan site."""
-import threading
-import time
+Aturannya ada di database (dbo.sp_LoginSisaKunci, sp_LoginGagal, sp_LoginBerhasil, sp_LoginBukaKunci,
+sp_LoginDaftarTerkunci) dan dicatat di tabel Log, jadi berlaku sama untuk semua aplikasi dan tetap setelah server restart."""
+import logging
 
-from utils import pengaturan
+from utils.db_utils import get_connection, _rows_to_dicts
 
-_lock = threading.Lock()
-_gagal = {}        # kunci -> [waktu gagal ...]
-_terkunci = {}     # kunci -> waktu buka
-_dicoba = {}       # ip -> username terakhir yang dicoba dari IP itu (ditampilkan di Admin)
-MAKS_DICOBA = 5
+log = logging.getLogger("weighbridge")
 
 
-def _kunci(username, ip):
-    return [f"u:{(username or '').lower()}", f"ip:{ip}"]
+def _exec(sql, *params):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(sql, *params)
+        rows = _rows_to_dicts(cursor) if cursor.description else []
+        conn.commit()
+        return rows
+    finally:
+        conn.close()
 
 
-def sisa_kunci(username, ip, sekarang=None):
-    """Detik sampai boleh login lagi (0 = boleh)."""
-    sekarang = sekarang or time.time()
-    with _lock:
-        return int(max([_terkunci.get(k, 0) - sekarang for k in _kunci(username, ip)] + [0]))
+def sisa_kunci(username, ip):
+    """Detik sampai boleh login lagi (0 = boleh). Bila database tidak bisa dibaca, login tidak ditahan di sini."""
+    try:
+        return int(_exec("EXEC dbo.sp_LoginSisaKunci @Username = ?, @IP = ?", username or "", ip or "")[0]["SisaDetik"])
+    except Exception:       # noqa: BLE001 - login tetap diperiksa password; kegagalan baca kunci dicatat
+        log.exception("Gagal membaca kunci login")
+        return 0
 
 
-def catat_gagal(username, ip, sekarang=None):
+def catat_gagal(username, ip):
     """Kembalikan True bila percobaan ini membuat akun / IP terkunci."""
-    sekarang = sekarang or time.time()
-    maks = pengaturan.nilai("LOGIN_MAKS_GAGAL")
-    jendela = pengaturan.nilai("LOGIN_JENDELA_MENIT") * 60
-    lama_kunci = pengaturan.nilai("LOGIN_KUNCI_MENIT") * 60
-    terkunci = False
-    with _lock:
-        dicoba = [u for u in _dicoba.get(ip, []) if u != username] + [username or "-"]
-        _dicoba[ip] = dicoba[-MAKS_DICOBA:]
-        for k in _kunci(username, ip):
-            daftar = [t for t in _gagal.get(k, []) if sekarang - t < jendela] + [sekarang]
-            _gagal[k] = daftar
-            if len(daftar) >= maks:
-                _terkunci[k] = sekarang + lama_kunci
-                _gagal[k] = []
-                terkunci = True
-    return terkunci
+    try:
+        return bool(_exec("EXEC dbo.sp_LoginGagal @Username = ?, @IP = ?", username or "", ip or "")[0]["Terkunci"])
+    except Exception:       # noqa: BLE001
+        log.exception("Gagal mencatat login gagal")
+        return False
 
 
-def catat_berhasil(username, ip):
-    with _lock:
-        for k in _kunci(username, ip):
-            _gagal.pop(k, None)
-            _terkunci.pop(k, None)
+def catat_berhasil(username, ip, id_user=None):
+    try:
+        _exec("EXEC dbo.sp_LoginBerhasil @Username = ?, @IP = ?, @UserID = ?", username or "", ip or "", id_user)
+    except Exception:       # noqa: BLE001
+        log.exception("Gagal mencatat login berhasil")
 
 
-def daftar_terkunci(sekarang=None):
-    """Untuk Admin > Sesi Aktif: [{kunci, jenis, nama, sisa_detik}] yang masih terkunci."""
-    sekarang = sekarang or time.time()
-    with _lock:
-        hasil = [{"kunci": k, "jenis": "Username" if k.startswith("u:") else "IP", "nama": k.split(":", 1)[1],
-                  "sisa_detik": int(buka - sekarang),
-                  "dicoba": list(reversed(_dicoba.get(k[3:], []))) if k.startswith("ip:") else []}
-                 for k, buka in _terkunci.items() if buka > sekarang]
-    return sorted(hasil, key=lambda r: -r["sisa_detik"])
+def daftar_terkunci():
+    """Untuk Admin > Sesi Aktif: [{kunci, jenis, nama, sisa_detik, dicoba}] yang masih terkunci."""
+    return [{"kunci": r["Kunci"], "jenis": "Username" if r["Kunci"].startswith("u:") else "IP",
+             "nama": r["Kunci"].split(":", 1)[1], "sisa_detik": int(r["SisaDetik"]),
+             "dicoba": [u for u in (r["Dicoba"] or "").split(", ") if u]}
+            for r in _exec("EXEC dbo.sp_LoginDaftarTerkunci")]
 
 
-def buka_kunci(kunci):
-    """Admin membuka kunci lebih cepat. Kembalikan True bila memang sedang terkunci."""
-    with _lock:
-        _gagal.pop(kunci, None)
-        if kunci.startswith("ip:"):
-            _dicoba.pop(kunci[3:], None)
-        return _terkunci.pop(kunci, None) is not None
+def buka_kunci(kunci, id_user=None):
+    """Admin membuka kunci lebih cepat ('u:nama' / 'ip:alamat'). Kembalikan True bila memang sedang terkunci."""
+    return bool(_exec("EXEC dbo.sp_LoginBukaKunci @Kunci = ?, @UserID = ?", kunci, id_user)[0]["Dibuka"])
 
 
-def buka_kunci_teks(teks):
-    """Admin mengetik username ATAU IP. Hitungan salah & kuncinya dihapus. Kembalikan jumlah kunci yang dibuka."""
+def buka_kunci_teks(teks, id_user=None):
+    """Admin mengetik username ATAU IP. Kembalikan jumlah kunci yang dibuka."""
     teks = (teks or "").strip()
-    return sum(buka_kunci(k) for k in (f"u:{teks.lower()}", f"ip:{teks}"))
+    return sum(buka_kunci(k, id_user) for k in (f"u:{teks.lower()}", f"ip:{teks}"))
 
 
-def buka_semua():
-    with _lock:
-        jumlah = len(_terkunci)
-        _terkunci.clear()
-        _gagal.clear()
-        _dicoba.clear()
-    return jumlah
+def buka_semua(id_user=None):
+    return int(_exec("EXEC dbo.sp_LoginBukaKunci @Kunci = '*', @UserID = ?", id_user)[0]["Dibuka"])

@@ -57,7 +57,7 @@ def login():
         log_keamanan("LOGIN_GAGAL", f"username={username}" + (" -> DIKUNCI" if terkunci else ""))
         return render_template("auth/login.html", info=None, error="Username atau password salah"), 401
 
-    catat_berhasil(username, ip)
+    catat_berhasil(username, ip, row.id_user)
     session.clear()                 # cegah session fixation: sesi lama dibuang, dibuat baru
     session.permanent = True
     user = User.dari_row(row)

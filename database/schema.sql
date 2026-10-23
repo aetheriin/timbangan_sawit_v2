@@ -18,6 +18,7 @@
    Notification(Read), WorkSchedule, RequiredDataField, Setting, SettingArea, Device (kiosk), ApprovalRequest,
    ApprovalHistory, ApprovalRequestStep, ApprovalFlow, ApprovalFlowStep. Prosedur log: sp_WriteLog, fn_LogHash.
    Hak akses (dipakai semua aplikasi): fn_UserAccess, sp_UserMenu, sp_CekAkses (paling bawah).
+   Login bersama: sp_CekSesi, fn_UserScope / sp_UserScope, kunci login sp_Login* (paling bawah).
    Database DIBUAT BARU dari file ini (tidak ada migrasi). Data contoh untuk uji: database/demo_data.sql.
 
    Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
@@ -2031,5 +2032,196 @@ BEGIN
     FROM dbo.fn_UserAccess(@UserID) f WHERE f.MenuCode = @MenuCode;
     SET @Allowed = ISNULL(@Allowed, 0);
     SELECT @Allowed AS Allowed;
+END
+GO
+
+/* =========================== LOGIN BERSAMA (master page) ===========================
+   Dipakai CPOS dan aplikasi lain (Analytics, RekapIn) supaya aturan login, sesi, dan cakupan data sama.
+   Nilai pengaturan dibaca dari tabel Setting (diatur di Admin › Pengaturan Site); angka kedua = bawaan bila belum diisi. */
+CREATE OR ALTER FUNCTION dbo.fn_SettingInt (@Key VARCHAR(50), @Default INT)
+RETURNS INT AS
+BEGIN
+    RETURN ISNULL((SELECT TRY_CAST(SettingValue AS INT) FROM dbo.Setting WHERE SettingKey = @Key), @Default);
+END
+GO
+/* Sesi login masih berlaku? Dipakai aplikasi lain untuk menerima user yang sudah login di master page.
+   Berlaku = belum logout / dipaksa keluar, belum melewati SESI_IDLE_MENIT sejak aktif terakhir dan SESI_MAKS_JAM sejak login,
+   dan user masih aktif. @Touch = 1: catat aktivitas (sesi tidak dianggap idle). Kosong = tidak berlaku (arahkan ke login). */
+CREATE OR ALTER PROCEDURE dbo.sp_CekSesi
+    @SessionID VARCHAR(24),
+    @Touch     BIT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @idle INT = dbo.fn_SettingInt('SESI_IDLE_MENIT', 120), @maks INT = dbo.fn_SettingInt('SESI_MAKS_JAM', 12);
+    IF @Touch = 1
+        UPDATE dbo.UserSession SET LastActive = GETDATE()
+        WHERE SessionID = @SessionID AND EndDate IS NULL
+          AND LastActive >= DATEADD(MINUTE, -@idle, GETDATE()) AND LoginDate >= DATEADD(HOUR, -@maks, GETDATE());
+    SELECT s.SessionID, u.UserID, u.UserName, u.UserCode, u.Nama, u.UserLevelID AS LevelDetID, ld.LevelDetName, lv.IsAdmin,
+           u.CompAreaID, ld.HomeUrl, s.LoginDate, s.LastActive,
+           CASE WHEN DATEADD(MINUTE, @idle, s.LastActive) < DATEADD(HOUR, @maks, s.LoginDate)
+                THEN DATEADD(MINUTE, @idle, s.LastActive) ELSE DATEADD(HOUR, @maks, s.LoginDate) END AS ExpireDate
+    FROM dbo.UserSession s
+    JOIN dbo.Users u ON u.UserID = s.UserID
+    JOIN dbo.LevelDetails ld ON ld.LevelDetID = u.UserLevelID
+    JOIN dbo.Level lv ON lv.LevelID = ld.LevelID
+    WHERE s.SessionID = @SessionID AND s.EndDate IS NULL AND u.Active = 1
+      AND s.LastActive >= DATEADD(MINUTE, -@idle, GETDATE()) AND s.LoginDate >= DATEADD(HOUR, -@maks, GETDATE());
+END
+GO
+/* Cakupan data user (area yang boleh dilihat):
+   - akun di area biasa: hanya areanya;
+   - akun di area bertipe Mill kantor pusat (Mill.IsHeadOffice): semua area, atau hanya area milik PT di UserCompany bila diisi;
+   - akun tanpa area (admin sistem): semua area.
+   fn_UserScopeInfo = 1 baris ringkasan; fn_UserScope = daftar area. Contoh di prosedur laporan:
+     WHERE t.CompAreaID IN (SELECT CompAreaID FROM dbo.fn_UserScope(@UserID)) */
+CREATE OR ALTER FUNCTION dbo.fn_UserScopeInfo (@UserID BIGINT)
+RETURNS TABLE AS RETURN
+SELECT u.UserID, u.CompAreaID AS OwnAreaID, a.CompID AS OwnCompID,
+       CAST(ISNULL(m.IsHeadOffice, 0) AS BIT) AS IsHeadOffice,
+       CAST(CASE WHEN u.CompAreaID IS NULL
+                   OR (m.IsHeadOffice = 1 AND NOT EXISTS (SELECT 1 FROM dbo.UserCompany uc WHERE uc.UserID = u.UserID))
+                 THEN 1 ELSE 0 END AS BIT) AS AllAreas
+FROM dbo.Users u
+LEFT JOIN dbo.CompanyArea a ON a.CompAreaID = u.CompAreaID
+LEFT JOIN dbo.Mill m ON m.MillID = a.MillID
+WHERE u.UserID = @UserID AND u.Active = 1;
+GO
+CREATE OR ALTER FUNCTION dbo.fn_UserScope (@UserID BIGINT)
+RETURNS TABLE AS RETURN
+SELECT a.CompAreaID, a.AreaCode, a.AreaName, a.CompID, c.CompName, a.Active,
+       CAST(CASE WHEN a.CompAreaID = i.OwnAreaID THEN 1 ELSE 0 END AS BIT) AS IsOwnArea
+FROM dbo.fn_UserScopeInfo(@UserID) i
+JOIN dbo.CompanyArea a ON i.AllAreas = 1
+     OR (i.IsHeadOffice = 1 AND a.CompID IN (SELECT uc.CompID FROM dbo.UserCompany uc WHERE uc.UserID = i.UserID))
+     OR (i.IsHeadOffice = 0 AND a.CompAreaID = i.OwnAreaID)
+JOIN dbo.Company c ON c.CompID = a.CompID;
+GO
+CREATE OR ALTER PROCEDURE dbo.sp_UserScope
+    @UserID BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT s.*, i.IsHeadOffice, i.AllAreas
+    FROM dbo.fn_UserScope(@UserID) s CROSS JOIN dbo.fn_UserScopeInfo(@UserID) i
+    ORDER BY s.CompID, s.AreaCode, s.AreaName;
+END
+GO
+/* Kunci login: LOGIN_MAKS_GAGAL kali salah dalam LOGIN_JENDELA_MENIT -> dikunci LOGIN_KUNCI_MENIT, per username ('u:nama')
+   dan per IP ('ip:alamat'). Dicatat di tabel Log (Category LOGIN), jadi berlaku untuk semua aplikasi & tetap setelah restart:
+   LOGIN_GAGAL (RowID u:nama, IPAddress), LOGIN_TERKUNCI (RowID kunci), LOGIN_BUKA_KUNCI (RowID kunci / '*'), LOGIN_BERHASIL.
+   Hitungan salah dimulai ulang setelah berhasil login, dibuka admin, atau setelah terkunci. */
+CREATE OR ALTER FUNCTION dbo.fn_LoginKunci (@Kunci VARCHAR(110))
+RETURNS TABLE AS RETURN
+WITH atur AS (
+    SELECT dbo.fn_SettingInt('LOGIN_MAKS_GAGAL', 5) AS maks, dbo.fn_SettingInt('LOGIN_JENDELA_MENIT', 15) AS jendela,
+           dbo.fn_SettingInt('LOGIN_KUNCI_MENIT', 15) AS lama
+), reset AS (      -- berhasil login / dibuka admin
+    SELECT MAX(l.LogDate) AS waktu FROM dbo.Log l
+    WHERE l.Category = 'LOGIN' AND ((l.LogActionType = 'LOGIN_BUKA_KUNCI' AND l.RowID IN (@Kunci, '*'))
+       OR (l.LogActionType = 'LOGIN_BERHASIL' AND (l.RowID = @Kunci OR 'ip:' + l.IPAddress = @Kunci)))
+), kunci AS (
+    SELECT MAX(l.LogDate) AS waktu FROM dbo.Log l
+    WHERE l.Category = 'LOGIN' AND l.LogActionType = 'LOGIN_TERKUNCI' AND l.RowID = @Kunci
+)
+SELECT CASE WHEN k.waktu IS NOT NULL AND k.waktu > ISNULL(r.waktu, '19000101')
+                 AND DATEADD(MINUTE, a.lama, k.waktu) > SYSDATETIME()
+            THEN DATEDIFF(SECOND, SYSDATETIME(), DATEADD(MINUTE, a.lama, k.waktu)) ELSE 0 END AS SisaDetik,
+       (SELECT COUNT(*) FROM dbo.Log g
+        WHERE g.Category = 'LOGIN' AND g.LogActionType = 'LOGIN_GAGAL'
+          AND (g.RowID = @Kunci OR 'ip:' + g.IPAddress = @Kunci)
+          AND g.LogDate > DATEADD(MINUTE, -a.jendela, SYSDATETIME())
+          AND g.LogDate > ISNULL(r.waktu, '19000101') AND g.LogDate > ISNULL(k.waktu, '19000101')) AS JumlahGagal,
+       a.maks AS BatasGagal
+FROM atur a CROSS JOIN reset r CROSS JOIN kunci k;
+GO
+/* Detik sampai boleh login lagi (0 = boleh). Panggil sebelum memeriksa password. */
+CREATE OR ALTER PROCEDURE dbo.sp_LoginSisaKunci
+    @Username VARCHAR(100),
+    @IP       VARCHAR(45),
+    @Sisa     INT = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT @Sisa = MAX(f.SisaDetik)
+    FROM (VALUES ('u:' + LOWER(ISNULL(@Username, ''))), ('ip:' + ISNULL(@IP, ''))) k (kunci)
+    CROSS APPLY dbo.fn_LoginKunci(k.kunci) f;
+    SET @Sisa = ISNULL(@Sisa, 0);
+    SELECT @Sisa AS SisaDetik;
+END
+GO
+/* Password salah: dicatat; @Terkunci = 1 bila percobaan ini membuat username / IP terkunci. */
+CREATE OR ALTER PROCEDURE dbo.sp_LoginGagal
+    @Username VARCHAR(100),
+    @IP       VARCHAR(45),
+    @Terkunci BIT = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @u VARCHAR(110) = 'u:' + LOWER(ISNULL(@Username, '')), @kip VARCHAR(110) = 'ip:' + ISNULL(@IP, ''), @k VARCHAR(110);
+    DECLARE @baru NVARCHAR(MAX) = (SELECT ISNULL(@Username, '') AS username FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    EXEC dbo.sp_WriteLog @kategori = 'LOGIN', @aksi = 'LOGIN_GAGAL', @tabel = 'Users', @id_baris = @u, @nilai_baru = @baru, @ip = @IP;
+    SET @Terkunci = 0;
+    DECLARE c CURSOR LOCAL FAST_FORWARD FOR
+        SELECT k.kunci FROM (VALUES (@u), (@kip)) k (kunci) CROSS APPLY dbo.fn_LoginKunci(k.kunci) f
+        WHERE f.SisaDetik = 0 AND f.JumlahGagal >= f.BatasGagal;
+    OPEN c; FETCH NEXT FROM c INTO @k;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        EXEC dbo.sp_WriteLog @kategori = 'LOGIN', @aksi = 'LOGIN_TERKUNCI', @tabel = 'Users', @id_baris = @k, @ip = @IP;
+        SET @Terkunci = 1;
+        FETCH NEXT FROM c INTO @k;
+    END
+    CLOSE c; DEALLOCATE c;
+    SELECT @Terkunci AS Terkunci;
+END
+GO
+/* Login berhasil: hitungan salah untuk username & IP ini dimulai ulang. */
+CREATE OR ALTER PROCEDURE dbo.sp_LoginBerhasil
+    @Username VARCHAR(100),
+    @IP       VARCHAR(45),
+    @UserID   BIGINT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @u VARCHAR(110) = 'u:' + LOWER(ISNULL(@Username, ''));
+    EXEC dbo.sp_WriteLog @kategori = 'LOGIN', @aksi = 'LOGIN_BERHASIL', @tabel = 'Users', @id_baris = @u, @id_user = @UserID, @ip = @IP;
+END
+GO
+/* Admin membuka kunci: @Kunci = 'u:nama' / 'ip:alamat' / '*' (semua). @Dibuka = jumlah kunci yang tadinya aktif. */
+CREATE OR ALTER PROCEDURE dbo.sp_LoginBukaKunci
+    @Kunci  VARCHAR(110),
+    @UserID BIGINT = NULL,
+    @Dibuka INT = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @Kunci = '*'
+        SELECT @Dibuka = COUNT(*) FROM (SELECT DISTINCT RowID FROM dbo.Log WHERE Category = 'LOGIN' AND LogActionType = 'LOGIN_TERKUNCI'
+                                        AND LogDate > DATEADD(MINUTE, -dbo.fn_SettingInt('LOGIN_KUNCI_MENIT', 15), SYSDATETIME())) k
+        CROSS APPLY dbo.fn_LoginKunci(k.RowID) f WHERE f.SisaDetik > 0;
+    ELSE
+        SELECT @Dibuka = CASE WHEN SisaDetik > 0 THEN 1 ELSE 0 END FROM dbo.fn_LoginKunci(@Kunci);
+    EXEC dbo.sp_WriteLog @kategori = 'LOGIN', @aksi = 'LOGIN_BUKA_KUNCI', @tabel = 'Users', @id_baris = @Kunci, @id_user = @UserID;
+    SELECT @Dibuka AS Dibuka;
+END
+GO
+/* Username / IP yang sedang terkunci (Admin › Sesi Aktif). Dicoba = username terakhir yang dicoba dari IP itu. */
+CREATE OR ALTER PROCEDURE dbo.sp_LoginDaftarTerkunci
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT k.RowID AS Kunci, f.SisaDetik,
+           (SELECT STRING_AGG(x.u, ', ') WITHIN GROUP (ORDER BY x.id DESC) FROM (SELECT TOP 5 JSON_VALUE(g.NewValue, '$.username') AS u, MAX(g.LogID) AS id
+                                                FROM dbo.Log g WHERE g.Category = 'LOGIN' AND g.LogActionType = 'LOGIN_GAGAL'
+                                                AND 'ip:' + g.IPAddress = k.RowID
+                                                AND g.LogDate > DATEADD(MINUTE, -60, SYSDATETIME())
+                                                GROUP BY JSON_VALUE(g.NewValue, '$.username') ORDER BY MAX(g.LogID) DESC) x) AS Dicoba
+    FROM (SELECT DISTINCT RowID FROM dbo.Log WHERE Category = 'LOGIN' AND LogActionType = 'LOGIN_TERKUNCI'
+          AND LogDate > DATEADD(MINUTE, -dbo.fn_SettingInt('LOGIN_KUNCI_MENIT', 15), SYSDATETIME())) k
+    CROSS APPLY dbo.fn_LoginKunci(k.RowID) f
+    WHERE f.SisaDetik > 0
+    ORDER BY f.SisaDetik DESC;
 END
 GO

@@ -135,6 +135,20 @@ def area_pusat():
         "SELECT a.CompAreaID FROM CompanyArea a JOIN Mill m ON m.MillID = a.MillID WHERE m.IsHeadOffice = 1"))
 
 
+def cakupan_user(id_user):
+    """Ringkasan cakupan data dari dbo.fn_UserScopeInfo + daftar area (tuple id) bila kantor pusat dibatasi PT.
+    None = user tidak ditemukan / nonaktif."""
+    rows = _query("""SELECT i.OwnAreaID, i.OwnCompID, i.IsHeadOffice, i.AllAreas,
+                            CASE WHEN i.IsHeadOffice = 1 AND i.AllAreas = 0 THEN
+                                 (SELECT STRING_AGG(CAST(s.CompAreaID AS VARCHAR(20)), ',') FROM dbo.fn_UserScope(?) s) END AS Areas
+                     FROM dbo.fn_UserScopeInfo(?) i""", id_user, id_user)
+    if not rows:
+        return None
+    r = rows[0]
+    r["areas"] = tuple(sorted(int(x) for x in (r.pop("Areas") or "").split(",") if x))
+    return r
+
+
 @cache_ttl(30)
 def pt_kelola(id_user):
     """Kode perusahaan yang dikelola user kantor pusat (tabel UserCompany). Kosong = semua PT."""

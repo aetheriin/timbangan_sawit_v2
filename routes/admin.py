@@ -706,10 +706,10 @@ def sesi_buka_kunci():
     """Dari baris tabel (kunci "u:joko" / "ip:10.0.0.7") atau dari form (username ATAU IP diketik admin)."""
     kunci, teks = request.form.get("kunci") or "", (request.form.get("teks") or "").strip()
     if teks:
-        dibuka = login_guard.buka_kunci_teks(teks)
+        dibuka = login_guard.buka_kunci_teks(teks, current_user.id)
         target = teks
     else:
-        dibuka = int(login_guard.buka_kunci(kunci))
+        dibuka = int(login_guard.buka_kunci(kunci, current_user.id))
         target = kunci
     if not dibuka:
         return jsonify({"error": f"{target or 'Data'} tidak sedang terkunci"}), 400
@@ -720,7 +720,7 @@ def sesi_buka_kunci():
 @admin_bp.route("/api/admin/sesi/buka-semua", methods=["POST"])
 @_admin
 def sesi_buka_semua():
-    jumlah = login_guard.buka_semua()
+    jumlah = login_guard.buka_semua(current_user.id)
     if not jumlah:
         return jsonify({"error": "Tidak ada login yang terkunci"}), 400
     _audit("BUKA_KUNCI_LOGIN", "SEMUA", f"{jumlah} kunci")

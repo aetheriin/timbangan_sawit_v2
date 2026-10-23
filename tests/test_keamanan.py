@@ -23,23 +23,22 @@ def _gambar(fmt="JPEG"):
 
 
 class TestLoginGuard(unittest.TestCase):
-    def setUp(self):
-        login_guard._gagal.clear()
-        login_guard._terkunci.clear()
+    """Aturan kunci ada di database (sp_Login*); di sini dicek pemanggilan & pemetaan hasilnya."""
+    def test_memanggil_prosedur(self):
+        with patch.object(login_guard, "_exec", return_value=[{"SisaDetik": 120}]) as ex:
+            self.assertEqual(login_guard.sisa_kunci("ho", "10.0.0.1"), 120)
+            self.assertIn("sp_LoginSisaKunci", ex.call_args[0][0])
+        with patch.object(login_guard, "_exec", return_value=[{"Terkunci": 1}]) as ex:
+            self.assertTrue(login_guard.catat_gagal("ho", "10.0.0.1"))
+            self.assertEqual(ex.call_args[0][1:], ("ho", "10.0.0.1"))
+        with patch.object(login_guard, "_exec", return_value=[]) as ex:
+            login_guard.catat_berhasil("ho", "10.0.0.1", 7)
+            self.assertIn("sp_LoginBerhasil", ex.call_args[0][0])
 
-    def test_kunci_setelah_5_gagal(self):
-        for i in range(4):
-            self.assertFalse(login_guard.catat_gagal("ho", "10.0.0.1", 1000 + i))
-        self.assertTrue(login_guard.catat_gagal("ho", "10.0.0.1", 1004))
-        self.assertGreater(login_guard.sisa_kunci("ho", "10.0.0.9", 1005), 0)     # username terkunci
-        self.assertGreater(login_guard.sisa_kunci("lain", "10.0.0.1", 1005), 0)   # IP terkunci
-        self.assertEqual(login_guard.sisa_kunci("ho", "10.0.0.1", 1004 + 15 * 60 + 1), 0)
-
-    def test_berhasil_menghapus_hitungan(self):
-        for i in range(4):
-            login_guard.catat_gagal("ho", "10.0.0.1", 1000 + i)
-        login_guard.catat_berhasil("ho", "10.0.0.1")
-        self.assertFalse(login_guard.catat_gagal("ho", "10.0.0.1", 1010))
+    def test_db_gagal_tidak_menahan_login(self):
+        with patch.object(login_guard, "_exec", side_effect=RuntimeError("db mati")):
+            self.assertEqual(login_guard.sisa_kunci("ho", "10.0.0.1"), 0)
+            self.assertFalse(login_guard.catat_gagal("ho", "10.0.0.1"))
 
 
 class TestUpload(unittest.TestCase):

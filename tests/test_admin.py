@@ -39,41 +39,22 @@ class TestPengaturan(unittest.TestCase):
 
 
 class TestLoginGuardAdmin(unittest.TestCase):
-    def setUp(self):
-        login_guard._gagal.clear()
-        login_guard._terkunci.clear()
+    def test_daftar_terkunci(self):
+        rows = [{"Kunci": "ip:10.0.0.7", "SisaDetik": 900, "Dicoba": "asal4, asal3"},
+                {"Kunci": "u:joko", "SisaDetik": 600, "Dicoba": None}]
+        with patch.object(login_guard, "_exec", return_value=rows):
+            hasil = login_guard.daftar_terkunci()
+        self.assertEqual(hasil[0], {"kunci": "ip:10.0.0.7", "jenis": "IP", "nama": "10.0.0.7", "sisa_detik": 900,
+                                    "dicoba": ["asal4", "asal3"]})
+        self.assertEqual(hasil[1]["jenis"], "Username")
+        self.assertEqual(hasil[1]["dicoba"], [])
 
-    def test_ikut_pengaturan_dan_bisa_dibuka(self):
-        nilai = {"LOGIN_MAKS_GAGAL": 3, "LOGIN_JENDELA_MENIT": 15, "LOGIN_KUNCI_MENIT": 20}
-        with patch.object(pengaturan, "nilai", side_effect=nilai.get):
-            for i in range(3):
-                login_guard.catat_gagal("joko", "10.0.0.5", 1000 + i)
-        self.assertEqual(login_guard.sisa_kunci("joko", "10.0.0.5", 1003), 20 * 60 - 1)
-        terkunci = login_guard.daftar_terkunci(1003)
-        self.assertEqual({t["kunci"] for t in terkunci}, {"u:joko", "ip:10.0.0.5"})
-        self.assertTrue(login_guard.buka_kunci("u:joko"))
-        self.assertTrue(login_guard.buka_kunci("ip:10.0.0.5"))
-        self.assertEqual(login_guard.sisa_kunci("joko", "10.0.0.5", 1003), 0)
-        self.assertFalse(login_guard.buka_kunci("u:joko"))
-
-
-    def test_username_asal_kunci_ip_lalu_dibuka_lewat_ip(self):
-        nilai = {"LOGIN_MAKS_GAGAL": 5, "LOGIN_JENDELA_MENIT": 15, "LOGIN_KUNCI_MENIT": 15}
-        with patch.object(pengaturan, "nilai", side_effect=nilai.get):
-            for i in range(5):
-                login_guard.catat_gagal(f"asal{i}", "10.0.0.7", 1000 + i)
-        terkunci = login_guard.daftar_terkunci(1005)
-        self.assertEqual([t["kunci"] for t in terkunci], ["ip:10.0.0.7"])
-        self.assertEqual(terkunci[0]["dicoba"], ["asal4", "asal3", "asal2", "asal1", "asal0"])
-        self.assertGreater(login_guard.sisa_kunci("ho", "10.0.0.7", 1005), 0)
-        self.assertEqual(login_guard.buka_kunci_teks("10.0.0.7"), 1)
-        self.assertEqual(login_guard.sisa_kunci("ho", "10.0.0.7", 1005), 0)
-        self.assertEqual(login_guard.buka_kunci_teks("10.0.0.7"), 0)
-
-    def test_buka_semua(self):
-        login_guard._terkunci.update({"u:a": time.time() + 60, "ip:1.1.1.1": time.time() + 60})
-        self.assertEqual(login_guard.buka_semua(), 2)
-        self.assertEqual(login_guard.daftar_terkunci(), [])
+    def test_buka_kunci_teks_username_dan_ip(self):
+        with patch.object(login_guard, "_exec", side_effect=[[{"Dibuka": 0}], [{"Dibuka": 1}]]) as ex:
+            self.assertEqual(login_guard.buka_kunci_teks(" 10.0.0.7 ", 5), 1)
+        self.assertEqual([c[0][1] for c in ex.call_args_list], ["u:10.0.0.7", "ip:10.0.0.7"])
+        with patch.object(login_guard, "_exec", return_value=[{"Dibuka": 2}]):
+            self.assertEqual(login_guard.buka_semua(5), 2)
 
 
 class TestSesiAktif(unittest.TestCase):

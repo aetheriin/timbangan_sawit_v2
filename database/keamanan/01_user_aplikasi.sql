@@ -43,6 +43,14 @@ GRANT EXECUTE ON dbo.sp_WriteLog TO [weighbridge_app];
 -- Hak akses bersama (dipakai juga oleh aplikasi Analytics / RekapIn)
 GRANT EXECUTE ON dbo.sp_UserMenu TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_CekAkses TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_CekSesi TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_UserScope TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_LoginSisaKunci TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_LoginGagal TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_LoginBerhasil TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_LoginBukaKunci TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_LoginDaftarTerkunci TO [weighbridge_app];
+GRANT EXECUTE ON dbo.fn_SettingInt TO [weighbridge_app];
 DENY INSERT, UPDATE, DELETE ON dbo.Log TO [weighbridge_app];
 -- Blacklist tidak pernah dihapus (dicabut = RevokeDate diisi lewat persetujuan)
 DENY DELETE ON dbo.Blacklist TO [weighbridge_app];
