@@ -24,7 +24,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
-from utils import alur, log_aktivitas, kolom_wajib
+from utils import alur, log_aktivitas, kolom_wajib, alur_persetujuan
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -33,6 +33,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Pilih departemen, lalu jabatan, lalu halaman yang boleh dibuka dan aksinya"),
+    "persetujuan": ("Alur Persetujuan", "fa-route", "Tahap persetujuan berjenjang per jenis pengajuan & kategori (mis. blacklist Driver)"),
     "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, jabatan, dan status tiket"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
     "void": ("Pembatalan Tiket", "fa-ban", "Batalkan tiket yang salah input; tiket tidak dihapus, tercatat alasannya"),
@@ -113,6 +114,8 @@ def admin_halaman(halaman):
                            company_list=[c for c in org.daftar_company() if c["is_active"]],
                            lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
                            alur_list=alur.daftar_alur(),
+                           kategori_alur=alur_persetujuan.daftar_kategori() if halaman == "persetujuan" else [],
+                           jenis_pengajuan=alur_persetujuan.JENIS,
                            password_expired=pengaturan.nilai("PASSWORD_EXPIRED_HARI"),
                            password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
 
@@ -557,6 +560,58 @@ def jabatan_simpan():
         _audit("JABATAN_SIMPAN", nama)
         return jsonify({"message": f"Jabatan {nama} berhasil disimpan."})
     return _jalankan(aksi)
+
+
+# ===== ALUR PERSETUJUAN (migrasi 043) =====
+@admin_bp.route("/api/admin/alur-persetujuan")
+@_admin
+def alur_persetujuan_daftar():
+    return jsonify(alur_persetujuan.daftar())
+
+
+@admin_bp.route("/api/admin/alur-persetujuan/simpan", methods=["POST"])
+@_admin
+def alur_persetujuan_simpan():
+    """tahap = "id_department:id_jabatan,..." sesuai urutan; peran dibuat otomatis bila belum ada."""
+    def aksi():
+        f = request.form
+        jabatan = {j["id_jabatan"]: j for j in hak_akses.daftar_jabatan() if j["is_active"]}
+        departemen = {d["id_department"] for d in org.daftar_department() if d["is_active"]}
+        daftar_level = []
+        for n, bagian in enumerate([b for b in (f.get("tahap") or "").split(",") if b.strip()], 1):
+            try:
+                id_d, id_j = (int(x) for x in bagian.split(":"))
+            except ValueError:
+                raise ValueError(f"Tahap {n}: pilih departemen dan jabatan") from None
+            if id_j not in jabatan or jabatan[id_j]["is_admin"]:
+                raise ValueError(f"Tahap {n}: jabatan tidak valid")
+            if id_d not in departemen:
+                raise ValueError(f"Tahap {n}: departemen tidak valid")
+            daftar_level.append(hak_akses.peran_untuk(id_d, id_j))
+        jenis, kategori = (f.get("jenis") or "").strip(), (f.get("kategori") or "").strip() or None
+        id_alur = alur_persetujuan.simpan(_id_opsional("id_alur_persetujuan"), jenis, kategori,
+                                          _teks("keterangan", wajib=False, maks=255) or None, daftar_level)
+        _audit("ALUR_PERSETUJUAN_SIMPAN", f"{jenis}/{kategori or 'SEMUA'}",
+               " → ".join(hak_akses.get_level(i)["nama"] for i in daftar_level))
+        return jsonify({"message": "Alur persetujuan berhasil disimpan.", "id": id_alur})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/alur-persetujuan/<int:id_alur>/aktif", methods=["POST"])
+@_admin
+def alur_persetujuan_aktif(id_alur):
+    aktif = _aktif_dari_form()
+    alur_persetujuan.set_aktif(id_alur, aktif)
+    _audit(f"ALUR_PERSETUJUAN_{'AKTIF' if aktif else 'NONAKTIF'}", str(id_alur))
+    return jsonify({"message": f"Alur persetujuan berhasil {'diaktifkan' if aktif else 'dinonaktifkan'}."})
+
+
+@admin_bp.route("/api/admin/alur-persetujuan/<int:id_alur>/hapus", methods=["POST"])
+@_admin
+def alur_persetujuan_hapus(id_alur):
+    alur_persetujuan.hapus(id_alur)
+    _audit("ALUR_PERSETUJUAN_HAPUS", str(id_alur))
+    return jsonify({"message": "Alur persetujuan berhasil dihapus. Pengajuan yang sedang berjalan tetap memakai tahap lamanya."})
 
 
 @admin_bp.route("/api/admin/organisasi/status/simpan", methods=["POST"])

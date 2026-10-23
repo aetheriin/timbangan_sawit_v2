@@ -1,12 +1,14 @@
-"""Menu Blacklist: riwayat, ajukan tambah & ajukan hapus (cabut). Keduanya lewat persetujuan dinamis
-(Admin › Persetujuan); tanpa penyetuju yang diatur, langsung berlaku. Data blacklist tidak pernah dihapus."""
+"""Menu Blacklist: List Blacklist, List Request, ajukan tambah & ajukan hapus (cabut). Keduanya lewat persetujuan
+berjenjang (Admin › Alur Persetujuan, per kategori target: Driver, Security, Karyawan, BHL, Kendaraan); tanpa alur:
+hak Setujui, tanpa penyetuju sama sekali langsung berlaku. Data blacklist tidak pernah dihapus."""
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from utils.db_blacklist import (TIPE_VALID, get_riwayat_blacklist, cari_target, tambah_blacklist, get_target_personel,
-                                get_surat_blacklist, lampirkan_surat, nama_target, get_blacklist, cabut_blacklist)
+                                get_surat_blacklist, lampirkan_surat, nama_target, get_blacklist, cabut_blacklist,
+                                info_kendaraan, mitra_aktif)
 from utils import persetujuan, blacklist_deteksi
-from utils.area import area_data
+from utils.area import area_data, company_user
 from utils.area_filter import area_cocok
 from utils.face_utils import extract_embedding_tunggal
 from utils.face_cache import slot_proses_wajah, cari_terdekat
@@ -25,9 +27,23 @@ blacklist_bp = Blueprint('blacklist', __name__)
 def blacklist_riwayat():
     tipe = request.args.get("tipe", "").upper()
     status = request.args.get("status", "AKTIF").upper()
+    kategori = (request.args.get("kategori") or "").strip().upper()[:20] or None
     return jsonify(get_riwayat_blacklist(tipe if tipe in TIPE_VALID else None,
                                          request.args.get("cari", "").strip() or None,
-                                         status=status if status in ("AKTIF", "DICABUT") else "AKTIF"))
+                                         status=status if status in ("AKTIF", "DICABUT") else "AKTIF",
+                                         pt=company_user(current_user.id), kategori=kategori))
+
+
+@blacklist_bp.route("/api/blacklist/jalur")
+@login_required
+def blacklist_jalur():
+    """Pratinjau jalur persetujuan untuk kategori target (form Request)."""
+    jenis = request.args.get("jenis", "BLACKLIST_TAMBAH")
+    if jenis not in ("BLACKLIST_TAMBAH", "BLACKLIST_HAPUS"):
+        return jsonify({"error": "Jenis tidak dikenal"}), 400
+    tahap = persetujuan.tahap_alur(jenis, (request.args.get("kategori") or "").upper() or None)
+    return jsonify({"tahap": persetujuan.nama_tahap(tahap) if tahap else [],
+                    "lama": ", ".join(persetujuan.nama_tahap(persetujuan.penyetuju(jenis))) if not tahap else None})
 
 
 @blacklist_bp.route("/api/blacklist/info/<tipe>/<int:id_target>")
@@ -73,16 +89,38 @@ def blacklist_cari_wajah():
     return jsonify({**target, "jarak_wajah": round(jarak, 3)})
 
 
-def _terkait(f):
-    """Info saat blacklist (personel): plat (boleh untuk tamu), customer & pengangkutan bila ia supir."""
+def _terkait(f, kategori):
+    """Info saat blacklist: plat, asal supplier (wajib untuk Driver), pengangkutan. Dipilih dari Data Master."""
     teks_plat = (f.get("no_plat_terkait") or "").strip()
     no_plat = None
     if teks_plat:
         no_plat, error = normalisasi_plat(teks_plat)
         if error:
             raise ValueError(error)
-    angka = lambda k: f.get(k, type=int) or None
-    return {"no_plat": no_plat, "id_customer": angka("id_customer_terkait"), "id_pengangkutan": angka("id_pengangkutan_terkait")}
+    hasil = {"no_plat": no_plat}
+    for kunci, kolom, label in (("id_customer", "id_customer_terkait", "Asal supplier"),
+                                ("id_pengangkutan", "id_pengangkutan_terkait", "Pengangkutan")):
+        nilai = f.get(kolom, type=int) or None
+        if nilai and not mitra_aktif(nilai):
+            raise ValueError(f"{label} tidak ditemukan")
+        hasil[kunci] = nilai
+    if kategori == "DRIVER" and not hasil["id_customer"]:
+        raise ValueError("Asal supplier wajib diisi untuk Driver")
+    return hasil
+
+
+def _info_target(tipe, id_target):
+    """(kategori, info tampilan List Request) target blacklist."""
+    if tipe == "PERSONEL":
+        t = get_target_personel(id_target)
+        if not t:
+            raise ValueError("Target tidak ditemukan")
+        return t["kategori"], {"nama": t["nama_personel"], "nik": t["nik"], "kategori": t["nama_kategori"] or t["kategori"],
+                               "produk": t["produk_terakhir"]}
+    k = info_kendaraan(id_target)
+    if not k:
+        raise ValueError("Target tidak ditemukan")
+    return "KENDARAAN", {"nama": k["no_plat"], "nik": None, "kategori": "Kendaraan", "produk": k["produk_terakhir"]}
 
 
 @blacklist_bp.route("/api/blacklist/tambah", methods=["POST"])
@@ -107,10 +145,19 @@ def blacklist_tambah():
     if error:
         return jsonify({"error": error}), 400
 
+    alias = (f.get("nama_alias") or "").strip() if f.get("punya_alias") in ("1", "true", "on") else ""
+    if f.get("punya_alias") in ("1", "true", "on") and not alias:
+        return jsonify({"error": "Nama alias wajib diisi (atau hilangkan centang Punya nama alias)"}), 400
+    if len(alias) > 100:
+        return jsonify({"error": "Nama alias maksimal 100 karakter"}), 400
     try:
-        terkait = _terkait(f) if tipe == "PERSONEL" else None
+        kategori, info = _info_target(tipe, id_target)
+        terkait = _terkait(f, kategori)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+    info.update({"alias": alias or None, "plat": terkait["no_plat"] or (info["nama"] if tipe == "KENDARAAN" else None),
+                 "supplier": mitra_aktif(terkait["id_customer"]) if terkait["id_customer"] else None,
+                 "pengangkutan": mitra_aktif(terkait["id_pengangkutan"]) if terkait["id_pengangkutan"] else None})
     if len(no_surat) > 100:
         return jsonify({"error": "No. surat maksimal 100 karakter"}), 400
     try:
@@ -119,21 +166,22 @@ def blacklist_tambah():
         return jsonify({"error": str(e)}), 400
     if sudah:
         return jsonify({"error": "Target sudah masuk blacklist"}), 400
-    info = None
+    berkas = None
     if no_surat:
         try:
-            info = simpan_file(file, "SURAT_BLACKLIST")
+            berkas = simpan_file(file, "SURAT_BLACKLIST")
         except ValueError as e:
             return jsonify({"error": f"Surat: {e}"}), 400
 
-    data = {"tipe": tipe, "id_target": id_target, "no_surat": no_surat or None, "alasan": alasan, "file_info": info,
-            "tgl": tgl.isoformat() if tgl else None, "terkait": terkait}
+    data = {"tipe": tipe, "id_target": id_target, "no_surat": no_surat or None, "alasan": alasan, "file_info": berkas,
+            "tgl": tgl.isoformat() if tgl else None, "terkait": terkait, "alias": alias or None, "kategori": kategori,
+            "id_area": area_akun(current_user.id), "_info": info}
     try:
         status, penyetuju = persetujuan.ajukan("BLACKLIST_TAMBAH", f"{tipe}:{id_target}", f"Tambah blacklist {nama}",
-                                               alasan, data, current_user.id)
+                                               alasan, data, current_user.id, kategori=kategori)
     except Exception as e:
-        if info:
-            hapus_file_info([info])
+        if berkas:
+            hapus_file_info([berkas])
         if isinstance(e, ValueError):
             return jsonify({"error": str(e)}), 400
         raise
@@ -154,9 +202,13 @@ def blacklist_hapus(id_blacklist):
     b = get_blacklist(id_blacklist)
     if not b or b["dicabut_at"]:
         return jsonify({"error": "Blacklist tidak ditemukan atau sudah dicabut"}), 400
+    info = {"nama": b["nama"], "nik": b["nik"], "alias": b["nama_alias"], "plat": b["no_plat"], "supplier": b["supplier"],
+            "pengangkutan": b["pengangkutan"],
+            "kategori": "Kendaraan" if b["kategori"] == "KENDARAAN" else (_nama_kategori().get(b["kategori"]) or b["kategori"])}
     try:
         status, penyetuju = persetujuan.ajukan("BLACKLIST_HAPUS", f"BLACKLIST:{id_blacklist}", f"Hapus blacklist {b['nama']}",
-                                               alasan[:500], {"id_blacklist": id_blacklist, "alasan": alasan[:500]}, current_user.id)
+                                               alasan[:500], {"id_blacklist": id_blacklist, "alasan": alasan[:500], "_info": info},
+                                               current_user.id, kategori=b["kategori"])
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     if status == "MENUNGGU":
@@ -191,12 +243,17 @@ def _batal_tambah(data):
 def _jalankan_tambah(data, id_pengaju, id_penyetuju):
     tgl = date.fromisoformat(data["tgl"]) if data.get("tgl") else None
     tambah_blacklist(data["tipe"], data["id_target"], data.get("no_surat"), data["alasan"], data.get("file_info"), tgl,
-                     id_pengaju, data.get("terkait"))
+                     id_pengaju, data.get("terkait"), data.get("alias"), data.get("kategori"), data.get("id_area"))
 
 
 @persetujuan.pelaksana("BLACKLIST_HAPUS")
 def _jalankan_hapus(data, id_pengaju, id_penyetuju):
     cabut_blacklist(data["id_blacklist"], data.get("alasan"), id_penyetuju)
+
+
+def _nama_kategori():
+    from utils.alur_persetujuan import daftar_kategori
+    return {k["kode"]: k["nama"] for k in daftar_kategori()}
 
 
 def _tanggal_surat(f):

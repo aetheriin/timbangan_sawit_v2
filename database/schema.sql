@@ -730,6 +730,10 @@ CREATE TABLE dbo.blacklist (
     dicabut_at               DATETIME NULL,
     dicabut_oleh             INT NULL CONSTRAINT FK_Blacklist_Pencabut REFERENCES dbo.akun (id_user),
     alasan_cabut             NVARCHAR(500) NULL,
+    -- Blacklist berjenjang (migrasi 043): alias, kategori target saat itu (KENDARAAN untuk kendaraan), lokasi = area pengaju
+    nama_alias               NVARCHAR(100) NULL,
+    kategori                 VARCHAR(20) NULL,
+    id_comp_area             INT NULL CONSTRAINT FK_Blacklist_Area REFERENCES dbo.comp_area (id_comp_area),
     CONSTRAINT CK_Blacklist_Tipe CHECK (tipe_entitas IN ('PERSONEL', 'KENDARAAN')),
     CONSTRAINT CK_Blacklist_Target CHECK (
         (tipe_entitas = 'PERSONEL'  AND id_personel IS NOT NULL AND id_kendaraan IS NULL) OR
@@ -948,18 +952,44 @@ CREATE TABLE dbo.pengajuan (
     data           NVARCHAR(MAX)  NULL CONSTRAINT CK_Pengajuan_Json CHECK (data IS NULL OR ISJSON(data) = 1),
     diajukan_oleh  INT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.akun (id_user),
     created_at     DATETIME       NOT NULL CONSTRAINT DF_Pengajuan_Dibuat DEFAULT (GETDATE()),
-    selesai_at     DATETIME       NULL
+    selesai_at     DATETIME       NULL,
+    kategori       VARCHAR(20)    NULL                -- kategori target (memilih alur persetujuan, migrasi 043)
 );
 CREATE INDEX IX_Pengajuan_Status ON dbo.pengajuan (status, jenis, id_company);
 CREATE TABLE dbo.pengajuan_riwayat (
     id_riwayat    INT IDENTITY(1,1) PRIMARY KEY,
     id_pengajuan  INT           NOT NULL CONSTRAINT FK_PengRiwayat_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
     langkah       TINYINT       NOT NULL,
-    aksi          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (aksi IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
+    aksi          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (aksi IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN', 'DILEWATI')),
     id_level      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.level (id_level),
     id_user       INT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.akun (id_user),
     catatan       NVARCHAR(500) NULL,
     waktu         DATETIME      NOT NULL CONSTRAINT DF_PengRiwayat_Waktu DEFAULT (GETDATE())
+);
+-- Alur persetujuan berjenjang (migrasi 043): per jenis + kategori target (NULL = semua); tiap tahap = satu peran.
+-- Penyetuju tahap = pengguna aktif dengan peran itu di PT pengajuan (kantor pusat: PT yang dikelolanya).
+CREATE TABLE dbo.alur_persetujuan (
+    id_alur_persetujuan INT IDENTITY(1,1) PRIMARY KEY,
+    jenis       VARCHAR(40)   NOT NULL,
+    kategori    VARCHAR(20)   NULL,
+    keterangan  NVARCHAR(255) NULL,
+    is_active   BIT NOT NULL CONSTRAINT DF_AlurSetuju_Aktif DEFAULT (1),
+    created_at  DATETIME NOT NULL CONSTRAINT DF_AlurSetuju_Dibuat DEFAULT (GETDATE())
+);
+CREATE UNIQUE INDEX UX_AlurSetuju_Jenis ON dbo.alur_persetujuan (jenis, kategori);
+CREATE TABLE dbo.alur_persetujuan_tahap (
+    id_tahap            INT IDENTITY(1,1) PRIMARY KEY,
+    id_alur_persetujuan INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Alur REFERENCES dbo.alur_persetujuan (id_alur_persetujuan),
+    urutan              TINYINT NOT NULL,
+    id_level            INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Level REFERENCES dbo.level (id_level),
+    CONSTRAINT UX_AlurSetujuTahap_Urutan UNIQUE (id_alur_persetujuan, urutan)
+);
+-- Salinan tahap saat diajukan (perubahan alur tidak mengganggu pengajuan yang berjalan)
+CREATE TABLE dbo.pengajuan_tahap (
+    id_pengajuan INT NOT NULL CONSTRAINT FK_PengTahap_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
+    urutan       TINYINT NOT NULL,
+    id_level     INT NOT NULL CONSTRAINT FK_PengTahap_Level REFERENCES dbo.level (id_level),
+    CONSTRAINT PK_PengTahap PRIMARY KEY (id_pengajuan, urutan)
 );
 GO
 
@@ -1005,7 +1035,8 @@ INSERT INTO dbo.kategori_personel (kode, nama, wajib_sim, boleh_akun, prefix_kod
     ('DRIVER',   N'Driver',   1, 0, 'DRV'),
     ('SECURITY', N'Security', 0, 1, 'SEC'),
     ('EMPLOYEE', N'Karyawan', 0, 1, 'KRY'),
-    ('TAMU',     N'Tamu',     0, 0, 'TMU');
+    ('TAMU',     N'Tamu',     0, 0, 'TMU'),
+    ('BHL',      N'BHL',      0, 0, 'BHL');
 INSERT INTO dbo.jenis_sim (kode, nama) VALUES
     ('A', N'SIM A'), ('B1', N'SIM B1'), ('B1_UMUM', N'SIM B1 Umum'), ('B2', N'SIM B2'), ('B2_UMUM', N'SIM B2 Umum');
 INSERT INTO dbo.jenis_sim (kode, nama, is_active) VALUES ('BELUM_DIISI', N'Belum dilengkapi', 0);

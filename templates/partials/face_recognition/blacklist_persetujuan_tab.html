@@ -1,13 +1,60 @@
-{# Pengajuan tambah / hapus blacklist. Yang bisa menyetujui: jabatan dengan hak Setujui di menu Blacklist
-   (Admin › Level & Hak Akses), di PT yang sama. #}
-{% set bisa_setujui = boleh('BLACKLIST', 'setujui') %}
+{% from "partials/layout/_macros.html" import tombol_ekspor %}
+{# List Request: pengajuan tambah / hapus blacklist. Pengaju melihat request miliknya; penyetuju melihat request
+   di PT-nya yang tahapnya memuat perannya (Admin › Alur Persetujuan). Approve / Reject hanya di tahap berjalan. #}
+{% set bisa_setujui = boleh('BLACKLIST', 'setujui') or penyetuju_alur %}
 <div data-tab-content="persetujuan" class="hidden">
     <div class="filter-bar">
         <div class="seg flex-wrap">
-            {% if bisa_setujui %}<button type="button" class="chip chip-active" data-mode="menunggu" data-on-click="pilihModePersetujuan" data-arg="$el">Perlu persetujuan saya <span id="jmlMenunggu" class="ml-1"></span></button>{% endif %}
-            <button type="button" class="chip{% if not bisa_setujui %} chip-active{% endif %}" data-mode="saya" data-on-click="pilihModePersetujuan" data-arg="$el">Pengajuan saya</button>
-            <button type="button" class="chip" data-mode="semua" data-on-click="pilihModePersetujuan" data-arg="$el">Semua pengajuan</button>
+            <button type="button" class="chip{% if bisa_setujui %} chip-active{% endif %}" data-mode="menunggu" data-on-click="pilihModePersetujuan" data-arg="$el">Perlu persetujuan saya <span id="jmlMenunggu" class="ml-1"></span></button>
+            <button type="button" class="chip{% if not bisa_setujui %} chip-active{% endif %}" data-mode="saya" data-on-click="pilihModePersetujuan" data-arg="$el">Request saya</button>
+            <button type="button" class="chip" data-mode="semua" data-on-click="pilihModePersetujuan" data-arg="$el">Semua</button>
+        </div>
+        <select id="statusRequest" class="input-field w-40" data-tanpa-cari data-on-change="saringRequest" aria-label="Status request">
+            <option value="">Semua status</option><option value="MENUNGGU">Menunggu</option><option value="DISETUJUI">Disetujui</option>
+            <option value="DITOLAK">Ditolak</option><option value="DIBATALKAN">Dibatalkan</option>
+        </select>
+        <div class="flex-1"></div>
+        <div class="relative">
+            <input type="text" id="cariRequest" placeholder="Cari nama / NIK / plat / pengaju" class="input-field pl-9 w-64" data-on-input="saringRequest">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        </div>
+        {% if boleh_blacklist %}
+        <button type="button" data-on-click="bukaTambahBlacklist" class="btn-danger"><i class="fa-solid fa-plus mr-1"></i> Request</button>
+        {% endif %}
+    </div>
+    <div class="card p-0 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">List Request</h2>
+                <p id="totalRequest" class="text-xs text-slate-500">Memuat...</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <div data-tombol-kolom="tabelRequest"></div>
+                {{ tombol_ekspor('daftarPengajuan', 'List Request Blacklist') }}
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table id="tabelRequest" data-atur-kolom class="tabel-aksi-lekat w-full text-left text-sm">
+                <thead class="table-header-row">
+                    <tr><th class="table-cell" data-kolom="no" data-kolom-sembunyi>No.</th>
+                        <th class="table-cell" data-kolom="tanggal">Tanggal</th>
+                        <th class="table-cell" data-kolom="pengaju">Pengaju</th>
+                        <th class="table-cell" data-kolom="lokasi">Lokasi</th>
+                        <th class="table-cell" data-kolom="jenis">Jenis</th>
+                        <th class="table-cell" data-kolom="nama" data-kolom-wajib>Nama</th>
+                        <th class="table-cell" data-kolom="alias" data-kolom-sembunyi>Alias</th>
+                        <th class="table-cell" data-kolom="nik">NIK</th>
+                        <th class="table-cell" data-kolom="alasan">Alasan</th>
+                        <th class="table-cell" data-kolom="produk">Produk</th>
+                        <th class="table-cell" data-kolom="kategori">Status</th>
+                        <th class="table-cell" data-kolom="plat">Plat Kendaraan</th>
+                        <th class="table-cell" data-kolom="supplier" data-kolom-sembunyi>Asal Supplier</th>
+                        <th class="table-cell" data-kolom="tahap">Tahap Persetujuan</th>
+                        <th class="table-cell text-right" data-kolom="aksi" data-kolom-wajib>Aksi</th></tr>
+                </thead>
+                <tbody id="daftarPengajuan" data-per-halaman="20" data-tampilan="tabel" data-mode-awal="{{ 'menunggu' if bisa_setujui else 'saya' }}"
+                       class="divide-y divide-slate-100"></tbody>
+            </table>
         </div>
     </div>
-    <div id="daftarPengajuan" class="space-y-3" data-mode-awal="{{ 'menunggu' if bisa_setujui else 'saya' }}"></div>
 </div>

@@ -50,7 +50,8 @@ KELOMPOK = [
       "sortasi", "lab_hasil", "pembatalan_tiket", "produk", "mitra", "kendaraan", "personel", "delivery_order",
       "kontrak_kendaraan", "dokumen", "akun"]),
     ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
-     ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "notifikasi", "notifikasi_baca", "akun", "comp_area"]),
+     ["log_aktivitas", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
+      "level", "notifikasi", "notifikasi_baca", "akun", "comp_area"]),
 ]
 
 def entitas(t, ringkas=False):

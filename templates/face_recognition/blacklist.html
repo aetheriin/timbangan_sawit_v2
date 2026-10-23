@@ -8,9 +8,8 @@
 
 {% block tab_header %}
     {{ judul_halaman('Pengawasan & Blacklist', 'Kendaraan dan personel yang diblacklist berlaku di semua area', 'fa-ban', 'merah') }}
-    {% set tab_bl = [('blacklist', 'Daftar Blacklist'), ('log', 'Log Validasi')] %}
-    {% if boleh('BLACKLIST', 'tambah', 'hapus') or boleh('BLACKLIST', 'setujui') %}{% set tab_bl = tab_bl + [('persetujuan', 'Persetujuan')] %}{% endif %}
-    {{ tab_header(tab_bl) }}
+    {# List Request selalu ada: pengaju melihat request miliknya, penyetuju melihat request di tahapnya #}
+    {{ tab_header([('blacklist', 'List Blacklist'), ('persetujuan', 'List Request'), ('log', 'Log Validasi')]) }}
 {% endblock %}
 
 {% block tab_content %}
@@ -27,5 +26,6 @@
 <script defer src="{{ url_for('static', filename='js/face_recognition/kamera.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/face_recognition/blacklist.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/face_recognition/blacklist_log.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/face_recognition/blacklist_request.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/persetujuan.js') }}"></script>
 {% endblock %}

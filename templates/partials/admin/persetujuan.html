@@ -1,0 +1,32 @@
+{# Admin › Alur Persetujuan (migrasi 043): tahap persetujuan berjenjang per jenis pengajuan + kategori target.
+   Tiap tahap = peran (departemen + jabatan). Logika di utils/persetujuan.py, tampilan di js/admin/persetujuan.js #}
+<div class="note-info mb-4 text-sm leading-relaxed">
+    <p class="font-semibold mb-1">Cara kerja</p>
+    <ul class="list-disc pl-5 space-y-0.5">
+        <li>Pengajuan mengikuti alur sesuai <b>jenis</b> dan <b>kategori target</b> (mis. Tambah blacklist · Driver). Bila kategori itu tidak punya alur, dipakai alur <b>Semua kategori</b>.</li>
+        <li>Penyetuju setiap tahap = pengguna dengan peran itu di <b>perusahaan pengaju</b>; pengguna kantor pusat menyetujui untuk perusahaan yang dikelolanya.</li>
+        <li>Tahap yang perannya dipegang pengaju sendiri dilewati otomatis. Ditolak di tahap mana pun, pengajuan berhenti.</li>
+        <li>Tanpa alur sama sekali, berlaku cara lama: satu tahap oleh pemegang hak <b>Setujui</b> (Level &amp; Hak Akses).</li>
+    </ul>
+</div>
+<div class="section-box">
+    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Daftar Alur</p>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaAlurSetuju"><i class="fa-solid fa-plus mr-1"></i> Tambah Alur</button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Jenis Pengajuan</th><th class="table-cell">Kategori</th><th class="table-cell">Tahap Persetujuan</th>
+                    <th class="table-cell">Status</th><th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelAlurSetuju" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<div id="dataAlurSetuju" class="hidden" data-isi='{{ {
+    'jenis': jenis_pengajuan, 'kategori': kategori_alur,
+    'departemen': department_list | map(attribute='id_department') | list,
+    'nama_departemen': department_list | map(attribute='nama') | list,
+    'jabatan': jabatan_list | rejectattr('is_admin') | map(attribute='id_jabatan') | list,
+    'nama_jabatan': jabatan_list | rejectattr('is_admin') | map(attribute='nama') | list } | tojson }}'></div>

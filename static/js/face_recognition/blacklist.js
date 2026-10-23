@@ -42,11 +42,14 @@ function cariBlacklistTunda() {
     timerCariBlacklist = setTimeout(muatBlacklist, 300);
 }
 
+const KOLOM_BLACKLIST = 14;
+
 async function muatBlacklist() {
-    const params = new URLSearchParams({ tipe: tipeFilterBlacklist, status: statusFilterBlacklist, cari: document.getElementById('cariBlacklist').value.trim() });
+    const params = new URLSearchParams({ tipe: tipeFilterBlacklist, status: statusFilterBlacklist,
+        kategori: document.getElementById('kategoriBlacklist').value, cari: document.getElementById('cariBlacklist').value.trim() });
     const data = await ambilJson(`/api/blacklist?${params}`);
     const tbody = document.getElementById('kartuBlacklist');
-    if (data.error) { tbody.innerHTML = barisKosong(5, data.error); return; }
+    if (data.error) { tbody.innerHTML = barisKosong(KOLOM_BLACKLIST, data.error); return; }
     dataBlacklist = data;
     const bolehTambah = tbody.dataset.bolehTambah === '1';
     const bolehHapus = tbody.dataset.bolehHapus === '1';
@@ -54,19 +57,28 @@ async function muatBlacklist() {
     document.getElementById('totalBlacklist').innerHTML = dicabut
         ? `Blacklist yang sudah dicabut: <b>${data.length}</b>`
         : `Total terblokir: <b class="text-red-600">${data.length}</b> · berlaku di semua area`;
-    // Tabel ringkas (data bisa ratusan): target 2 baris, alasan maks 2 baris, aksi berupa ikon
+    const sel = (teks, kelas = '') => `<td class="table-cell ${kelas}">${teks ? escapeHtml(teks) : '<span class="text-slate-300">-</span>'}</td>`;
+    const tempat = (area, pt) => area ? `${pt ? `${pt} · ` : ''}${area}` : '';
     tbody.innerHTML = data.map(r => {
-        const terkait = [r.no_plat_terkait, r.customer_terkait, r.pengangkutan_terkait].filter(Boolean).join(' · ');
+        const kendaraan = r.tipe_entitas === 'KENDARAAN';
         return `<tr class="hover:bg-slate-50 align-top">
-            <td class="table-cell">
-                <div class="flex items-center gap-2"><span class="w-1.5 h-8 rounded-full ${r.dicabut_at ? 'bg-slate-300' : 'bg-red-500'} flex-shrink-0"></span>
-                <div class="min-w-0"><p class="font-mono font-bold text-slate-900 whitespace-nowrap">${escapeHtml(namaTarget(r))}</p>
-                <p class="text-xs text-slate-500">${r.tipe_entitas === 'PERSONEL' ? 'Personel' : 'Kendaraan'}${terkait ? ` · ${escapeHtml(terkait)}` : ''}</p></div></div></td>
-            <td class="table-cell max-w-md"><p class="text-slate-700 line-clamp-2" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</p>
-                ${r.dicabut_at ? `<p class="text-xs text-emerald-700 mt-1">Dicabut ${escapeHtml(r.dicabut_at)} oleh ${escapeHtml(r.dicabut_oleh || '-')}${r.alasan_cabut ? ` · ${escapeHtml(r.alasan_cabut)}` : ''}</p>` : ''}</td>
+            <td class="table-cell"><div class="flex items-center gap-2">
+                <span class="w-1.5 h-8 rounded-full ${r.dicabut_at ? 'bg-slate-300' : 'bg-red-500'} flex-shrink-0"></span>
+                <div class="min-w-0"><p class="font-semibold text-slate-900 whitespace-nowrap ${kendaraan ? 'font-mono' : ''}">${escapeHtml(kendaraan ? r.no_plat : r.nama_personel)}</p>
+                <p class="text-xs text-slate-500">${kendaraan ? 'Kendaraan' : escapeHtml(r.kode_personel || formatIdPersonel(r.id_personel))}</p>
+                ${r.dicabut_at ? `<p class="text-xs text-emerald-700">Dicabut ${escapeHtml(r.dicabut_at)} oleh ${escapeHtml(r.dicabut_oleh || '-')}</p>` : ''}</div></div></td>
+            ${sel(r.nama_alias)}
+            ${sel(r.nik, 'font-mono text-xs')}
+            <td class="table-cell">${r.nama_kategori ? badge(r.nama_kategori, kendaraan ? WARNA_BADGE.abu : WARNA_BADGE.biru) : '-'}</td>
+            ${sel(r.customer_terkait)}
+            ${sel(kendaraan ? r.no_plat : r.no_plat_terkait, 'font-mono text-xs whitespace-nowrap')}
+            <td class="table-cell max-w-xs"><p class="line-clamp-2 text-slate-700" title="${escapeHtml(r.alasan_blacklist)}">${escapeHtml(r.alasan_blacklist)}</p></td>
+            ${sel(r.tgl_blacklist, 'font-mono text-xs whitespace-nowrap')}
+            ${sel(tempat(r.lokasi_blacklist, r.company_blacklist), 'whitespace-nowrap')}
+            ${sel(r.scan_terakhir, 'font-mono text-xs whitespace-nowrap')}
+            ${sel(tempat(r.lokasi_scan, r.company_scan), 'whitespace-nowrap')}
             <td class="table-cell whitespace-nowrap">${r.no_surat_blacklist ? `<span class="font-mono text-xs">${escapeHtml(r.no_surat_blacklist)}</span>` : badge('Menyusul', WARNA_BADGE.oranye)}</td>
-            <td class="table-cell whitespace-nowrap"><p class="font-mono text-xs text-slate-700">${escapeHtml(r.tgl_blacklist)}</p>
-                <p class="text-xs text-slate-500">${escapeHtml(r.oleh)}${r.area_oleh ? ` · ${escapeHtml(r.area_oleh)}` : ''}</p></td>
+            ${sel(r.oleh, 'whitespace-nowrap')}
             <td class="table-cell text-right whitespace-nowrap">${r.file_surat_blacklist
                 ? `<a href="${escapeHtml(urlBerkas(r.file_surat_blacklist))}" target="_blank" class="link-aksi text-blue-600">Lihat Surat</a>`
                 : (!r.id_dokumen && bolehTambah && !r.dicabut_at ? `<button type="button" class="link-aksi text-blue-600" data-on-click="bukaSuratBlacklist" data-arg="${r.id_blacklist}">Lampirkan Surat</button>` : '')}
@@ -74,13 +86,16 @@ async function muatBlacklist() {
                     ? `<a href="/blacklist?tab=persetujuan&id=${r.id_pengajuan_hapus}" class="ml-3">${badge('Menunggu persetujuan hapus', WARNA_BADGE.oranye)}</a>`
                     : (bolehHapus ? `<button type="button" class="link-aksi text-red-600 ml-3" data-on-click="bukaHapusBlacklist" data-arg="${r.id_blacklist}">Ajukan Hapus</button>` : '')}</td>
         </tr>`;
-    }).join('') || barisKosong(5, dicabut ? 'Belum ada blacklist yang dicabut' : 'Belum ada blacklist', dicabut ? '' : aksiKosong('bukaTambahBlacklist', 'Ajukan Blacklist'));
-    catatanBatas(tbody, data.length, 200, 5);
+    }).join('') || barisKosong(KOLOM_BLACKLIST, dicabut ? 'Belum ada blacklist yang dicabut' : 'Belum ada blacklist',
+        dicabut || !bolehTambah ? null : { fungsi: 'bukaTambahBlacklist', label: 'Request Blacklist' });
+    catatanBatas(tbody, data.length, 200, KOLOM_BLACKLIST);
 }
 
 // ===== MODAL TAMBAH =====
 function bukaTambahBlacklist() {
-    ['blCari', 'blNoSurat', 'blAlasan', 'blFile', 'blFotoWajah'].forEach(id => document.getElementById(id).value = '');
+    ['blCari', 'blNoSurat', 'blAlasan', 'blFile', 'blFotoWajah', 'blAlias'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('blPunyaAlias').checked = false;
+    aturAliasBlacklist();
     document.getElementById('blFileNama').textContent = '';
     document.getElementById('blTanggal').value = new Date().toISOString().slice(0, 10);
     setTipeBlacklist('PERSONEL');
@@ -167,7 +182,7 @@ function pilihTargetBlacklist(index) {
     document.getElementById('blHasilCari').classList.add('hidden');
     targetBlacklist = index === null ? null : hasilCariTarget[index];
     const box = document.getElementById('blTarget');
-    tampilkanTerkait(tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist : null);
+    tampilkanTerkait(targetBlacklist);
     if (!targetBlacklist) {
         box.className = 'border border-slate-200 bg-slate-50 rounded-lg p-4 text-sm text-slate-400';
         box.textContent = 'Belum ada target dipilih.';
@@ -201,16 +216,43 @@ function pilihTargetBlacklist(index) {
         ${t.is_active ? badge('Aktif', WARNA_BADGE.hijau) : badge('Nonaktif', WARNA_BADGE.abu)}`;
 }
 
-// Customer & pengangkutan hanya tampil bila orang ini tercatat sebagai supir (punya transaksi); plat selalu bisa diisi
+// Kategori (menentukan jalur persetujuan), alias, plat, asal supplier & pengangkutan (terisi dari transaksi terakhir)
 function tampilkanTerkait(t) {
     document.getElementById('blTerkait').classList.toggle('hidden', !t);
     if (!t) return;
-    const supir = !!t.plat_terakhir;
-    document.getElementById('blPlatTerkait').value = t.plat_terakhir || '';
-    document.getElementById('blCustomerBox').classList.toggle('hidden', !supir);
-    document.getElementById('blAngkutBox').classList.toggle('hidden', !supir);
-    document.getElementById('blCustomerTerkait').value = t.customer_terakhir || '';
-    document.getElementById('blAngkutTerkait').value = supir ? (t.pengangkutan_terakhir || 'Customer sendiri') : '';
+    const personel = tipeBlacklistBaru === 'PERSONEL';
+    const kategori = personel ? t.kategori : 'KENDARAAN';
+    document.getElementById('blKategori').textContent = personel ? (t.nama_kategori || t.kategori || '-') : 'Kendaraan';
+    document.getElementById('blAliasBox').classList.toggle('hidden', !personel);
+    document.getElementById('blPlatBox').classList.toggle('hidden', !personel);
+    document.getElementById('blPlatTerkait').value = personel ? (t.plat_terakhir || '') : '';
+    setNilaiPilihan('blCustomerTerkait', t.id_customer_terakhir);
+    setNilaiPilihan('blAngkutTerkait', t.id_pengangkutan_terakhir);
+    document.getElementById('blSupplierWajib').classList.toggle('hidden', kategori !== 'DRIVER');
+    document.getElementById('blProduk').textContent = t.produk_terakhir ? `Produk transaksi terakhir: ${t.produk_terakhir}` : '';
+    muatJalurBlacklist(kategori);
+}
+
+// Pilih nilai <select> bila ada di daftar (supplier di luar PT user tidak ada di pilihan)
+function setNilaiPilihan(id, nilai) {
+    const sel = document.getElementById(id);
+    sel.value = [...sel.options].some(o => o.value === String(nilai ?? '')) ? String(nilai ?? '') : '';
+    sel.dispatchEvent(new Event('change'));
+}
+
+function aturAliasBlacklist() {
+    const ada = document.getElementById('blPunyaAlias').checked;
+    document.getElementById('blAliasIsi').classList.toggle('hidden', !ada);
+    if (ada) document.getElementById('blAlias').focus();
+}
+
+async function muatJalurBlacklist(kategori) {
+    const el = document.getElementById('blJalur');
+    el.textContent = 'Memuat...';
+    const data = await ambilJson(`/api/blacklist/jalur?jenis=BLACKLIST_TAMBAH&kategori=${encodeURIComponent(kategori || '')}`);
+    if (data.error) { el.textContent = data.error; return; }
+    el.textContent = data.tahap.length ? data.tahap.map((n, i) => `${i + 1}. ${n}`).join('  →  ')
+        : (data.lama ? `Satu tahap: ${data.lama}` : 'Tanpa persetujuan (langsung berlaku)');
 }
 
 async function simpanBlacklist(btn) {
@@ -219,10 +261,17 @@ async function simpanBlacklist(btn) {
     const noSurat = document.getElementById('blNoSurat').value.trim();
     const alasan = document.getElementById('blAlasan').value.trim();
     if (!alasan) { Notif.peringatan('Alasan wajib diisi'); return; }
+    const punyaAlias = document.getElementById('blPunyaAlias').checked && tipeBlacklistBaru === 'PERSONEL';
+    const alias = document.getElementById('blAlias').value.trim();
+    if (punyaAlias && !alias) { Notif.peringatan('Nama alias wajib diisi'); return; }
+    const idSupplier = document.getElementById('blCustomerTerkait').value;
+    if (tipeBlacklistBaru === 'PERSONEL' && targetBlacklist.kategori === 'DRIVER' && !idSupplier) {
+        Notif.peringatan('Asal supplier wajib diisi untuk Driver'); return;
+    }
     if (!!noSurat !== !!file) { Notif.peringatan('Isi No. surat dan file surat sekaligus, atau kosongkan keduanya bila surat menyusul'); return; }
     const nama = tipeBlacklistBaru === 'PERSONEL' ? targetBlacklist.nama_personel : targetBlacklist.no_plat;
-    const ok = await Dialog.konfirmasi({ judul: 'Ajukan blacklist?', teksYa: 'Ajukan Blacklist', bahaya: true,
-        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui, wajah / kendaraan ini ditolak di semua area.` });
+    const ok = await Dialog.konfirmasi({ judul: 'Kirim request blacklist?', teksYa: 'Kirim Request', bahaya: true,
+        pesan: `${nama} diajukan untuk masuk blacklist. Setelah disetujui semua tahap, wajah / kendaraan ini ditolak di semua area.` });
     if (!ok) return;
 
     const formData = new FormData();
@@ -234,17 +283,18 @@ async function simpanBlacklist(btn) {
     if (file) formData.append('file_surat', file);
     if (tipeBlacklistBaru === 'PERSONEL') {
         formData.append('no_plat_terkait', document.getElementById('blPlatTerkait').value.trim());
-        if (targetBlacklist.plat_terakhir) {
-            formData.append('id_customer_terkait', targetBlacklist.id_customer_terakhir || '');
-            formData.append('id_pengangkutan_terkait', targetBlacklist.id_pengangkutan_terakhir || '');
-        }
+        formData.append('punya_alias', punyaAlias ? '1' : '0');
+        formData.append('nama_alias', punyaAlias ? alias : '');
     }
+    formData.append('id_customer_terkait', idSupplier);
+    formData.append('id_pengangkutan_terkait', document.getElementById('blAngkutTerkait').value);
 
     const data = await denganTombol(btn, () => kirimForm('/api/blacklist/tambah', formData), 'Menyimpan...');
     if (!tampilkanHasil(data)) return;
     closeModal('modalBlacklist');
     Kamera.stop();
     muatBlacklist();
+    if (typeof muatPengajuan === 'function' && persetujuanDimuat) muatPengajuan();
     if (typeof muatPersonel === 'function' && personelDimuat) muatPersonel();
 }
 

@@ -16,14 +16,19 @@ def _format(r):
     return r
 
 
-def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF"):
+def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=None, kategori=None):
+    """List Blacklist. pt = PT yang boleh dilihat user (None = semua): lokasi blacklist (area pengaju) di PT itu.
+    Termasuk tanggal & lokasi scan terakhir (blacklist_deteksi)."""
     sql = """
         SELECT TOP (?) b.id_blacklist, b.tipe_entitas, dk.no_dokumen AS no_surat_blacklist, b.alasan_blacklist,
                df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.created_at AS DATE)) AS tgl_blacklist,
                b.id_dokumen, b.created_at, u.nama AS oleh, lv.kode AS role_oleh, ar.nama AS area_oleh,
                p.id_personel, p.kode_personel, p.nama_personel, k.no_plat, b.no_plat_terkait,
                c.nama_supplier AS customer_terkait, a.nama_supplier AS pengangkutan_terkait,
-               b.dicabut_at, b.alasan_cabut, uc.nama AS dicabut_oleh,
+               b.dicabut_at, b.alasan_cabut, uc.nama AS dicabut_oleh, p.nik, b.nama_alias, b.kategori,
+               CASE WHEN b.tipe_entitas = 'KENDARAAN' THEN 'Kendaraan' ELSE kp.nama END AS nama_kategori,
+               arb.nama AS lokasi_blacklist, cb.kode AS company_blacklist,
+               COALESCE(sp.waktu, sk.waktu) AS scan_terakhir, sca.nama AS lokasi_scan, csa.kode AS company_scan,
                (SELECT TOP 1 pg.id_pengajuan FROM pengajuan pg WHERE pg.jenis = 'BLACKLIST_HAPUS' AND pg.status = 'MENUNGGU'
                 AND pg.target = 'BLACKLIST:' + CAST(b.id_blacklist AS VARCHAR(20))) AS id_pengajuan_hapus
         FROM blacklist b
@@ -36,12 +41,28 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF"):
         LEFT JOIN personel p ON b.id_personel = p.id_personel
         LEFT JOIN kendaraan k ON b.id_kendaraan = k.id_kendaraan
         LEFT JOIN dokumen dk ON dk.id_dokumen = b.id_dokumen          -- NULL = surat menyusul
+        LEFT JOIN kategori_personel kp ON kp.kode = b.kategori
+        LEFT JOIN comp_area arb ON arb.id_comp_area = b.id_comp_area
+        LEFT JOIN company cb ON cb.id_company = arb.id_company
+        OUTER APPLY (SELECT TOP 1 d.waktu, d.id_comp_area FROM blacklist_deteksi d
+                     WHERE b.id_personel IS NOT NULL AND d.id_personel = b.id_personel ORDER BY d.waktu DESC) sp
+        OUTER APPLY (SELECT TOP 1 d.waktu, d.id_comp_area FROM blacklist_deteksi d
+                     WHERE b.id_kendaraan IS NOT NULL AND d.id_kendaraan = b.id_kendaraan ORDER BY d.waktu DESC) sk
+        LEFT JOIN comp_area sca ON sca.id_comp_area = COALESCE(sp.id_comp_area, sk.id_comp_area)
+        LEFT JOIN company csa ON csa.id_company = sca.id_company
         OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
         WHERE 1 = 1"""
     params = [batas]
     if tipe:
         sql += " AND b.tipe_entitas = ?"
         params.append(tipe)
+    if kategori:
+        sql += " AND b.kategori = ?"
+        params.append(kategori)
+    if pt is not None:
+        ids = sorted(pt) or [-1]
+        sql += f" AND (b.id_comp_area IS NULL OR arb.id_company IN ({', '.join('?' * len(ids))}))"
+        params += ids
     if status == "AKTIF":
         sql += " AND b.dicabut_at IS NULL"
     elif status == "DICABUT":
@@ -49,8 +70,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF"):
     if cari:
         pola = f"%{cari}%"
         sql += """ AND (p.kode_personel LIKE ? OR p.nama_personel LIKE ? OR p.nik LIKE ?
-                        OR k.no_plat LIKE ? OR dk.no_dokumen LIKE ?)"""
-        params += [pola] * 5
+                        OR k.no_plat LIKE ? OR dk.no_dokumen LIKE ? OR b.nama_alias LIKE ? OR b.no_plat_terkait LIKE ?)"""
+        params += [pola] * 7
     sql += " ORDER BY b.created_at DESC, b.id_blacklist DESC"
     conn = get_connection()
     cursor = conn.cursor()
@@ -64,14 +85,17 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF"):
 # Bukan supir / belum pernah membawa truk -> kolom transaksi NULL (form blacklist tidak menampilkannya).
 _SELECT_PERSONEL = """
     SELECT {top} p.id_personel AS id_target, p.kode_personel, p.nama_personel, p.nik, p.no_sim, p.kategori,
-           p.foto_path, p.is_blacklisted, tr.no_plat AS plat_terakhir, tr.id_supplier AS id_customer_terakhir,
-           tr.customer AS customer_terakhir, tr.id_pengangkutan AS id_pengangkutan_terakhir,
-           tr.pengangkutan AS pengangkutan_terakhir, tr.created_at AS waktu_terakhir
+           kp.nama AS nama_kategori, p.foto_path, p.is_blacklisted, tr.no_plat AS plat_terakhir,
+           tr.id_supplier AS id_customer_terakhir, tr.customer AS customer_terakhir,
+           tr.id_pengangkutan AS id_pengangkutan_terakhir, tr.pengangkutan AS pengangkutan_terakhir,
+           tr.produk AS produk_terakhir, tr.created_at AS waktu_terakhir
     FROM v_personel p
+    LEFT JOIN kategori_personel kp ON kp.kode = p.kategori
     OUTER APPLY (SELECT TOP 1 k.no_plat, t.id_supplier, s.nama_supplier AS customer, t.id_pengangkutan,
-                        a.nama_supplier AS pengangkutan, t.created_at
+                        a.nama_supplier AS pengangkutan, pr.nama_produk AS produk, t.created_at
                  FROM transaksi t JOIN kendaraan k ON t.id_kendaraan = k.id_kendaraan
                  JOIN mitra s ON t.id_supplier = s.id_supplier
+                 LEFT JOIN produk pr ON pr.id_produk = t.id_produk
                  LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
                  WHERE t.id_driver = p.id_personel ORDER BY t.created_at DESC) tr
     WHERE p.is_active = 1"""
@@ -105,15 +129,18 @@ def cari_target(tipe, kata, batas=8):
                         WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND p.is_active = 1) AS jumlah_supir,
                        tr.id_driver AS id_supir_terakhir, tr.kode_personel AS kode_supir_terakhir,
                        tr.nama_personel AS nama_supir_terakhir, tr.customer AS customer_terakhir,
-                       tr.pengangkutan AS pengangkutan_terakhir, tr.created_at AS waktu_terakhir
+                       tr.id_supplier AS id_customer_terakhir, tr.id_pengangkutan AS id_pengangkutan_terakhir,
+                       tr.pengangkutan AS pengangkutan_terakhir, tr.produk AS produk_terakhir, tr.created_at AS waktu_terakhir
                 FROM kendaraan k
                 OUTER APPLY (SELECT TOP 1 p.id_personel, p.kode_personel, p.nama_personel
                              FROM kendaraan_driver kd JOIN personel p ON p.id_personel = kd.id_driver
                              WHERE kd.id_kendaraan = k.id_kendaraan AND kd.is_active = 1 AND kd.is_utama = 1) u
                 OUTER APPLY (SELECT TOP 1 t.id_driver, p.kode_personel, p.nama_personel, s.nama_supplier AS customer,
-                                    a.nama_supplier AS pengangkutan, t.created_at
+                                    t.id_supplier, t.id_pengangkutan, a.nama_supplier AS pengangkutan,
+                                    pr.nama_produk AS produk, t.created_at
                              FROM transaksi t JOIN personel p ON p.id_personel = t.id_driver
                              JOIN mitra s ON t.id_supplier = s.id_supplier
+                             LEFT JOIN produk pr ON pr.id_produk = t.id_produk
                              LEFT JOIN mitra a ON t.id_pengangkutan = a.id_supplier
                              WHERE t.id_kendaraan = k.id_kendaraan ORDER BY t.created_at DESC) tr
                 WHERE REPLACE(k.no_plat, ' ', '') LIKE ?
@@ -121,6 +148,21 @@ def cari_target(tipe, kata, batas=8):
         return _rapikan_target(_rows_to_dicts(cursor))
     finally:
         conn.close()
+
+
+def info_kendaraan(id_kendaraan):
+    """Plat, supplier / pengangkutan / produk transaksi terakhir kendaraan (pengajuan blacklist kendaraan)."""
+    rows = _query_satu("""SELECT k.no_plat, s.nama_supplier AS customer_terakhir, a.nama_supplier AS pengangkutan_terakhir,
+                                 pr.nama_produk AS produk_terakhir, t.id_supplier AS id_customer_terakhir,
+                                 t.id_pengangkutan AS id_pengangkutan_terakhir
+                          FROM kendaraan k
+                          OUTER APPLY (SELECT TOP 1 t.id_supplier, t.id_pengangkutan, t.id_produk FROM transaksi t
+                                       WHERE t.id_kendaraan = k.id_kendaraan ORDER BY t.created_at DESC) t
+                          LEFT JOIN mitra s ON s.id_supplier = t.id_supplier
+                          LEFT JOIN mitra a ON a.id_supplier = t.id_pengangkutan
+                          LEFT JOIN produk pr ON pr.id_produk = t.id_produk
+                          WHERE k.id_kendaraan = ?""", id_kendaraan)
+    return rows[0] if rows else None
 
 
 def get_target_personel(id_personel):
@@ -135,9 +177,11 @@ def get_target_personel(id_personel):
         conn.close()
 
 
-def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, user_id, terkait=None):
+def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, user_id, terkait=None,
+                     nama_alias=None, kategori=None, id_area=None):
     """INSERT dokumen surat + blacklist + set is_blacklisted = 1 dalam satu transaksi. Error bila sudah diblacklist.
-    terkait (personel): {no_plat, id_customer, id_pengangkutan} saat itu -> disimpan sebagai informasi."""
+    terkait: {no_plat, id_customer (asal supplier), id_pengangkutan} saat itu -> disimpan sebagai informasi.
+    kategori = kategori target saat itu, id_area = lokasi blacklist (area pengaju)."""
     terkait = terkait or {}
     if tipe not in TIPE_VALID:                        # nama tabel disisipkan ke SQL -> hanya daftar tetap
         raise ValueError("Tipe blacklist tidak valid")
@@ -154,10 +198,12 @@ def tambah_blacklist(tipe, id_target, no_surat, alasan, file_info, tgl_surat, us
         id_dokumen = (buat_dokumen(cursor, "SURAT_BLACKLIST", no_surat, tgl_surat, f"Blacklist {tipe.lower()}",
                                    [file_info] if file_info else [], user_id) if no_surat else None)   # None = menyusul
         cursor.execute(f"""INSERT INTO blacklist (tipe_entitas, {kolom}, alasan_blacklist, id_dokumen, created_by,
-                                                  no_plat_terkait, id_customer_terkait, id_pengangkutan_terkait)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                                  no_plat_terkait, id_customer_terkait, id_pengangkutan_terkait,
+                                                  nama_alias, kategori, id_comp_area)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                        tipe, id_target, alasan, id_dokumen, user_id,
-                       terkait.get("no_plat"), terkait.get("id_customer"), terkait.get("id_pengangkutan"))
+                       terkait.get("no_plat"), terkait.get("id_customer"), terkait.get("id_pengangkutan"),
+                       nama_alias, kategori, id_area)
         cursor.execute(f"UPDATE {tabel} SET is_blacklisted = 1 WHERE {kolom} = ?", id_target)
         conn.commit()
     except Exception:
@@ -224,9 +270,13 @@ def nama_target(tipe, id_target):
 
 def get_blacklist(id_blacklist):
     rows = _query_satu("""SELECT b.id_blacklist, b.tipe_entitas, b.id_personel, b.id_kendaraan, b.dicabut_at,
-                                 COALESCE(p.nama_personel, k.no_plat) AS nama
+                                 COALESCE(p.nama_personel, k.no_plat) AS nama, p.nik, b.nama_alias, b.kategori,
+                                 COALESCE(b.no_plat_terkait, k.no_plat) AS no_plat, c.nama_supplier AS supplier,
+                                 a.nama_supplier AS pengangkutan
                           FROM blacklist b LEFT JOIN personel p ON p.id_personel = b.id_personel
-                          LEFT JOIN kendaraan k ON k.id_kendaraan = b.id_kendaraan WHERE b.id_blacklist = ?""", id_blacklist)
+                          LEFT JOIN kendaraan k ON k.id_kendaraan = b.id_kendaraan
+                          LEFT JOIN mitra c ON c.id_supplier = b.id_customer_terkait
+                          LEFT JOIN mitra a ON a.id_supplier = b.id_pengangkutan_terkait WHERE b.id_blacklist = ?""", id_blacklist)
     return rows[0] if rows else None
 
 
@@ -271,3 +321,9 @@ def cabut_blacklist(id_blacklist, alasan, user_id):
         except Exception:       # noqa: BLE001 - koneksi sudah tertutup
             pass
         conn.close()
+
+
+def mitra_aktif(id_supplier):
+    """Nama mitra aktif, atau None."""
+    rows = _query_satu("SELECT nama_supplier FROM mitra WHERE id_supplier = ? AND is_active = 1", id_supplier)
+    return rows[0]["nama_supplier"] if rows else None

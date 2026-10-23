@@ -1,4 +1,6 @@
-// ===== DAFTAR PENGAJUAN: setujui / tolak (tab Persetujuan di Blacklist, bagian Pengajuan Koreksi di Daftar Tiket) =====
+// ===== DAFTAR PENGAJUAN: setujui / tolak (List Request di Blacklist, bagian Pengajuan Koreksi di Daftar Tiket) =====
+// Berjenjang (Admin › Alur Persetujuan): tombol Setujui hanya untuk peran tahap yang sedang berjalan.
+// Halaman yang punya tampilkanPengajuanTabel() (blacklist_request.js) menggambar tabel sendiri; selain itu kartu.
 // Penyetuju = jabatan dengan hak Setujui di menu itu (data-menu), PT yang sama. ?id=<id> (dari notifikasi): pengajuan
 // itu disorot; bila tidak ada di daftar awal, daftar "Semua pengajuan" yang dibuka.
 // data-muat-langsung: dimuat saat halaman dibuka (tanpa tab).
@@ -12,7 +14,7 @@ const idSorot = Number(new URLSearchParams(location.search).get('id')) || null;
 
 const WARNA_STATUS = { MENUNGGU: WARNA_BADGE.oranye, DISETUJUI: WARNA_BADGE.hijau, DITOLAK: WARNA_BADGE.merah, DIBATALKAN: WARNA_BADGE.abu };
 const LABEL_STATUS = { MENUNGGU: 'Menunggu', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
-const LABEL_AKSI = { DIAJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan' };
+const LABEL_AKSI = { DIAJUKAN: 'Diajukan', DISETUJUI: 'Disetujui', DITOLAK: 'Ditolak', DIBATALKAN: 'Dibatalkan', DILEWATI: 'Dilewati' };
 
 async function mulaiPengajuan() {
     if (persetujuanDimuat) return;
@@ -35,11 +37,16 @@ function pilihModePersetujuan(el) {
 async function muatPengajuan() {
     const data = await ambilJson(`/api/persetujuan?menu=${menuPersetujuan}&mode=${modePersetujuan}`);
     const wadah = document.getElementById('daftarPengajuan');
-    if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return; }
+    const tabel = typeof tampilkanPengajuanTabel === 'function';
+    if (data.error) {
+        wadah.innerHTML = tabel ? barisKosong(KOLOM_REQUEST, data.error) : `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`;
+        return;
+    }
     dataPengajuan = data;
     const jml = document.getElementById('jmlMenunggu');
     if (modePersetujuan === 'menunggu' && jml) jml.textContent = data.length ? `(${data.length})` : '';
-    wadah.innerHTML = data.map(kartuPengajuan).join('') || `<div class="card p-8 text-center text-sm text-slate-400">
+    if (tabel) tampilkanPengajuanTabel(data);
+    else wadah.innerHTML = data.map(kartuPengajuan).join('') || `<div class="card p-8 text-center text-sm text-slate-400">
         ${modePersetujuan === 'menunggu' ? 'Tidak ada pengajuan yang menunggu persetujuan Anda' : 'Belum ada pengajuan'}</div>`;
     const sorot = idSorot && document.getElementById(`pengajuan-${idSorot}`);
     if (sorot) { sorot.classList.add('ring-2', 'ring-blue-400'); sorot.scrollIntoView({ block: 'center' }); }
@@ -62,6 +69,7 @@ function kartuPengajuan(p) {
                 ${rincian ? `<ul class="text-sm space-y-0.5">${rincian}</ul>` : ''}
                 ${p.alasan ? `<p class="text-sm text-slate-600">Alasan: ${escapeHtml(p.alasan)}</p>` : ''}
                 <p class="text-xs text-slate-500">Diajukan ${escapeHtml(p.pengaju)} · ${escapeHtml(p.company)} · ${escapeHtml(p.site)} · ${escapeHtml(p.waktu)}</p>
+                ${p.tahap && p.tahap.length ? `<p class="text-xs text-slate-500">Tahap: ${p.tahap.map((n, i) => `${i + 1}. ${escapeHtml(n)}`).join(' → ')}${p.status === 'MENUNGGU' ? ` · <b>menunggu ${escapeHtml(p.menunggu || '-')}</b>` : ''}</p>` : ''}
             </div>
             <div class="flex gap-2 flex-shrink-0">
                 ${p.bisa_batal ? `<button type="button" class="btn-secondary btn-sm" data-on-click="batalkanPengajuan" data-arg="${p.id_pengajuan}">Batalkan</button>` : ''}
@@ -80,8 +88,11 @@ function bukaPutusan(id, aksi) {
     const tolak = aksi === 'tolak';
     document.getElementById('formPutusan').reset();
     document.getElementById('judulPutusan').textContent = tolak ? 'Tolak Pengajuan' : 'Setujui Pengajuan';
+    const masihAda = p.tahap && p.tahap.length && p.langkah < p.total_langkah;
     document.getElementById('ringkasPutusan').textContent = `${p.nama_jenis}: ${p.judul}` +
-        (tolak ? '' : '. Setelah disetujui, langsung berlaku.');
+        (tolak ? '. Pengajuan berhenti dan tidak diteruskan.' : (masihAda
+            ? `. Tahap ${p.langkah}/${p.total_langkah}: setelah disetujui diteruskan ke tahap berikutnya.`
+            : '. Setelah disetujui, langsung berlaku.'));
     document.getElementById('catatanPutusan').required = tolak;
     document.getElementById('hintPutusan').textContent = tolak ? 'Alasan penolakan wajib diisi dan dikirim ke yang mengajukan.' : 'Opsional.';
     const btn = document.getElementById('btnPutusan');

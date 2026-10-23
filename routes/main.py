@@ -169,8 +169,17 @@ def halaman_blacklist():
     """Menu Blacklist (dulu tab Pengenalan Wajah). Berlaku di semua area; siapa yang boleh menetapkan: hak BLACKLIST."""
     id_area = area_data(current_user.id)
     pusat = id_area is None or isinstance(id_area, tuple)       # kantor pusat bisa memilih site di Log Validasi
+    from utils.db_kontrak import daftar_mitra
+    from utils.alur_persetujuan import daftar_kategori as kategori_alur
+    from utils import persetujuan
+    pt = company_user(current_user.id)
     return render_template("face_recognition/blacklist.html", halaman="blacklist", boleh_blacklist=boleh("BLACKLIST", "tambah"),
                            boleh_hapus_blacklist=boleh("BLACKLIST", "hapus"), is_pusat=pusat,
+                           supplier_list=[s for s in get_semua_supplier() if s.is_customer and supplier_boleh(s.id_supplier, pt)],
+                           transportir_list=[m for m in daftar_mitra()
+                                             if m["peran"] == "PENGANGKUTAN" and supplier_boleh(m["id_supplier"], pt)],
+                           kategori_list=kategori_alur(),
+                           penyetuju_alur=persetujuan.peran_di_alur(current_user.id_level, "BLACKLIST"),
                            area_list=[a for a in daftar_area() if a["is_active"] and area_cocok(id_area, a["id_comp_area"])] if pusat else [])
 
 
