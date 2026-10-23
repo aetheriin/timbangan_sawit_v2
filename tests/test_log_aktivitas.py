@@ -17,7 +17,7 @@ class TestCatat(unittest.TestCase):
                             baru={"nama": "Budí", "waktu": datetime(2026, 10, 1, 8, 0), "kg": Decimal("1.5")},
                             user_id=3, cursor=cur)
         args = cur.execute.call_args[0]
-        self.assertIn("sp_catat_log", args[0])
+        self.assertIn("sp_WriteLog", args[0])
         self.assertEqual(args[1:5], ("PERSONEL", "UPDATE", "personel", "7"))
         self.assertEqual(json.loads(args[5]), {"nama": "Budi"})
         self.assertEqual(json.loads(args[6]), {"nama": "Budí", "waktu": "2026-10-01T08:00:00", "kg": 1.5})

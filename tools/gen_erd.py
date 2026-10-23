@@ -37,22 +37,22 @@ null_of = {(t, k["nama"]): k["null"] for t, ks in kolom.items() for k in ks}
 KELOMPOK = [
     ("01_organisasi_akses", "Organisasi, akun & hak akses",
      ["Company", "Mill", "CompanyArea", "Department", "DepartmentDetails", "Level", "LevelDetails", "Menu", "ActionType",
-      "AccessMenu", "Users", "PasswordManager", "UserCompany", "UserSession", "pengaturan", "pengaturan_area", "kolom_wajib",
-      "perangkat_kiosk", "jadwal_kerja", "UserCategory"]),
+      "AccessMenu", "Users", "PasswordManager", "UserCompany", "UserSession", "Setting", "SettingArea", "RequiredDataField",
+      "Device", "WorkSchedule", "UserCategory"]),
     ("02_personel_dokumen", "Orang (Users), SIM, wajah, kunjungan, absensi, blacklist & dokumen",
      ["UserCategory", "Users", "License", "LicenseDetail", "FaceRecog", "VisitPurpose", "Guest", "FaceActivity",
-      "Blacklist", "BlacklistDetection", "jenis_dokumen", "dokumen", "dokumen_file", "DetailVehicle", "CompanyArea"]),
+      "Blacklist", "BlacklistDetection", "DocumentType", "Document", "DocumentFile", "DetailVehicle", "CompanyArea"]),
     ("03_mitra_kontrak", "Supplier, bank, produk, harga, kontrak, DO & invoice",
      ["Currency", "Bank", "BankDetails", "SupplierType", "SupplierTypeDetails", "SupplierGroup", "Supplier", "SupplierCompany",
       "Company", "VehicleType", "DetailVehicle", "VehicleDriver", "VehicleContract", "ProductType", "Product", "ProductPrice",
-      "DailyPrice", "Contract", "DeliveryOrder", "DOTransport", "Invoice", "WeightBridgeType", "alur", "Users"]),
+      "DailyPrice", "Contract", "DeliveryOrder", "DOTransport", "Invoice", "WeightBridgeType", "Flow", "Users"]),
     ("04_proses_tiket", "Tiket & timbang: WeightBridge, Weighing, Grading, LabResult, TicketVoid, DOExcess",
-     ["WeightBridge", "WeightBridgeType", "Status", "tahap", "alur", "alur_tahap", "CompanyArea", "jembatan_timbang", "Weighing",
+     ["WeightBridge", "WeightBridgeType", "Status", "FlowStage", "Flow", "FlowStep", "CompanyArea", "Scale", "Weighing",
       "Grading", "LabResult", "TicketVoid", "DOExcess", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
-      "VehicleContract", "dokumen", "Users"]),
+      "VehicleContract", "Document", "Users"]),
     ("05_log_persetujuan", "Log aktivitas, persetujuan & notifikasi",
-     ["Log", "pengajuan", "pengajuan_riwayat", "pengajuan_tahap", "alur_persetujuan", "alur_persetujuan_tahap",
-      "LevelDetails", "notifikasi", "notifikasi_baca", "Users", "CompanyArea"]),
+     ["Log", "ApprovalRequest", "ApprovalHistory", "ApprovalRequestStep", "ApprovalFlow", "ApprovalFlowStep",
+      "LevelDetails", "Notification", "NotificationRead", "Users", "CompanyArea"]),
 ]
 
 def entitas(t, ringkas=False):
@@ -90,9 +90,9 @@ for kode, judul, tabel in KELOMPOK:
     utama = {t for t in tabel}
     # tabel pendukung (milik kelompok lain) cukup ditampilkan PK-nya
     pendukung = {"01_organisasi_akses": {"UserCategory"}, "02_personel_dokumen": {"Users", "DetailVehicle", "CompanyArea"},
-                 "03_mitra_kontrak": {"Users", "alur", "Company", "WeightBridgeType"},
+                 "03_mitra_kontrak": {"Users", "Flow", "Company", "WeightBridgeType"},
                  "04_proses_tiket": {"CompanyArea", "Product", "Supplier", "DetailVehicle", "DeliveryOrder",
-                                     "VehicleContract", "dokumen", "Users"},
+                                     "VehicleContract", "Document", "Users"},
                  "05_log_persetujuan": {"Users", "CompanyArea"}}[kode]
     hasil[kode] = diagram(tabel, utama - pendukung, tanpa_akun=kode in ("03_mitra_kontrak", "04_proses_tiket"))
 folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "erd")

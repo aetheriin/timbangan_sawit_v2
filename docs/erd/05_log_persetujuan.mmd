@@ -14,51 +14,51 @@ erDiagram
         char PrevHash "NULL"
         char RowHash
     }
-    pengajuan {
-        int id_pengajuan PK
-        varchar jenis
-        varchar status
-        tinyint langkah
-        tinyint total_langkah
-        varchar id_company FK
-        bigint id_comp_area FK
-        varchar target
-        nvarchar judul
-        nvarchar alasan "NULL"
-        nvarchar data "NULL"
-        bigint diajukan_oleh FK
-        datetime created_at
-        datetime selesai_at "NULL"
-        varchar kategori "NULL"
+    ApprovalRequest {
+        int RequestID PK
+        varchar RequestType
+        varchar Status
+        tinyint CurrentStep
+        tinyint TotalSteps
+        varchar CompID FK
+        bigint CompAreaID FK
+        varchar Target
+        nvarchar Title
+        nvarchar Reason "NULL"
+        nvarchar Data "NULL"
+        bigint RequestBy FK
+        datetime CreateDate
+        datetime FinishDate "NULL"
+        varchar CategoryCode "NULL"
     }
-    pengajuan_riwayat {
-        int id_riwayat PK
-        int id_pengajuan FK
-        tinyint langkah
-        varchar aksi
-        int id_level FK "NULL"
-        bigint id_user FK
-        nvarchar catatan "NULL"
-        datetime waktu
+    ApprovalHistory {
+        int HistoryID PK
+        int RequestID FK
+        tinyint StepNo
+        varchar Action
+        int LevelDetID FK "NULL"
+        bigint UserID FK
+        nvarchar Notes "NULL"
+        datetime ActionDate
     }
-    pengajuan_tahap {
-        int id_pengajuan PK,FK
-        tinyint urutan PK
-        int id_level FK
+    ApprovalRequestStep {
+        int RequestID PK,FK
+        tinyint StepNo PK
+        int LevelDetID FK
     }
-    alur_persetujuan {
-        int id_alur_persetujuan PK
-        varchar jenis
-        varchar kategori "NULL"
-        nvarchar keterangan "NULL"
-        bit is_active
-        datetime created_at
+    ApprovalFlow {
+        int ApprovalFlowID PK
+        varchar RequestType
+        varchar CategoryCode "NULL"
+        nvarchar Description "NULL"
+        bit Active
+        datetime CreateDate
     }
-    alur_persetujuan_tahap {
-        int id_tahap PK
-        int id_alur_persetujuan FK
-        tinyint urutan
-        int id_level FK
+    ApprovalFlowStep {
+        int FlowStepID PK
+        int ApprovalFlowID FK
+        tinyint StepNo
+        int LevelDetID FK
     }
     LevelDetails {
         int LevelDetID PK
@@ -71,22 +71,22 @@ erDiagram
         nvarchar Description "NULL"
         bit Active
     }
-    notifikasi {
-        int id_notifikasi PK
-        varchar kode_menu
-        bigint id_comp_area FK "NULL"
-        nvarchar judul
-        nvarchar isi "NULL"
-        varchar tautan "NULL"
-        datetime waktu
-        int id_level FK "NULL"
-        varchar id_company FK "NULL"
-        bigint id_user FK "NULL"
+    Notification {
+        int NotificationID PK
+        varchar MenuCode
+        bigint CompAreaID FK "NULL"
+        nvarchar Title
+        nvarchar Message "NULL"
+        varchar Link "NULL"
+        datetime CreateDate
+        int LevelDetID FK "NULL"
+        varchar CompID FK "NULL"
+        bigint UserID FK "NULL"
     }
-    notifikasi_baca {
-        int id_notifikasi PK,FK
-        bigint id_user PK,FK
-        datetime dibaca_at
+    NotificationRead {
+        int NotificationID PK,FK
+        bigint UserID PK,FK
+        datetime ReadDate
     }
     Users {
         bigint UserID PK
@@ -94,21 +94,21 @@ erDiagram
     CompanyArea {
         bigint CompAreaID PK
     }
-    alur_persetujuan ||--o{ alur_persetujuan_tahap : "id_alur_persetujuan"
-    LevelDetails ||--o{ alur_persetujuan_tahap : "id_level"
+    ApprovalFlow ||--o{ ApprovalFlowStep : "ApprovalFlowID"
+    LevelDetails ||--o{ ApprovalFlowStep : "LevelDetID"
+    LevelDetails |o--o{ ApprovalHistory : "LevelDetID"
+    ApprovalRequest ||--o{ ApprovalHistory : "RequestID"
+    Users ||--o{ ApprovalHistory : "UserID"
+    CompanyArea ||--o{ ApprovalRequest : "CompAreaID"
+    Users ||--o{ ApprovalRequest : "RequestBy"
+    LevelDetails ||--o{ ApprovalRequestStep : "LevelDetID"
+    ApprovalRequest ||--o{ ApprovalRequestStep : "RequestID"
     CompanyArea |o--o{ LevelDetails : "CompAreaID"
     CompanyArea |o--o{ Log : "CompAreaID"
     Users |o--o{ Log : "CreateBy"
-    CompanyArea |o--o{ notifikasi : "id_comp_area"
-    LevelDetails |o--o{ notifikasi : "id_level"
-    Users |o--o{ notifikasi : "id_user"
-    notifikasi ||--o{ notifikasi_baca : "id_notifikasi"
-    Users ||--o{ notifikasi_baca : "id_user"
-    Users ||--o{ pengajuan : "diajukan_oleh"
-    CompanyArea ||--o{ pengajuan : "id_comp_area"
-    LevelDetails |o--o{ pengajuan_riwayat : "id_level"
-    pengajuan ||--o{ pengajuan_riwayat : "id_pengajuan"
-    Users ||--o{ pengajuan_riwayat : "id_user"
-    LevelDetails ||--o{ pengajuan_tahap : "id_level"
-    pengajuan ||--o{ pengajuan_tahap : "id_pengajuan"
+    CompanyArea |o--o{ Notification : "CompAreaID"
+    LevelDetails |o--o{ Notification : "LevelDetID"
+    Users |o--o{ Notification : "UserID"
+    Notification ||--o{ NotificationRead : "NotificationID"
+    Users ||--o{ NotificationRead : "UserID"
     LevelDetails |o--o{ Users : "UserLevelID"

@@ -19,8 +19,8 @@ def _query(sql, *params):
 @cache_ttl(60)
 def peta_alur():
     """{id_alur: {"kode": .., "nama": .., "tahap": [kode_tahap urut]}}"""
-    peta = {a["id_alur"]: {**a, "tahap": []} for a in _query("SELECT id_alur, kode, nama, is_active FROM alur")}
-    for r in _query("SELECT id_alur, kode_tahap FROM alur_tahap ORDER BY id_alur, urutan"):
+    peta = {a["id_alur"]: {**a, "tahap": []} for a in _query("SELECT FlowID AS id_alur, FlowCode AS kode, FlowName AS nama, Active AS is_active FROM Flow")}
+    for r in _query("SELECT FlowID AS id_alur, StageCode AS kode_tahap FROM FlowStep ORDER BY FlowID, StepNo"):
         if r["id_alur"] in peta:
             peta[r["id_alur"]]["tahap"].append(r["kode_tahap"])
     return peta

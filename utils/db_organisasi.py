@@ -192,11 +192,11 @@ def _salin_dari_area_pertama():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""INSERT INTO jadwal_kerja (id_comp_area, hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit)
-                          SELECT a.CompAreaID, j.hari, j.nama_hari, j.jam_masuk, j.jam_pulang, j.is_libur, j.toleransi_menit
-                          FROM CompanyArea a CROSS JOIN jadwal_kerja j
-                          WHERE j.id_comp_area = (SELECT MIN(id_comp_area) FROM jadwal_kerja)
-                            AND NOT EXISTS (SELECT 1 FROM jadwal_kerja x WHERE x.id_comp_area = a.CompAreaID)""")
+        cursor.execute("""INSERT INTO WorkSchedule (CompAreaID, DayNo, DayName, TimeIn, TimeOut, IsHoliday, ToleranceMinutes)
+                          SELECT a.CompAreaID, j.DayNo, j.DayName, j.TimeIn, j.TimeOut, j.IsHoliday, j.ToleranceMinutes
+                          FROM CompanyArea a CROSS JOIN WorkSchedule j
+                          WHERE j.CompAreaID = (SELECT MIN(CompAreaID) FROM WorkSchedule)
+                            AND NOT EXISTS (SELECT 1 FROM WorkSchedule x WHERE x.CompAreaID = a.CompAreaID)""")
         conn.commit()
     finally:
         conn.close()

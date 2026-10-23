@@ -28,18 +28,18 @@ def hapus_file_info(daftar):
 
 def buat_dokumen(cursor, kode_jenis, no_dokumen, tanggal, perihal, file_info, user_id):
     """INSERT dokumen + file-nya (pakai cursor pemanggil, commit oleh pemanggil). Kembalikan id_dokumen."""
-    cursor.execute("SELECT id_jenis, wajib_file FROM jenis_dokumen WHERE kode = ? AND is_active = 1", kode_jenis)
+    cursor.execute("SELECT DocTypeID AS id_jenis, RequireFile AS wajib_file FROM DocumentType WHERE DocTypeCode = ? AND Active = 1", kode_jenis)
     jenis = cursor.fetchone()
     if jenis is None:
         raise ValueError(f"Jenis dokumen {kode_jenis} tidak dikenal")
     if jenis.wajib_file and not file_info:
         raise ValueError("File dokumen wajib diunggah")
-    cursor.execute("""INSERT INTO dokumen (id_jenis, no_dokumen, tanggal, perihal, created_by)
-                      OUTPUT INSERTED.id_dokumen VALUES (?, ?, ?, ?, ?)""",
+    cursor.execute("""INSERT INTO Document (DocTypeID, DocNumber, DocDate, Subject, CreateBy)
+                      OUTPUT INSERTED.DocumentID VALUES (?, ?, ?, ?, ?)""",
                    jenis.id_jenis, no_dokumen, tanggal, perihal, user_id)
     id_dokumen = cursor.fetchone()[0]
     for urutan, info in enumerate(file_info or [], 1):
-        cursor.execute("""INSERT INTO dokumen_file (id_dokumen, file_path, nama_asli, mime, ukuran_byte, sha256, urutan)
+        cursor.execute("""INSERT INTO DocumentFile (DocumentID, FilePath, OriginalName, MimeType, FileSize, SHA256, SortOrder)
                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
                        id_dokumen, info["file_path"], info["nama_asli"], info["mime"], info["ukuran_byte"],
                        info["sha256"], urutan)

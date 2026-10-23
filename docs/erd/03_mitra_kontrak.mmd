@@ -196,8 +196,8 @@ erDiagram
     WeightBridgeType {
         int WeightTypeID PK
     }
-    alur {
-        int id_alur PK
+    Flow {
+        int FlowID PK
     }
     Users {
         bigint UserID PK
@@ -218,7 +218,7 @@ erDiagram
     Supplier ||--o{ Invoice : "SupplierID"
     Supplier |o--o{ Invoice : "TransportID"
     ProductType ||--o{ Product : "Category"
-    alur ||--o{ Product : "FlowID"
+    Flow ||--o{ Product : "FlowID"
     Currency |o--o{ ProductPrice : "CurrencyID"
     Product ||--o{ ProductPrice : "ProductID"
     BankDetails |o--o{ Supplier : "BankAccountDetailsID"

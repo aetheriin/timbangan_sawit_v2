@@ -13,7 +13,7 @@ DI_DALAM = "t.ExitDate IS NULL AND t.StatusCode <> 'VOID'"
 _KOLOM = """t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, t.DriverID AS id_driver, d.Nama AS supir, d.UserCode AS kode_personel,
             s.SupplierName AS customer, p.ProductName AS produk, t.WeightTypeCode AS jenis_transaksi, t.StatusCode AS status_alur,
             ISNULL(ang.SupplierName, '') AS pengangkutan, t.TicketDate AS waktu_masuk, t.ExitDate AS waktu_keluar,
-            um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.kode AS kode_alur"""
+            um.Nama AS petugas_masuk, uk.Nama AS petugas_keluar, a.FlowCode AS kode_alur"""
 _DARI = """FROM WeightBridge t
            JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
            JOIN Users d ON d.UserID = t.DriverID
@@ -22,7 +22,7 @@ _DARI = """FROM WeightBridge t
            LEFT JOIN Supplier ang ON ang.SupplierID = t.TransportID
            LEFT JOIN Users um ON um.UserID = t.CreateBy
            LEFT JOIN Users uk ON uk.UserID = t.ExitBy
-           LEFT JOIN alur a ON a.id_alur = t.FlowID"""
+           LEFT JOIN Flow a ON a.FlowID = t.FlowID"""
 
 
 def _query(sql, *params):
@@ -85,9 +85,9 @@ def blacklist_aktif(tipe, id_target):
     """Alasan, sejak kapan, dan penetap blacklist yang berlaku (untuk panel peringatan)."""
     kolom = "UserID" if tipe == "PERSONEL" else "IDVehicle"
     rows = _query(f"""SELECT TOP 1 b.Reason AS alasan, b.CreateDate AS sejak, u.Nama AS oleh,
-                             dk.no_dokumen AS no_surat
+                             dk.DocNumber AS no_surat
                       FROM Blacklist b JOIN Users u ON u.UserID = b.CreateBy
-                      LEFT JOIN dokumen dk ON dk.id_dokumen = b.BlacklistDoc
+                      LEFT JOIN Document dk ON dk.DocumentID = b.BlacklistDoc
                       WHERE b.{kolom} = ? AND b.RevokeDate IS NULL ORDER BY b.CreateDate DESC""", id_target)
     return rows[0] if rows else None
 

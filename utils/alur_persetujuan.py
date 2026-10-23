@@ -27,12 +27,12 @@ def daftar_kategori():
 
 def daftar():
     """Semua alur beserta tahapnya (peran, jumlah pengguna aktif, peran boleh membuka menu pengajuan)."""
-    alur = _query("""SELECT a.id_alur_persetujuan, a.jenis, a.kategori, a.keterangan, a.is_active, kp.CategoryName AS nama_kategori
-                     FROM alur_persetujuan a LEFT JOIN UserCategory kp ON kp.CategoryCode = a.kategori
-                     ORDER BY a.jenis, CASE WHEN a.kategori IS NULL THEN 1 ELSE 0 END, kp.CategoryName, a.kategori""")
-    tahap = _query("""SELECT t.id_alur_persetujuan, t.urutan, t.id_level, l.LevelDetName AS nama, l.DeptID AS id_department, l.LevelID AS id_jabatan,
+    alur = _query("""SELECT a.ApprovalFlowID AS id_alur_persetujuan, a.RequestType AS jenis, a.CategoryCode AS kategori, a.Description AS keterangan, a.Active AS is_active, kp.CategoryName AS nama_kategori
+                     FROM ApprovalFlow a LEFT JOIN UserCategory kp ON kp.CategoryCode = a.CategoryCode
+                     ORDER BY a.RequestType, CASE WHEN a.CategoryCode IS NULL THEN 1 ELSE 0 END, kp.CategoryName, a.CategoryCode""")
+    tahap = _query("""SELECT t.ApprovalFlowID AS id_alur_persetujuan, t.StepNo AS urutan, t.LevelDetID AS id_level, l.LevelDetName AS nama, l.DeptID AS id_department, l.LevelID AS id_jabatan,
                              (SELECT COUNT(*) FROM Users u WHERE u.UserLevelID = l.LevelDetID AND u.Active = 1) AS jumlah_user
-                      FROM alur_persetujuan_tahap t JOIN LevelDetails l ON l.LevelDetID = t.id_level ORDER BY t.id_alur_persetujuan, t.urutan""")
+                      FROM ApprovalFlowStep t JOIN LevelDetails l ON l.LevelDetID = t.LevelDetID ORDER BY t.ApprovalFlowID, t.StepNo""")
     akses = hak_akses.peta_akses()
     per_alur = {}
     for t in tahap:
@@ -62,23 +62,23 @@ def simpan(id_alur, jenis, kategori, keterangan, daftar_level):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("""SELECT id_alur_persetujuan FROM alur_persetujuan WITH (UPDLOCK, HOLDLOCK)
-                          WHERE jenis = ? AND ISNULL(kategori, '') = ? AND id_alur_persetujuan <> ?""",
+        cursor.execute("""SELECT ApprovalFlowID AS id_alur_persetujuan FROM ApprovalFlow WITH (UPDLOCK, HOLDLOCK)
+                          WHERE RequestType = ? AND ISNULL(CategoryCode, '') = ? AND ApprovalFlowID <> ?""",
                        jenis, kategori or "", id_alur or 0)
         if cursor.fetchone():
             raise ValueError("Alur untuk jenis & kategori ini sudah ada. Ubah alur yang sudah ada.")
         if id_alur:
-            cursor.execute("UPDATE alur_persetujuan SET jenis = ?, kategori = ?, keterangan = ? WHERE id_alur_persetujuan = ?",
+            cursor.execute("UPDATE ApprovalFlow SET RequestType = ?, CategoryCode = ?, Description = ? WHERE ApprovalFlowID = ?",
                            jenis, kategori, keterangan, id_alur)
             if cursor.rowcount == 0:
                 raise ValueError("Alur tidak ditemukan")
-            cursor.execute("DELETE FROM alur_persetujuan_tahap WHERE id_alur_persetujuan = ?", id_alur)
+            cursor.execute("DELETE FROM ApprovalFlowStep WHERE ApprovalFlowID = ?", id_alur)
         else:
-            cursor.execute("""INSERT INTO alur_persetujuan (jenis, kategori, keterangan) OUTPUT INSERTED.id_alur_persetujuan
+            cursor.execute("""INSERT INTO ApprovalFlow (RequestType, CategoryCode, Description) OUTPUT INSERTED.ApprovalFlowID
                               VALUES (?, ?, ?)""", jenis, kategori, keterangan)
             id_alur = cursor.fetchone()[0]
         for n, id_level in enumerate(daftar_level, 1):
-            cursor.execute("INSERT INTO alur_persetujuan_tahap (id_alur_persetujuan, urutan, id_level) VALUES (?, ?, ?)",
+            cursor.execute("INSERT INTO ApprovalFlowStep (ApprovalFlowID, StepNo, LevelDetID) VALUES (?, ?, ?)",
                            id_alur, n, id_level)
         conn.commit()
     except Exception:
@@ -92,7 +92,7 @@ def simpan(id_alur, jenis, kategori, keterangan, daftar_level):
 def set_aktif(id_alur, aktif):
     conn = get_connection()
     try:
-        conn.cursor().execute("UPDATE alur_persetujuan SET is_active = ? WHERE id_alur_persetujuan = ?", 1 if aktif else 0, id_alur)
+        conn.cursor().execute("UPDATE ApprovalFlow SET Active = ? WHERE ApprovalFlowID = ?", 1 if aktif else 0, id_alur)
         conn.commit()
     finally:
         conn.close()
@@ -103,8 +103,8 @@ def hapus(id_alur):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("DELETE FROM alur_persetujuan_tahap WHERE id_alur_persetujuan = ?", id_alur)
-        cursor.execute("DELETE FROM alur_persetujuan WHERE id_alur_persetujuan = ?", id_alur)
+        cursor.execute("DELETE FROM ApprovalFlowStep WHERE ApprovalFlowID = ?", id_alur)
+        cursor.execute("DELETE FROM ApprovalFlow WHERE ApprovalFlowID = ?", id_alur)
         conn.commit()
     except Exception:
         conn.rollback()

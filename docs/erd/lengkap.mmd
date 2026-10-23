@@ -14,6 +14,52 @@ erDiagram
         varchar Description "NULL"
         bit Active
     }
+    ApprovalFlow {
+        int ApprovalFlowID PK
+        varchar RequestType
+        varchar CategoryCode "NULL"
+        nvarchar Description "NULL"
+        bit Active
+        datetime CreateDate
+    }
+    ApprovalFlowStep {
+        int FlowStepID PK
+        int ApprovalFlowID FK
+        tinyint StepNo
+        int LevelDetID FK
+    }
+    ApprovalHistory {
+        int HistoryID PK
+        int RequestID FK
+        tinyint StepNo
+        varchar Action
+        int LevelDetID FK "NULL"
+        bigint UserID FK
+        nvarchar Notes "NULL"
+        datetime ActionDate
+    }
+    ApprovalRequest {
+        int RequestID PK
+        varchar RequestType
+        varchar Status
+        tinyint CurrentStep
+        tinyint TotalSteps
+        varchar CompID FK
+        bigint CompAreaID FK
+        varchar Target
+        nvarchar Title
+        nvarchar Reason "NULL"
+        nvarchar Data "NULL"
+        bigint RequestBy FK
+        datetime CreateDate
+        datetime FinishDate "NULL"
+        varchar CategoryCode "NULL"
+    }
+    ApprovalRequestStep {
+        int RequestID PK,FK
+        tinyint StepNo PK
+        int LevelDetID FK
+    }
     Bank {
         int BankAccountID PK
         nvarchar BankName
@@ -183,6 +229,42 @@ erDiagram
         bit Active
         datetime CreateDate
     }
+    Device {
+        varchar DeviceID PK
+        varchar DeviceName
+        varchar Location "NULL"
+        char TokenHash
+        bigint CompAreaID FK
+        bit Active
+        datetime CreateDate
+    }
+    Document {
+        int DocumentID PK
+        int DocTypeID FK
+        nvarchar DocNumber
+        date DocDate
+        nvarchar Subject "NULL"
+        bigint CreateBy FK
+        datetime CreateDate
+    }
+    DocumentFile {
+        int FileID PK
+        int DocumentID FK
+        varchar FilePath
+        nvarchar OriginalName "NULL"
+        varchar MimeType "NULL"
+        int FileSize "NULL"
+        char SHA256 "NULL"
+        tinyint SortOrder
+        datetime CreateDate
+    }
+    DocumentType {
+        int DocTypeID PK
+        varchar DocTypeCode UK
+        nvarchar DocTypeName
+        bit RequireFile
+        bit Active
+    }
     FaceActivity {
         int ActivityID PK
         bigint UserID FK "NULL"
@@ -208,6 +290,22 @@ erDiagram
         bit Active
         bigint CreateBy FK "NULL"
         datetime CreateDate
+    }
+    Flow {
+        int FlowID PK
+        varchar FlowCode UK
+        nvarchar FlowName
+        bit Active
+    }
+    FlowStage {
+        varchar StageCode PK
+        nvarchar StageName
+        tinyint SortOrder
+    }
+    FlowStep {
+        int FlowID PK,FK
+        tinyint StepNo PK
+        varchar StageCode FK
     }
     Grading {
         int GradingID PK
@@ -340,6 +438,23 @@ erDiagram
         nvarchar Description "NULL"
         datetime CreateDate
     }
+    Notification {
+        int NotificationID PK
+        varchar MenuCode
+        bigint CompAreaID FK "NULL"
+        nvarchar Title
+        nvarchar Message "NULL"
+        varchar Link "NULL"
+        datetime CreateDate
+        int LevelDetID FK "NULL"
+        varchar CompID FK "NULL"
+        bigint UserID FK "NULL"
+    }
+    NotificationRead {
+        int NotificationID PK,FK
+        bigint UserID PK,FK
+        datetime ReadDate
+    }
     PasswordManager {
         bigint UserID PK,FK
         varchar UserPasswd
@@ -377,6 +492,44 @@ erDiagram
         nvarchar ProductTypeName
         varchar Description "NULL"
         bit Active
+    }
+    RequiredDataField {
+        varchar FormCode PK
+        varchar FieldName PK
+    }
+    Scale {
+        int ScaleID PK
+        bigint CompAreaID FK
+        varchar ScaleCode
+        nvarchar ScaleName
+        varchar Port
+        int BaudRate
+        bit Active
+        datetime CreateDate
+        varchar Mode
+        tinyint DataBits
+        char Parity
+        decimal StopBits
+        varchar DataFormat
+        varchar Pattern "NULL"
+        decimal Factor
+        decimal ToleranceKg
+        decimal StableSeconds
+        decimal MinWeightKg
+        bit RequireST
+    }
+    Setting {
+        varchar SettingKey PK
+        varchar SettingValue
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
+    }
+    SettingArea {
+        bigint CompAreaID PK,FK
+        varchar SettingKey PK
+        varchar SettingValue
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
     }
     Status {
         int StatusID PK
@@ -559,180 +712,33 @@ erDiagram
         bit IsPayment
         bit Active
     }
-    alur {
-        int id_alur PK
-        varchar kode UK
-        nvarchar nama
-        bit is_active
-    }
-    alur_persetujuan {
-        int id_alur_persetujuan PK
-        varchar jenis
-        varchar kategori "NULL"
-        nvarchar keterangan "NULL"
-        bit is_active
-        datetime created_at
-    }
-    alur_persetujuan_tahap {
-        int id_tahap PK
-        int id_alur_persetujuan FK
-        tinyint urutan
-        int id_level FK
-    }
-    alur_tahap {
-        int id_alur PK,FK
-        tinyint urutan PK
-        varchar kode_tahap FK
-    }
-    dokumen {
-        int id_dokumen PK
-        int id_jenis FK
-        nvarchar no_dokumen
-        date tanggal
-        nvarchar perihal "NULL"
-        bigint created_by FK
-        datetime created_at
-    }
-    dokumen_file {
-        int id_file PK
-        int id_dokumen FK
-        varchar file_path
-        nvarchar nama_asli "NULL"
-        varchar mime "NULL"
-        int ukuran_byte "NULL"
-        char sha256 "NULL"
-        tinyint urutan
-        datetime created_at
-    }
-    jadwal_kerja {
-        bigint id_comp_area PK,FK
-        tinyint hari PK
-        varchar nama_hari
-        time jam_masuk "NULL"
-        time jam_pulang "NULL"
-        bit is_libur
-        int toleransi_menit
-    }
-    jembatan_timbang {
-        int id_jembatan PK
-        bigint id_comp_area FK
-        varchar kode
-        nvarchar nama
-        varchar port
-        int baudrate
-        bit is_active
-        datetime created_at
-        varchar mode
-        tinyint data_bits
-        char parity
-        decimal stop_bits
-        varchar format_data
-        varchar pola "NULL"
-        decimal faktor
-        decimal toleransi_kg
-        decimal durasi_stabil
-        decimal berat_min_kg
-        bit wajib_st
-    }
-    jenis_dokumen {
-        int id_jenis PK
-        varchar kode UK
-        nvarchar nama
-        bit wajib_file
-        bit is_active
-    }
-    kolom_wajib {
-        varchar form PK
-        varchar kolom PK
-    }
-    notifikasi {
-        int id_notifikasi PK
-        varchar kode_menu
-        bigint id_comp_area FK "NULL"
-        nvarchar judul
-        nvarchar isi "NULL"
-        varchar tautan "NULL"
-        datetime waktu
-        int id_level FK "NULL"
-        varchar id_company FK "NULL"
-        bigint id_user FK "NULL"
-    }
-    notifikasi_baca {
-        int id_notifikasi PK,FK
-        bigint id_user PK,FK
-        datetime dibaca_at
-    }
-    pengajuan {
-        int id_pengajuan PK
-        varchar jenis
-        varchar status
-        tinyint langkah
-        tinyint total_langkah
-        varchar id_company FK
-        bigint id_comp_area FK
-        varchar target
-        nvarchar judul
-        nvarchar alasan "NULL"
-        nvarchar data "NULL"
-        bigint diajukan_oleh FK
-        datetime created_at
-        datetime selesai_at "NULL"
-        varchar kategori "NULL"
-    }
-    pengajuan_riwayat {
-        int id_riwayat PK
-        int id_pengajuan FK
-        tinyint langkah
-        varchar aksi
-        int id_level FK "NULL"
-        bigint id_user FK
-        nvarchar catatan "NULL"
-        datetime waktu
-    }
-    pengajuan_tahap {
-        int id_pengajuan PK,FK
-        tinyint urutan PK
-        int id_level FK
-    }
-    pengaturan {
-        varchar kunci PK
-        varchar nilai
-        bigint updated_by FK "NULL"
-        datetime updated_at
-    }
-    pengaturan_area {
-        bigint id_comp_area PK,FK
-        varchar kunci PK
-        varchar nilai
-        bigint updated_by FK "NULL"
-        datetime updated_at
-    }
-    perangkat_kiosk {
-        varchar id_pos PK
-        varchar nama
-        varchar lokasi "NULL"
-        char token_hash
-        bigint id_comp_area FK
-        bit is_active
-        datetime created_at
-    }
-    tahap {
-        varchar kode PK
-        nvarchar nama
-        tinyint urutan
+    WorkSchedule {
+        bigint CompAreaID PK,FK
+        tinyint DayNo PK
+        varchar DayName
+        time TimeIn "NULL"
+        time TimeOut "NULL"
+        bit IsHoliday
+        int ToleranceMinutes
     }
     ActionType ||--o{ AccessMenu : "ActionID"
     LevelDetails |o--o{ AccessMenu : "LevelDetID"
     Menu ||--o{ AccessMenu : "MenuID"
     Users |o--o{ AccessMenu : "UserID"
-    alur_persetujuan ||--o{ alur_persetujuan_tahap : "id_alur_persetujuan"
-    LevelDetails ||--o{ alur_persetujuan_tahap : "id_level"
-    alur ||--o{ alur_tahap : "id_alur"
-    tahap ||--o{ alur_tahap : "kode_tahap"
+    ApprovalFlow ||--o{ ApprovalFlowStep : "ApprovalFlowID"
+    LevelDetails ||--o{ ApprovalFlowStep : "LevelDetID"
+    LevelDetails |o--o{ ApprovalHistory : "LevelDetID"
+    ApprovalRequest ||--o{ ApprovalHistory : "RequestID"
+    Users ||--o{ ApprovalHistory : "UserID"
+    CompanyArea ||--o{ ApprovalRequest : "CompAreaID"
+    Company ||--o{ ApprovalRequest : "CompID"
+    Users ||--o{ ApprovalRequest : "RequestBy"
+    LevelDetails ||--o{ ApprovalRequestStep : "LevelDetID"
+    ApprovalRequest ||--o{ ApprovalRequestStep : "RequestID"
     CompanyArea |o--o{ Bank : "CompAreaID"
     Currency |o--o{ Bank : "CurrencyID"
     Bank ||--o{ BankDetails : "BankAccountID"
-    dokumen |o--o{ Blacklist : "BlacklistDoc"
+    Document |o--o{ Blacklist : "BlacklistDoc"
     CompanyArea |o--o{ Blacklist : "CompAreaID"
     Users ||--o{ Blacklist : "CreateBy"
     Supplier |o--o{ Blacklist : "CustomerID"
@@ -759,20 +765,23 @@ erDiagram
     Department ||--o{ DepartmentDetails : "DeptID"
     Blacklist |o--o{ DetailVehicle : "BlacklistID"
     VehicleType |o--o{ DetailVehicle : "VehicleType"
+    CompanyArea ||--o{ Device : "CompAreaID"
+    Users ||--o{ Document : "CreateBy"
+    DocumentType ||--o{ Document : "DocTypeID"
+    Document ||--o{ DocumentFile : "DocumentID"
     CompanyArea |o--o{ DOExcess : "CompAreaID"
     Users |o--o{ DOExcess : "ConfirmBy"
     DeliveryOrder ||--o{ DOExcess : "DeliveryOrderID"
     WeightBridge ||--o{ DOExcess : "SplitTicketNumber"
     Users |o--o{ DOExcess : "SubmitBy"
     WeightBridge ||--o| DOExcess : "TicketNumber"
-    Users ||--o{ dokumen : "created_by"
-    jenis_dokumen ||--o{ dokumen : "id_jenis"
-    dokumen ||--o{ dokumen_file : "id_dokumen"
     DeliveryOrder ||--o{ DOTransport : "DeliveryOrderID"
     Supplier |o--o{ DOTransport : "TransportID"
     Users |o--o{ FaceActivity : "UserID"
     Users |o--o{ FaceRecog : "CreateBy"
     Users ||--o| FaceRecog : "UserID"
+    Flow ||--o{ FlowStep : "FlowID"
+    FlowStage ||--o{ FlowStep : "StageCode"
     Users |o--o{ Grading : "GradedBy"
     WeightBridge ||--o| Grading : "TicketNumber"
     CompanyArea ||--o{ Guest : "CompAreaID"
@@ -785,9 +794,7 @@ erDiagram
     DeliveryOrder ||--o{ Invoice : "DeliveryOrderID"
     Supplier ||--o{ Invoice : "SupplierID"
     Supplier |o--o{ Invoice : "TransportID"
-    CompanyArea ||--o{ jadwal_kerja : "id_comp_area"
-    CompanyArea ||--o{ jembatan_timbang : "id_comp_area"
-    dokumen |o--o{ LabResult : "COADocID"
+    Document |o--o{ LabResult : "COADocID"
     Users |o--o{ LabResult : "TestedBy"
     WeightBridge ||--o| LabResult : "TicketNumber"
     CompanyArea |o--o{ LevelDetails : "CompAreaID"
@@ -800,31 +807,23 @@ erDiagram
     Users |o--o{ Log : "CreateBy"
     CompanyArea |o--o{ Menu : "CompAreaID"
     Menu |o--o{ Menu : "ParentMenuID"
-    CompanyArea |o--o{ notifikasi : "id_comp_area"
-    Company |o--o{ notifikasi : "id_company"
-    LevelDetails |o--o{ notifikasi : "id_level"
-    Users |o--o{ notifikasi : "id_user"
-    notifikasi ||--o{ notifikasi_baca : "id_notifikasi"
-    Users ||--o{ notifikasi_baca : "id_user"
+    CompanyArea |o--o{ Notification : "CompAreaID"
+    Company |o--o{ Notification : "CompID"
+    LevelDetails |o--o{ Notification : "LevelDetID"
+    Users |o--o{ Notification : "UserID"
+    Notification ||--o{ NotificationRead : "NotificationID"
+    Users ||--o{ NotificationRead : "UserID"
     Users ||--o| PasswordManager : "UserID"
-    Users ||--o{ pengajuan : "diajukan_oleh"
-    CompanyArea ||--o{ pengajuan : "id_comp_area"
-    Company ||--o{ pengajuan : "id_company"
-    LevelDetails |o--o{ pengajuan_riwayat : "id_level"
-    pengajuan ||--o{ pengajuan_riwayat : "id_pengajuan"
-    Users ||--o{ pengajuan_riwayat : "id_user"
-    LevelDetails ||--o{ pengajuan_tahap : "id_level"
-    pengajuan ||--o{ pengajuan_tahap : "id_pengajuan"
-    Users |o--o{ pengaturan : "updated_by"
-    CompanyArea ||--o{ pengaturan_area : "id_comp_area"
-    Users |o--o{ pengaturan_area : "updated_by"
-    CompanyArea ||--o{ perangkat_kiosk : "id_comp_area"
     ProductType ||--o{ Product : "Category"
-    alur ||--o{ Product : "FlowID"
+    Flow ||--o{ Product : "FlowID"
     Users |o--o{ ProductPrice : "CreateBy"
     Currency |o--o{ ProductPrice : "CurrencyID"
     Product ||--o{ ProductPrice : "ProductID"
     Users |o--o{ ProductPrice : "VoidBy"
+    CompanyArea ||--o{ Scale : "CompAreaID"
+    Users |o--o{ Setting : "UpdateBy"
+    CompanyArea ||--o{ SettingArea : "CompAreaID"
+    Users |o--o{ SettingArea : "UpdateBy"
     BankDetails |o--o{ Supplier : "BankAccountDetailsID"
     Blacklist |o--o{ Supplier : "BlacklistID"
     SupplierGroup |o--o{ Supplier : "SupplierGroupID"
@@ -832,7 +831,7 @@ erDiagram
     Supplier ||--o{ SupplierCompany : "SupplierID"
     Supplier ||--o{ SupplierTypeDetails : "SupplierID"
     SupplierType ||--o{ SupplierTypeDetails : "TypeCode"
-    dokumen |o--o{ TicketVoid : "DocumentID"
+    Document |o--o{ TicketVoid : "DocumentID"
     WeightBridge ||--o| TicketVoid : "TicketNumber"
     Users |o--o{ TicketVoid : "VoidBy"
     Company ||--o{ UserCompany : "CompID"
@@ -852,7 +851,7 @@ erDiagram
     DetailVehicle ||--o{ VehicleDriver : "IDVehicle"
     Users ||--o{ VehicleDriver : "UserID"
     Users |o--o{ Weighing : "OperatorID"
-    jembatan_timbang ||--o{ Weighing : "ScaleID"
+    Scale ||--o{ Weighing : "ScaleID"
     WeightBridge ||--o{ Weighing : "TicketNumber"
     Users |o--o{ WeightBridge : "CheckBy"
     CompanyArea ||--o{ WeightBridge : "CompAreaID"
@@ -860,13 +859,14 @@ erDiagram
     DeliveryOrder |o--o{ WeightBridge : "DeliveryOrderID"
     Users ||--o{ WeightBridge : "DriverID"
     Users |o--o{ WeightBridge : "ExitBy"
-    alur |o--o{ WeightBridge : "FlowID"
+    Flow |o--o{ WeightBridge : "FlowID"
     DetailVehicle ||--o{ WeightBridge : "IDVehicle"
     WeightBridge |o--o{ WeightBridge : "ParentTicketNumber"
     Product ||--o{ WeightBridge : "ProductID"
-    jembatan_timbang |o--o{ WeightBridge : "ScaleID"
+    Scale |o--o{ WeightBridge : "ScaleID"
     Status ||--o{ WeightBridge : "StatusCode"
     Supplier ||--o{ WeightBridge : "SupplierID"
     Supplier |o--o{ WeightBridge : "TransportID"
     VehicleContract |o--o{ WeightBridge : "VehicleContractID"
     WeightBridgeType ||--o{ WeightBridge : "WeightTypeCode"
+    CompanyArea ||--o{ WorkSchedule : "CompAreaID"

@@ -670,7 +670,7 @@ def get_list_tiket_aktif(id_area=None):
         JOIN Supplier s ON t.SupplierID = s.SupplierID
         JOIN Product p ON t.ProductID = p.ProductID
         WHERE t.StatusCode NOT IN ('SELESAI', 'REJECTED', 'VOID'){_filter_area(id_area)[0]}
-          AND ISNULL(t.FlowID, 0) NOT IN (SELECT id_alur FROM alur WHERE kode = 'POS_SAJA')   -- kunjungan Pos Security
+          AND ISNULL(t.FlowID, 0) NOT IN (SELECT FlowID FROM Flow WHERE FlowCode = 'POS_SAJA')   -- kunjungan Pos Security
         ORDER BY t.TicketDate DESC
     """, *_filter_area(id_area)[1])
     columns = [c[0] for c in cursor.description]

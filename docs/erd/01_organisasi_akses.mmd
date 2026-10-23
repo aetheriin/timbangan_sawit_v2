@@ -136,40 +136,40 @@ erDiagram
         datetime EndDate "NULL"
         varchar EndReason "NULL"
     }
-    pengaturan {
-        varchar kunci PK
-        varchar nilai
-        bigint updated_by FK "NULL"
-        datetime updated_at
+    Setting {
+        varchar SettingKey PK
+        varchar SettingValue
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
     }
-    pengaturan_area {
-        bigint id_comp_area PK,FK
-        varchar kunci PK
-        varchar nilai
-        bigint updated_by FK "NULL"
-        datetime updated_at
+    SettingArea {
+        bigint CompAreaID PK,FK
+        varchar SettingKey PK
+        varchar SettingValue
+        bigint UpdateBy FK "NULL"
+        datetime UpdateDate
     }
-    kolom_wajib {
-        varchar form PK
-        varchar kolom PK
+    RequiredDataField {
+        varchar FormCode PK
+        varchar FieldName PK
     }
-    perangkat_kiosk {
-        varchar id_pos PK
-        varchar nama
-        varchar lokasi "NULL"
-        char token_hash
-        bigint id_comp_area FK
-        bit is_active
-        datetime created_at
+    Device {
+        varchar DeviceID PK
+        varchar DeviceName
+        varchar Location "NULL"
+        char TokenHash
+        bigint CompAreaID FK
+        bit Active
+        datetime CreateDate
     }
-    jadwal_kerja {
-        bigint id_comp_area PK,FK
-        tinyint hari PK
-        varchar nama_hari
-        time jam_masuk "NULL"
-        time jam_pulang "NULL"
-        bit is_libur
-        int toleransi_menit
+    WorkSchedule {
+        bigint CompAreaID PK,FK
+        tinyint DayNo PK
+        varchar DayName
+        time TimeIn "NULL"
+        time TimeOut "NULL"
+        bit IsHoliday
+        int ToleranceMinutes
     }
     UserCategory {
         varchar CategoryCode PK
@@ -182,17 +182,16 @@ erDiagram
     Mill |o--o{ CompanyArea : "MillID"
     CompanyArea ||--o{ DepartmentDetails : "CompAreaID"
     Department ||--o{ DepartmentDetails : "DeptID"
-    CompanyArea ||--o{ jadwal_kerja : "id_comp_area"
+    CompanyArea ||--o{ Device : "CompAreaID"
     CompanyArea |o--o{ LevelDetails : "CompAreaID"
     Department |o--o{ LevelDetails : "DeptID"
     Level ||--o{ LevelDetails : "LevelID"
     CompanyArea |o--o{ Menu : "CompAreaID"
     Menu |o--o{ Menu : "ParentMenuID"
     Users ||--o| PasswordManager : "UserID"
-    Users |o--o{ pengaturan : "updated_by"
-    CompanyArea ||--o{ pengaturan_area : "id_comp_area"
-    Users |o--o{ pengaturan_area : "updated_by"
-    CompanyArea ||--o{ perangkat_kiosk : "id_comp_area"
+    Users |o--o{ Setting : "UpdateBy"
+    CompanyArea ||--o{ SettingArea : "CompAreaID"
+    Users |o--o{ SettingArea : "UpdateBy"
     Company ||--o{ UserCompany : "CompID"
     Users ||--o{ UserCompany : "UserID"
     UserCategory ||--o{ Users : "CategoryCode"
@@ -200,3 +199,4 @@ erDiagram
     DepartmentDetails |o--o{ Users : "UserDeptID"
     LevelDetails |o--o{ Users : "UserLevelID"
     Users ||--o{ UserSession : "UserID"
+    CompanyArea ||--o{ WorkSchedule : "CompAreaID"

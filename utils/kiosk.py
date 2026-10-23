@@ -33,7 +33,7 @@ def _perangkat():
         conn = get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT id_pos, token_hash, is_active FROM perangkat_kiosk")
+            cursor.execute("SELECT DeviceID AS id_pos, TokenHash AS token_hash, Active AS is_active FROM Device")
             return {r[0]: (r[1], bool(r[2])) for r in cursor.fetchall() if isinstance(r[0], str)}
         finally:
             conn.close()
@@ -66,9 +66,9 @@ def daftar():
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT k.id_pos, k.nama, k.lokasi, k.id_comp_area, a.AreaName AS area, k.is_active, k.created_at
-                          FROM perangkat_kiosk k LEFT JOIN CompanyArea a ON a.CompAreaID = k.id_comp_area
-                          ORDER BY k.id_pos""")
+        cursor.execute("""SELECT k.DeviceID AS id_pos, k.DeviceName AS nama, k.Location AS lokasi, k.CompAreaID AS id_comp_area, a.AreaName AS area, k.Active AS is_active, k.CreateDate AS created_at
+                          FROM Device k LEFT JOIN CompanyArea a ON a.CompAreaID = k.CompAreaID
+                          ORDER BY k.DeviceID""")
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
@@ -96,10 +96,10 @@ def tambah(id_pos, nama, lokasi, id_comp_area):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT 1 FROM perangkat_kiosk WHERE id_pos = ?", id_pos)
+        cursor.execute("SELECT 1 FROM Device WHERE DeviceID = ?", id_pos)
         if cursor.fetchone():
             raise ValueError(f"ID pos {id_pos} sudah dipakai")
-        cursor.execute("INSERT INTO perangkat_kiosk (id_pos, nama, lokasi, id_comp_area, token_hash) VALUES (?, ?, ?, ?, ?)",
+        cursor.execute("INSERT INTO Device (DeviceID, DeviceName, Location, CompAreaID, TokenHash) VALUES (?, ?, ?, ?, ?)",
                        id_pos, nama, lokasi or None, id_comp_area, hash_token(token))
         conn.commit()
     finally:
@@ -110,17 +110,17 @@ def tambah(id_pos, nama, lokasi, id_comp_area):
 
 def ganti_token(id_pos):
     token = token_baru()
-    _ubah("UPDATE perangkat_kiosk SET token_hash = ? WHERE id_pos = ?", hash_token(token), id_pos)
+    _ubah("UPDATE Device SET TokenHash = ? WHERE DeviceID = ?", hash_token(token), id_pos)
     return token
 
 
 def ubah(id_pos, nama, lokasi, id_comp_area):
-    _ubah("UPDATE perangkat_kiosk SET nama = ?, lokasi = ?, id_comp_area = ? WHERE id_pos = ?",
+    _ubah("UPDATE Device SET DeviceName = ?, Location = ?, CompAreaID = ? WHERE DeviceID = ?",
           nama, lokasi or None, id_comp_area, id_pos)
 
 
 def set_aktif(id_pos, aktif):
-    _ubah("UPDATE perangkat_kiosk SET is_active = ? WHERE id_pos = ?", 1 if aktif else 0, id_pos)
+    _ubah("UPDATE Device SET Active = ? WHERE DeviceID = ?", 1 if aktif else 0, id_pos)
 
 
 def _ubah(sql, *params):

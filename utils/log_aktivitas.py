@@ -1,6 +1,6 @@
 """Satu log untuk semua aktivitas (tabel log_aktivitas, migrasi 015).
 
-Ditulis hanya lewat prosedur dbo.sp_catat_log: isi lama / baru berupa JSON dan setiap baris membawa hash baris
+Ditulis hanya lewat prosedur dbo.sp_WriteLog: isi lama / baru berupa JSON dan setiap baris membawa hash baris
 sebelumnya (rantai hash), sehingga baris yang diubah / dihapus ketahuan lewat view dbo.v_log_rusak.
 Kategori: ADMIN, SECURITY, PERSONEL, STANDAR_MUTU, TIMELINE."""
 import json
@@ -27,7 +27,7 @@ def _json(nilai):
 
 
 def _exec(cursor, kategori, aksi, tabel, id_baris, lama, baru, user_id, ip):
-    cursor.execute("""EXEC dbo.sp_catat_log @kategori = ?, @aksi = ?, @tabel = ?, @id_baris = ?, @nilai_lama = ?,
+    cursor.execute("""EXEC dbo.sp_WriteLog @kategori = ?, @aksi = ?, @tabel = ?, @id_baris = ?, @nilai_lama = ?,
                                             @nilai_baru = ?, @id_user = ?, @ip = ?""",
                    kategori, aksi[:40], tabel, None if id_baris is None else str(id_baris)[:100],
                    _json(lama), _json(baru), user_id, (ip or None) and ip[:45])

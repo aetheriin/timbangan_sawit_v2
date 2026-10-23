@@ -14,6 +14,9 @@
    DOTransport, VehicleContract, Invoice.
    Tahap 4: tiket & timbang: WeightBridgeType, Status, WeightBridge (tiket), Weighing, view WeighingSummary, Grading (sortasi),
    LabResult, TicketVoid, DOExcess (kelebihan DO), Log (+ view LogIntegrity).
+   Tabel pendukung CPOS: DocumentType, Document, DocumentFile, Flow, FlowStage, FlowStep, Scale (jembatan timbang),
+   Notification(Read), WorkSchedule, RequiredDataField, Setting, SettingArea, Device (kiosk), ApprovalRequest,
+   ApprovalHistory, ApprovalRequestStep, ApprovalFlow, ApprovalFlowStep. Prosedur log: sp_WriteLog, fn_LogHash.
    Mulai versi ini database DIBUAT BARU dari file ini; migrasi lama (database/migrations/ 001-043) hanya untuk
    database versi sebelumnya dan tidak dipakai lagi.
 
@@ -269,35 +272,35 @@ CREATE INDEX IX_Guest_CheckIn ON dbo.Guest (CheckInDate DESC);
 CREATE INDEX IX_Guest_Inside ON dbo.Guest (UserID) WHERE CheckOutDate IS NULL;
 GO
 /* Dokumen umum (migrasi 010) */
-CREATE TABLE dbo.jenis_dokumen (
-    id_jenis    INT IDENTITY(1,1) PRIMARY KEY,
-    kode        VARCHAR(30)   NOT NULL CONSTRAINT UX_JenisDok_Kode UNIQUE,
-    nama        NVARCHAR(100) NOT NULL,
-    wajib_file  BIT NOT NULL CONSTRAINT DF_JenisDok_WajibFile DEFAULT (1),
-    is_active   BIT NOT NULL CONSTRAINT DF_JenisDok_Aktif DEFAULT (1)
+CREATE TABLE dbo.DocumentType (
+    DocTypeID    INT IDENTITY(1,1) PRIMARY KEY,
+    DocTypeCode        VARCHAR(30)   NOT NULL CONSTRAINT UX_JenisDok_Kode UNIQUE,
+    DocTypeName        NVARCHAR(100) NOT NULL,
+    RequireFile  BIT NOT NULL CONSTRAINT DF_JenisDok_WajibFile DEFAULT (1),
+    Active   BIT NOT NULL CONSTRAINT DF_JenisDok_Aktif DEFAULT (1)
 );
-CREATE TABLE dbo.dokumen (
-    id_dokumen  INT IDENTITY(1,1) PRIMARY KEY,
-    id_jenis    INT NOT NULL CONSTRAINT FK_Dokumen_Jenis REFERENCES dbo.jenis_dokumen (id_jenis),
-    no_dokumen  NVARCHAR(100) NOT NULL,
-    tanggal     DATE NOT NULL,
-    perihal     NVARCHAR(255) NULL,
-    created_by  BIGINT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.Users (UserID),
-    created_at  DATETIME NOT NULL CONSTRAINT DF_Dokumen_Created DEFAULT (GETDATE())
+CREATE TABLE dbo.Document (
+    DocumentID  INT IDENTITY(1,1) PRIMARY KEY,
+    DocTypeID    INT NOT NULL CONSTRAINT FK_Dokumen_Jenis REFERENCES dbo.DocumentType (DocTypeID),
+    DocNumber  NVARCHAR(100) NOT NULL,
+    DocDate     DATE NOT NULL,
+    Subject     NVARCHAR(255) NULL,
+    CreateBy  BIGINT NOT NULL CONSTRAINT FK_Dokumen_User REFERENCES dbo.Users (UserID),
+    CreateDate  DATETIME NOT NULL CONSTRAINT DF_Dokumen_Created DEFAULT (GETDATE())
 );
-CREATE INDEX IX_Dokumen_Jenis_No ON dbo.dokumen (id_jenis, no_dokumen);
-CREATE TABLE dbo.dokumen_file (
-    id_file      INT IDENTITY(1,1) PRIMARY KEY,
-    id_dokumen   INT NOT NULL CONSTRAINT FK_DokFile_Dokumen REFERENCES dbo.dokumen (id_dokumen),
-    file_path    VARCHAR(255)  NOT NULL,          -- 'uploads/dokumen/...' (privat, dibuka lewat /berkas/)
-    nama_asli    NVARCHAR(255) NULL,
-    mime         VARCHAR(100)  NULL,
-    ukuran_byte  INT NULL,
-    sha256       CHAR(64) NULL,                   -- NULL hanya untuk file lama (sebelum migrasi 010)
-    urutan       TINYINT NOT NULL CONSTRAINT DF_DokFile_Urutan DEFAULT (1),
-    created_at   DATETIME NOT NULL CONSTRAINT DF_DokFile_Created DEFAULT (GETDATE())
+CREATE INDEX IX_Dokumen_Jenis_No ON dbo.Document (DocTypeID, DocNumber);
+CREATE TABLE dbo.DocumentFile (
+    FileID      INT IDENTITY(1,1) PRIMARY KEY,
+    DocumentID   INT NOT NULL CONSTRAINT FK_DokFile_Dokumen REFERENCES dbo.Document (DocumentID),
+    FilePath    VARCHAR(255)  NOT NULL,          -- 'uploads/dokumen/...' (privat, dibuka lewat /berkas/)
+    OriginalName    NVARCHAR(255) NULL,
+    MimeType         VARCHAR(100)  NULL,
+    FileSize  INT NULL,
+    SHA256       CHAR(64) NULL,                   -- NULL hanya untuk file lama (sebelum migrasi 010)
+    SortOrder       TINYINT NOT NULL CONSTRAINT DF_DokFile_Urutan DEFAULT (1),
+    CreateDate   DATETIME NOT NULL CONSTRAINT DF_DokFile_Created DEFAULT (GETDATE())
 );
-CREATE INDEX IX_DokFile_Dokumen ON dbo.dokumen_file (id_dokumen, urutan);
+CREATE INDEX IX_DokFile_Dokumen ON dbo.DocumentFile (DocumentID, SortOrder);
 GO
 -- Profil orang + SIM aktif terbaru + wajah utama
 CREATE OR ALTER VIEW dbo.UserProfile AS
@@ -385,25 +388,25 @@ CREATE TABLE dbo.SupplierTypeDetails (
 GO
 
 -- Alur tahap tiket (migrasi 012): urutan tahap per alur, dipakai produk & transaksi
-CREATE TABLE dbo.tahap (
-    kode    VARCHAR(20)  NOT NULL PRIMARY KEY,
-    nama    NVARCHAR(50) NOT NULL,
-    urutan  TINYINT NOT NULL
+CREATE TABLE dbo.FlowStage (
+    StageCode    VARCHAR(20)  NOT NULL PRIMARY KEY,
+    StageName    NVARCHAR(50) NOT NULL,
+    SortOrder  TINYINT NOT NULL
 );
 GO
-CREATE TABLE dbo.alur (
-    id_alur    INT IDENTITY(1,1) PRIMARY KEY,
-    kode       VARCHAR(20)   NOT NULL CONSTRAINT UX_Alur_Kode UNIQUE,
-    nama       NVARCHAR(100) NOT NULL,
-    is_active  BIT NOT NULL CONSTRAINT DF_Alur_Aktif DEFAULT (1)
+CREATE TABLE dbo.Flow (
+    FlowID    INT IDENTITY(1,1) PRIMARY KEY,
+    FlowCode       VARCHAR(20)   NOT NULL CONSTRAINT UX_Alur_Kode UNIQUE,
+    FlowName       NVARCHAR(100) NOT NULL,
+    Active  BIT NOT NULL CONSTRAINT DF_Alur_Aktif DEFAULT (1)
 );
 GO
-CREATE TABLE dbo.alur_tahap (
-    id_alur     INT NOT NULL CONSTRAINT FK_AlurTahap_Alur REFERENCES dbo.alur (id_alur),
-    urutan      TINYINT NOT NULL,
-    kode_tahap  VARCHAR(20) NOT NULL CONSTRAINT FK_AlurTahap_Tahap REFERENCES dbo.tahap (kode),
-    CONSTRAINT PK_AlurTahap PRIMARY KEY (id_alur, urutan),
-    CONSTRAINT UX_AlurTahap_Tahap UNIQUE (id_alur, kode_tahap)
+CREATE TABLE dbo.FlowStep (
+    FlowID     INT NOT NULL CONSTRAINT FK_AlurTahap_Alur REFERENCES dbo.Flow (FlowID),
+    StepNo      TINYINT NOT NULL,
+    StageCode  VARCHAR(20) NOT NULL CONSTRAINT FK_AlurTahap_Tahap REFERENCES dbo.FlowStage (StageCode),
+    CONSTRAINT PK_AlurTahap PRIMARY KEY (FlowID, StepNo),
+    CONSTRAINT UX_AlurTahap_Tahap UNIQUE (FlowID, StageCode)
 );
 GO
 
@@ -419,7 +422,7 @@ CREATE TABLE dbo.Product (
     ProductID      INT IDENTITY(1,1) PRIMARY KEY,
     ProductName    VARCHAR(100) NOT NULL,
     Category       VARCHAR(20)  NOT NULL CONSTRAINT FK_Product_Type REFERENCES dbo.ProductType (ProductTypeCode),
-    FlowID         INT NOT NULL CONSTRAINT FK_Product_Flow REFERENCES dbo.alur (id_alur),       -- alur tahap tiket
+    FlowID         INT NOT NULL CONSTRAINT FK_Product_Flow REFERENCES dbo.Flow (FlowID),       -- alur tahap tiket
     StandardFFA    FLOAT NOT NULL CONSTRAINT DF_Product_FFA DEFAULT (5.0),
     StandardMoist  FLOAT NOT NULL CONSTRAINT DF_Product_Moist DEFAULT (0.5),
     StandardDirt   FLOAT NOT NULL CONSTRAINT DF_Product_Dirt DEFAULT (0.5),
@@ -605,32 +608,32 @@ GO
 /* =========================== TRANSAKSI =========================== */
 
 -- Jembatan timbang per area (migrasi 011)
-CREATE TABLE dbo.jembatan_timbang (
-    id_jembatan   INT IDENTITY(1,1) PRIMARY KEY,
-    id_comp_area  BIGINT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    kode          VARCHAR(10)   NOT NULL,
-    nama          NVARCHAR(100) NOT NULL,
-    port          VARCHAR(100)  NOT NULL,                 -- COM3 / /dev/ttyUSB0 / socket://IP:PORT (alat serial-to-LAN)
-    baudrate      INT NOT NULL CONSTRAINT DF_Jembatan_Baud DEFAULT (9600),
-    is_active     BIT NOT NULL CONSTRAINT DF_Jembatan_Aktif DEFAULT (1),
-    created_at    DATETIME NOT NULL CONSTRAINT DF_Jembatan_Created DEFAULT (GETDATE()),
+CREATE TABLE dbo.Scale (
+    ScaleID   INT IDENTITY(1,1) PRIMARY KEY,
+    CompAreaID  BIGINT NOT NULL CONSTRAINT FK_Jembatan_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    ScaleCode          VARCHAR(10)   NOT NULL,
+    ScaleName          NVARCHAR(100) NOT NULL,
+    Port          VARCHAR(100)  NOT NULL,                 -- COM3 / /dev/ttyUSB0 / socket://IP:PORT (alat serial-to-LAN)
+    BaudRate      INT NOT NULL CONSTRAINT DF_Jembatan_Baud DEFAULT (9600),
+    Active     BIT NOT NULL CONSTRAINT DF_Jembatan_Aktif DEFAULT (1),
+    CreateDate    DATETIME NOT NULL CONSTRAINT DF_Jembatan_Created DEFAULT (GETDATE()),
     -- Profil indikator (migrasi 017): LOKAL = dibaca server, AGEN = dibaca agen_timbang.py di PC jembatan
-    mode           VARCHAR(10)   NOT NULL CONSTRAINT DF_Jembatan_Mode DEFAULT ('LOKAL'),
-    data_bits      TINYINT       NOT NULL CONSTRAINT DF_Jembatan_DataBits DEFAULT (7),
-    parity         CHAR(1)       NOT NULL CONSTRAINT DF_Jembatan_Parity DEFAULT ('E'),
-    stop_bits      DECIMAL(2, 1) NOT NULL CONSTRAINT DF_Jembatan_StopBits DEFAULT (1),
-    format_data    VARCHAR(20)   NOT NULL CONSTRAINT DF_Jembatan_Format DEFAULT ('ST_GS'),
-    pola           VARCHAR(200)  NULL,
-    faktor         DECIMAL(10, 4) NOT NULL CONSTRAINT DF_Jembatan_Faktor DEFAULT (1),
-    toleransi_kg   DECIMAL(9, 2) NOT NULL CONSTRAINT DF_Jembatan_Toleransi DEFAULT (5),
-    durasi_stabil  DECIMAL(4, 1) NOT NULL CONSTRAINT DF_Jembatan_Durasi DEFAULT (3),
-    berat_min_kg   DECIMAL(10, 2) NOT NULL CONSTRAINT DF_Jembatan_BeratMin DEFAULT (100),
-    wajib_st       BIT           NOT NULL CONSTRAINT DF_Jembatan_WajibSt DEFAULT (0),
-    CONSTRAINT UX_Jembatan_AreaKode UNIQUE (id_comp_area, kode),
+    Mode           VARCHAR(10)   NOT NULL CONSTRAINT DF_Jembatan_Mode DEFAULT ('LOKAL'),
+    DataBits      TINYINT       NOT NULL CONSTRAINT DF_Jembatan_DataBits DEFAULT (7),
+    Parity         CHAR(1)       NOT NULL CONSTRAINT DF_Jembatan_Parity DEFAULT ('E'),
+    StopBits      DECIMAL(2, 1) NOT NULL CONSTRAINT DF_Jembatan_StopBits DEFAULT (1),
+    DataFormat    VARCHAR(20)   NOT NULL CONSTRAINT DF_Jembatan_Format DEFAULT ('ST_GS'),
+    Pattern           VARCHAR(200)  NULL,
+    Factor         DECIMAL(10, 4) NOT NULL CONSTRAINT DF_Jembatan_Faktor DEFAULT (1),
+    ToleranceKg   DECIMAL(9, 2) NOT NULL CONSTRAINT DF_Jembatan_Toleransi DEFAULT (5),
+    StableSeconds  DECIMAL(4, 1) NOT NULL CONSTRAINT DF_Jembatan_Durasi DEFAULT (3),
+    MinWeightKg   DECIMAL(10, 2) NOT NULL CONSTRAINT DF_Jembatan_BeratMin DEFAULT (100),
+    RequireST       BIT           NOT NULL CONSTRAINT DF_Jembatan_WajibSt DEFAULT (0),
+    CONSTRAINT UX_Jembatan_AreaKode UNIQUE (CompAreaID, ScaleCode),
     CONSTRAINT CK_Jembatan_Profil CHECK (
-        mode IN ('LOKAL', 'AGEN') AND data_bits IN (5, 6, 7, 8) AND parity IN ('N', 'E', 'O', 'M', 'S')
-        AND stop_bits IN (1, 1.5, 2) AND format_data IN ('ST_GS', 'ANGKA', 'TERBALIK', 'POLA')
-        AND faktor > 0 AND toleransi_kg >= 0 AND durasi_stabil >= 0.5 AND berat_min_kg >= 0)
+        Mode IN ('LOKAL', 'AGEN') AND DataBits IN (5, 6, 7, 8) AND Parity IN ('N', 'E', 'O', 'M', 'S')
+        AND StopBits IN (1, 1.5, 2) AND DataFormat IN ('ST_GS', 'ANGKA', 'TERBALIK', 'POLA')
+        AND Factor > 0 AND ToleranceKg >= 0 AND StableSeconds >= 0.5 AND MinWeightKg >= 0)
 );
 GO
 -- Tiket timbang (WeightBridge). Bruto / tara / netto dihitung dari Weighing (view WeighingSummary)
@@ -655,9 +658,9 @@ CREATE TABLE dbo.WeightBridge (
     QRExpiredDate       DATETIME NOT NULL,
     QRReprintCount      INT NOT NULL CONSTRAINT DF_WB_Reprint DEFAULT (0),
     DriverPhotoPath     VARCHAR(255) NULL,
-    ScaleID             INT NULL CONSTRAINT FK_WB_Scale REFERENCES dbo.jembatan_timbang (id_jembatan),     -- jembatan timbang masuk
+    ScaleID             INT NULL CONSTRAINT FK_WB_Scale REFERENCES dbo.Scale (ScaleID),     -- jembatan timbang masuk
     CompAreaID          BIGINT NOT NULL CONSTRAINT FK_WB_Area REFERENCES dbo.CompanyArea (CompAreaID),        -- area akun Security
-    FlowID              INT NULL CONSTRAINT FK_WB_Flow REFERENCES dbo.alur (id_alur),                      -- alur tahap tiket (dari produk)
+    FlowID              INT NULL CONSTRAINT FK_WB_Flow REFERENCES dbo.Flow (FlowID),                      -- alur tahap tiket (dari produk)
     ParentTicketNumber  VARCHAR(50) NULL CONSTRAINT FK_WB_Parent REFERENCES dbo.WeightBridge (TicketNumber),  -- tiket split kelebihan DO
     SplitWeight         DECIMAL(14, 2) NULL,                         -- netto tiket split (tanpa penimbangan sendiri)
     CreateBy            BIGINT NOT NULL CONSTRAINT FK_WB_CreateBy REFERENCES dbo.Users (UserID),             -- security
@@ -682,7 +685,7 @@ CREATE TABLE dbo.TicketVoid (
     TicketNumber  VARCHAR(50)   NOT NULL PRIMARY KEY CONSTRAINT FK_TicketVoid_WB REFERENCES dbo.WeightBridge (TicketNumber),
     VoidType      VARCHAR(10)   NOT NULL CONSTRAINT CK_TicketVoid_Type CHECK (VoidType IN ('VOID', 'REJECT')),
     Reason        NVARCHAR(255) NOT NULL,
-    DocumentID    INT NULL CONSTRAINT FK_TicketVoid_Doc REFERENCES dbo.dokumen (id_dokumen),   -- berita acara, boleh menyusul
+    DocumentID    INT NULL CONSTRAINT FK_TicketVoid_Doc REFERENCES dbo.Document (DocumentID),   -- berita acara, boleh menyusul
     VoidBy        BIGINT NULL CONSTRAINT FK_TicketVoid_User REFERENCES dbo.Users (UserID),
     VoidDate      DATETIME NOT NULL CONSTRAINT DF_TicketVoid_Date DEFAULT (GETDATE())
 );
@@ -693,7 +696,7 @@ GO
 CREATE TABLE dbo.Weighing (
     TicketNumber  VARCHAR(50) NOT NULL CONSTRAINT FK_Weighing_WB REFERENCES dbo.WeightBridge (TicketNumber),
     WeighNo       TINYINT NOT NULL CONSTRAINT CK_Weighing_No CHECK (WeighNo IN (1, 2)),
-    ScaleID       INT NOT NULL CONSTRAINT FK_Weighing_Scale REFERENCES dbo.jembatan_timbang (id_jembatan),
+    ScaleID       INT NOT NULL CONSTRAINT FK_Weighing_Scale REFERENCES dbo.Scale (ScaleID),
     Weight        DECIMAL(10, 2) NOT NULL,
     WeighDate     DATETIME NOT NULL CONSTRAINT DF_Weighing_Date DEFAULT (GETDATE()),
     OperatorID    BIGINT NULL CONSTRAINT FK_Weighing_Operator REFERENCES dbo.Users (UserID),
@@ -726,7 +729,7 @@ END
 GO
 -- Bruto / tara / netto per tiket (penjualan: masuk = tara, keluar = bruto; penimbangan saja: satu kali timbang)
 CREATE OR ALTER VIEW dbo.WeighingSummary AS
-SELECT t.TicketNumber, t.WeightTypeCode, t.ScaleID, j.kode AS ScaleCode,
+SELECT t.TicketNumber, t.WeightTypeCode, t.ScaleID, j.ScaleCode AS ScaleCode,
        CAST(CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w2.Weight ELSE w1.Weight END AS FLOAT) AS Bruto,
        CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w2.WeighDate ELSE w1.WeighDate END AS BrutoDate,
        CAST(CASE WHEN t.WeightTypeCode = 'PENJUALAN' THEN w1.Weight
@@ -740,7 +743,7 @@ SELECT t.TicketNumber, t.WeightTypeCode, t.ScaleID, j.kode AS ScaleCode,
 FROM dbo.WeightBridge t
 LEFT JOIN dbo.Weighing w1 ON w1.TicketNumber = t.TicketNumber AND w1.WeighNo = 1
 LEFT JOIN dbo.Weighing w2 ON w2.TicketNumber = t.TicketNumber AND w2.WeighNo = 2
-LEFT JOIN dbo.jembatan_timbang j ON j.id_jembatan = t.ScaleID;
+LEFT JOIN dbo.Scale j ON j.ScaleID = t.ScaleID;
 GO
 
 -- Kelebihan DO (migrasi 022): kelebihan netto di atas kuota kontrak -> tiket split + No. DO baru (Ascend)
@@ -768,25 +771,25 @@ CREATE TABLE dbo.DOExcess (
     CONSTRAINT CK_DOExcess_Kg CHECK (ExcessKg > 0)
 );
 -- Notifikasi lonceng (migrasi 022): sasaran = level yang punya hak menu kode_menu
-CREATE TABLE dbo.notifikasi (
-    id_notifikasi  INT IDENTITY(1,1) PRIMARY KEY,
-    kode_menu      VARCHAR(40)    NOT NULL,
-    id_comp_area   BIGINT NULL CONSTRAINT FK_Notif_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    judul          NVARCHAR(150)  NOT NULL,
-    isi            NVARCHAR(500)  NULL,
-    tautan         VARCHAR(200)   NULL,
-    waktu          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE()),
+CREATE TABLE dbo.Notification (
+    NotificationID  INT IDENTITY(1,1) PRIMARY KEY,
+    MenuCode      VARCHAR(40)    NOT NULL,
+    CompAreaID   BIGINT NULL CONSTRAINT FK_Notif_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    Title          NVARCHAR(150)  NOT NULL,
+    Message            NVARCHAR(500)  NULL,
+    Link         VARCHAR(200)   NULL,
+    CreateDate          DATETIME NOT NULL CONSTRAINT DF_Notif_Waktu DEFAULT (GETDATE()),
     -- Sasaran (migrasi 027): jabatan di PT tertentu, atau satu user. Keduanya NULL = per menu (kode_menu)
-    id_level       INT NULL CONSTRAINT FK_Notif_Level REFERENCES dbo.LevelDetails (LevelDetID),
-    id_company     VARCHAR(5) NULL CONSTRAINT FK_Notif_Company REFERENCES dbo.Company (CompID),
-    id_user        BIGINT NULL CONSTRAINT FK_Notif_User REFERENCES dbo.Users (UserID)
+    LevelDetID       INT NULL CONSTRAINT FK_Notif_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    CompID     VARCHAR(5) NULL CONSTRAINT FK_Notif_Company REFERENCES dbo.Company (CompID),
+    UserID        BIGINT NULL CONSTRAINT FK_Notif_User REFERENCES dbo.Users (UserID)
 );
-CREATE INDEX IX_Notif_Waktu ON dbo.notifikasi (waktu DESC);
-CREATE TABLE dbo.notifikasi_baca (
-    id_notifikasi  INT NOT NULL CONSTRAINT FK_NotifBaca_Notif REFERENCES dbo.notifikasi (id_notifikasi),
-    id_user        BIGINT NOT NULL CONSTRAINT FK_NotifBaca_User REFERENCES dbo.Users (UserID),
-    dibaca_at      DATETIME NOT NULL CONSTRAINT DF_NotifBaca_Waktu DEFAULT (GETDATE()),
-    CONSTRAINT PK_NotifBaca PRIMARY KEY (id_notifikasi, id_user)
+CREATE INDEX IX_Notif_Waktu ON dbo.Notification (CreateDate DESC);
+CREATE TABLE dbo.NotificationRead (
+    NotificationID  INT NOT NULL CONSTRAINT FK_NotifBaca_Notif REFERENCES dbo.Notification (NotificationID),
+    UserID        BIGINT NOT NULL CONSTRAINT FK_NotifBaca_User REFERENCES dbo.Users (UserID),
+    ReadDate      DATETIME NOT NULL CONSTRAINT DF_NotifBaca_Waktu DEFAULT (GETDATE()),
+    CONSTRAINT PK_NotifBaca PRIMARY KEY (NotificationID, UserID)
 );
 GO
 
@@ -818,7 +821,7 @@ CREATE TABLE dbo.LabResult (
     Dirt           FLOAT NULL,          -- kadar kotoran
     LovibondColor  VARCHAR(50) NULL,    -- warna (lovibond)
     Decision       VARCHAR(20) NULL,
-    COADocID       INT NULL CONSTRAINT FK_LabResult_Doc REFERENCES dbo.dokumen (id_dokumen),
+    COADocID       INT NULL CONSTRAINT FK_LabResult_Doc REFERENCES dbo.Document (DocumentID),
     TestedBy       BIGINT NULL CONSTRAINT FK_LabResult_User REFERENCES dbo.Users (UserID),
     TestDate       DATETIME NULL,
     CONSTRAINT CK_LabResult_Decision CHECK (Decision IS NULL OR Decision IN ('APPROVE', 'REJECT'))
@@ -832,7 +835,7 @@ GO
 CREATE TABLE dbo.Blacklist (
     BlacklistID    BIGINT IDENTITY(1,1) PRIMARY KEY,
     CreateDate     DATETIME NOT NULL CONSTRAINT DF_Blacklist_Create DEFAULT (GETDATE()),
-    BlacklistDoc   INT NULL CONSTRAINT FK_Blacklist_Doc REFERENCES dbo.dokumen (id_dokumen),   -- surat; NULL = menyusul
+    BlacklistDoc   INT NULL CONSTRAINT FK_Blacklist_Doc REFERENCES dbo.Document (DocumentID),   -- surat; NULL = menyusul
     LogActionType  VARCHAR(20)  NOT NULL CONSTRAINT DF_Blacklist_Action DEFAULT ('BLACKLIST'),
     TableName      VARCHAR(30)  NOT NULL CONSTRAINT CK_Blacklist_Table CHECK (TableName IN ('Users', 'DetailVehicle')),
     TargetType     AS CAST(CASE TableName WHEN 'Users' THEN 'PERSONEL' ELSE 'KENDARAAN' END AS VARCHAR(20)) PERSISTED,
@@ -864,17 +867,17 @@ ALTER TABLE dbo.Supplier ADD CONSTRAINT FK_Supplier_Blacklist FOREIGN KEY (Black
 GO
 
 -- Jadwal kerja per area (migrasi 014): absensi memakai jadwal area akun yang men-scan
-CREATE TABLE dbo.jadwal_kerja (
-    id_comp_area     BIGINT NOT NULL CONSTRAINT FK_Jadwal_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    hari             TINYINT NOT NULL,                          -- 1 = Senin ... 7 = Minggu
-    nama_hari        VARCHAR(10) NOT NULL,
-    jam_masuk        TIME(0) NULL,
-    jam_pulang       TIME(0) NULL,
-    is_libur         BIT NOT NULL CONSTRAINT DF_Jadwal_Libur DEFAULT (0),
-    toleransi_menit  INT NOT NULL CONSTRAINT DF_Jadwal_Toleransi DEFAULT (0),
-    CONSTRAINT CK_Jadwal_Hari CHECK (hari BETWEEN 1 AND 7),
-    CONSTRAINT CK_Jadwal_Jam CHECK (is_libur = 1 OR (jam_masuk IS NOT NULL AND jam_pulang IS NOT NULL AND jam_pulang > jam_masuk)),
-    CONSTRAINT PK_JadwalKerja PRIMARY KEY (id_comp_area, hari)
+CREATE TABLE dbo.WorkSchedule (
+    CompAreaID     BIGINT NOT NULL CONSTRAINT FK_Jadwal_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    DayNo             TINYINT NOT NULL,                          -- 1 = Senin ... 7 = Minggu
+    DayName        VARCHAR(10) NOT NULL,
+    TimeIn        TIME(0) NULL,
+    TimeOut       TIME(0) NULL,
+    IsHoliday         BIT NOT NULL CONSTRAINT DF_Jadwal_Libur DEFAULT (0),
+    ToleranceMinutes  INT NOT NULL CONSTRAINT DF_Jadwal_Toleransi DEFAULT (0),
+    CONSTRAINT CK_Jadwal_Hari CHECK (DayNo BETWEEN 1 AND 7),
+    CONSTRAINT CK_Jadwal_Jam CHECK (IsHoliday = 1 OR (TimeIn IS NOT NULL AND TimeOut IS NOT NULL AND TimeOut > TimeIn)),
+    CONSTRAINT PK_JadwalKerja PRIMARY KEY (CompAreaID, DayNo)
 );
 GO
 
@@ -905,43 +908,43 @@ GO
 /* =========================== ADMIN =========================== */
 
 -- Kolom wajib dinamis (RequiredDataField, migrasi 035): kolom opsional yang diwajibkan per formulir
-CREATE TABLE dbo.kolom_wajib (
-    form   VARCHAR(30) NOT NULL,
-    kolom  VARCHAR(50) NOT NULL,
-    CONSTRAINT PK_KolomWajib PRIMARY KEY (form, kolom)
+CREATE TABLE dbo.RequiredDataField (
+    FormCode   VARCHAR(30) NOT NULL,
+    FieldName  VARCHAR(50) NOT NULL,
+    CONSTRAINT PK_KolomWajib PRIMARY KEY (FormCode, FieldName)
 );
-CREATE TABLE dbo.pengaturan (
-    kunci       VARCHAR(50)  PRIMARY KEY,
-    nilai       VARCHAR(200) NOT NULL,
-    updated_by  BIGINT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.Users (UserID),
-    updated_at  DATETIME NOT NULL CONSTRAINT DF_Pengaturan_Updated DEFAULT (GETDATE())
+CREATE TABLE dbo.Setting (
+    SettingKey       VARCHAR(50)  PRIMARY KEY,
+    SettingValue       VARCHAR(200) NOT NULL,
+    UpdateBy  BIGINT NULL CONSTRAINT FK_Pengaturan_User REFERENCES dbo.Users (UserID),
+    UpdateDate  DATETIME NOT NULL CONSTRAINT DF_Pengaturan_Updated DEFAULT (GETDATE())
 );
 GO
 
 -- Pengaturan operasional per area (migrasi 014), menimpa nilai global di tabel pengaturan
-CREATE TABLE dbo.pengaturan_area (
-    id_comp_area  BIGINT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    kunci         VARCHAR(50)  NOT NULL,
-    nilai         VARCHAR(200) NOT NULL,
-    updated_by    BIGINT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.Users (UserID),
-    updated_at    DATETIME NOT NULL CONSTRAINT DF_PengArea_Updated DEFAULT (GETDATE()),
-    CONSTRAINT PK_PengaturanArea PRIMARY KEY (id_comp_area, kunci)
+CREATE TABLE dbo.SettingArea (
+    CompAreaID  BIGINT NOT NULL CONSTRAINT FK_PengArea_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    SettingKey         VARCHAR(50)  NOT NULL,
+    SettingValue         VARCHAR(200) NOT NULL,
+    UpdateBy    BIGINT NULL CONSTRAINT FK_PengArea_User REFERENCES dbo.Users (UserID),
+    UpdateDate    DATETIME NOT NULL CONSTRAINT DF_PengArea_Updated DEFAULT (GETDATE()),
+    CONSTRAINT PK_PengaturanArea PRIMARY KEY (CompAreaID, SettingKey)
 );
 GO
 
-CREATE TABLE dbo.perangkat_kiosk (
-    id_pos      VARCHAR(30)  PRIMARY KEY,
-    nama        VARCHAR(100) NOT NULL,
-    lokasi      VARCHAR(100) NULL,
-    token_hash  CHAR(64)     NOT NULL,
-    id_comp_area BIGINT NOT NULL CONSTRAINT FK_Kiosk_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    is_active   BIT NOT NULL CONSTRAINT DF_Kiosk_Aktif DEFAULT (1),
-    created_at  DATETIME NOT NULL CONSTRAINT DF_Kiosk_Created DEFAULT (GETDATE()),
-    CONSTRAINT CK_Kiosk_Id CHECK (id_pos NOT LIKE '%[^A-Z0-9_-]%')
+CREATE TABLE dbo.Device (
+    DeviceID      VARCHAR(30)  PRIMARY KEY,
+    DeviceName        VARCHAR(100) NOT NULL,
+    Location      VARCHAR(100) NULL,
+    TokenHash  CHAR(64)     NOT NULL,
+    CompAreaID BIGINT NOT NULL CONSTRAINT FK_Kiosk_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    Active   BIT NOT NULL CONSTRAINT DF_Kiosk_Aktif DEFAULT (1),
+    CreateDate  DATETIME NOT NULL CONSTRAINT DF_Kiosk_Created DEFAULT (GETDATE()),
+    CONSTRAINT CK_Kiosk_Id CHECK (DeviceID NOT LIKE '%[^A-Z0-9_-]%')
 );
 GO
 
-/* Satu log untuk semua aktivitas (migrasi 015): JSON + rantai hash, hanya INSERT lewat sp_catat_log */
+/* Satu log untuk semua aktivitas (migrasi 015): JSON + rantai hash, hanya INSERT lewat sp_WriteLog */
 CREATE TABLE dbo.Log (
     LogID          BIGINT IDENTITY(1,1) PRIMARY KEY,
     LogDate        DATETIME2(3) NOT NULL,
@@ -964,7 +967,7 @@ CREATE INDEX IX_Log_Row ON dbo.Log (TableName, RowID);
 GO
 
 /* Isi yang di-hash (dipakai juga untuk verifikasi) */
-CREATE OR ALTER FUNCTION dbo.fn_hash_log (
+CREATE OR ALTER FUNCTION dbo.fn_LogHash (
     @hash_sebelum CHAR(64), @waktu DATETIME2(3), @id_user BIGINT, @kategori VARCHAR(20), @aksi VARCHAR(40),
     @tabel VARCHAR(50), @id_baris VARCHAR(100), @nilai_lama NVARCHAR(MAX), @nilai_baru NVARCHAR(MAX), @ip VARCHAR(45))
 RETURNS CHAR(64)
@@ -976,7 +979,7 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE dbo.sp_catat_log
+CREATE OR ALTER PROCEDURE dbo.sp_WriteLog
     @kategori VARCHAR(20), @aksi VARCHAR(40), @tabel VARCHAR(50) = NULL, @id_baris VARCHAR(100) = NULL,
     @nilai_lama NVARCHAR(MAX) = NULL, @nilai_baru NVARCHAR(MAX) = NULL, @id_user BIGINT = NULL,
     @id_comp_area BIGINT = NULL, @ip VARCHAR(45) = NULL, @waktu DATETIME2(3) = NULL
@@ -994,7 +997,7 @@ BEGIN
     INSERT INTO dbo.Log (LogDate, CreateBy, CompAreaID, Category, LogActionType, TableName, RowID, OldValue, NewValue,
                          IPAddress, PrevHash, RowHash)
     VALUES (@waktu, @id_user, @id_comp_area, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip, @prev,
-            dbo.fn_hash_log(@prev, @waktu, @id_user, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip));
+            dbo.fn_LogHash(@prev, @waktu, @id_user, @kategori, @aksi, @tabel, @id_baris, @nilai_lama, @nilai_baru, @ip));
     COMMIT TRANSACTION;
 END
 GO
@@ -1012,7 +1015,7 @@ SELECT x.LogID, x.LogDate, x.Category, x.LogActionType,
        CASE WHEN x.RowHash <> x.CalcHash THEN 'ISI_BERUBAH' ELSE 'RANTAI_PUTUS' END AS Problem
 FROM (SELECT l.LogID, l.LogDate, l.Category, l.LogActionType, l.PrevHash, l.RowHash,
              LAG(l.RowHash) OVER (ORDER BY l.LogID) AS ExpectedPrev,
-             dbo.fn_hash_log(l.PrevHash, l.LogDate, l.CreateBy, l.Category, l.LogActionType, l.TableName, l.RowID,
+             dbo.fn_LogHash(l.PrevHash, l.LogDate, l.CreateBy, l.Category, l.LogActionType, l.TableName, l.RowID,
                              l.OldValue, l.NewValue, l.IPAddress) AS CalcHash
       FROM dbo.Log l) x
 WHERE x.RowHash <> x.CalcHash
@@ -1058,59 +1061,59 @@ CREATE INDEX IX_BlDetect_Vehicle ON dbo.BlacklistDetection (IDVehicle, DetectDat
 GO
 
 /* =========================== PERSETUJUAN (migrasi 027; penyetuju = hak Setujui, migrasi 029) =========================== */
-CREATE TABLE dbo.pengajuan (
-    id_pengajuan   INT IDENTITY(1,1) PRIMARY KEY,
-    jenis          VARCHAR(40)    NOT NULL,
-    status         VARCHAR(20)    NOT NULL CONSTRAINT DF_Pengajuan_Status DEFAULT ('MENUNGGU')
-                   CONSTRAINT CK_Pengajuan_Status CHECK (status IN ('MENUNGGU', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
-    langkah        TINYINT        NOT NULL CONSTRAINT DF_Pengajuan_Langkah DEFAULT (1),
-    total_langkah  TINYINT        NOT NULL,
-    id_company     VARCHAR(5)            NOT NULL CONSTRAINT FK_Pengajuan_Company REFERENCES dbo.Company (CompID),
-    id_comp_area   BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_Area REFERENCES dbo.CompanyArea (CompAreaID),
-    target         VARCHAR(50)    NOT NULL,
-    judul          NVARCHAR(200)  NOT NULL,
-    alasan         NVARCHAR(500)  NULL,
-    data           NVARCHAR(MAX)  NULL CONSTRAINT CK_Pengajuan_Json CHECK (data IS NULL OR ISJSON(data) = 1),
-    diajukan_oleh  BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.Users (UserID),
-    created_at     DATETIME       NOT NULL CONSTRAINT DF_Pengajuan_Dibuat DEFAULT (GETDATE()),
-    selesai_at     DATETIME       NULL,
-    kategori       VARCHAR(20)    NULL                -- kategori target (memilih alur persetujuan, migrasi 043)
+CREATE TABLE dbo.ApprovalRequest (
+    RequestID   INT IDENTITY(1,1) PRIMARY KEY,
+    RequestType          VARCHAR(40)    NOT NULL,
+    Status         VARCHAR(20)    NOT NULL CONSTRAINT DF_Pengajuan_Status DEFAULT ('MENUNGGU')
+                   CONSTRAINT CK_Pengajuan_Status CHECK (Status IN ('MENUNGGU', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN')),
+    CurrentStep        TINYINT        NOT NULL CONSTRAINT DF_Pengajuan_Langkah DEFAULT (1),
+    TotalSteps  TINYINT        NOT NULL,
+    CompID     VARCHAR(5)            NOT NULL CONSTRAINT FK_Pengajuan_Company REFERENCES dbo.Company (CompID),
+    CompAreaID   BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_Area REFERENCES dbo.CompanyArea (CompAreaID),
+    Target         VARCHAR(50)    NOT NULL,
+    Title          NVARCHAR(200)  NOT NULL,
+    Reason         NVARCHAR(500)  NULL,
+    Data           NVARCHAR(MAX)  NULL CONSTRAINT CK_Pengajuan_Json CHECK (Data IS NULL OR ISJSON(Data) = 1),
+    RequestBy  BIGINT            NOT NULL CONSTRAINT FK_Pengajuan_User REFERENCES dbo.Users (UserID),
+    CreateDate     DATETIME       NOT NULL CONSTRAINT DF_Pengajuan_Dibuat DEFAULT (GETDATE()),
+    FinishDate     DATETIME       NULL,
+    CategoryCode       VARCHAR(20)    NULL                -- kategori target (memilih alur persetujuan, migrasi 043)
 );
-CREATE INDEX IX_Pengajuan_Status ON dbo.pengajuan (status, jenis, id_company);
-CREATE TABLE dbo.pengajuan_riwayat (
-    id_riwayat    INT IDENTITY(1,1) PRIMARY KEY,
-    id_pengajuan  INT           NOT NULL CONSTRAINT FK_PengRiwayat_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
-    langkah       TINYINT       NOT NULL,
-    aksi          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (aksi IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN', 'DILEWATI')),
-    id_level      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.LevelDetails (LevelDetID),
-    id_user       BIGINT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.Users (UserID),
-    catatan       NVARCHAR(500) NULL,
-    waktu         DATETIME      NOT NULL CONSTRAINT DF_PengRiwayat_Waktu DEFAULT (GETDATE())
+CREATE INDEX IX_Pengajuan_Status ON dbo.ApprovalRequest (Status, RequestType, CompID);
+CREATE TABLE dbo.ApprovalHistory (
+    HistoryID    INT IDENTITY(1,1) PRIMARY KEY,
+    RequestID  INT           NOT NULL CONSTRAINT FK_PengRiwayat_Pengajuan REFERENCES dbo.ApprovalRequest (RequestID),
+    StepNo       TINYINT       NOT NULL,
+    Action          VARCHAR(20)   NOT NULL CONSTRAINT CK_PengRiwayat_Aksi CHECK (Action IN ('DIAJUKAN', 'DISETUJUI', 'DITOLAK', 'DIBATALKAN', 'DILEWATI')),
+    LevelDetID      INT           NULL CONSTRAINT FK_PengRiwayat_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    UserID       BIGINT           NOT NULL CONSTRAINT FK_PengRiwayat_User REFERENCES dbo.Users (UserID),
+    Notes       NVARCHAR(500) NULL,
+    ActionDate         DATETIME      NOT NULL CONSTRAINT DF_PengRiwayat_Waktu DEFAULT (GETDATE())
 );
 -- Alur persetujuan berjenjang (migrasi 043): per jenis + kategori target (NULL = semua); tiap tahap = satu peran.
 -- Penyetuju tahap = pengguna aktif dengan peran itu di PT pengajuan (kantor pusat: PT yang dikelolanya).
-CREATE TABLE dbo.alur_persetujuan (
-    id_alur_persetujuan INT IDENTITY(1,1) PRIMARY KEY,
-    jenis       VARCHAR(40)   NOT NULL,
-    kategori    VARCHAR(20)   NULL,
-    keterangan  NVARCHAR(255) NULL,
-    is_active   BIT NOT NULL CONSTRAINT DF_AlurSetuju_Aktif DEFAULT (1),
-    created_at  DATETIME NOT NULL CONSTRAINT DF_AlurSetuju_Dibuat DEFAULT (GETDATE())
+CREATE TABLE dbo.ApprovalFlow (
+    ApprovalFlowID INT IDENTITY(1,1) PRIMARY KEY,
+    RequestType       VARCHAR(40)   NOT NULL,
+    CategoryCode    VARCHAR(20)   NULL,
+    Description  NVARCHAR(255) NULL,
+    Active   BIT NOT NULL CONSTRAINT DF_AlurSetuju_Aktif DEFAULT (1),
+    CreateDate  DATETIME NOT NULL CONSTRAINT DF_AlurSetuju_Dibuat DEFAULT (GETDATE())
 );
-CREATE UNIQUE INDEX UX_AlurSetuju_Jenis ON dbo.alur_persetujuan (jenis, kategori);
-CREATE TABLE dbo.alur_persetujuan_tahap (
-    id_tahap            INT IDENTITY(1,1) PRIMARY KEY,
-    id_alur_persetujuan INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Alur REFERENCES dbo.alur_persetujuan (id_alur_persetujuan),
-    urutan              TINYINT NOT NULL,
-    id_level            INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
-    CONSTRAINT UX_AlurSetujuTahap_Urutan UNIQUE (id_alur_persetujuan, urutan)
+CREATE UNIQUE INDEX UX_AlurSetuju_Jenis ON dbo.ApprovalFlow (RequestType, CategoryCode);
+CREATE TABLE dbo.ApprovalFlowStep (
+    FlowStepID            INT IDENTITY(1,1) PRIMARY KEY,
+    ApprovalFlowID INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Alur REFERENCES dbo.ApprovalFlow (ApprovalFlowID),
+    StepNo              TINYINT NOT NULL,
+    LevelDetID            INT NOT NULL CONSTRAINT FK_AlurSetujuTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    CONSTRAINT UX_AlurSetujuTahap_Urutan UNIQUE (ApprovalFlowID, StepNo)
 );
 -- Salinan tahap saat diajukan (perubahan alur tidak mengganggu pengajuan yang berjalan)
-CREATE TABLE dbo.pengajuan_tahap (
-    id_pengajuan INT NOT NULL CONSTRAINT FK_PengTahap_Pengajuan REFERENCES dbo.pengajuan (id_pengajuan),
-    urutan       TINYINT NOT NULL,
-    id_level     INT NOT NULL CONSTRAINT FK_PengTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
-    CONSTRAINT PK_PengTahap PRIMARY KEY (id_pengajuan, urutan)
+CREATE TABLE dbo.ApprovalRequestStep (
+    RequestID INT NOT NULL CONSTRAINT FK_PengTahap_Pengajuan REFERENCES dbo.ApprovalRequest (RequestID),
+    StepNo       TINYINT NOT NULL,
+    LevelDetID     INT NOT NULL CONSTRAINT FK_PengTahap_Level REFERENCES dbo.LevelDetails (LevelDetID),
+    CONSTRAINT PK_PengTahap PRIMARY KEY (RequestID, StepNo)
 );
 GO
 
@@ -1154,7 +1157,7 @@ GO
 
 /* =========================== DATA AWAL =========================== */
 -- Jenis dokumen (migrasi 010)
-INSERT INTO dbo.jenis_dokumen (kode, nama, wajib_file) VALUES
+INSERT INTO dbo.DocumentType (DocTypeCode, DocTypeName, RequireFile) VALUES
     ('SURAT_BLACKLIST', N'Surat Blacklist', 1),
     ('BA_VOID',         N'Berita Acara Void Tiket', 1),
     ('COA',             N'Certificate of Analysis (Lab)', 0),
@@ -1294,10 +1297,10 @@ FROM dbo.AccessMenu x JOIN dbo.Menu m ON m.MenuID = x.MenuID JOIN dbo.Menu p ON 
 WHERE x.ActionID = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu y WHERE y.LevelDetID = x.LevelDetID AND y.MenuID = p.MenuID AND y.ActionID = 1);
 GO
 -- Jembatan timbang awal (migrasi 011)
-INSERT INTO dbo.jembatan_timbang (id_comp_area, kode, nama, port)
+INSERT INTO dbo.Scale (CompAreaID, ScaleCode, ScaleName, Port)
 SELECT MIN(CompAreaID), 'JT-1', N'Jembatan Timbang 1', 'COM3' FROM dbo.CompanyArea;
 -- Jadwal kerja awal per area (migrasi 014)
-INSERT INTO dbo.jadwal_kerja (id_comp_area, hari, nama_hari, jam_masuk, jam_pulang, is_libur)
+INSERT INTO dbo.WorkSchedule (CompAreaID, DayNo, DayName, TimeIn, TimeOut, IsHoliday)
 SELECT a.CompAreaID, v.hari, v.nama, v.masuk, v.pulang, v.libur
 FROM dbo.CompanyArea a
 CROSS JOIN (VALUES (1, 'Senin', '08:00', '17:00', 0), (2, 'Selasa', '08:00', '17:00', 0), (3, 'Rabu', '08:00', '17:00', 0),
@@ -1318,21 +1321,21 @@ INSERT INTO dbo.Currency (CurrencyCode, CurrencyName, CurrencyRate) VALUES
 INSERT INTO dbo.SupplierType (TypeCode, NameType) VALUES ('CUSTOMER', N'Customer / Supplier'), ('PENGANGKUTAN', N'Pengangkutan');
 INSERT INTO dbo.ProductType (ProductTypeCode, ProductTypeName) VALUES ('TBS', N'TBS'), ('PRODUK_PKS', N'Produk PKS');
 -- Alur tahap (migrasi 012; unit timbang dihapus di migrasi 041)
-INSERT INTO dbo.tahap (kode, nama, urutan) VALUES
+INSERT INTO dbo.FlowStage (StageCode, StageName, SortOrder) VALUES
     ('SECURITY', N'Security', 1), ('TIMBANG_1', N'Timbang Masuk', 2), ('SORTASI', N'Sortasi', 3),
     ('LAB', N'Laboratorium', 4), ('TIMBANG_2', N'Timbang Keluar', 5);
-INSERT INTO dbo.alur (kode, nama) VALUES
+INSERT INTO dbo.Flow (FlowCode, FlowName) VALUES
     ('TBS', N'TBS: timbang - sortasi - timbang'),
     ('PKS', N'Produk PKS: timbang - lab - timbang'),
     ('TIMBANG_SAJA', N'Penimbangan saja (sekali timbang)'),
     ('POS_SAJA', N'Pos Security saja (catat masuk / keluar, tanpa timbang)');      -- migrasi 039
-INSERT INTO dbo.alur_tahap (id_alur, urutan, kode_tahap)
-SELECT a.id_alur, v.urutan, v.tahap
+INSERT INTO dbo.FlowStep (FlowID, StepNo, StageCode)
+SELECT a.FlowID, v.urutan, v.tahap
 FROM (VALUES ('TBS', 1, 'SECURITY'), ('TBS', 2, 'TIMBANG_1'), ('TBS', 3, 'SORTASI'), ('TBS', 4, 'TIMBANG_2'),
              ('PKS', 1, 'SECURITY'), ('PKS', 2, 'TIMBANG_1'), ('PKS', 3, 'LAB'), ('PKS', 4, 'TIMBANG_2'),
              ('TIMBANG_SAJA', 1, 'SECURITY'), ('TIMBANG_SAJA', 2, 'TIMBANG_1'),
              ('POS_SAJA', 1, 'SECURITY')) v (alur, urutan, tahap)
-JOIN dbo.alur a ON a.kode = v.alur;
+JOIN dbo.Flow a ON a.FlowCode = v.alur;
 -- Akun super admin pertama: admin / admin12345. MustChange = 1 -> wajib buat password baru saat login pertama
 INSERT INTO dbo.Users (UserID, UserName, Nama, CategoryCode, UserLevelID, UserDeptID, CompAreaID)
 SELECT CAST(FORMAT(GETDATE(), 'yyMMdd') AS BIGINT) * 10000 + 1, 'admin', 'Super Admin', 'EMPLOYEE',
@@ -1366,7 +1369,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Company', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Company', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1395,7 +1398,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'CompanyArea', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'CompanyArea', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1424,7 +1427,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Mill', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Mill', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1453,7 +1456,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Department', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Department', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1482,7 +1485,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'LevelDetails', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'LevelDetails', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1511,7 +1514,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Users', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Users', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1540,7 +1543,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Supplier', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Supplier', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1569,7 +1572,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Product', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Product', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1598,7 +1601,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'DetailVehicle', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'DetailVehicle', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1627,7 +1630,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'VehicleType', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'VehicleType', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1656,7 +1659,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Contract', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Contract', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1685,7 +1688,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'DeliveryOrder', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'DeliveryOrder', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1693,20 +1696,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_jembatan_timbang ON dbo.jembatan_timbang AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Scale ON dbo.Scale AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.id_jembatan AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.id_jembatan AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.ScaleID AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.ScaleID AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.id_jembatan AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.id_jembatan AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.ScaleID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.ScaleID AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
@@ -1714,7 +1717,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'jembatan_timbang', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Scale', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1743,7 +1746,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'DailyPrice', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'DailyPrice', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1751,20 +1754,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_pengaturan ON dbo.pengaturan AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_Setting ON dbo.Setting AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(d.kunci AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.kunci AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.SettingKey AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.SettingKey AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.kunci AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.kunci AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.SettingKey AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.SettingKey AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
@@ -1772,7 +1775,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'pengaturan', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Setting', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1780,20 +1783,20 @@ BEGIN
     CLOSE c; DEALLOCATE c;
 END
 GO
-CREATE OR ALTER TRIGGER dbo.TR_LogData_pengaturan_area ON dbo.pengaturan_area AFTER INSERT, UPDATE, DELETE AS
+CREATE OR ALTER TRIGGER dbo.TR_LogData_SettingArea ON dbo.SettingArea AFTER INSERT, UPDATE, DELETE AS
 BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(CONCAT(d.id_comp_area, '|', d.kunci) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONCAT(i.id_comp_area, '|', i.kunci) AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(CONCAT(d.CompAreaID, '|', d.SettingKey) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONCAT(i.CompAreaID, '|', i.SettingKey) AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(CONCAT(d.id_comp_area, '|', d.kunci) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(CONCAT(i.id_comp_area, '|', i.kunci) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(CONCAT(d.CompAreaID, '|', d.SettingKey) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(CONCAT(i.CompAreaID, '|', i.SettingKey) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
@@ -1801,7 +1804,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'pengaturan_area', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'SettingArea', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1830,7 +1833,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'Status', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'Status', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1859,7 +1862,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'UserCategory', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'UserCategory', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1888,7 +1891,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'License', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'License', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;
@@ -1917,7 +1920,7 @@ BEGIN
         IF ISNULL(@lama, N'') <> ISNULL(@baru, N'')
         BEGIN
             SET @aksi = CASE WHEN @lama IS NULL THEN 'DATA_TAMBAH' WHEN @baru IS NULL THEN 'DATA_HAPUS' ELSE 'DATA_UBAH' END;
-            EXEC dbo.sp_catat_log @kategori = 'DATA', @aksi = @aksi, @tabel = 'VisitPurpose', @id_baris = @k,
+            EXEC dbo.sp_WriteLog @kategori = 'DATA', @aksi = @aksi, @tabel = 'VisitPurpose', @id_baris = @k,
                  @nilai_lama = @lama, @nilai_baru = @baru, @id_user = @id_user, @ip = @ip;
         END
         FETCH NEXT FROM c INTO @k;

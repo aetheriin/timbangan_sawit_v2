@@ -25,7 +25,7 @@ def wajib():
         conn = get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT form, kolom FROM kolom_wajib")
+            cursor.execute("SELECT FormCode AS form, FieldName AS kolom FROM RequiredDataField")
             rows = _rows_to_dicts(cursor)
         finally:
             conn.close()
@@ -55,10 +55,10 @@ def simpan(pilihan):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM kolom_wajib")
+        cursor.execute("DELETE FROM RequiredDataField")
         for form, kolom in sorted(pilihan):
             if kolom in DAFTAR.get(form, (None, None, {}))[2]:
-                cursor.execute("INSERT INTO kolom_wajib (form, kolom) VALUES (?, ?)", form, kolom)
+                cursor.execute("INSERT INTO RequiredDataField (FormCode, FieldName) VALUES (?, ?)", form, kolom)
         conn.commit()
     finally:
         conn.close()

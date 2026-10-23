@@ -235,10 +235,10 @@ def set_aktif_supplier(id_supplier, aktif):
 
 
 def daftar_produk():
-    return _query("""SELECT p.ProductID AS id_produk, p.ProductName AS nama_produk, p.Category AS kategori, p.Active AS is_active, p.FlowID AS id_alur, a.nama AS nama_alur,
+    return _query("""SELECT p.ProductID AS id_produk, p.ProductName AS nama_produk, p.Category AS kategori, p.Active AS is_active, p.FlowID AS id_alur, a.FlowName AS nama_alur,
                             1 AS ada_standar
                      FROM Product p
-                     LEFT JOIN alur a ON a.id_alur = p.FlowID
+                     LEFT JOIN Flow a ON a.FlowID = p.FlowID
                      ORDER BY p.Active DESC, p.ProductName""")
 
 
@@ -262,8 +262,8 @@ def set_aktif_produk(id_produk, aktif):
 
 # ===== JADWAL KERJA =====
 def ubah_jadwal(id_comp_area, hari, is_libur, jam_masuk, jam_pulang, toleransi):
-    _ubah("""UPDATE jadwal_kerja SET is_libur = ?, jam_masuk = ?, jam_pulang = ?, toleransi_menit = ?
-             WHERE id_comp_area = ? AND hari = ?""", 1 if is_libur else 0, jam_masuk, jam_pulang, toleransi, id_comp_area, hari)
+    _ubah("""UPDATE WorkSchedule SET IsHoliday = ?, TimeIn = ?, TimeOut = ?, ToleranceMinutes = ?
+             WHERE CompAreaID = ? AND DayNo = ?""", 1 if is_libur else 0, jam_masuk, jam_pulang, toleransi, id_comp_area, hari)
     get_jadwal_kerja.hapus()
 
 
@@ -306,15 +306,15 @@ def daftar_tiket(cari="", hari=30, batas=500):
     return _query(f"""SELECT TOP {int(batas)} t.TicketNumber AS no_tiket, k.NoVehicle AS no_plat, s.SupplierName AS customer, t.DONumber AS no_do, t.WeightTypeCode AS jenis_transaksi,
                              t.StatusCode AS status_alur, t.TicketDate AS created_at, pb.VoidType AS jenis_batal, pb.Reason AS alasan_void,
                              pb.VoidDate AS void_at, u.Nama AS void_oleh, pb.DocumentID AS id_dokumen,
-                             dk.no_dokumen AS no_ba, df.file_path AS file_ba
+                             dk.DocNumber AS no_ba, df.file_path AS file_ba
                       FROM WeightBridge t
                       JOIN DetailVehicle k ON k.IDVehicle = t.IDVehicle
                       JOIN Supplier s ON s.SupplierID = t.SupplierID
                       LEFT JOIN TicketVoid pb ON pb.TicketNumber = t.TicketNumber
                       LEFT JOIN Users u ON u.UserID = pb.VoidBy
-                      LEFT JOIN dokumen dk ON dk.id_dokumen = pb.DocumentID
-                      OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
-                                   WHERE f.id_dokumen = pb.DocumentID ORDER BY f.urutan) df
+                      LEFT JOIN Document dk ON dk.DocumentID = pb.DocumentID
+                      OUTER APPLY (SELECT TOP 1 f.FilePath AS file_path FROM DocumentFile f
+                                   WHERE f.DocumentID = pb.DocumentID ORDER BY f.SortOrder) df
                       WHERE t.TicketDate >= DATEADD(DAY, -?, GETDATE())
                         AND (t.TicketNumber LIKE ? OR k.NoVehicle LIKE ? OR t.DONumber LIKE ?)
                       ORDER BY t.TicketDate DESC""", int(hari), cari, cari, cari)

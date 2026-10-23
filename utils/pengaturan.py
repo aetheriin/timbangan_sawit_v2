@@ -77,10 +77,10 @@ def _muat():
         conn = get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT kunci, nilai FROM pengaturan")
+            cursor.execute("SELECT SettingKey AS kunci, SettingValue AS nilai FROM Setting")
             data = {r[0]: r[1] for r in cursor.fetchall() if isinstance(r[0], str) and isinstance(r[1], str)}
             try:
-                cursor.execute("SELECT id_comp_area, kunci, nilai FROM pengaturan_area")
+                cursor.execute("SELECT CompAreaID AS id_comp_area, SettingKey AS kunci, SettingValue AS nilai FROM SettingArea")
                 for r in cursor.fetchall():
                     if isinstance(r[1], str) and isinstance(r[2], str):
                         area.setdefault(r[0], {})[r[1]] = r[2]
@@ -164,16 +164,16 @@ def simpan(perubahan, user_id, id_comp_area=None):
         for kunci, teks in bersih.items():
             if id_comp_area:
                 cursor.execute("""
-                    MERGE pengaturan_area AS t USING (SELECT ? AS id_comp_area, ? AS kunci) AS s
-                        ON t.id_comp_area = s.id_comp_area AND t.kunci = s.kunci
-                    WHEN MATCHED THEN UPDATE SET nilai = ?, updated_by = ?, updated_at = GETDATE()
-                    WHEN NOT MATCHED THEN INSERT (id_comp_area, kunci, nilai, updated_by) VALUES (?, ?, ?, ?);""",
+                    MERGE SettingArea AS t USING (SELECT ? AS CompAreaID, ? AS SettingKey) AS s
+                        ON t.CompAreaID = s.CompAreaID AND t.SettingKey = s.SettingKey
+                    WHEN MATCHED THEN UPDATE SET SettingValue = ?, UpdateBy = ?, UpdateDate = GETDATE()
+                    WHEN NOT MATCHED THEN INSERT (CompAreaID, SettingKey, SettingValue, UpdateBy) VALUES (?, ?, ?, ?);""",
                                id_comp_area, kunci, teks, user_id, id_comp_area, kunci, teks, user_id)
                 continue
             cursor.execute("""
-                MERGE pengaturan AS t USING (SELECT ? AS kunci) AS s ON t.kunci = s.kunci
-                WHEN MATCHED THEN UPDATE SET nilai = ?, updated_by = ?, updated_at = GETDATE()
-                WHEN NOT MATCHED THEN INSERT (kunci, nilai, updated_by) VALUES (?, ?, ?);""",
+                MERGE Setting AS t USING (SELECT ? AS SettingKey) AS s ON t.SettingKey = s.SettingKey
+                WHEN MATCHED THEN UPDATE SET SettingValue = ?, UpdateBy = ?, UpdateDate = GETDATE()
+                WHEN NOT MATCHED THEN INSERT (SettingKey, SettingValue, UpdateBy) VALUES (?, ?, ?);""",
                            kunci, teks, user_id, kunci, teks, user_id)
         conn.commit()
     finally:
@@ -187,9 +187,9 @@ def kembalikan_bawaan(kunci, id_comp_area=None):
     conn = get_connection()
     try:
         if id_comp_area:
-            conn.cursor().execute("DELETE FROM pengaturan_area WHERE id_comp_area = ? AND kunci = ?", id_comp_area, kunci)
+            conn.cursor().execute("DELETE FROM SettingArea WHERE CompAreaID = ? AND SettingKey = ?", id_comp_area, kunci)
         else:
-            conn.cursor().execute("DELETE FROM pengaturan WHERE kunci = ?", kunci)
+            conn.cursor().execute("DELETE FROM Setting WHERE SettingKey = ?", kunci)
         conn.commit()
     finally:
         conn.close()

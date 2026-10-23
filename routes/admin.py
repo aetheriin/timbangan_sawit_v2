@@ -1136,8 +1136,8 @@ def kolom_wajib_simpan():
 TABEL_LOG_DATA = {
     "Users": "Pengguna", "Company": "Perusahaan", "CompanyArea": "Area Perusahaan", "Mill": "Mill", "Department": "Departemen",
     "LevelDetails": "Jabatan", "Supplier": "Supplier", "Product": "Produk & Standar Mutu", "DetailVehicle": "Kendaraan",
-    "VehicleType": "Jenis Kendaraan", "Contract": "Kontrak", "DeliveryOrder": "DO", "jembatan_timbang": "Jembatan Timbang",
-    "DailyPrice": "Harga Harian", "pengaturan": "Pengaturan", "pengaturan_area": "Pengaturan Area",
+    "VehicleType": "Jenis Kendaraan", "Contract": "Kontrak", "DeliveryOrder": "DO", "Scale": "Jembatan Timbang",
+    "DailyPrice": "Harga Harian", "Setting": "Pengaturan", "SettingArea": "Pengaturan Area",
     "Status": "Status Tiket", "UserCategory": "Kategori Personel", "License": "Jenis SIM",
     "VisitPurpose": "Keperluan Kunjungan", "WeightBridge": "Tiket",
 }

@@ -14,9 +14,9 @@ class CursorPalsu:
 
     def execute(self, sql, *params):
         self.sql.append((sql.split()[0], params))
-        if "FROM jenis_dokumen" in sql:
+        if "FROM DocumentType" in sql:
             self._hasil = self.jenis
-        elif "OUTPUT INSERTED.id_dokumen" in sql:
+        elif "OUTPUT INSERTED.DocumentID" in sql:
             self._hasil = (77,)
 
     def fetchone(self):

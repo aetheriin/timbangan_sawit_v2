@@ -22,8 +22,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
     """List Blacklist. pt = PT yang boleh dilihat user (None = semua): lokasi blacklist (area pengaju) di PT itu.
     Termasuk tanggal & lokasi scan terakhir (blacklist_deteksi)."""
     sql = """
-        SELECT TOP (?) b.BlacklistID AS id_blacklist, b.TargetType AS tipe_entitas, dk.no_dokumen AS no_surat_blacklist, b.Reason AS alasan_blacklist,
-               df.file_path AS file_surat_blacklist, COALESCE(dk.tanggal, CAST(b.CreateDate AS DATE)) AS tgl_blacklist,
+        SELECT TOP (?) b.BlacklistID AS id_blacklist, b.TargetType AS tipe_entitas, dk.DocNumber AS no_surat_blacklist, b.Reason AS alasan_blacklist,
+               df.file_path AS file_surat_blacklist, COALESCE(dk.DocDate, CAST(b.CreateDate AS DATE)) AS tgl_blacklist,
                b.BlacklistDoc AS id_dokumen, b.CreateDate AS created_at, u.Nama AS oleh, lv.LevelDetCode AS role_oleh, ar.AreaName AS area_oleh,
                p.UserID AS id_personel, p.UserCode AS kode_personel, p.Nama AS nama_personel, k.NoVehicle AS no_plat, b.NoVehicle AS no_plat_terkait,
                c.SupplierName AS customer_terkait, a.SupplierName AS pengangkutan_terkait,
@@ -31,8 +31,8 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
                CASE WHEN b.TargetType = 'KENDARAAN' THEN 'Kendaraan' ELSE kp.CategoryName END AS nama_kategori,
                arb.AreaName AS lokasi_blacklist, cb.CompID AS company_blacklist,
                COALESCE(sp.waktu, sk.waktu) AS scan_terakhir, sca.AreaName AS lokasi_scan, csa.CompID AS company_scan,
-               (SELECT TOP 1 pg.id_pengajuan FROM pengajuan pg WHERE pg.jenis = 'BLACKLIST_HAPUS' AND pg.status = 'MENUNGGU'
-                AND pg.target = 'BLACKLIST:' + CAST(b.BlacklistID AS VARCHAR(20))) AS id_pengajuan_hapus
+               (SELECT TOP 1 pg.RequestID AS id_pengajuan FROM ApprovalRequest pg WHERE pg.RequestType = 'BLACKLIST_HAPUS' AND pg.Status = 'MENUNGGU'
+                AND pg.Target = 'BLACKLIST:' + CAST(b.BlacklistID AS VARCHAR(20))) AS id_pengajuan_hapus
         FROM Blacklist b
         LEFT JOIN Users uc ON uc.UserID = b.RevokeBy
         LEFT JOIN Supplier c ON b.CustomerID = c.SupplierID
@@ -42,7 +42,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
         LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
         LEFT JOIN Users p ON b.UserID = p.UserID
         LEFT JOIN DetailVehicle k ON b.IDVehicle = k.IDVehicle
-        LEFT JOIN dokumen dk ON dk.id_dokumen = b.BlacklistDoc          -- NULL = surat menyusul
+        LEFT JOIN Document dk ON dk.DocumentID = b.BlacklistDoc          -- NULL = surat menyusul
         LEFT JOIN UserCategory kp ON kp.CategoryCode = b.CategoryCode
         LEFT JOIN CompanyArea arb ON arb.CompAreaID = b.CompAreaID
         LEFT JOIN Company cb ON cb.CompID = arb.CompID
@@ -52,7 +52,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
                      WHERE b.IDVehicle IS NOT NULL AND d.IDVehicle = b.IDVehicle ORDER BY d.DetectDate DESC) sk
         LEFT JOIN CompanyArea sca ON sca.CompAreaID = COALESCE(sp.id_comp_area, sk.id_comp_area)
         LEFT JOIN Company csa ON csa.CompID = sca.CompID
-        OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
+        OUTER APPLY (SELECT TOP 1 f.FilePath AS file_path FROM DocumentFile f WHERE f.DocumentID = dk.DocumentID ORDER BY f.SortOrder) df
         WHERE 1 = 1"""
     params = [batas]
     if tipe:
@@ -72,7 +72,7 @@ def get_riwayat_blacklist(tipe=None, cari=None, batas=200, status="AKTIF", pt=No
     if cari:
         pola = f"%{cari}%"
         sql += """ AND (p.UserCode LIKE ? OR p.Nama LIKE ? OR p.NoKTP LIKE ?
-                        OR k.NoVehicle LIKE ? OR dk.no_dokumen LIKE ? OR b.AliasName LIKE ? OR b.NoVehicle LIKE ?)"""
+                        OR k.NoVehicle LIKE ? OR dk.DocNumber LIKE ? OR b.AliasName LIKE ? OR b.NoVehicle LIKE ?)"""
         params += [pola] * 7
     sql += " ORDER BY b.CreateDate DESC, b.BlacklistID DESC"
     conn = get_connection()
@@ -245,14 +245,14 @@ def get_surat_blacklist(tipe, id_target):
     kolom = _TARGET.get(tipe, _TARGET["KENDARAAN"])[1]
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(f"""SELECT TOP 1 dk.no_dokumen AS no_surat_blacklist,
-                              COALESCE(dk.tanggal, CAST(b.CreateDate AS DATE)) AS tgl_blacklist,
+    cursor.execute(f"""SELECT TOP 1 dk.DocNumber AS no_surat_blacklist,
+                              COALESCE(dk.DocDate, CAST(b.CreateDate AS DATE)) AS tgl_blacklist,
                               df.file_path AS file_surat_blacklist, u.Nama AS oleh, ar.AreaName AS area_oleh
                        FROM Blacklist b JOIN Users u ON b.CreateBy = u.UserID
                        LEFT JOIN CompanyArea ar ON ar.CompAreaID = u.CompAreaID
-                       LEFT JOIN dokumen dk ON dk.id_dokumen = b.BlacklistDoc
-                       OUTER APPLY (SELECT TOP 1 f.file_path FROM dokumen_file f
-                                    WHERE f.id_dokumen = dk.id_dokumen ORDER BY f.urutan) df
+                       LEFT JOIN Document dk ON dk.DocumentID = b.BlacklistDoc
+                       OUTER APPLY (SELECT TOP 1 f.FilePath AS file_path FROM DocumentFile f
+                                    WHERE f.DocumentID = dk.DocumentID ORDER BY f.SortOrder) df
                        WHERE b.{kolom} = ? AND b.RevokeDate IS NULL ORDER BY b.CreateDate DESC, b.BlacklistID DESC""", id_target)
     data = _rows_to_dicts(cursor)
     conn.close()

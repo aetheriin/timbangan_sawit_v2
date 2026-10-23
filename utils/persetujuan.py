@@ -60,10 +60,10 @@ def _query(sql, *params):
 def tahap_alur(jenis, kategori=None):
     """[id_level, ...] alur aktif untuk jenis + kategori (cadangan: alur "semua kategori"); None = tidak ada alur."""
     try:
-        rows = _query("""SELECT a.kategori, t.urutan, t.id_level
-                         FROM alur_persetujuan a JOIN alur_persetujuan_tahap t ON t.id_alur_persetujuan = a.id_alur_persetujuan
-                         WHERE a.jenis = ? AND a.is_active = 1 AND (a.kategori = ? OR a.kategori IS NULL)
-                         ORDER BY t.urutan""", jenis, kategori or "")
+        rows = _query("""SELECT a.CategoryCode AS kategori, t.StepNo AS urutan, t.LevelDetID AS id_level
+                         FROM ApprovalFlow a JOIN ApprovalFlowStep t ON t.ApprovalFlowID = a.ApprovalFlowID
+                         WHERE a.RequestType = ? AND a.Active = 1 AND (a.CategoryCode = ? OR a.CategoryCode IS NULL)
+                         ORDER BY t.StepNo""", jenis, kategori or "")
     except Exception:       # noqa: BLE001 - migrasi 043 belum dijalankan -> cara lama
         return None
     khusus = [r["id_level"] for r in rows if r["kategori"]]
@@ -74,9 +74,9 @@ def peran_di_alur(id_level, menu):
     """Peran ini menjadi salah satu tahap alur aktif untuk jenis pengajuan menu itu (List Request: tab bawaan)."""
     jenis = [j for j, m in MENU_JENIS.items() if m == menu] or ["-"]
     try:
-        return bool(_query(f"""SELECT TOP 1 1 AS ada FROM alur_persetujuan a
-                               JOIN alur_persetujuan_tahap t ON t.id_alur_persetujuan = a.id_alur_persetujuan
-                               WHERE a.is_active = 1 AND t.id_level = ? AND a.jenis IN ({', '.join('?' * len(jenis))})""",
+        return bool(_query(f"""SELECT TOP 1 1 AS ada FROM ApprovalFlow a
+                               JOIN ApprovalFlowStep t ON t.ApprovalFlowID = a.ApprovalFlowID
+                               WHERE a.Active = 1 AND t.LevelDetID = ? AND a.RequestType IN ({', '.join('?' * len(jenis))})""",
                             id_level, *jenis))
     except Exception:       # noqa: BLE001 - sebelum migrasi 043
         return False
@@ -99,8 +99,8 @@ def _tahap_pengajuan(ids):
     for i in range(0, len(ids), 500):
         bagian = ids[i:i + 500]
         try:
-            rows = _query(f"""SELECT id_pengajuan, urutan, id_level FROM pengajuan_tahap
-                              WHERE id_pengajuan IN ({', '.join('?' * len(bagian))}) ORDER BY id_pengajuan, urutan""", *bagian)
+            rows = _query(f"""SELECT RequestID AS id_pengajuan, StepNo AS urutan, LevelDetID AS id_level FROM ApprovalRequestStep
+                              WHERE RequestID IN ({', '.join('?' * len(bagian))}) ORDER BY RequestID, StepNo""", *bagian)
         except Exception:   # noqa: BLE001 - sebelum migrasi 043
             return {}
         for r in rows:
@@ -144,7 +144,7 @@ def _notif_penyetuju(cursor, p, daftar_jabatan, daftar_user=()):
 
 
 def _riwayat(cursor, id_pengajuan, langkah, aksi, id_user, id_level=None, catatan=None):
-    cursor.execute("""INSERT INTO pengajuan_riwayat (id_pengajuan, langkah, aksi, id_level, id_user, catatan)
+    cursor.execute("""INSERT INTO ApprovalHistory (RequestID, StepNo, Action, LevelDetID, UserID, Notes)
                       VALUES (?, ?, ?, ?, ?, ?)""", id_pengajuan, langkah, aksi, id_level, id_user, catatan)
 
 
@@ -165,9 +165,9 @@ def _catat_langsung(jenis, target, judul, alasan, data, user_id, kategori=None, 
     cursor = conn.cursor()
     try:
         total = len(tahap) if tahap else 1
-        cursor.execute(f"""SET NOCOUNT ON; INSERT INTO pengajuan (jenis, total_langkah, langkah, status, selesai_at, id_company,
-                                                                  id_comp_area, target, judul, alasan, data, diajukan_oleh
-                                                                  {", kategori" if kategori else ""})
+        cursor.execute(f"""SET NOCOUNT ON; INSERT INTO ApprovalRequest (RequestType, TotalSteps, CurrentStep, Status, FinishDate, CompID,
+                                                                  CompAreaID, Target, Title, Reason, Data, RequestBy
+                                                                  {", CategoryCode" if kategori else ""})
                            VALUES (?, ?, ?, 'DISETUJUI', GETDATE(), ?, ?, ?, ?, ?, ?, ?{", ?" if kategori else ""});
                            SELECT CAST(SCOPE_IDENTITY() AS INT)""",
                        jenis, total, total, company_area().get(id_area), id_area, target, judul[:200],
@@ -176,7 +176,7 @@ def _catat_langsung(jenis, target, judul, alasan, data, user_id, kategori=None, 
         _riwayat(cursor, id_p, 0, "DIAJUKAN", user_id, catatan=alasan)
         if tahap:
             for n, id_level in enumerate(tahap, 1):
-                cursor.execute("INSERT INTO pengajuan_tahap (id_pengajuan, urutan, id_level) VALUES (?, ?, ?)", id_p, n, id_level)
+                cursor.execute("INSERT INTO ApprovalRequestStep (RequestID, StepNo, LevelDetID) VALUES (?, ?, ?)", id_p, n, id_level)
                 _riwayat(cursor, id_p, n, "DILEWATI", user_id, id_level, "Peran pengaju sendiri")
         else:
             _riwayat(cursor, id_p, 1, "DISETUJUI", user_id, catatan="Disetujui langsung: pengaju memiliki hak Setujui")
@@ -217,13 +217,13 @@ def ajukan(jenis, target, judul, alasan, data, user_id, kategori=None):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id_pengajuan FROM pengajuan WITH (UPDLOCK, HOLDLOCK) WHERE jenis = ? AND target = ? AND status = 'MENUNGGU'",
+        cursor.execute("SELECT RequestID AS id_pengajuan FROM ApprovalRequest WITH (UPDLOCK, HOLDLOCK) WHERE RequestType = ? AND Target = ? AND Status = 'MENUNGGU'",
                        jenis, target)
         if cursor.fetchone():
             raise ValueError("Sudah ada pengajuan yang sama dan masih menunggu persetujuan")
-        cursor.execute("""INSERT INTO pengajuan (jenis, total_langkah, id_company, id_comp_area, target, judul, alasan, data,
-                                                 diajukan_oleh, kategori)
-                          OUTPUT INSERTED.id_pengajuan VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        cursor.execute("""INSERT INTO ApprovalRequest (RequestType, TotalSteps, CompID, CompAreaID, Target, Title, Reason, Data,
+                                                 RequestBy, CategoryCode)
+                          OUTPUT INSERTED.RequestID VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)""",
                        jenis, id_company, id_area, target, judul[:200], (alasan or "")[:500] or None,
                        json.dumps(data, default=str), user_id, kategori)
         id_p = cursor.fetchone()[0]
@@ -251,19 +251,19 @@ def _ajukan_berjenjang(jenis, target, judul, alasan, data, user_id, kategori, ta
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id_pengajuan FROM pengajuan WITH (UPDLOCK, HOLDLOCK) WHERE jenis = ? AND target = ? AND status = 'MENUNGGU'",
+        cursor.execute("SELECT RequestID AS id_pengajuan FROM ApprovalRequest WITH (UPDLOCK, HOLDLOCK) WHERE RequestType = ? AND Target = ? AND Status = 'MENUNGGU'",
                        jenis, target)
         if cursor.fetchone():
             raise ValueError("Sudah ada pengajuan yang sama dan masih menunggu persetujuan")
-        cursor.execute("""INSERT INTO pengajuan (jenis, total_langkah, langkah, id_company, id_comp_area, target, judul, alasan,
-                                                 data, diajukan_oleh, kategori)
-                          OUTPUT INSERTED.id_pengajuan VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        cursor.execute("""INSERT INTO ApprovalRequest (RequestType, TotalSteps, CurrentStep, CompID, CompAreaID, Target, Title, Reason,
+                                                 Data, RequestBy, CategoryCode)
+                          OUTPUT INSERTED.RequestID VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                        jenis, len(tahap), mulai, id_company, id_area, target, judul[:200], (alasan or "")[:500] or None,
                        json.dumps(data, default=str), user_id, kategori)
         id_p = cursor.fetchone()[0]
         _riwayat(cursor, id_p, 0, "DIAJUKAN", user_id, catatan=alasan)
         for n, id_level in enumerate(tahap, 1):
-            cursor.execute("INSERT INTO pengajuan_tahap (id_pengajuan, urutan, id_level) VALUES (?, ?, ?)", id_p, n, id_level)
+            cursor.execute("INSERT INTO ApprovalRequestStep (RequestID, StepNo, LevelDetID) VALUES (?, ?, ?)", id_p, n, id_level)
             if n < mulai:
                 _riwayat(cursor, id_p, n, "DILEWATI", user_id, id_level, "Peran pengaju sendiri")
         _notif_tahap(cursor, {"id_pengajuan": id_p, "jenis": jenis, "judul": judul, "id_comp_area": id_area,
@@ -278,7 +278,7 @@ def _ajukan_berjenjang(jenis, target, judul, alasan, data, user_id, kategori, ta
 
 
 def _ambil(cursor, id_pengajuan):
-    cursor.execute("SELECT * FROM pengajuan WITH (UPDLOCK) WHERE id_pengajuan = ?", id_pengajuan)
+    cursor.execute("SELECT * FROM ApprovalRequest WITH (UPDLOCK) WHERE RequestID = ?", id_pengajuan)
     rows = _rows_to_dicts(cursor)
     if not rows:
         raise ValueError("Pengajuan tidak ditemukan")
@@ -331,7 +331,7 @@ def _naik_tahap(p, berikut, user, catatan):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE pengajuan SET langkah = ? WHERE id_pengajuan = ? AND status = 'MENUNGGU' AND langkah = ?",
+        cursor.execute("UPDATE ApprovalRequest SET CurrentStep = ? WHERE RequestID = ? AND Status = 'MENUNGGU' AND CurrentStep = ?",
                        berikut, p["id_pengajuan"], p["langkah"])
         if cursor.rowcount == 0:
             raise ValueError("Pengajuan ini sudah diproses oleh pengguna lain")
@@ -383,7 +383,7 @@ def _selesai(p, status, user, catatan=None, lewati=()):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE pengajuan SET status = ?, selesai_at = GETDATE() WHERE id_pengajuan = ? AND status = 'MENUNGGU'",
+        cursor.execute("UPDATE ApprovalRequest SET Status = ?, FinishDate = GETDATE() WHERE RequestID = ? AND Status = 'MENUNGGU'",
                        status, p["id_pengajuan"])
         if cursor.rowcount == 0:
             raise ValueError("Pengajuan ini sudah diproses oleh pengguna lain")
@@ -420,24 +420,24 @@ def daftar(user, mode="menunggu", batas=200, menu=None):
     syarat, args = ["1 = 1"], []
     if menu:
         jenis = [j for j, m in MENU_JENIS.items() if m == menu] or ["-"]
-        syarat.append(f"p.jenis IN ({', '.join('?' * len(jenis))})"); args += jenis
+        syarat.append(f"p.RequestType IN ({', '.join('?' * len(jenis))})"); args += jenis
     if mode == "saya":
-        syarat.append("p.diajukan_oleh = ?"); args.append(user.id)
+        syarat.append("p.RequestBy = ?"); args.append(user.id)
     else:
         pt = company_user(user.id)
         if pt is not None:
             ids = sorted(pt) or [""]           # daftar kosong = tidak ada perusahaan yang cocok
-            syarat.append(f"(p.id_company IN ({', '.join('?' * len(ids))}) OR p.diajukan_oleh = ?)"); args += [*ids, user.id]
+            syarat.append(f"(p.CompID IN ({', '.join('?' * len(ids))}) OR p.RequestBy = ?)"); args += [*ids, user.id]
         if mode == "menunggu":
-            syarat.append("p.status = 'MENUNGGU'")
-    rows = _query(f"""SELECT TOP ({int(batas)}) p.id_pengajuan, p.jenis, p.status, p.langkah, p.total_langkah, p.judul, p.alasan,
-                             p.data, p.id_company, p.diajukan_oleh, p.created_at, p.selesai_at, p.kategori, u.Nama AS pengaju,
+            syarat.append("p.Status = 'MENUNGGU'")
+    rows = _query(f"""SELECT TOP ({int(batas)}) p.RequestID AS id_pengajuan, p.RequestType AS jenis, p.Status AS status, p.CurrentStep AS langkah, p.TotalSteps AS total_langkah, p.Title AS judul, p.Reason AS alasan,
+                             p.Data AS data, p.CompID AS id_company, p.RequestBy AS diajukan_oleh, p.CreateDate AS created_at, p.FinishDate AS selesai_at, p.CategoryCode AS kategori, u.Nama AS pengaju,
                              c.CompID AS kode_company, ar.AreaName AS site, kp.CategoryName AS nama_kategori
-                      FROM pengajuan p JOIN Users u ON u.UserID = p.diajukan_oleh
-                      JOIN Company c ON c.CompID = p.id_company
-                      JOIN CompanyArea ar ON ar.CompAreaID = p.id_comp_area
-                      LEFT JOIN UserCategory kp ON kp.CategoryCode = p.kategori
-                      WHERE {' AND '.join(syarat)} ORDER BY CASE p.status WHEN 'MENUNGGU' THEN 0 ELSE 1 END, p.created_at DESC""",
+                      FROM ApprovalRequest p JOIN Users u ON u.UserID = p.RequestBy
+                      JOIN Company c ON c.CompID = p.CompID
+                      JOIN CompanyArea ar ON ar.CompAreaID = p.CompAreaID
+                      LEFT JOIN UserCategory kp ON kp.CategoryCode = p.CategoryCode
+                      WHERE {' AND '.join(syarat)} ORDER BY CASE p.Status WHEN 'MENUNGGU' THEN 0 ELSE 1 END, p.CreateDate DESC""",
                   *args)
     tahap = _tahap_pengajuan([r["id_pengajuan"] for r in rows])
     riwayat = _riwayat_semua([r["id_pengajuan"] for r in rows])
@@ -473,9 +473,9 @@ def _riwayat_semua(ids):
     hasil = {}
     for i in range(0, len(ids), 500):
         bagian = ids[i:i + 500]
-        for r in _query(f"""SELECT r.id_pengajuan, r.langkah, r.aksi, r.catatan, r.waktu, u.Nama AS nama
-                            FROM pengajuan_riwayat r JOIN Users u ON u.UserID = r.id_user
-                            WHERE r.id_pengajuan IN ({', '.join('?' * len(bagian))}) ORDER BY r.waktu, r.id_riwayat""", *bagian):
+        for r in _query(f"""SELECT r.RequestID AS id_pengajuan, r.StepNo AS langkah, r.Action AS aksi, r.Notes AS catatan, r.ActionDate AS waktu, u.Nama AS nama
+                            FROM ApprovalHistory r JOIN Users u ON u.UserID = r.UserID
+                            WHERE r.RequestID IN ({', '.join('?' * len(bagian))}) ORDER BY r.ActionDate, r.HistoryID""", *bagian):
             hasil.setdefault(r["id_pengajuan"], []).append(
                 {"langkah": r["langkah"], "aksi": r["aksi"], "catatan": r["catatan"], "oleh": r["nama"],
                  "waktu": r["waktu"].strftime("%Y-%m-%d %H:%M") if isinstance(r["waktu"], datetime) else str(r["waktu"])})

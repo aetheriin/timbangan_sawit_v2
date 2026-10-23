@@ -109,32 +109,32 @@ erDiagram
         varchar TicketNumber "NULL"
         bigint CreateBy FK "NULL"
     }
-    jenis_dokumen {
-        int id_jenis PK
-        varchar kode UK
-        nvarchar nama
-        bit wajib_file
-        bit is_active
+    DocumentType {
+        int DocTypeID PK
+        varchar DocTypeCode UK
+        nvarchar DocTypeName
+        bit RequireFile
+        bit Active
     }
-    dokumen {
-        int id_dokumen PK
-        int id_jenis FK
-        nvarchar no_dokumen
-        date tanggal
-        nvarchar perihal "NULL"
-        bigint created_by FK
-        datetime created_at
+    Document {
+        int DocumentID PK
+        int DocTypeID FK
+        nvarchar DocNumber
+        date DocDate
+        nvarchar Subject "NULL"
+        bigint CreateBy FK
+        datetime CreateDate
     }
-    dokumen_file {
-        int id_file PK
-        int id_dokumen FK
-        varchar file_path
-        nvarchar nama_asli "NULL"
-        varchar mime "NULL"
-        int ukuran_byte "NULL"
-        char sha256 "NULL"
-        tinyint urutan
-        datetime created_at
+    DocumentFile {
+        int FileID PK
+        int DocumentID FK
+        varchar FilePath
+        nvarchar OriginalName "NULL"
+        varchar MimeType "NULL"
+        int FileSize "NULL"
+        char SHA256 "NULL"
+        tinyint SortOrder
+        datetime CreateDate
     }
     DetailVehicle {
         int IDVehicle PK
@@ -142,7 +142,7 @@ erDiagram
     CompanyArea {
         bigint CompAreaID PK
     }
-    dokumen |o--o{ Blacklist : "BlacklistDoc"
+    Document |o--o{ Blacklist : "BlacklistDoc"
     CompanyArea |o--o{ Blacklist : "CompAreaID"
     Users ||--o{ Blacklist : "CreateBy"
     DetailVehicle |o--o{ Blacklist : "IDVehicle"
@@ -153,9 +153,9 @@ erDiagram
     DetailVehicle |o--o{ BlacklistDetection : "IDVehicle"
     Users |o--o{ BlacklistDetection : "UserID"
     Blacklist |o--o{ DetailVehicle : "BlacklistID"
-    Users ||--o{ dokumen : "created_by"
-    jenis_dokumen ||--o{ dokumen : "id_jenis"
-    dokumen ||--o{ dokumen_file : "id_dokumen"
+    Users ||--o{ Document : "CreateBy"
+    DocumentType ||--o{ Document : "DocTypeID"
+    Document ||--o{ DocumentFile : "DocumentID"
     Users |o--o{ FaceActivity : "UserID"
     Users |o--o{ FaceRecog : "CreateBy"
     Users ||--o| FaceRecog : "UserID"

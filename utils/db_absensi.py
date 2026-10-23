@@ -21,9 +21,9 @@ def get_jadwal_kerja(id_comp_area=None):
     """Jadwal mingguan satu area (migrasi 014). Tanpa area -> area pertama."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("""SELECT hari, nama_hari, jam_masuk, jam_pulang, is_libur, toleransi_menit FROM jadwal_kerja
-                      WHERE id_comp_area = COALESCE(?, (SELECT MIN(id_comp_area) FROM jadwal_kerja))
-                      ORDER BY hari""", id_comp_area)
+    cursor.execute("""SELECT DayNo AS hari, DayName AS nama_hari, TimeIn AS jam_masuk, TimeOut AS jam_pulang, IsHoliday AS is_libur, ToleranceMinutes AS toleransi_menit FROM WorkSchedule
+                      WHERE CompAreaID = COALESCE(?, (SELECT MIN(CompAreaID) FROM WorkSchedule))
+                      ORDER BY DayNo""", id_comp_area)
     data = [_jadwal_dict(r) for r in _rows_to_dicts(cursor)]
     conn.close()
     return data
