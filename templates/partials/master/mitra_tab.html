@@ -1,3 +1,4 @@
+{% from "partials/master/_referensi.html" import kotak_referensi %}
 {% from "partials/layout/_macros.html" import section_header %}
 <div data-tab-content="mitra" class="hidden">
     <div class="filter-bar">
@@ -24,4 +25,6 @@
             </table>
         </div>
     </div>
+    {{ kotak_referensi('grup_supplier', 'Grup Supplier', 'Pengelompokan supplier (mis. harga per grup). Dipilih di form Supplier.') }}
+    {{ kotak_referensi('jenis_supplier', 'Jenis Supplier', 'Kode jenis dipakai aturan aplikasi; hanya nama & keterangan yang bisa diubah.', tertutup=true) }}
 </div>

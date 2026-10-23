@@ -1,0 +1,7 @@
+{% from "partials/master/_referensi.html" import kotak_referensi %}
+{# Mata uang, bank & rekening (disiapkan untuk keuangan: kontrak, harga, invoice). Hak: Admin › Hak Akses › Mata Uang & Bank #}
+<div data-tab-content="keuangan" class="hidden">
+    {{ kotak_referensi('mata_uang', 'Mata Uang', 'Kurs ke IDR diisi manual bila dipakai; IDR = 1.') }}
+    {{ kotak_referensi('bank', 'Bank') }}
+    {{ kotak_referensi('rekening', 'Rekening', 'Rekening dapat dipilih di Data Master › Supplier.') }}
+</div>

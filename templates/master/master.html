@@ -2,14 +2,16 @@
 {% from "partials/layout/_macros.html" import tab_header, judul_halaman %}
 {% block title %}Data Master · CPOS{% endblock %}
 
-{# Data Master: Supir (personel kategori DRIVER), Kendaraan, Supplier (tabel mitra: customer & pengangkutan), Produk. Tombol tambah / ubah sesuai Admin › Hak Akses. #}
+{# Data Master: Supir (personel kategori DRIVER), Kendaraan, Supplier (customer & pengangkutan, jenis & grup), Produk (jenis & harga),
+   Mata Uang & Bank. Tombol tambah / ubah sesuai Admin › Hak Akses. #}
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
-    {{ judul_halaman('Data Master', 'Supir, kendaraan, supplier, dan produk', 'fa-database') }}
+    {{ judul_halaman('Data Master', 'Supir, kendaraan, supplier, produk, mata uang & bank', 'fa-database') }}
     {{ tab_header(tab_lihat([('personel', 'Supir', 'MASTER_DRIVER'), ('kendaraan', 'Kendaraan', 'MASTER_KENDARAAN'),
-                            ('mitra', 'Supplier', 'MASTER_MITRA'), ('produk', 'Produk', 'MASTER_PRODUK')])) }}
+                            ('mitra', 'Supplier', 'MASTER_MITRA'), ('produk', 'Produk', 'MASTER_PRODUK'),
+                            ('keuangan', 'Mata Uang & Bank', 'MASTER_KEUANGAN')])) }}
 {% endblock %}
 
 {% block tab_content %}
@@ -17,12 +19,14 @@
     {% include "partials/master/kendaraan_tab.html" %}
     {% include "partials/master/mitra_tab.html" %}
     {% include "partials/master/produk_tab.html" %}
+    {% include "partials/master/keuangan_tab.html" %}
 {% endblock %}
 
 {% block modals %}
     {% if boleh_ubah %}{% include "partials/face_recognition/personel_modals.html" %}{% endif %}
     {% if boleh_kendaraan %}{% include "partials/master/kendaraan_modal.html" %}{% endif %}
     {% if hak.mitra.tambah or hak.mitra.ubah or hak.produk.tambah or hak.produk.ubah %}{% include "partials/master/mitra_produk_modals.html" %}{% endif %}
+    {% include "partials/master/referensi_modal.html" %}
 {% endblock %}
 
 {% block extra_scripts %}
@@ -31,4 +35,5 @@
 <script defer src="{{ url_for('static', filename='js/face_recognition/personel.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/master/kendaraan.js') }}"></script>
 <script defer src="{{ url_for('static', filename='js/master/mitra_produk.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/master/referensi.js') }}"></script>
 {% endblock %}

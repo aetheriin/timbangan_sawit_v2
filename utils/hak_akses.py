@@ -26,7 +26,7 @@ AKSI_MENU = {
     "FORM_SECURITY": ("tambah", "ubah"), "FORM_TIMBANGAN": ("tambah",), "FORM_SORTASI": ("tambah",),
     "FORM_LAB": ("tambah", "ubah"),
     "PERSONEL": AKSI, "MASTER_DRIVER": AKSI, "MASTER_KENDARAAN": ("tambah", "ubah"),
-    "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"),
+    "MASTER_MITRA": ("tambah", "ubah"), "MASTER_PRODUK": ("tambah", "ubah"), "MASTER_KEUANGAN": ("tambah", "ubah"),
     "KONTRAK_DO": ("tambah", "ubah"), "BLACKLIST": ("tambah", "hapus", "setujui"), "KUNJUNGAN": ("tambah", "ubah"),
     "KELEBIHAN_DO": ("tambah", "ubah"),
     "POS_SECURITY": ("tambah", "ubah"), "LOGBOOK": ("ubah",),

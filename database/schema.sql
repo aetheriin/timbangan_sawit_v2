@@ -1274,6 +1274,7 @@ FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weigh
              ('MASTER_KENDARAAN', N'Kendaraan',                 'MASTER', '/master?tab=kendaraan', 2),
              ('MASTER_MITRA',     N'Supplier',                  'MASTER', '/master?tab=mitra',     3),
              ('MASTER_PRODUK',    N'Produk',                    'MASTER', '/master?tab=produk',    4),
+             ('MASTER_KEUANGAN',  N'Mata Uang & Bank',          'MASTER', '/master?tab=keuangan',  5),
              ('ABSENSI',          N'Absensi',                   'FACE_RECOGNITION', '/face-recognition?tab=absensi',  1),
              ('PERSONEL',         N'Personel',                  'FACE_RECOGNITION', '/face-recognition?tab=personel', 2),
              ('AUDIT_LOG',        N'Log Audit',                 'FACE_RECOGNITION', '/face-recognition?tab=audit',    4)
@@ -1285,7 +1286,7 @@ INSERT INTO @hak VALUES
     ('HO', 'DASHBOARD', 0, 1, 0, 0), ('HO', 'PERSONEL', 1, 1, 1, 0), ('HO', 'BLACKLIST', 1, 0, 0, 1),
     ('HO', 'KONTRAK_DO', 1, 1, 1, 0), ('HO', 'MASTER_DRIVER', 1, 1, 1, 0), ('HO', 'MASTER_KENDARAAN', 1, 1, 0, 0),
     ('HO', 'KELEBIHAN_DO', 0, 1, 0, 0), ('OPERATOR_TIMBANG', 'KELEBIHAN_DO', 1, 0, 0, 0),
-    ('HO', 'MASTER_MITRA', 1, 1, 0, 0), ('HO', 'MASTER_PRODUK', 1, 1, 0, 0),
+    ('HO', 'MASTER_MITRA', 1, 1, 0, 0), ('HO', 'MASTER_PRODUK', 1, 1, 0, 0), ('HO', 'MASTER_KEUANGAN', 1, 1, 0, 0),
     ('SECURITY', 'FORM_SECURITY', 1, 1, 0, 0), ('SECURITY', 'MASTER_DRIVER', 1, 1, 1, 0), ('SECURITY', 'MASTER_KENDARAAN', 1, 1, 0, 0),
     ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN', 1, 0, 0, 0), ('SORTASI', 'FORM_SORTASI', 1, 0, 0, 0), ('LAB', 'FORM_LAB', 1, 1, 0, 0),
     ('SECURITY', 'POS_SECURITY', 1, 1, 0, 0), ('SECURITY', 'LOGBOOK', 0, 1, 0, 0), ('SECURITY', 'KUNJUNGAN', 1, 1, 0, 0),

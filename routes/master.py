@@ -1,10 +1,11 @@
-"""Menu Data Master: Driver (personel kategori DRIVER), Kendaraan, Supplier (tabel mitra), Produk. Aksi sesuai Admin › Hak Akses."""
+"""Menu Data Master: Driver (personel kategori DRIVER), Kendaraan, Supplier, Produk, Mata Uang & Bank, dan tabel referensi
+(utils/db_referensi.py). Aksi sesuai Admin › Hak Akses."""
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from utils import db_master as db, db_admin, alur, log_aktivitas, kolom_wajib
+from utils import db_master as db, db_admin, alur, log_aktivitas, kolom_wajib, db_referensi as ref
 from utils.plat_utils import normalisasi_plat
-from utils.hak_akses import izin, boleh, halaman as lihat_halaman
+from utils.hak_akses import izin, boleh, boleh_lihat, halaman as lihat_halaman
 from utils.db_personel import daftar_jenis_sim, daftar_kategori
 from utils.db_organisasi import daftar_company
 
@@ -16,7 +17,8 @@ master_bp = Blueprint("master", __name__)
 def master_halaman():
     return render_template("master/master.html", halaman="master", kategori_tetap="DRIVER",
                            boleh_ubah=boleh("MASTER_DRIVER"), boleh_kendaraan=boleh("MASTER_KENDARAAN"),
-                           hak={k: {a: boleh(f"MASTER_{k.upper()}", a) for a in ("tambah", "ubah")} for k in ("mitra", "produk")},
+                           hak={k: {a: boleh(f"MASTER_{k.upper()}", a) for a in ("tambah", "ubah")} for k in ("mitra", "produk", "keuangan")},
+                           grup_supplier_list=ref.opsi("grup_supplier"), rekening_list=ref.opsi("rekening"),
                            driver_list=db.daftar_driver_aktif(), jenis_sim_list=daftar_jenis_sim(),
                            kategori_list=list(daftar_kategori().values()), boleh_kode=boleh("PERSONEL", "ubah"),
                            jenis_kendaraan_list=db.daftar_jenis_kendaraan(),
@@ -138,10 +140,22 @@ def mitra_simpan():
         pt = {v.strip().upper() for v in request.form.getlist("company") if v.strip()}
         if pt - semua:
             raise ValueError("Pilih perusahaan dari daftar")
-        db_admin.simpan_supplier(id_supplier, kode, nama, peran, alamat, pt)
+        id_grup, id_rekening = (_pilih_opsional(k, ref.opsi(sumber), label) for k, sumber, label in
+                                (("id_grup", "grup_supplier", "grup supplier"), ("id_rekening", "rekening", "rekening")))
+        db_admin.simpan_supplier(id_supplier, kode, nama, peran, alamat, pt, id_grup, id_rekening)
         _catat("MITRA_UBAH" if id_supplier else "MITRA_TAMBAH", kode, nama)
         return jsonify({"message": f"Supplier {nama} berhasil disimpan."})
     return _jalankan(aksi)
+
+
+def _pilih_opsional(nama, opsi, label):
+    """id pilihan opsional dari form; kosong = None. ValueError bila tidak ada di daftar."""
+    teks = (request.form.get(nama) or "").strip()
+    if not teks:
+        return None
+    if not teks.isdigit() or int(teks) not in {o["id"] for o in opsi}:
+        raise ValueError(f"Pilih {label} dari daftar")
+    return int(teks)
 
 
 @master_bp.route("/api/master/mitra/<int:id_supplier>/aktif", methods=["POST"])
@@ -241,4 +255,66 @@ def jenis_kendaraan_aktif(id_jenis):
         db.set_aktif_jenis_kendaraan(id_jenis, aktif)
         _catat("JENIS_KENDARAAN_AKTIF" if aktif else "JENIS_KENDARAAN_NONAKTIF", id_jenis)
         return jsonify({"message": "Jenis kendaraan berhasil " + ("diaktifkan." if aktif else "dinonaktifkan.")})
+    return _jalankan(aksi)
+
+
+# ===== TABEL REFERENSI (Mata Uang, Bank, Rekening, Jenis & Grup Supplier, Jenis & Harga Produk) =====
+def _ref(jenis, *aksi):
+    """Konfigurasi jenis + cek hak menu-nya. (None, respons error) bila tidak boleh."""
+    if jenis not in ref.REF:
+        return None, (jsonify({"error": "Data tidak dikenal"}), 404)
+    menu = ref.REF[jenis]["menu"]
+    if not (boleh(menu, *aksi) if aksi else boleh_lihat(menu)):
+        return None, (jsonify({"error": "Level Anda tidak memiliki akses untuk tindakan ini"}), 403)
+    return ref.REF[jenis], None
+
+
+@master_bp.route("/api/master/ref/<jenis>")
+@login_required
+def ref_daftar(jenis):
+    _, gagal = _ref(jenis)
+    if gagal:
+        return gagal
+    return jsonify({**ref.info(jenis), "data": ref.daftar(jenis), "pilihan": ref.pilihan(jenis),
+                    "boleh_tambah": boleh(ref.REF[jenis]["menu"], "tambah"), "boleh_ubah": boleh(ref.REF[jenis]["menu"], "ubah")})
+
+
+@master_bp.route("/api/master/ref/<jenis>/simpan", methods=["POST"])
+@login_required
+def ref_simpan(jenis):
+    id_baris = request.form.get("id", type=int)
+    c, gagal = _ref(jenis, "ubah" if id_baris else "tambah")
+    if gagal:
+        return gagal
+    def aksi():
+        id_baru = ref.simpan(jenis, id_baris, request.form, current_user.id)
+        _catat(f"REF_{'UBAH' if id_baris else 'TAMBAH'}", f"{c['tabel']}:{id_baru}")
+        return jsonify({"message": f"{c['judul']} berhasil disimpan", "id": id_baru})
+    return _jalankan(aksi)
+
+
+@master_bp.route("/api/master/ref/<jenis>/<int:id_baris>/aktif", methods=["POST"])
+@login_required
+def ref_aktif(jenis, id_baris):
+    c, gagal = _ref(jenis, "ubah")
+    if gagal:
+        return gagal
+    aktif = request.form.get("aktif") in ("1", "true")
+    def aksi():
+        ref.set_aktif(jenis, id_baris, aktif)
+        _catat("REF_AKTIF" if aktif else "REF_NONAKTIF", f"{c['tabel']}:{id_baris}")
+        return jsonify({"message": f"{c['judul']} berhasil " + ("diaktifkan." if aktif else "dinonaktifkan.")})
+    return _jalankan(aksi)
+
+
+@master_bp.route("/api/master/ref/<jenis>/<int:id_baris>/void", methods=["POST"])
+@login_required
+def ref_void(jenis, id_baris):
+    c, gagal = _ref(jenis, "ubah")
+    if gagal:
+        return gagal
+    def aksi():
+        ref.batalkan(jenis, id_baris, current_user.id)
+        _catat("REF_VOID", f"{c['tabel']}:{id_baris}")
+        return jsonify({"message": f"{c['judul']} dibatalkan"})
     return _jalankan(aksi)

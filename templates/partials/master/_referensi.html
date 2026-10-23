@@ -1,0 +1,17 @@
+{% from "partials/layout/_macros.html" import section_header %}
+{# Satu kotak tabel referensi (js/master/referensi.js memuat kolom, data, dan aksi dari /api/master/ref/<jenis>) #}
+{% macro kotak_referensi(jenis, judul, keterangan='', tertutup=false) %}
+<div class="section-box" data-ref="{{ jenis }}">
+    {% call section_header('ref-' ~ jenis, judul, tertutup) %}
+    <button type="button" class="btn-primary py-1.5 hidden" data-ref-tambah data-henti-klik data-on-click="bukaRef" data-arg="{{ jenis }}">
+        <i class="fa-solid fa-plus mr-1"></i> Tambah</button>
+    {% endcall %}
+    <div id="body-ref-{{ jenis }}" class="section-body overflow-x-auto{% if tertutup %} section-body-hidden{% endif %}">
+        {% if keterangan %}<p class="px-4 pt-3 text-xs text-slate-500">{{ keterangan }}</p>{% endif %}
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row"><tr></tr></thead>
+            <tbody data-per-halaman="20" class="divide-y divide-slate-100"><tr><td class="table-cell text-slate-400">Memuat...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+{% endmacro %}

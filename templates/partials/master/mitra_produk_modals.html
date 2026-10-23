@@ -19,6 +19,22 @@
                 <label class="field-label" for="mitraAlamat">Alamat <span class="text-slate-400 font-normal">(opsional)</span></label>
                 <input type="text" id="mitraAlamat" name="alamat" maxlength="255" class="input-field">
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="mitraGrup">Grup Supplier <span class="text-slate-400 font-normal">(opsional)</span></label>
+                    <select id="mitraGrup" name="id_grup" class="input-field">
+                        <option value="">-</option>
+                        {% for g in grup_supplier_list or [] %}<option value="{{ g.id }}">{{ g.label }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="mitraRekening">Rekening <span class="text-slate-400 font-normal">(opsional)</span></label>
+                    <select id="mitraRekening" name="id_rekening" class="input-field">
+                        <option value="">-</option>
+                        {% for r in rekening_list or [] %}<option value="{{ r.id }}">{{ r.label }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
             <div>
                 <span class="field-label">Peran (boleh keduanya)</span>
                 <div class="flex gap-5 text-sm">

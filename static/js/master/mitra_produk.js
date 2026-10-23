@@ -18,7 +18,8 @@ async function muatMitra() {
     tbody.innerHTML = data.map(s => `
         <tr class="hover:bg-slate-50${s.is_active ? '' : ' text-slate-400'}" data-cari="${escapeHtml(`${s.kode_supplier} ${s.nama_supplier}`.toLowerCase())}">
             <td class="table-cell font-mono">${escapeHtml(s.kode_supplier)}</td>
-            <td class="table-cell">${escapeHtml(s.nama_supplier)}${s.is_blacklisted ? ` ${badge('BLACKLIST', WARNA_BADGE.merah)}` : ''}${s.alamat ? `<span class="block text-[11px] text-slate-500">${escapeHtml(s.alamat)}</span>` : ''}</td>
+            <td class="table-cell">${escapeHtml(s.nama_supplier)}${s.is_blacklisted ? ` ${badge('BLACKLIST', WARNA_BADGE.merah)}` : ''}${s.alamat ? `<span class="block text-[11px] text-slate-500">${escapeHtml(s.alamat)}</span>` : ''}${s.nama_grup || s.rekening
+                ? `<span class="block text-[11px] text-slate-500">${[s.nama_grup && `Grup ${s.nama_grup}`, s.rekening].filter(Boolean).map(escapeHtml).join(' · ')}</span>` : ''}</td>
             <td class="table-cell space-x-1">${s.is_customer ? badge('Customer', WARNA_BADGE.biru) : ''}${s.is_angkutan ? badge('Pengangkutan', WARNA_BADGE.oranye) : ''}</td>
             <td class="table-cell">${escapeHtml(labelPt(s.company))}</td>
             <td class="table-cell">${badgeAktif(s.is_active)}</td>
@@ -41,7 +42,8 @@ function bukaMitra(id) {
     const s = daftarMitra.find(x => x.id_supplier === id);
     form.reset();
     const { company, ...isi } = s || {};
-    isiForm(form, s ? { ...isi, alamat: s.alamat || '' } : { id_supplier: '', is_customer: true });
+    isiForm(form, s ? { ...isi, alamat: s.alamat || '', id_grup: s.id_grup ?? '', id_rekening: s.id_rekening ?? '' }
+                    : { id_supplier: '', is_customer: true, id_grup: '', id_rekening: '' });
     form.querySelectorAll('[name=company]').forEach(c => { c.checked = (company || []).includes(c.value); });
     document.getElementById('judulModalMitra').textContent = s ? 'Ubah Supplier' : 'Tambah Supplier';
     openModal('modalMitra');

@@ -1,0 +1,17 @@
+<!-- MODAL: Tambah / Ubah tabel referensi (isian dibuat js/master/referensi.js sesuai jenisnya) -->
+<div id="modalRef" class="modal-overlay">
+    <form id="formRef" class="modal-box" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalRef" class="font-bold">Tambah</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalRef" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <input type="hidden" name="id">
+            <div id="isiFormRef" class="space-y-3"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalRef" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>
