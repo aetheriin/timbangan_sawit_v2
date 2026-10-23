@@ -40,7 +40,13 @@ async function cekPlatPos() {
     Object.assign(POS, { plat: d.no_plat, kendaraan: d.kendaraan, terakhir: d.terakhir, dalam: d.di_dalam });
     const stnk = document.getElementById('posStnk');
     if (d.kendaraan && d.kendaraan.no_stnk) stnk.value = d.kendaraan.no_stnk;
-    document.getElementById('posJenis').value = (d.kendaraan && d.kendaraan.jenis) || '';
+    const jenis = document.getElementById('posJenis');
+    jenis.value = (d.kendaraan && d.kendaraan.id_jenis_kendaraan) || '';
+    if (d.kendaraan && d.kendaraan.id_jenis_kendaraan && !jenis.value && d.kendaraan.jenis) {   // jenis nonaktif: tetap tampil
+        jenis.add(new Option(`${d.kendaraan.jenis} (nonaktif)`, d.kendaraan.id_jenis_kendaraan));
+        jenis.value = d.kendaraan.id_jenis_kendaraan;
+    }
+    jenis.dispatchEvent(new Event('change'));
     document.getElementById('badgePlat').innerHTML = d.kendaraan && d.kendaraan.blacklist
         ? '<span class="badge-status bg-red-600 text-white"><i class="fa-solid fa-ban mr-1"></i>BLACKLIST</span>'
         : d.di_dalam ? '<span class="badge-status bg-amber-100 text-amber-800">Masih di dalam</span>'
@@ -53,6 +59,7 @@ async function cekPlatPos() {
 function lepasPlat() {
     Object.assign(POS, { plat: '', kendaraan: null, terakhir: null, dalam: null });
     document.getElementById('posJenis').value = '';
+    document.getElementById('posJenis').dispatchEvent(new Event('change'));
     document.getElementById('badgePlat').innerHTML = '';
     tampilTerakhir();
     perbarui();
@@ -384,8 +391,8 @@ function perbarui() {
 
 function kosongkanPos() {
     Object.assign(POS, { plat: '', kendaraan: null, terakhir: null, dalam: null, supir: null, terverifikasi: false });
-    ['posPlat', 'posStnk', 'posJenis', 'posAngkut', 'posIdDriver'].forEach(id => { document.getElementById(id).value = ''; });
-    ['posCustomer', 'posProduk', 'posJenisTrx'].forEach(id => {
+    ['posPlat', 'posStnk', 'posAngkut', 'posIdDriver'].forEach(id => { document.getElementById(id).value = ''; });
+    ['posJenis', 'posCustomer', 'posProduk', 'posJenisTrx'].forEach(id => {
         const el = document.getElementById(id);
         el.value = '';
         el.dispatchEvent(new Event('change'));
@@ -407,9 +414,10 @@ async function simpanMasukPos(btn) {
     if (POS.dalam) { Notif.peringatan('Truk ini masih tercatat di dalam. Catat keluar dulu.'); return; }
     const isi = { no_plat: POS.plat, no_stnk: document.getElementById('posStnk').value.trim(),
                   jenis_transaksi: document.getElementById('posJenisTrx').value, id_supplier: document.getElementById('posCustomer').value,
+                  id_jenis_kendaraan: document.getElementById('posJenis').value,
                   id_produk: document.getElementById('posProduk').value, pengangkutan: document.getElementById('posAngkut').value.trim(),
                   id_driver: document.getElementById('posIdDriver').value };
-    const kurang = [[isi.no_stnk, 'No. STNK'], [isi.id_driver, 'supir'], [isi.id_supplier, 'customer / supplier'],
+    const kurang = [[isi.no_stnk, 'No. STNK'], [isi.id_jenis_kendaraan, 'jenis kendaraan'], [isi.id_driver, 'supir'], [isi.id_supplier, 'customer / supplier'],
                     [isi.id_produk, 'produk'], [isi.jenis_transaksi, 'jenis transaksi']].filter(([v]) => !v).map(([, n]) => n);
     if (kurang.length) { Notif.peringatan(`Lengkapi: ${kurang.join(', ')}`); return; }
     if (WAJIB_SCAN && !POS.terverifikasi) { Notif.peringatan('Supir belum terverifikasi wajah. Klik Scan Wajah Supir.'); return; }

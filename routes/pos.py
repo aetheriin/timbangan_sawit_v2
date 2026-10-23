@@ -17,7 +17,7 @@ from utils.audit_utils import catat_security_audit
 from utils.db_admin import supplier_boleh
 from utils.db_kontrak import daftar_mitra, id_pengangkutan_dari_nama
 from utils.db_kunjungan import area_akun
-from utils.db_master import stnk_dipakai
+from utils.db_master import stnk_dipakai, daftar_jenis_kendaraan
 from utils.db_utils import (get_semua_supplier, get_semua_produk, get_driver_by_id, cari_transaksi_aktif,
                             buat_transaksi_full, generate_no_tiket)
 from utils.hak_akses import boleh, boleh_lihat, izin, halaman as lihat_halaman
@@ -71,6 +71,7 @@ def pos_security():
                            supplier_list=[s for s in get_semua_supplier()
                                           if s.is_customer and supplier_boleh(s.id_supplier, pt)],
                            produk_list=get_semua_produk(), transportir_list=_transportir(pt),
+                           jenis_kendaraan_list=daftar_jenis_kendaraan(),
                            wajib_scan_wajah=pengaturan.nilai("WAJIB_SCAN_WAJAH", area_akun(current_user.id)),
                            boleh_simpan=boleh("POS_SECURITY", "tambah"), boleh_ubah_supir=boleh("POS_SECURITY", "ubah"),
                            boleh_blacklist=boleh("BLACKLIST", "tambah"), boleh_keluar=boleh("LOGBOOK", "ubah"))
@@ -104,6 +105,7 @@ def cek_plat():
     return jsonify({
         "no_plat": no_plat,
         "kendaraan": k and {"id_kendaraan": k["id_kendaraan"], "no_stnk": k["no_stnk"], "jenis": k["jenis"],
+                            "id_jenis_kendaraan": k["id_jenis_kendaraan"],
                             "is_active": bool(k["is_active"]), "blacklist": bl or ({} if k["is_blacklisted"] else None)},
         "terakhir": t and {**{x: t[x] for x in ("id_driver", "kode_personel", "nik", "nama", "no_sim", "kategori",
                                                  "foto_path")},
@@ -150,6 +152,9 @@ def simpan_masuk():
         return jsonify({"error": "Pilih customer / supplier dari daftar"}), 400
     if not id_produk.isdigit() or int(id_produk) not in {p.id_produk for p in get_semua_produk()}:
         return jsonify({"error": "Pilih produk dari daftar"}), 400
+    teks_jk = f.get("id_jenis_kendaraan", "")
+    if not teks_jk.isdigit() or int(teks_jk) not in {j["id_jenis_kendaraan"] for j in daftar_jenis_kendaraan()}:
+        return jsonify({"error": "Pilih jenis kendaraan dari daftar"}), 400
     nama_angkut = " ".join(f.get("pengangkutan", "").split())
     if len(nama_angkut) > 100:
         return jsonify({"error": "Nama pengangkutan maksimal 100 karakter"}), 400
@@ -198,6 +203,7 @@ def simpan_masuk():
     buat_transaksi_full(no_tiket, no_plat, no_stnk, jenis, int(id_supplier), int(id_produk), driver.id_driver, None,
                         current_user.id, id_angkut, area, alur.id_alur_kode("POS_SAJA"), None,
                         "PIHAK_KETIGA" if id_angkut else "PENGIRIM")
+    db_pos.atur_jenis_kendaraan(no_plat, int(teks_jk))
 
     ip = request.remote_addr
     saran = f.get("id_driver_saran", "").strip()

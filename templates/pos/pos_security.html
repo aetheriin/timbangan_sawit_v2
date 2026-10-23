@@ -50,7 +50,12 @@
                             </div>
                             <div>
                                 <label class="field-label" for="posJenis">Jenis Kendaraan</label>
-                                <input type="text" id="posJenis" readonly class="input-field bg-slate-50" placeholder="-">
+                                {# Kendaraan terdaftar: terisi dari Data Master, boleh diubah; kendaraan baru wajib dipilih.
+                                   Disimpan ke data kendaraan saat Simpan Masuk. #}
+                                <select id="posJenis" class="input-field">
+                                    <option value="">-- Pilih --</option>
+                                    {% for j in jenis_kendaraan_list %}<option value="{{ j.id_jenis_kendaraan }}">{{ j.nama }}</option>{% endfor %}
+                                </select>
                             </div>
                         </div>
                     </div>

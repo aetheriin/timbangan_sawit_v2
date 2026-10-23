@@ -55,10 +55,21 @@ def di_dalam(no_plat):
 
 
 def kendaraan(no_plat):
-    rows = _query("""SELECT k.id_kendaraan, k.no_stnk, k.is_blacklisted, k.is_active, jk.nama AS jenis
+    rows = _query("""SELECT k.id_kendaraan, k.no_stnk, k.is_blacklisted, k.is_active, k.id_jenis_kendaraan, jk.nama AS jenis
                      FROM kendaraan k LEFT JOIN jenis_kendaraan jk ON jk.id_jenis_kendaraan = k.id_jenis_kendaraan
                      WHERE k.no_plat = ?""", no_plat)
     return rows[0] if rows else None
+
+
+def atur_jenis_kendaraan(no_plat, id_jenis):
+    """Jenis kendaraan dipilih security saat masuk -> disimpan di data kendaraan (perubahan tercatat trigger log data)."""
+    conn = get_connection()
+    try:
+        conn.cursor().execute("""UPDATE kendaraan SET id_jenis_kendaraan = ?
+                                 WHERE no_plat = ? AND ISNULL(id_jenis_kendaraan, 0) <> ?""", id_jenis, no_plat, id_jenis)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def supir_terakhir(no_plat):
