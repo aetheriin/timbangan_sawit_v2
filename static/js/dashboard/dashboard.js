@@ -29,8 +29,11 @@ function filterHariDashboard(el) {
     muatDashboard();
 }
 
+const companyHarga = () => document.getElementById('pilihCompanyHarga')?.value || '';
+
 async function muatDashboard() {
-    const data = await ambilJson(`/api/dashboard/harga?hari=${hariDashboard}`);
+    const company = companyHarga();
+    const data = await ambilJson(`/api/dashboard/harga?hari=${hariDashboard}${company ? `&company=${encodeURIComponent(company)}` : ''}`);
     const wadah = document.getElementById('kartuDashboard');
     if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return false; }
     dataHarga = data;
@@ -136,16 +139,17 @@ function tampilkanTabelHarga() {
     tbody.innerHTML = [...dataHarga].reverse().map(r => `<tr class="hover:bg-slate-50">
         <td class="table-cell whitespace-nowrap">${escapeHtml(r.tanggal)}</td>
         ${UKURAN.map(u => `<td class="table-cell text-right">${angka(r[u.kunci], u.desimal)}</td>`).join('')}
+        <td class="table-cell text-right">${angka(r.qty_rsi, 0)}</td>
         <td class="table-cell">${escapeHtml(r.oleh || '-')}</td>
         ${bolehUbah ? `<td class="table-cell text-right"><button type="button" class="link-aksi text-blue-600" data-on-click="bukaIsiHarga" data-arg="${escapeHtml(r.tanggal)}">Ubah</button></td>` : ''}
-    </tr>`).join('') || barisKosong(bolehUbah ? 7 : 6, 'Belum ada data harga');
+    </tr>`).join('') || barisKosong(bolehUbah ? 8 : 7, 'Belum ada data harga');
 }
 
 function bukaIsiHarga(tanggal) {
     const form = document.getElementById('formHarga');
     form.reset();
     const r = dataHarga.find(x => x.tanggal === tanggal);
-    isiForm(form, r || { tanggal: new Date().toISOString().slice(0, 10) });
+    isiForm(form, { ...(r || { tanggal: new Date().toISOString().slice(0, 10) }), company: companyHarga() });
     openModal('modalHarga');
 }
 

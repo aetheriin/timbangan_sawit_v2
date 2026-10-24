@@ -5,7 +5,7 @@ load_dotenv()
 DB_CONFIG = {
     "driver": os.getenv("DB_DRIVER", "{ODBC Driver 18 for SQL Server}"),
     "server": os.getenv("DB_SERVER"),
-    "database": os.getenv("DB_NAME", "DbSistemTimbangan"),
+    "database": os.getenv("DB_NAME", "CPOS"),
     # Akun SQL khusus aplikasi (hak minimal, lihat database/keamanan/01_user_aplikasi.sql).
     # Bila DB_USER kosong, tetap memakai Windows Authentication (Trusted_Connection) seperti sebelumnya.
     "user": os.getenv("DB_USER"),

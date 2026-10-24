@@ -1,33 +1,35 @@
-"""Dashboard: harga CPO, harga kernel, OER CPO, biaya olah per tanggal (diisi HO)."""
+"""Dashboard: harga CPO, harga kernel, OER CPO, biaya olah, qty RSI per perusahaan per tanggal (diisi HO)."""
 from utils.db_utils import get_connection, _rows_to_dicts
 
 KOLOM = ("harga_cpo", "harga_kernel", "oer_cpo", "biaya_olah")
 
 
-def riwayat_harga(hari=30):
+def riwayat_harga(id_company, hari=30):
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT h.PriceDate AS tanggal, h.CPOPrice AS harga_cpo, h.KernelPrice AS harga_kernel, h.OERCPO AS oer_cpo, h.ProcessingCost AS biaya_olah, u.Nama AS oleh, h.UpdateDate AS updated_at
+        cursor.execute("""SELECT h.PriceDate AS tanggal, h.CPOPrice AS harga_cpo, h.KernelPrice AS harga_kernel, h.OERCPO AS oer_cpo,
+                                 h.ProcessingCost AS biaya_olah, h.RSIQty AS qty_rsi, u.Nama AS oleh, h.UpdateDate AS updated_at
                           FROM DailyPrice h LEFT JOIN Users u ON u.UserID = h.UpdateBy
-                          WHERE h.PriceDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-                          ORDER BY h.PriceDate""", -(int(hari) - 1))
+                          WHERE h.CompID = ? AND h.PriceDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
+                          ORDER BY h.PriceDate""", id_company, -(int(hari) - 1))
         return _rows_to_dicts(cursor)
     finally:
         conn.close()
 
 
-def simpan_harga(tanggal, nilai, user_id):
-    """Satu baris per tanggal: tanggal yang sudah ada diperbarui."""
+def simpan_harga(id_company, tanggal, nilai, qty_rsi, user_id):
+    """Satu baris per perusahaan per tanggal: yang sudah ada diperbarui."""
     conn = get_connection()
     try:
         conn.cursor().execute("""
-            MERGE DailyPrice AS t USING (SELECT ? AS PriceDate) AS s ON t.PriceDate = s.PriceDate
-            WHEN MATCHED THEN UPDATE SET CPOPrice = ?, KernelPrice = ?, OERCPO = ?, ProcessingCost = ?,
+            MERGE DailyPrice AS t USING (SELECT ? AS CompID, ? AS PriceDate) AS s
+                ON t.CompID = s.CompID AND t.PriceDate = s.PriceDate
+            WHEN MATCHED THEN UPDATE SET CPOPrice = ?, KernelPrice = ?, OERCPO = ?, ProcessingCost = ?, RSIQty = ?,
                                          UpdateBy = ?, UpdateDate = GETDATE()
-            WHEN NOT MATCHED THEN INSERT (PriceDate, CPOPrice, KernelPrice, OERCPO, ProcessingCost, UpdateBy)
-                                  VALUES (?, ?, ?, ?, ?, ?);""",
-            tanggal, *nilai, user_id, tanggal, *nilai, user_id)
+            WHEN NOT MATCHED THEN INSERT (CompID, PriceDate, CPOPrice, KernelPrice, OERCPO, ProcessingCost, RSIQty, UpdateBy)
+                                  VALUES (s.CompID, s.PriceDate, ?, ?, ?, ?, ?, ?);""",
+            id_company, tanggal, *nilai, qty_rsi, user_id, *nilai, qty_rsi, user_id)
         conn.commit()
     finally:
         conn.close()

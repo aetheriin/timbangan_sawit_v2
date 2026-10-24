@@ -1,4 +1,6 @@
 // ===== ADMIN > LEVEL & HAK AKSES =====
+// Aksi selain Lihat, urut kolom matriks (sama dengan hak_akses.AKSI_OPSI di server)
+const AKSI_OPSI = ['tambah', 'ubah', 'hapus', 'setujui', 'tolak', 'selesai'];
 // Pilih departemen -> jabatan (umum: Manager, Staff, ...) -> halaman awal & centang halaman / aksi.
 // Hak menempel di gabungan departemen + jabatan (peran); peran dibuat otomatis saat pertama disimpan.
 let daftarLevel = [];          // peran yang sudah ada
@@ -113,14 +115,14 @@ async function pilihJabatan(id) {
     tbody.innerHTML = grup.map((g, i) => {
         const buka = g.menu.some(m => m.lihat);
         return `<tr class="bg-slate-50 cursor-pointer select-none hover:bg-slate-100" data-on-click="bukaGrupAkses" data-arg="${i}" data-grup-kepala="${i}">
-                <td colspan="6" class="table-cell">
+                <td colspan="8" class="table-cell">
                     <span class="flex items-center gap-2">
                         <i class="fa-solid fa-chevron-right text-[10px] text-slate-400 transition-transform${buka ? ' rotate-90' : ''}" data-panah></i>
                         <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">${escapeHtml(g.nama)}</span>
                         <span class="ml-auto text-[11px] font-normal text-slate-500" data-jumlah-grup="${i}"></span>
                     </span></td></tr>` +
             g.menu.map(m => `<tr class="hover:bg-slate-50${buka ? '' : ' hidden'}" data-grup="${i}"><td class="table-cell pl-9">${escapeHtml(m.nama)}${m.ada ? '' : ' <span class="text-[11px] text-slate-400">(belum ada)</span>'}</td>
-                ${kotak(m, 'lihat', true)}${kotak(m, 'tambah', m.aksi.includes('tambah'))}${kotak(m, 'ubah', m.aksi.includes('ubah'))}${kotak(m, 'hapus', m.aksi.includes('hapus'))}${kotak(m, 'setujui', m.aksi.includes('setujui'))}</tr>`).join('');
+                ${kotak(m, 'lihat', true)}${AKSI_OPSI.map(a => kotak(m, a, m.aksi.includes(a))).join('')}</tr>`).join('');
     }).join('');
     ringkasAkses();
 }
@@ -160,7 +162,7 @@ function ringkasAkses() {
         const n = [...semua].filter(c => c.checked).length;
         el.innerHTML = n ? `<span class="badge-status bg-emerald-100 text-emerald-700">${n} / ${semua.length} halaman</span>` : `${semua.length} halaman`;
     });
-    const label = { tambah: 'tambah', ubah: 'ubah', hapus: 'hapus', setujui: 'setujui' };
+    const label = { tambah: 'tambah', ubah: 'ubah', hapus: 'hapus', setujui: 'setujui', tolak: 'tolak', selesai: 'selesai' };
     const chip = [...document.querySelectorAll('#tabelAkses input[data-aksi="lihat"]:checked')].map(c => {
         const aksi = [...document.querySelectorAll(`#tabelAkses input[data-menu="${c.dataset.menu}"]:checked`)]
             .map(x => label[x.dataset.aksi]).filter(Boolean);

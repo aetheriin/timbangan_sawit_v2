@@ -173,7 +173,7 @@ async function cekNikUser(nik) {
 }
 
 // ===== HAK AKSES KHUSUS =====
-const AKSI_USER = ['lihat', 'tambah', 'ubah', 'hapus', 'setujui'];
+const AKSI_USER = ['lihat', 'tambah', 'ubah', 'hapus', 'setujui', 'tolak', 'selesai'];
 
 async function bukaAksesUser(id) {
     idUserAkses = id;
@@ -184,7 +184,7 @@ async function bukaAksesUser(id) {
     let induk = null;
     document.getElementById('tabelAksesUser').innerHTML = data.menu.map(m => {
         const judul = m.induk && m.induk !== induk
-            ? `<tr class="bg-slate-50"><td colspan="6" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
+            ? `<tr class="bg-slate-50"><td colspan="8" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
         induk = m.induk;
         const kotak = a => (a === 'lihat' || m.aksi.includes(a))
             ? `<td class="table-cell text-center"><input type="checkbox" class="w-4 h-4" name="${m.id_menu}_${a}" data-menu="${m.id_menu}" data-aksi="${a}"

@@ -14,7 +14,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'weighbridge_app
     CREATE LOGIN [weighbridge_app] WITH PASSWORD = 'GANTI_PASSWORD_KUAT_DI_SINI_16+', CHECK_POLICY = ON;
 GO
 
-USE [DbSistemTimbangan]
+USE [CPOS]
 GO
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'weighbridge_app')
     CREATE USER [weighbridge_app] FOR LOGIN [weighbridge_app];

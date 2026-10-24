@@ -1,12 +1,12 @@
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-IF DB_ID('DbSistemTimbangan') IS NULL CREATE DATABASE DbSistemTimbangan;
+IF DB_ID('CPOS') IS NULL CREATE DATABASE CPOS;
 GO
 /* Baca data tidak menunggu kunci tulis (migrasi 018) */
-ALTER DATABASE DbSistemTimbangan SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;
+ALTER DATABASE CPOS SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;
 GO
-USE [DbSistemTimbangan]
+USE [CPOS]
 GO
 
 CREATE TABLE dbo.Company (
@@ -563,14 +563,18 @@ CREATE TABLE dbo.Invoice (
 GO
 
 -- Dashboard: harga CPO & kernel, OER, biaya olah per tanggal (diisi HO)
+-- Harga harian per perusahaan (dashboard CPOS & halaman Harga RekapIn memakai tabel yang sama)
 CREATE TABLE dbo.DailyPrice (
-    PriceDate       DATE PRIMARY KEY,
+    CompID          VARCHAR(5)    NOT NULL CONSTRAINT FK_DailyPrice_Company REFERENCES dbo.Company (CompID),
+    PriceDate       DATE          NOT NULL,
     CPOPrice        DECIMAL(12,2) NOT NULL,
     KernelPrice     DECIMAL(12,2) NOT NULL,
     OERCPO          DECIMAL(5,2)  NOT NULL,
     ProcessingCost  DECIMAL(12,2) NOT NULL,
+    RSIQty          DECIMAL(18,3) NULL,                     -- qty RSI (dari RekapIn), boleh kosong
     UpdateBy        BIGINT NULL CONSTRAINT FK_DailyPrice_UpdateBy REFERENCES dbo.Users (UserID),
     UpdateDate      DATETIME NOT NULL CONSTRAINT DF_DailyPrice_Update DEFAULT (GETDATE()),
+    CONSTRAINT PK_DailyPrice PRIMARY KEY (CompID, PriceDate),
     CONSTRAINT CK_DailyPrice_Oer CHECK (OERCPO BETWEEN 0 AND 100)
 );
 GO
@@ -1191,7 +1195,7 @@ JOIN dbo.Level l ON l.LevelName = v.lvl
 LEFT JOIN dbo.Department d ON d.DeptID = v.dept;
 INSERT INTO dbo.ActionType (ActionID, TypeName, Description) VALUES
     (0, 'Delete', N'Hapus'), (1, 'View', N'Lihat halaman / bagian'), (2, 'Create', N'Tambah'), (3, 'Edit', N'Ubah'),
-    (4, 'Void', N'Batalkan'), (5, 'Approve', N'Setujui pengajuan');
+    (4, 'Void', N'Batalkan'), (5, 'Approve', N'Setujui pengajuan'), (6, 'Reject', N'Tolak request'), (7, 'Done', N'Tandai selesai');
 -- Menu Lv1 (grup sidebar master page)
 INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
     ('G_DASHBOARD',  N'Dashboard',            1, 'fa-gauge',       10),
@@ -1224,6 +1228,13 @@ FROM (VALUES ('DASHBOARD',       N'Dashboard',                  'G_DASHBOARD',  
              ('RP_PI',           N'Purchase Invoice',           'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 30),
              ('RP_GT',           N'Goods Transfer',             'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 40),
              ('RP_ITEM',         N'Item Transaction Reports',   'G_REPORTS',    NULL, 'fa-file-invoice', 'ANALYTICS', 50),
+             ('RK_DASHBOARD',    N'Dashboard RekapIn',          'G_DASHBOARD',  NULL, 'fa-chart-simple',  'REKAPIN', 20),
+             ('RK_REQUEST',      N'Request Operator',           'G_FORMS',      NULL, 'fa-clipboard-list', 'REKAPIN', 40),
+             ('RK_TBS_DAILY',    N'Pembelian TBS - Daily',      'G_REPORTS',    NULL, 'fa-file-lines',   'REKAPIN', 60),
+             ('RK_TBS_WEEKLY',   N'Pembelian TBS - Weekly',     'G_REPORTS',    NULL, 'fa-file-lines',   'REKAPIN', 70),
+             ('RK_TBS_MONTHLY',  N'Pembelian TBS - Monthly',    'G_REPORTS',    NULL, 'fa-file-lines',   'REKAPIN', 80),
+             ('RK_HARGA',        N'Harga CPO & Kernel',         'G_MASTER',     NULL, 'fa-tags',          'REKAPIN', 50),
+             ('RK_FITUR',        N'Kategori Request',           'G_MASTER',     NULL, 'fa-list-check',    'REKAPIN', 60),
              ('BLACKLIST',       N'Blacklist',                  'G_MASTER',     '/blacklist',             'fa-ban',              'CPOS', 10),
              ('MASTER',          N'Data Master',                'G_MASTER',     '/master',                'fa-database',         'CPOS', 20),
              ('KONTRAK_DO',      N'Kontrak & DO',               'G_MASTER',     '/kontrak',               'fa-file-contract',    'CPOS', 30),
@@ -1250,14 +1261,17 @@ FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weigh
              ('AUDIT_LOG',        N'Log Audit',                 'FACE_RECOGNITION', '/face-recognition?tab=audit',    4)
      ) v (kode, nama, induk, url, urut)
 JOIN dbo.Menu p ON p.MenuCode = v.induk;
--- Aksi yang berlaku per menu (centang di Admin › Hak Akses): 2 Create, 3 Edit, 0 Delete, 5 Approve. Kosong = hanya View.
+-- Aksi yang berlaku per menu (centang di Admin › Hak Akses): 2 Create, 3 Edit, 0 Delete, 5 Approve, 6 Reject, 7 Done.
+-- Kosong = hanya View.
 -- Halaman yang punya anak (FORM, MASTER, FACE_RECOGNITION) diatur lewat anaknya.
 UPDATE m SET ActionList = v.aksi
 FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', '3'), ('LIST', '3,5'), ('FORM_SECURITY', '2,3'), ('FORM_TIMBANGAN', '2'),
              ('FORM_SORTASI', '2'), ('FORM_LAB', '2,3'), ('PERSONEL', '2,3,0'), ('MASTER_DRIVER', '2,3,0'),
              ('MASTER_KENDARAAN', '2,3'), ('MASTER_MITRA', '2,3'), ('MASTER_PRODUK', '2,3'), ('MASTER_KEUANGAN', '2,3'),
              ('KONTRAK_DO', '2,3'), ('BLACKLIST', '2,0,5'), ('KUNJUNGAN', '2,3'), ('KELEBIHAN_DO', '2,3'),
-             ('POS_SECURITY', '2,3'), ('LOGBOOK', '3')) v (kode, aksi) ON v.kode = m.MenuCode;
+             ('POS_SECURITY', '2,3'), ('LOGBOOK', '3'),
+             -- RekapIn: request operator (tambah, ubah, hapus, setujui, tolak, selesai), harga & kategori request
+             ('RK_REQUEST', '2,3,0,5,6,7'), ('RK_HARGA', '2,3,0'), ('RK_FITUR', '2,3,0')) v (kode, aksi) ON v.kode = m.MenuCode;
 -- Hak akses awal: (peran, menu, tambah, ubah, hapus, setujui). Lihat ikut diberikan.
 DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), t BIT, u BIT, h BIT, s BIT);
 INSERT INTO @hak VALUES
@@ -1724,15 +1738,15 @@ BEGIN
     SET NOCOUNT ON;
     IF NOT EXISTS (SELECT 1 FROM inserted) AND NOT EXISTS (SELECT 1 FROM deleted) RETURN;
     DECLARE @kunci TABLE (k NVARCHAR(100) PRIMARY KEY);
-    INSERT INTO @kunci (k) SELECT CAST(CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) FROM inserted i;
+    INSERT INTO @kunci (k) SELECT CAST(d.CompID + '|' + CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) FROM deleted d UNION SELECT CAST(i.CompID + '|' + CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) FROM inserted i;
     DECLARE @k NVARCHAR(100), @lama NVARCHAR(MAX), @baru NVARCHAR(MAX), @aksi VARCHAR(40),
             @id_user BIGINT = TRY_CAST(SESSION_CONTEXT(N'id_user') AS BIGINT), @ip VARCHAR(45) = CAST(SESSION_CONTEXT(N'ip') AS VARCHAR(45));
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT k FROM @kunci;
     OPEN c; FETCH NEXT FROM c INTO @k;
     WHILE @@FETCH_STATUS = 0
     BEGIN
-        SET @lama = (SELECT * FROM deleted d WHERE CAST(CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
-        SET @baru = (SELECT * FROM inserted i WHERE CAST(CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @lama = (SELECT * FROM deleted d WHERE CAST(d.CompID + '|' + CONVERT(VARCHAR(10), d.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
+        SET @baru = (SELECT * FROM inserted i WHERE CAST(i.CompID + '|' + CONVERT(VARCHAR(10), i.PriceDate, 23) AS NVARCHAR(100)) = @k FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES);
         SET @lama = JSON_MODIFY(@lama, '$.FaceEmbeddingData', NULL); SET @baru = JSON_MODIFY(@baru, '$.FaceEmbeddingData', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.LastLogin', NULL); SET @baru = JSON_MODIFY(@baru, '$.LastLogin', NULL);
         SET @lama = JSON_MODIFY(@lama, '$.SessionVersion', NULL); SET @baru = JSON_MODIFY(@baru, '$.SessionVersion', NULL);
@@ -1946,7 +1960,8 @@ WITH peran AS (
     SELECT m.MenuID, m.ParentMenuID,
            MAX(CASE WHEN h.ActionID = 1 THEN 1 ELSE 0 END) AS V, MAX(CASE WHEN h.ActionID = 2 THEN 1 ELSE 0 END) AS C,
            MAX(CASE WHEN h.ActionID = 3 THEN 1 ELSE 0 END) AS E, MAX(CASE WHEN h.ActionID = 0 THEN 1 ELSE 0 END) AS D,
-           MAX(CASE WHEN h.ActionID = 5 THEN 1 ELSE 0 END) AS A, MAX(CASE WHEN h.ActionID = 4 THEN 1 ELSE 0 END) AS X
+           MAX(CASE WHEN h.ActionID = 5 THEN 1 ELSE 0 END) AS A, MAX(CASE WHEN h.ActionID = 4 THEN 1 ELSE 0 END) AS X,
+           MAX(CASE WHEN h.ActionID = 6 THEN 1 ELSE 0 END) AS R, MAX(CASE WHEN h.ActionID = 7 THEN 1 ELSE 0 END) AS N
     FROM dbo.Menu m LEFT JOIN hak h ON h.MenuID = m.MenuID
     WHERE m.Active = 1
     GROUP BY m.MenuID, m.ParentMenuID
@@ -1962,11 +1977,11 @@ SELECT m.MenuID, m.MenuCode, m.MenuName, m.MenuLevel, pm.MenuCode AS ParentMenuC
                                               THEN 1 ELSE 0 END
                              WHEN 2 THEN l.Vis ELSE l.V END AS BIT) AS ShowInMenu,
        CAST(l.C AS BIT) AS CanCreate, CAST(l.E AS BIT) AS CanEdit, CAST(l.D AS BIT) AS CanDelete,
-       CAST(l.A AS BIT) AS CanApprove, CAST(l.X AS BIT) AS CanVoid
+       CAST(l.A AS BIT) AS CanApprove, CAST(l.X AS BIT) AS CanVoid, CAST(l.R AS BIT) AS CanReject, CAST(l.N AS BIT) AS CanDone
 FROM lihat l
 JOIN dbo.Menu m ON m.MenuID = l.MenuID
 LEFT JOIN dbo.Menu pm ON pm.MenuID = m.ParentMenuID
-WHERE l.Vis = 1 OR l.C = 1 OR l.E = 1 OR l.D = 1 OR l.A = 1 OR l.X = 1;
+WHERE l.Vis = 1 OR l.C = 1 OR l.E = 1 OR l.D = 1 OR l.A = 1 OR l.X = 1 OR l.R = 1 OR l.N = 1;
 GO
 /* Menu & hak pengguna. @AppCode NULL = semua aplikasi (master page); 'ANALYTICS' = menu Analytics beserta grup induknya.
    Menu samping: ambil baris ShowInMenu = 1, susun per MenuLevel / ParentMenuCode, urut SortOrder. */
@@ -1984,7 +1999,7 @@ BEGIN
     ORDER BY f.MenuLevel, f.SortOrder, f.MenuName;
 END
 GO
-/* Boleh / tidak: @Action = nama ActionType (View, Create, Edit, Delete, Approve, Void) atau ActionID.
+/* Boleh / tidak: @Action = nama ActionType (View, Create, Edit, Delete, Approve, Void, Reject, Done) atau ActionID.
    View = halaman boleh dibuka (dirinya atau turunannya boleh dilihat). Hasil: 1 baris kolom Allowed + parameter OUTPUT. */
 CREATE OR ALTER PROCEDURE dbo.sp_CekAkses
     @UserID   BIGINT,
@@ -1996,7 +2011,7 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @id INT = COALESCE(TRY_CAST(@Action AS INT), (SELECT ActionID FROM dbo.ActionType WHERE TypeName = @Action AND Active = 1));
     SELECT @Allowed = CASE @id WHEN 1 THEN f.Visible WHEN 2 THEN f.CanCreate WHEN 3 THEN f.CanEdit WHEN 0 THEN f.CanDelete
-                                WHEN 5 THEN f.CanApprove WHEN 4 THEN f.CanVoid END
+                                WHEN 5 THEN f.CanApprove WHEN 4 THEN f.CanVoid WHEN 6 THEN f.CanReject WHEN 7 THEN f.CanDone END
     FROM dbo.fn_UserAccess(@UserID) f WHERE f.MenuCode = @MenuCode;
     SET @Allowed = ISNULL(@Allowed, 0);
     SELECT @Allowed AS Allowed;

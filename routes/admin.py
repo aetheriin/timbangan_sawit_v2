@@ -295,15 +295,15 @@ def users_akses(id_user):
     def aksi():
         u = _user_atau_404(id_user)
         jabatan, khusus = hak_akses.akses_level(u["id_level"]), hak_akses.akses_user(id_user)
-        kosong = {"bisa_lihat": 0, "bisa_tambah": 0, "bisa_ubah": 0, "bisa_hapus": 0, "bisa_setujui": 0}
+        kosong = {f"bisa_{a}": 0 for a in hak_akses.AKSI_SEMUA}
         menu = []
         for m in hak_akses.daftar_menu_akses():
             j = jabatan.get(m["id_menu"], kosong)
             k = khusus.get(m["id_menu"])
             jadi = k or j
             menu.append({**m, "khusus": k is not None,
-                         **{a: bool(jadi[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui")},
-                         "jabatan": {a: bool(j[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui")}})
+                         **{a: bool(jadi[f"bisa_{a}"]) for a in hak_akses.AKSI_SEMUA},
+                         "jabatan": {a: bool(j[f"bisa_{a}"]) for a in hak_akses.AKSI_SEMUA}})
         return jsonify({"user": {k: u[k] for k in ("id_user", "username", "nama", "nama_level", "is_admin")}, "menu": menu})
     return _jalankan(aksi)
 
@@ -321,10 +321,10 @@ def users_akses_simpan(id_user):
         if request.form.get("reset") != "1":
             for m in hak_akses.daftar_menu_akses():
                 ada = lambda a: f"{m['id_menu']}_{a}" in request.form and (a == "lihat" or a in m["aksi"])
-                pilih = tuple(ada(a) for a in ("lihat", "tambah", "ubah", "hapus", "setujui"))
+                pilih = tuple(ada(a) for a in hak_akses.AKSI_SEMUA)
                 pilih = (pilih[0] or any(pilih[1:]),) + pilih[1:]
                 j = jabatan.get(m["id_menu"])
-                asal = tuple(bool(j and j[f"bisa_{a}"]) for a in ("lihat", "tambah", "ubah", "hapus", "setujui"))
+                asal = tuple(bool(j and j[f"bisa_{a}"]) for a in hak_akses.AKSI_SEMUA)
                 if pilih != asal:
                     akses[m["id_menu"]] = pilih
         hak_akses.simpan_akses_user(id_user, akses)
@@ -379,7 +379,7 @@ def peran_lihat():
         akses = hak_akses.akses_level(id_level) if id_level else {}
         return jsonify({"level": lv, "halaman_awal": lv["halaman_awal"] if lv else "/weighbridge?view=list",
                         "menu": [{**m, **{k: bool(akses.get(m["id_menu"], {}).get(f"bisa_{k}"))
-                                          for k in ("lihat", *hak_akses.AKSI, "setujui")}}
+                                          for k in hak_akses.AKSI_SEMUA}}
                                  for m in hak_akses.daftar_menu_akses()]})
     return _jalankan(aksi)
 
@@ -401,7 +401,7 @@ def peran_simpan():
             # Aksi yang tidak ada di menu itu (mis. hapus di Dashboard) tidak disimpan walau dikirim
             akses = {m["id_menu"]: (request.form.get(f"{m['id_menu']}_lihat") == "1",
                                     *(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1"
-                                      for k in (*hak_akses.AKSI, "setujui")))
+                                      for k in hak_akses.AKSI_OPSI))
                      for m in hak_akses.daftar_menu_akses()}
             hak_akses.simpan_akses_level(id_level, akses)
         get_user_by_id.hapus()
@@ -431,7 +431,7 @@ def level_akses_lihat(id_level):
         lv = _level_atau_404(id_level)
         akses = hak_akses.akses_level(id_level)
         return jsonify({"level": lv, "menu": [{**m, **{k: bool(akses.get(m["id_menu"], {}).get(f"bisa_{k}"))
-                                                       for k in ("lihat", *hak_akses.AKSI, "setujui")}}
+                                                       for k in hak_akses.AKSI_SEMUA}}
                                               for m in hak_akses.daftar_menu_akses()]})
     return _jalankan(aksi)
 
@@ -446,7 +446,7 @@ def level_akses_simpan(id_level):
         # Aksi yang tidak ada di menu itu (mis. hapus di Dashboard) tidak disimpan walau dikirim
         akses = {m["id_menu"]: (request.form.get(f"{m['id_menu']}_lihat") == "1",
                                 *(k in m["aksi"] and request.form.get(f"{m['id_menu']}_{k}") == "1"
-                                  for k in (*hak_akses.AKSI, "setujui")))
+                                  for k in hak_akses.AKSI_OPSI))
                  for m in hak_akses.daftar_menu_akses()}
         hak_akses.simpan_akses_level(id_level, akses)
         jumlah = sum(any(v) for v in akses.values())

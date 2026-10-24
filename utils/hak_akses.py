@@ -19,12 +19,16 @@ from utils.db_utils import get_connection, _rows_to_dicts
 AKSI = ("tambah", "ubah", "hapus")
 # "setujui" = boleh menyetujui / menolak pengajuan di menu itu (mis. tambah & hapus blacklist); di Daftar Tiket =
 # memverifikasi (menandai sudah diperiksa) tiket selesai & menyetujui koreksi tiket (Ubah = mengajukan koreksi).
+# "tolak" / "selesai" = menolak / menandai selesai sebuah request (dipakai RekapIn: Request Operator).
 # Tidak termasuk "aksi apa pun" pada boleh(kode_menu). Aksi yang berlaku di tiap menu ada di Menu.ActionList.
 
 
-# ActionType.ActionID untuk tiap aksi (seed schema.sql: 0 Delete, 1 View, 2 Create, 3 Edit, 4 Void, 5 Approve)
-ID_AKSI = {"lihat": 1, "tambah": 2, "ubah": 3, "hapus": 0, "setujui": 5}
+# ActionType.ActionID untuk tiap aksi (seed schema.sql: 0 Delete, 1 View, 2 Create, 3 Edit, 4 Void, 5 Approve,
+# 6 Reject, 7 Done). AKSI_SEMUA = urutan kolom di matriks Hak Akses; AKSI_OPSI = selain Lihat.
+ID_AKSI = {"lihat": 1, "tambah": 2, "ubah": 3, "hapus": 0, "setujui": 5, "tolak": 6, "selesai": 7}
 NAMA_AKSI = {v: k for k, v in ID_AKSI.items()}
+AKSI_SEMUA = ("lihat", "tambah", "ubah", "hapus", "setujui", "tolak", "selesai")
+AKSI_OPSI = AKSI_SEMUA[1:]
 
 
 def _query(sql, *params):
@@ -38,7 +42,7 @@ def _query(sql, *params):
 
 
 def _kosong():
-    return {"lihat": False, "tambah": False, "ubah": False, "hapus": False, "setujui": False}
+    return dict.fromkeys(AKSI_SEMUA, False)
 
 
 def _peta(rows, kunci):
@@ -70,11 +74,13 @@ def akses_khusus():
 @cache_ttl(30)
 def hak_menu_user(id_user):
     """Hak efektif dari dbo.sp_UserMenu (aturan sama dengan aplikasi lain):
-    {kode_menu: {"lihat": View sendiri, "terlihat": dirinya / turunannya boleh dilihat, "tambah", "ubah", "hapus", "setujui"}}"""
+    {kode_menu: {"lihat": View sendiri, "terlihat": dirinya / turunannya boleh dilihat, "tambah", "ubah", "hapus", "setujui",
+    "tolak", "selesai"}}"""
     hasil = {}
     for r in _query("EXEC dbo.sp_UserMenu @UserID = ?", id_user):
         hasil[r["MenuCode"]] = {"lihat": bool(r["CanView"]), "terlihat": bool(r["Visible"]), "tambah": bool(r["CanCreate"]),
-                                "ubah": bool(r["CanEdit"]), "hapus": bool(r["CanDelete"]), "setujui": bool(r["CanApprove"])}
+                                "ubah": bool(r["CanEdit"]), "hapus": bool(r["CanDelete"]), "setujui": bool(r["CanApprove"]),
+                                "tolak": bool(r["CanReject"]), "selesai": bool(r["CanDone"])}
     return hasil
 
 
@@ -94,9 +100,9 @@ def semua_menu():
 
 
 def aksi_menu(m):
-    """Aksi selain Lihat yang berlaku di menu (dari Menu.ActionList), urut tambah, ubah, hapus, setujui."""
+    """Aksi selain Lihat yang berlaku di menu (dari Menu.ActionList), urut seperti AKSI_OPSI."""
     ada = {NAMA_AKSI.get(int(x)) for x in (m.get("daftar_aksi") or "").split(",") if x.strip().isdigit()}
-    return [a for a in ("tambah", "ubah", "hapus", "setujui") if a in ada]
+    return [a for a in AKSI_OPSI if a in ada]
 
 
 @cache_ttl(30)
@@ -385,8 +391,7 @@ def daftar_menu_akses():
 def _akses(kolom, nilai):
     hasil = {}
     for r in _query(f"SELECT MenuID, ActionID, Active FROM AccessMenu WHERE {kolom} = ?", nilai):
-        baris = hasil.setdefault(r["MenuID"], {"id_menu": r["MenuID"], "bisa_lihat": 0, "bisa_tambah": 0, "bisa_ubah": 0,
-                                                "bisa_hapus": 0, "bisa_setujui": 0})
+        baris = hasil.setdefault(r["MenuID"], {"id_menu": r["MenuID"], **{f"bisa_{a}": 0 for a in AKSI_SEMUA}})
         if r["Active"] and r["ActionID"] in NAMA_AKSI:
             baris["bisa_" + NAMA_AKSI[r["ActionID"]]] = 1
     return hasil
@@ -397,13 +402,14 @@ def akses_level(id_level):
 
 
 def _simpan_akses(kolom, nilai, akses, simpan_kosong):
-    """akses = {id_menu: (lihat, tambah, ubah, hapus, setujui)}. Aksi apa pun berarti halaman itu boleh dilihat;
+    """akses = {id_menu: (nilai per AKSI_SEMUA)}. Aksi apa pun berarti halaman itu boleh dilihat;
     induk (Lv2 / Lv1) ikut boleh dilihat. simpan_kosong: baris "dicabut" tetap disimpan (hak khusus pengguna)."""
     induk = {m["id_menu"]: m["induk"] for m in semua_menu()}
     id_kode = {m["kode"]: m["id_menu"] for m in semua_menu()}
     baris = {}
-    for id_menu, (lh, t, u, h, s) in akses.items():
-        aksi = {"lihat": lh or t or u or h or s, "tambah": t, "ubah": u, "hapus": h, "setujui": s}
+    for id_menu, nilai_aksi in akses.items():
+        aksi = dict(zip(AKSI_SEMUA, nilai_aksi))
+        aksi["lihat"] = any(nilai_aksi)
         if not aksi["lihat"] and not simpan_kosong:
             continue
         baris[id_menu] = aksi
@@ -438,7 +444,7 @@ def akses_user(id_user):
 
 
 def simpan_akses_user(id_user, akses):
-    """akses = {id_menu: (lihat, tambah, ubah, hapus, setujui)} hanya untuk menu yang berbeda dari perannya.
+    """akses = {id_menu: (nilai per AKSI_SEMUA)} hanya untuk menu yang berbeda dari perannya.
     Semua dikosongkan = kembali mengikuti peran."""
     _simpan_akses("UserID", id_user, akses, simpan_kosong=True)
 

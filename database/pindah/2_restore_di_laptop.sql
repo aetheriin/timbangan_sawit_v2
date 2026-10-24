@@ -6,8 +6,8 @@
    File data & log otomatis ditaruh di folder data bawaan SQL Server laptop.
    Versi SQL Server laptop harus SAMA atau LEBIH BARU dari PC lama (lihat hasil langkah 1).
    ===================================================================== */
-DECLARE @file NVARCHAR(400) = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\DbSistemTimbangan_pindah_20261005.bak';
-DECLARE @db   SYSNAME       = N'DbSistemTimbangan';
+DECLARE @file NVARCHAR(400) = N'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\Backup\CPOS_pindah_20261005.bak';
+DECLARE @db   SYSNAME       = N'CPOS';
 DECLARE @timpa BIT          = 0;               -- 1 = timpa database @db yang sudah ada di laptop
 
 IF DB_ID(@db) IS NOT NULL AND @timpa = 0
@@ -39,5 +39,5 @@ EXEC (@sql);
 GO
 
 /* Cek cepat */
-SELECT name, state_desc, compatibility_level FROM sys.databases WHERE name LIKE N'DbSistemTimbangan%';
+SELECT name, state_desc, compatibility_level FROM sys.databases WHERE name LIKE N'CPOS%';
 GO

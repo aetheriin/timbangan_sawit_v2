@@ -6,7 +6,7 @@
    Uji restore minimal 1x sebulan ke database salinan.
    ===================================================================== */
 DECLARE @folder NVARCHAR(200) = N'D:\Backup\Timbangan\';          -- ganti sesuai server
-DECLARE @db     SYSNAME       = N'DbSistemTimbangan';
+DECLARE @db     SYSNAME       = N'CPOS';
 DECLARE @file   NVARCHAR(400) = @folder + @db + N'_' + CONVERT(CHAR(8), GETDATE(), 112) + N'.bak';
 
 BACKUP DATABASE @db TO DISK = @file WITH INIT, CHECKSUM, COMPRESSION, STATS = 10;

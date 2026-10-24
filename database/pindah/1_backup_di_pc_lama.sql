@@ -6,7 +6,7 @@
    Folder harus bisa ditulis oleh layanan SQL Server: paling aman memakai folder Backup bawaan SQL Server
    (dibiarkan kosong = otomatis).
    ===================================================================== */
-DECLARE @db     SYSNAME       = N'DbSistemTimbangan';
+DECLARE @db     SYSNAME       = N'CPOS';
 DECLARE @folder NVARCHAR(260) = N'';            -- kosong = folder Backup bawaan SQL Server
 
 IF @folder = N''

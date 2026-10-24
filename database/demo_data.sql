@@ -16,7 +16,7 @@ SET NOCOUNT ON;
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-USE [DbSistemTimbangan]
+USE [CPOS]
 GO
 IF EXISTS (SELECT 1 FROM dbo.WeightBridge) OR EXISTS (SELECT 1 FROM dbo.Users WHERE UserName = 'ho')
 BEGIN
@@ -144,9 +144,10 @@ FROM (VALUES ('TBS', 2650, -15), ('CPO', 12400, -40), ('Kernel', 7100, -25)) v (
 JOIN dbo.Product p ON p.ProductName = v.nama
 CROSS JOIN (VALUES (0), (7), (14)) d (n)
 CROSS JOIN dbo.Currency c WHERE c.CurrencyCode = 'IDR';
-INSERT INTO dbo.DailyPrice (PriceDate, CPOPrice, KernelPrice, OERCPO, ProcessingCost, UpdateBy)
-SELECT DATEADD(DAY, -n, @hari), 12400 - n * 35, 7100 - n * 20, 21.5 - n * 0.1, 155, @ho
-FROM (VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9), (10), (11), (12), (13)) d (n);
+INSERT INTO dbo.DailyPrice (CompID, PriceDate, CPOPrice, KernelPrice, OERCPO, ProcessingCost, RSIQty, UpdateBy)
+SELECT c.comp, DATEADD(DAY, -n, @hari), 12400 - n * 35 + c.selisih, 7100 - n * 20 + c.selisih / 2, 21.5 - n * 0.1, 155, 1200 + n * 15, @ho
+FROM (VALUES (0), (1), (2), (3), (4), (5), (6), (7), (8), (9), (10), (11), (12), (13)) d (n)
+CROSS JOIN (VALUES ('PT', 0), ('YBS', 60)) c (comp, selisih);
 
 /* ---------- Kontrak & DO (DO-TBS-002 hampir habis kuota -> kelebihan DO) ---------- */
 INSERT INTO dbo.Contract (ContractNumber, TransactionType, SupplierID, ProductID, ContractDate, ContractQty, Price, PPN, IncludePPN, CompID, CreateBy)
