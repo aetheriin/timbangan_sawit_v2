@@ -143,9 +143,21 @@ def navbar(user, kode_aktif=None, alamat=None):
                 continue
             sub = [{**c, "aktif": bool(alamat and c["url"] and c["url"] == alamat)}
                    for c in anak.get(m["kode"], []) if boleh(c["kode"], "lihat", user=user)]
-            isi.append({**m, "aktif": m["kode"] == kode_aktif, "anak": sub})
+            # Lv2 tanpa alamat sendiri (mis. Analytical Dashboard) membuka bagian Lv3 pertamanya
+            url = m["url"] or next((c["url"] for c in sub if c["url"]), None)
+            isi.append({**m, "url": url, "aktif": m["kode"] == kode_aktif, "anak": sub})
         if isi:
             hasil.append({**g, "anak": isi, "buka": any(m["aktif"] for m in isi)})
+    return hasil
+
+
+def remah_menu(kode_menu):
+    """Nama menu dari Lv1 sampai menu ini, mis. ['Dashboard', 'Analytical Dashboard', 'PR & PO Outstanding']."""
+    per_kode = {m["kode"]: m for m in semua_menu()}
+    hasil, m = [], per_kode.get(kode_menu)
+    while m:
+        hasil.insert(0, m["nama"])
+        m = per_kode.get(m["induk"])
     return hasil
 
 

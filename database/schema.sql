@@ -1199,7 +1199,6 @@ INSERT INTO dbo.ActionType (ActionID, TypeName, Description) VALUES
 -- Menu Lv1 (grup sidebar master page)
 INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
     ('G_DASHBOARD',  N'Dashboard',            1, 'fa-gauge',       10),
-    ('G_ANALYTICAL', N'Analytical Dashboard', 1, 'fa-chart-column', 20),
     ('G_MILLS',      N'Mills Operation',      1, 'fa-industry',    30),
     ('G_FORMS',      N'Forms',                1, 'fa-file-lines',  40),
     ('G_REPORTS',    N'Reports',              1, 'fa-chart-pie',   50),
@@ -1208,13 +1207,7 @@ INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
 INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, Icon, AppCode, SortOrder)
 SELECT v.kode, v.nama, p.MenuID, 2, v.url, v.ikon, v.app, v.urut
 FROM (VALUES ('DASHBOARD',       N'Dashboard',                  'G_DASHBOARD',  '/dashboard',             'fa-chart-line',       'CPOS', 10),
-             ('AN_PR_PO',        N'PR & PO Outstanding',        'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 10),
-             ('AN_PO_PI',        N'PO & PI Outstanding',        'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 20),
-             ('AN_PVR_KPI',      N'PVR KPI',                    'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 30),
-             ('AN_PV_KPI',       N'PV KPI',                     'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 40),
-             ('AN_WB_FRAUD',     N'Weighbridge Fraud Analyst',  'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 50),
-             ('AN_TBS',          N'TBS Transaction Analyst',    'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 60),
-             ('AN_COST',         N'Transaction Cost Analyst',   'G_ANALYTICAL', NULL, 'fa-chart-bar', 'ANALYTICS', 70),
+             ('AN_DASHBOARD',    N'Analytical Dashboard',       'G_DASHBOARD',  NULL, 'fa-chart-column', 'ANALYTICS', 15),
              ('LIST',            N'Tickets',                    'G_MILLS',      '/weighbridge?view=list', 'fa-list',             'CPOS', 10),
              ('FORM',            N'Stasiun Timbang',            'G_MILLS',      '/weighbridge?view=form', 'fa-file-pen',         'CPOS', 20),
              ('POS_SECURITY',    N'Pos Security',               'G_MILLS',      '/pos-security',          'fa-shield-halved',    'CPOS', 30),
@@ -1244,7 +1237,14 @@ JOIN dbo.Menu p ON p.MenuCode = v.induk;
 -- Menu Lv3 (bagian halaman / sub-halaman)
 INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, SortOrder)
 SELECT v.kode, v.nama, p.MenuID, 3, v.url, v.urut
-FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weighbridge?view=form&tab=security',  1),
+FROM (VALUES ('AN_PR_PO',         N'PR & PO Outstanding',       'AN_DASHBOARD', '/halaman/AN_PR_PO',    1),
+             ('AN_PO_PI',         N'PO & PI Outstanding',       'AN_DASHBOARD', '/halaman/AN_PO_PI',    2),
+             ('AN_PVR_KPI',       N'PVR KPI',                   'AN_DASHBOARD', '/halaman/AN_PVR_KPI',  3),
+             ('AN_PV_KPI',        N'PV KPI',                    'AN_DASHBOARD', '/halaman/AN_PV_KPI',   4),
+             ('AN_WB_FRAUD',      N'Weighbridge Fraud Analyst', 'AN_DASHBOARD', '/halaman/AN_WB_FRAUD', 5),
+             ('AN_TBS',           N'TBS Transaction Analyst',   'AN_DASHBOARD', '/halaman/AN_TBS',      6),
+             ('AN_COST',          N'Transaction Cost Analyst',  'AN_DASHBOARD', '/halaman/AN_COST',     7),
+             ('FORM_SECURITY',    N'Security',                  'FORM',  '/weighbridge?view=form&tab=security',  1),
              ('FORM_TIMBANGAN',   N'Timbangan',                 'FORM',  '/weighbridge?view=form&tab=timbangan', 2),
              ('FORM_SORTASI',     N'Sortasi',                   'FORM',  '/weighbridge?view=form&tab=sortasi',   3),
              ('FORM_LAB',         N'Laboratorium',              'FORM',  '/weighbridge?view=form&tab=lab',       4),
@@ -1261,6 +1261,11 @@ FROM (VALUES ('FORM_SECURITY',    N'Security',                  'FORM',  '/weigh
              ('AUDIT_LOG',        N'Log Audit',                 'FACE_RECOGNITION', '/face-recognition?tab=audit',    4)
      ) v (kode, nama, induk, url, urut)
 JOIN dbo.Menu p ON p.MenuCode = v.induk;
+UPDATE dbo.Menu SET AppCode = 'ANALYTICS' WHERE MenuCode LIKE 'AN[_]%';
+-- Halaman yang isinya belum ada (web lain / menyusul) memakai halaman kosong /halaman/<kode>: menu tetap bisa dibuka.
+-- Tickets sementara juga ke halaman kosong (tahap 1); daftar tiket CPOS tetap di /weighbridge?view=list.
+UPDATE dbo.Menu SET Url = '/halaman/' + MenuCode
+WHERE MenuCode IN ('LIST', 'FM_IT_HELPDESK', 'FM_NEW_ITEM', 'RP_PR', 'RP_PO', 'RP_PI', 'RP_GT', 'RP_ITEM');
 -- Aksi yang berlaku per menu (centang di Admin › Hak Akses): 2 Create, 3 Edit, 0 Delete, 5 Approve, 6 Reject, 7 Done.
 -- Kosong = hanya View.
 -- Halaman yang punya anak (FORM, MASTER, FACE_RECOGNITION) diatur lewat anaknya.

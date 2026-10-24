@@ -12,7 +12,8 @@
         <nav class="flex items-center gap-2 text-sm min-w-0">
             <span class="font-bold text-slate-900">CPOS</span>
             {% if current_user.is_admin %}<span class="text-slate-300">/</span><span class="font-semibold text-slate-500">Admin</span>{% endif %}
-            {% if judul_halaman %}<span class="text-slate-300">/</span><span class="font-bold text-slate-900 truncate">{{ judul_halaman }}</span>{% endif %}
+            {% if remah %}{% for r in remah %}<span class="text-slate-300">/</span><span class="{{ 'font-bold text-slate-900' if loop.last else 'font-semibold text-slate-500' }} truncate">{{ r }}</span>{% endfor %}
+            {% elif judul_halaman %}<span class="text-slate-300">/</span><span class="font-bold text-slate-900 truncate">{{ judul_halaman }}</span>{% endif %}
         </nav>
     </div>
 

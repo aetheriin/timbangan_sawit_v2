@@ -28,7 +28,7 @@
   .sidebar-grup-judul::-webkit-details-marker { display: none; }
   .sidebar-grup-panah { @apply text-[9px] transition-transform; }
   .sidebar-grup:not([open]) .sidebar-grup-panah { @apply -rotate-90; }
-  .sidebar-sublink { @apply ml-6 pl-4 py-1.5 flex text-[13px] font-medium text-slate-500 border-l-2 border-slate-200 hover:text-slate-900 whitespace-nowrap; }
+  .sidebar-sublink { @apply ml-6 pl-4 py-1.5 flex text-[13px] font-medium text-slate-500 border-l-2 border-slate-200 hover:text-slate-900; }
   .sidebar-sublink-aktif { @apply text-slate-900 font-bold border-amber-500; }
   .sidebar-link-nanti { @apply opacity-50; }
   .sidebar-link-ikon { @apply w-4 text-center text-slate-400; }

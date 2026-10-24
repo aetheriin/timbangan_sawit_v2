@@ -20,7 +20,7 @@ from utils.db_blacklist import get_surat_blacklist
 from utils.audit_utils import catat_security_audit
 from utils.plat_utils import normalisasi_plat
 from utils import pengaturan
-from utils.hak_akses import boleh, izin, halaman as lihat_halaman
+from utils.hak_akses import boleh, boleh_lihat, izin, halaman as lihat_halaman, semua_menu, remah_menu
 from utils import log_aktivitas, koreksi_tiket, alur
 from utils.db_master import daftar_driver_aktif
 from utils.db_jembatan import daftar_jembatan, jembatan_dipilih
@@ -280,3 +280,13 @@ def cetak_tiket(no_tiket):
     cetakan_ke = catat_cetak_qr(no_tiket) + 1
     return render_template("site/cetak_tiket.html", t=row, qr_svg=_svg_qr(row.no_tiket), cetakan_ke=cetakan_ke,
                            now=datetime.now().strftime("%d-%m-%Y %H:%M"))
+
+
+@main_bp.route("/halaman/<kode>")
+@login_required
+def halaman_kosong(kode):
+    """Menu yang isinya belum ada (web lain / menyusul): tetap tampil dengan sidebar & breadcrumb, konten kosong."""
+    menu = next((m for m in semua_menu() if m["kode"] == kode.upper()), None)
+    if not menu or current_user.is_admin or not boleh_lihat(menu["kode"]):
+        abort(404)
+    return render_template("halaman_kosong.html", halaman="kosong", menu=menu, remah=remah_menu(menu["kode"]))

@@ -29,6 +29,7 @@
         {# Navbar 3 level (flowchart): grup Lv1 -> halaman Lv2 -> bagian Lv3, hanya yang boleh dilihat peran / pengguna
            (Admin › Level & Hak Akses, kolom Lihat). Halaman yang belum ada (Url kosong) tampil redup dengan tautan '#'. #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
+        {% elif halaman == 'kosong' %}{% set aktif = menu.induk if menu.level == 3 else menu.kode %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
                                   'kelebihan_do': 'KELEBIHAN_DO', 'pos': 'POS_SECURITY', 'logbook': 'LOGBOOK'}.get(halaman) %}{% endif %}
@@ -37,7 +38,7 @@
             <summary class="sidebar-section sidebar-grup-judul"><span class="truncate">{{ g.nama }}</span>
                 <i class="fa-solid fa-chevron-down sidebar-grup-panah"></i></summary>
             {% for m in g.anak %}
-            <a href="{{ m.url or '#' }}"{% if m.kode in ('LIST', 'FORM') %} data-view="{{ m.kode | lower }}"{% endif %}
+            <a href="{{ m.url or '#' }}"{% if m.kode in ('LIST', 'FORM') and (m.url or '').startswith('/weighbridge') %} data-view="{{ m.kode | lower }}"{% endif %}
                class="sidebar-link{% if m.aktif %} sidebar-link-active{% endif %}{% if not m.url %} sidebar-link-nanti{% endif %}"
                {% if not m.url %}title="Segera hadir" aria-disabled="true"{% endif %}>
                 <i class="fa-solid {{ m.ikon or 'fa-circle' }} sidebar-link-ikon"></i><span class="truncate">{{ m.nama }}</span>
@@ -45,7 +46,7 @@
             </a>
             {% if m.aktif or m.anak | selectattr('aktif') | list %}{% for c in m.anak %}
             <a href="{{ c.url or '#' }}" class="sidebar-sublink{% if c.aktif %} sidebar-sublink-aktif{% endif %}{% if not c.url %} sidebar-link-nanti{% endif %}"
-               {% if not c.url %}title="Segera hadir" aria-disabled="true"{% endif %}><span class="truncate">{{ c.nama }}</span></a>
+               {% if not c.url %}title="Segera hadir" aria-disabled="true"{% endif %}><span class="leading-snug">{{ c.nama }}</span></a>
             {% endfor %}{% endif %}
             {% endfor %}
         </details>

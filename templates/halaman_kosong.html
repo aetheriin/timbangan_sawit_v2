@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "partials/layout/_macros.html" import judul_halaman %}
+{% block title %}{{ menu.nama }} · CPOS{% endblock %}
+
+{# Halaman untuk menu yang isinya belum ada (aplikasi lain / tahap berikutnya). Isi menyusul, sidebar & breadcrumb tetap. #}
+{% block info_bar %}{% endblock %}
+{% block info_bar_script %}{% endblock %}
+
+{% block tab_header %}
+    {{ judul_halaman(menu.nama, remah[:-1] | join(' › ')) }}
+{% endblock %}
+
+{% block tab_content %}
+{% set APLIKASI = {'ANALYTICS': 'Analytics', 'REKAPIN': 'RekapIn', 'CPOS': 'CPOS'} %}
+<div class="section-box">
+    <div class="flex flex-col items-center justify-center text-center px-6 py-20">
+        <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mb-4">
+            <i class="fa-solid {{ menu.ikon or 'fa-layer-group' }}"></i>
+        </div>
+        <p class="text-base font-bold text-slate-900">Konten menyusul</p>
+        <p class="text-sm text-slate-500 mt-1 max-w-md">Halaman <b>{{ menu.nama }}</b> sedang disiapkan
+            {% if menu.aplikasi != 'CPOS' %}oleh aplikasi <b>{{ APLIKASI.get(menu.aplikasi, menu.aplikasi) }}</b>{% endif %}.
+            Menu dan hak aksesnya sudah aktif.</p>
+        <span class="badge-status bg-slate-100 text-slate-600 mt-4 font-mono">{{ menu.kode }}</span>
+    </div>
+</div>
+{% endblock %}
