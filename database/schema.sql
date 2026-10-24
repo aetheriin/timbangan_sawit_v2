@@ -1,30 +1,3 @@
-/* =====================================================================
-   SCHEMA Sistem Timbangan Sawit (Weighbridge + Face Recognition) - ERD v3 final
-   Membuat DATABASE BARU dari nol: semua tabel, view, prosedur, trigger, dan data awal
-   (setara schema awal + migrasi 001-022). Diuji di SQL Server 2022; minimal SQL Server 2016 SP1
-   (CREATE OR ALTER, JSON, HASHBYTES pada NVARCHAR(MAX)).
-
-   ERD Ladder Desk (tahap 1: organisasi & hak akses berbahasa Inggris: Company, Mill, CompanyArea, Department(Details),
-   Level(Details), Users, PasswordManager, Menu 3 level, ActionType, AccessMenu, UserCompany, UserSession).
-   Tahap 2: orang & kendaraan: Users (= personel: karyawan, supir, tamu; UserName terisi = punya login), UserCategory,
-   License + LicenseDetail (SIM), FaceRecog (wajah), VisitPurpose + Guest (kunjungan), FaceActivity (absensi),
-   VehicleType, DetailVehicle, VehicleDriver, Blacklist, BlacklistDetection, view UserProfile.
-   Tahap 3: mitra & kontrak: Currency, Bank, BankDetails, SupplierType (+ SupplierTypeDetails), SupplierGroup, Supplier
-   (+ SupplierCompany), ProductType, Product (+ standar mutu), ProductPrice, DailyPrice, Contract, DeliveryOrder,
-   DOTransport, VehicleContract, Invoice.
-   Tahap 4: tiket & timbang: WeightBridgeType, Status, WeightBridge (tiket), Weighing, view WeighingSummary, Grading (sortasi),
-   LabResult, TicketVoid, DOExcess (kelebihan DO), Log (+ view LogIntegrity).
-   Tabel pendukung CPOS: DocumentType, Document, DocumentFile, Flow, FlowStage, FlowStep, Scale (jembatan timbang),
-   Notification(Read), WorkSchedule, RequiredDataField, Setting, SettingArea, Device (kiosk), ApprovalRequest,
-   ApprovalHistory, ApprovalRequestStep, ApprovalFlow, ApprovalFlowStep. Prosedur log: sp_WriteLog, fn_LogHash.
-   Hak akses (dipakai semua aplikasi): fn_UserAccess, sp_UserMenu, sp_CekAkses (paling bawah).
-   Login bersama: sp_CekSesi, fn_UserScope / sp_UserScope, kunci login sp_Login* (paling bawah).
-   Database DIBUAT BARU dari file ini (tidak ada migrasi). Data contoh untuk uji: database/demo_data.sql.
-
-   Cara pakai (SSMS / VS Code mssql): ganti nama database di 2 baris di bawah bila perlu, lalu Execute.
-   Login awal: admin / admin12345 (wajib ganti password saat login pertama).
-   Diagram: docs/DOKUMENTASI.md
-   ===================================================================== */
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
@@ -36,11 +9,6 @@ GO
 USE [DbSistemTimbangan]
 GO
 
-/* =========================== ORGANISASI & HAK AKSES (ERD Ladder Desk, tahap 1) ===========================
-   Company (kode VARCHAR(5) sbg ID) -> CompanyArea (area milik perusahaan, bertipe Mill).
-   Department + DepartmentDetails (departemen yang ada di sebuah area, Location SITE/HO).
-   Level (jabatan umum) + LevelDetails (= PERAN: Departemen + Level; CompAreaID NULL = berlaku di semua area).
-   Menu 3 level (ParentMenuID) + ActionType + AccessMenu (hak per peran = LevelDetID, atau per pengguna = UserID). */
 CREATE TABLE dbo.Company (
     CompID       VARCHAR(5)       NOT NULL PRIMARY KEY,           -- kode perusahaan, mis. YBS, SUN
     CompName     NVARCHAR(100) NOT NULL,
