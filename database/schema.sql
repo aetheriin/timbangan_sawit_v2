@@ -92,6 +92,7 @@ CREATE TABLE dbo.Menu (
     AppCode      VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_App DEFAULT ('CPOS'),   -- CPOS / ANALYTICS / REKAPIN
     SortOrder    INT NOT NULL CONSTRAINT DF_Menu_Sort DEFAULT (0),
     ActionList   VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_Actions DEFAULT (''),   -- aksi selain View yang berlaku di menu ini: ActionID dipisah koma, mis. '2,3,5'
+    Widgets      VARCHAR(200)  NOT NULL CONSTRAINT DF_Menu_Widgets DEFAULT (''),   -- menu dashboard: widget yang tampil, urut, dipisah koma, mis. 'harga,arus'
     CompAreaID   BIGINT        NULL CONSTRAINT FK_Menu_Area REFERENCES dbo.CompanyArea (CompAreaID),   -- NULL = semua area
     Active       BIT NOT NULL CONSTRAINT DF_Menu_Active DEFAULT (1)
 );
@@ -1281,6 +1282,11 @@ FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', '3'), ('LIST', '3,5'), ('FORM_SECURIT
              ('POS_SECURITY', '2,3'), ('LOGBOOK', '3'),
              -- RekapIn: request operator (tambah, ubah, hapus, setujui, tolak, selesai), harga & kategori request
              ('RK_REQUEST', '2,3,0,5,6,7'), ('RK_HARGA', '2,3,0'), ('RK_FITUR', '2,3,0')) v (kode, aksi) ON v.kode = m.MenuCode;
+-- Isi dashboard per peran (katalog widget di routes/dashboard.py WIDGET): harga, riwayat, arus, security.
+-- Dashboard baru = menu Lv2 ber-Url /dashboard/<nama> dengan Widgets terisi; tidak perlu route baru.
+UPDATE m SET Widgets = v.w
+FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', 'harga,arus,riwayat'), ('DASH_TIMBANGAN', 'harga,arus'),
+             ('DASH_SECURITY', 'security')) v (kode, w) ON v.kode = m.MenuCode;
 -- Hak akses awal: (peran, menu, tambah, ubah, hapus, setujui). Lihat ikut diberikan.
 DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), t BIT, u BIT, h BIT, s BIT);
 INSERT INTO @hak VALUES
@@ -1300,7 +1306,7 @@ INSERT INTO @hak (peran, menu, t, u, h, s)
 SELECT ld.LevelDetCode, m.MenuCode, 0, 0, 0, 0
 FROM dbo.LevelDetails ld JOIN dbo.Level l ON l.LevelID = ld.LevelID CROSS JOIN dbo.Menu m
 WHERE l.IsAdmin = 0 AND m.AppCode = 'CPOS' AND m.Url IS NOT NULL
-  AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK', 'DASHBOARD', 'DASH_TIMBANGAN', 'DASH_SECURITY')
+  AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK') AND m.Widgets = ''
   AND NOT EXISTS (SELECT 1 FROM @hak x WHERE x.peran = ld.LevelDetCode AND x.menu = m.MenuCode);
 INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
 SELECT m.MenuID, a.ActionID, ld.LevelDetID
@@ -1984,7 +1990,7 @@ WITH peran AS (
     FROM per p
 )
 SELECT m.MenuID, m.MenuCode, m.MenuName, m.MenuLevel, pm.MenuCode AS ParentMenuCode, m.Url, m.Icon, m.AppCode, m.SortOrder,
-       m.ActionList,
+       m.ActionList, m.Widgets,
        CAST(l.V AS BIT) AS CanView, CAST(l.Vis AS BIT) AS Visible,
        CAST(CASE m.MenuLevel WHEN 1 THEN CASE WHEN EXISTS (SELECT 1 FROM lihat c WHERE c.ParentMenuID = m.MenuID AND c.Vis = 1)
                                               THEN 1 ELSE 0 END
@@ -2102,6 +2108,36 @@ BEGIN
     SELECT s.*, i.IsHeadOffice, i.AllAreas
     FROM dbo.fn_UserScope(@UserID) s CROSS JOIN dbo.fn_UserScopeInfo(@UserID) i
     ORDER BY s.CompID, s.AreaCode, s.AreaName;
+END
+GO
+/* =========================== DATA WIDGET DASHBOARD ===========================
+   Data widget yang juga dibutuhkan aplikasi lain (RekapIn / web laporan) supaya angkanya sama di semua aplikasi.
+   Hanya menyaring cakupan data (fn_UserScope); hak menu dicek pemanggil (sp_CekAkses). */
+/* Widget harga: harga harian (DailyPrice) + harga TBS (ProductPrice kategori TBS; harga khusus perusahaan mengalahkan harga
+   umum di tanggal yang sama) per tanggal, @Days hari terakhir. Perusahaan di luar cakupan user -> kosong. */
+CREATE OR ALTER PROCEDURE dbo.sp_DashboardHarga
+    @UserID BIGINT,
+    @CompID VARCHAR(5),
+    @Days   INT = 30
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM dbo.fn_UserScope(@UserID) WHERE CompID = @CompID) RETURN;
+    DECLARE @dari DATE = DATEADD(DAY, 1 - @Days, CAST(GETDATE() AS DATE));
+    WITH tbs AS (
+        SELECT pp.PriceDate, pp.Price, ROW_NUMBER() OVER (PARTITION BY pp.PriceDate
+               ORDER BY CASE WHEN pp.CompID IS NULL THEN 1 ELSE 0 END, pp.ProductPriceID DESC) AS rn
+        FROM dbo.ProductPrice pp JOIN dbo.Product p ON p.ProductID = pp.ProductID
+        WHERE p.Category = 'TBS' AND pp.IsVoid = 0 AND (pp.CompID = @CompID OR pp.CompID IS NULL) AND pp.PriceDate >= @dari
+    ), harian AS (
+        SELECT * FROM dbo.DailyPrice WHERE CompID = @CompID AND PriceDate >= @dari
+    )
+    SELECT COALESCE(h.PriceDate, t.PriceDate) AS PriceDate, h.CPOPrice, h.KernelPrice, h.OERCPO, h.ProcessingCost, h.RSIQty,
+           t.Price AS TBSPrice, u.Nama AS UpdateByName, CAST(CASE WHEN h.PriceDate IS NULL THEN 0 ELSE 1 END AS BIT) AS HasDaily
+    FROM harian h
+    FULL JOIN (SELECT PriceDate, Price FROM tbs WHERE rn = 1) t ON t.PriceDate = h.PriceDate
+    LEFT JOIN dbo.Users u ON u.UserID = h.UpdateBy
+    ORDER BY COALESCE(h.PriceDate, t.PriceDate);
 END
 GO
 /* Kunci login: LOGIN_MAKS_GAGAL kali salah dalam LOGIN_JENDELA_MENIT -> dikunci LOGIN_KUNCI_MENIT, per username ('u:nama')

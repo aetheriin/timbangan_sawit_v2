@@ -8,8 +8,8 @@ const UKURAN = [
     { kunci: 'biaya_olah', judul: 'Biaya Olah', satuan: 'Rp/kg TBS', desimal: 0, warna: '#0284c7', ket: 'standar biaya proses mill' },
     { kunci: 'harga_tbs', judul: 'Harga TBS', satuan: 'Rp/kg', desimal: 0, warna: '#d97706', ket: 'harga beli TBS (Harga Produk)' },
 ];
-// Bagian yang tampil sesuai dashboard peran (routes/dashboard.py BAGIAN): harga, arus, riwayat, security
-const BAGIAN = new Set((document.getElementById('dataDashboard')?.dataset.bagian || '').split(',').filter(Boolean));
+// Widget yang tampil di dashboard ini (Menu.Widgets, katalog di routes/dashboard.py WIDGET): harga, riwayat, arus, security
+const WIDGET = new Set((document.getElementById('dataDashboard')?.dataset.widget || '').split(',').filter(Boolean));
 let hariDashboard = 30;
 let dataHarga = [];
 
@@ -18,9 +18,9 @@ const pollingSecurity = new Poller(muatSecurity, 30000);
 document.addEventListener('DOMContentLoaded', () => {
     const hariTersimpan = document.querySelector(`[data-hari="${Number(Pilihan.ambil('hari'))}"]`);
     if (hariTersimpan) { aktifkanChip(hariTersimpan); hariDashboard = Number(hariTersimpan.dataset.hari); }
-    if (BAGIAN.has('harga')) muatDashboard();
-    if (BAGIAN.has('arus')) pollingArus.start();
-    if (BAGIAN.has('security')) pollingSecurity.start();
+    if (WIDGET.has('harga') || WIDGET.has('riwayat')) muatDashboard();
+    if (WIDGET.has('arus')) pollingArus.start();
+    if (WIDGET.has('security')) pollingSecurity.start();
     if (location.hash === '#isi-harga' && document.getElementById('formHarga')) bukaIsiHarga();   // tombol Isi Harga di header
 });
 
@@ -40,10 +40,16 @@ async function muatDashboard() {
     const company = companyHarga();
     const data = await ambilJson(`/api/dashboard/harga?hari=${hariDashboard}${company ? `&company=${encodeURIComponent(company)}` : ''}`);
     const wadah = document.getElementById('kartuDashboard');
-    if (data.error) { wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`; return false; }
+    if (data.error) {
+        if (wadah) wadah.innerHTML = `<p class="text-sm text-red-600">${escapeHtml(data.error)}</p>`;
+        else Notif.tampil(data.error, 'gagal');
+        return false;
+    }
     dataHarga = data;
-    wadah.innerHTML = UKURAN.map(kartuUkuran).join('');
-    UKURAN.forEach(u => pasangHover(u));
+    if (wadah) {
+        wadah.innerHTML = UKURAN.map(kartuUkuran).join('');
+        UKURAN.forEach(u => pasangHover(u));
+    }
     tampilkanTabelHarga();
 }
 

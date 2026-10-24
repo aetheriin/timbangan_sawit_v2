@@ -45,6 +45,7 @@ GRANT EXECUTE ON dbo.sp_UserMenu TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_CekAkses TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_CekSesi TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_UserScope TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_DashboardHarga TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_LoginSisaKunci TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_LoginGagal TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_LoginBerhasil TO [weighbridge_app];

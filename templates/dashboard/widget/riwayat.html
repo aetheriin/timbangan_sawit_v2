@@ -1,0 +1,17 @@
+{# Widget riwayat: tabel riwayat harga; Ubah per baris bila menu dashboard punya hak Ubah #}
+{% from "partials/layout/_macros.html" import section_header, tombol_ekspor %}
+<div class="section-box">
+    {% call section_header('riwayat-harga', 'Riwayat Harga') %}
+    <div data-henti-klik>{{ tombol_ekspor('tabelHarga', 'Riwayat Harga') }}</div>
+    {% endcall %}
+    <div id="body-riwayat-harga" class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Tanggal</th><th class="table-cell text-right">Harga CPO (Rp/kg)</th><th class="table-cell text-right">Harga Kernel (Rp/kg)</th>
+                    <th class="table-cell text-right">OER CPO (%)</th><th class="table-cell text-right">Biaya Olah (Rp/kg TBS)</th><th class="table-cell text-right">Harga TBS (Rp/kg)</th><th class="table-cell text-right">Qty RSI</th><th class="table-cell">Diisi Oleh</th>
+                    {% if boleh_ubah %}<th class="table-cell text-right">Aksi</th>{% endif %}</tr>
+            </thead>
+            <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelHarga" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

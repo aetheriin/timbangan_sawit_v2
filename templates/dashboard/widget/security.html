@@ -1,0 +1,13 @@
+{# Widget security: ringkasan + truk masih di dalam area (dashboard.js muatSecurity, /api/dashboard/security) #}
+<div id="ringkasSecurity" class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
+<div class="section-box">
+    <div class="section-header"><span class="section-header-text">Truk Masih di Dalam Area</span>
+        <span id="jumlahDalam" class="badge-status bg-amber-100 text-amber-800"></span></div>
+    <div class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row"><tr><th class="table-cell">No. Plat</th><th class="table-cell">Supir</th><th class="table-cell">Customer / Supplier</th>
+                <th class="table-cell">Produk</th><th class="table-cell">Tahap</th><th class="table-cell">Masuk</th><th class="table-cell text-right">Lama di Dalam</th></tr></thead>
+            <tbody id="tabelDalam" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

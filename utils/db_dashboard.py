@@ -4,34 +4,14 @@ from utils.db_utils import get_connection, _rows_to_dicts
 KOLOM = ("harga_cpo", "harga_kernel", "oer_cpo", "biaya_olah")
 
 
-def riwayat_harga(id_company, hari=30):
+def riwayat_harga(id_user, id_company, hari=30):
+    """Data widget harga dari dbo.sp_DashboardHarga (sama dengan aplikasi lain): harga harian + harga TBS per tanggal,
+    hanya perusahaan dalam cakupan user."""
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute("""SELECT h.PriceDate AS tanggal, h.CPOPrice AS harga_cpo, h.KernelPrice AS harga_kernel, h.OERCPO AS oer_cpo,
-                                 h.ProcessingCost AS biaya_olah, h.RSIQty AS qty_rsi, u.Nama AS oleh, h.UpdateDate AS updated_at
-                          FROM DailyPrice h LEFT JOIN Users u ON u.UserID = h.UpdateBy
-                          WHERE h.CompID = ? AND h.PriceDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))
-                          ORDER BY h.PriceDate""", id_company, -(int(hari) - 1))
-        return _rows_to_dicts(cursor)
-    finally:
-        conn.close()
-
-
-def riwayat_harga_tbs(id_company, hari=30):
-    """Harga TBS (Harga Produk, kategori TBS) per tanggal untuk perusahaan ini; harga khusus perusahaan
-    mengalahkan harga umum (CompID kosong) di tanggal yang sama."""
-    conn = get_connection()
-    try:
-        cursor = conn.cursor()
-        cursor.execute("""SELECT x.PriceDate AS tanggal, x.Price AS harga FROM (
-                              SELECT pp.PriceDate, pp.Price, ROW_NUMBER() OVER (PARTITION BY pp.PriceDate
-                                     ORDER BY CASE WHEN pp.CompID IS NULL THEN 1 ELSE 0 END, pp.ProductPriceID DESC) AS rn
-                              FROM ProductPrice pp JOIN Product p ON p.ProductID = pp.ProductID
-                              WHERE p.Category = 'TBS' AND pp.IsVoid = 0 AND (pp.CompID = ? OR pp.CompID IS NULL)
-                                AND pp.PriceDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))) x
-                          WHERE x.rn = 1 ORDER BY x.PriceDate""", id_company, -(int(hari) - 1))
-        return _rows_to_dicts(cursor)
+        cursor.execute("EXEC dbo.sp_DashboardHarga @UserID = ?, @CompID = ?, @Days = ?", id_user, id_company, int(hari))
+        return _rows_to_dicts(cursor) if cursor.description else []
     finally:
         conn.close()
 

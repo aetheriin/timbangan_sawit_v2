@@ -94,9 +94,20 @@ def hak_user(user):
 def semua_menu():
     """Semua menu aktif (urut) dengan kode induknya: dasar navbar 3 level & pencarian kode halaman."""
     return _query("""SELECT m.MenuID AS id_menu, m.MenuCode AS kode, m.MenuName AS nama, m.Url AS url, m.Icon AS ikon,
-                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk, m.ActionList AS daftar_aksi
+                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk, m.ActionList AS daftar_aksi,
+                            m.Widgets AS widget
                      FROM Menu m LEFT JOIN Menu p ON p.MenuID = m.ParentMenuID
                      WHERE m.Active = 1 ORDER BY m.MenuLevel, m.SortOrder, m.MenuName""")
+
+
+def widget_menu(m):
+    """Widget dashboard menu ini (Menu.Widgets), urut: ['harga', 'arus']."""
+    return [w.strip() for w in (m.get("widget") or "").split(",") if w.strip()]
+
+
+def menu_dengan_widget(*widget):
+    """Kode menu dashboard yang memuat salah satu widget itu (untuk izin API data widget)."""
+    return [m["kode"] for m in semua_menu() if set(widget) & set(widget_menu(m))]
 
 
 def aksi_menu(m):
@@ -247,14 +258,15 @@ def halaman_awal_user(user=None):
 
 
 def izin(kode_menu, *aksi):
-    """Pengganti role_required: @izin('FORM_SECURITY', 'tambah'). kode_menu boleh tuple (salah satu cukup)."""
-    daftar_kode = kode_menu if isinstance(kode_menu, (tuple, list)) else (kode_menu,)
-
+    """Pengganti role_required: @izin('FORM_SECURITY', 'tambah'). kode_menu boleh tuple (salah satu cukup)
+    atau fungsi tanpa argumen yang mengembalikan daftar kode (dihitung tiap request, mis. menu dashboard ber-widget harga)."""
     def dekorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
             if not current_user.is_authenticated:
                 return jsonify({"error": "Belum login"}), 401
+            kode = kode_menu() if callable(kode_menu) else kode_menu
+            daftar_kode = kode if isinstance(kode, (tuple, list)) else (kode,)
             if not any(boleh(k, *aksi) for k in daftar_kode):
                 from utils.keamanan import log_keamanan
                 log_keamanan("AKSES_DITOLAK", f"level {current_user.role} ke {f.__name__} ({request.path})")

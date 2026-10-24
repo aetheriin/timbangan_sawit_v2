@@ -1,22 +1,17 @@
 {% extends "base.html" %}
-{% from "partials/layout/_macros.html" import section_header, tombol_ekspor %}
 {% block title %}Dashboard · CPOS{% endblock %}
 
 {% block info_bar %}{% endblock %}
 {% block info_bar_script %}{% endblock %}
 
 {% block tab_header %}
+{% set ada_harga = 'harga' in widget or 'riwayat' in widget %}
 <div class="halaman-judul">
     <div>
-        {% if 'security' in bagian %}
-        <h1>Dashboard Security</h1>
-        <p>Truk masuk dan yang masih di dalam area, tamu, dan blacklist terdeteksi hari ini.</p>
-        {% else %}
-        <h1>Dashboard Indikator Pasar &amp; Timbangan</h1>
-        <p>Harga referensi CPO, kernel &amp; TBS, OER, biaya olah, dan arus penimbangan hari ini.</p>
-        {% endif %}
+        <h1>{{ judul }}</h1>
+        <p>{{ keterangan }}</p>
     </div>
-    {% if 'harga' in bagian %}
+    {% if ada_harga %}
     <div class="flex items-center gap-3">
         {% if company_harga|length > 1 %}
         <select id="pilihCompanyHarga" data-simpan="company_harga" class="input-field w-56 py-1.5" data-on-change="muatDashboard" title="Perusahaan (harga)">
@@ -34,7 +29,7 @@
         <button type="button" class="btn-primary" data-on-click="bukaIsiHarga"><i class="fa-solid fa-plus"></i> Isi Harga</button>
         {% endif %}
     </div>
-    {% elif 'security' in bagian and is_pusat %}
+    {% elif 'security' in widget and is_pusat %}
     <select id="pilihAreaSecurity" data-simpan="area_security" class="input-field w-56 py-1.5" data-on-change="muatSecurity">
         <option value="">Semua area</option>
         {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
@@ -44,101 +39,9 @@
 {% endblock %}
 
 {% block tab_content %}
-<div id="dataDashboard" hidden data-bagian="{{ bagian | sort | join(',') }}"></div>
-{% if 'security' in bagian %}
-<div id="ringkasSecurity" class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
-<div class="section-box">
-    <div class="section-header"><span class="section-header-text">Truk Masih di Dalam Area</span>
-        <span id="jumlahDalam" class="badge-status bg-amber-100 text-amber-800"></span></div>
-    <div class="section-body overflow-x-auto">
-        <table class="w-full text-left text-sm">
-            <thead class="table-header-row"><tr><th class="table-cell">No. Plat</th><th class="table-cell">Supir</th><th class="table-cell">Customer / Supplier</th>
-                <th class="table-cell">Produk</th><th class="table-cell">Tahap</th><th class="table-cell">Masuk</th><th class="table-cell text-right">Lama di Dalam</th></tr></thead>
-            <tbody id="tabelDalam" class="divide-y divide-slate-100"></tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
-
-{% if 'harga' in bagian %}
-<div id="kartuDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-5"></div>
-{% endif %}
-
-{% if 'arus' in bagian %}
-<div class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
-    <div class="card xl:col-span-2">
-        <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
-            <div>
-                <h2 class="text-sm font-bold text-slate-900">Arus Penimbangan Hari Ini</h2>
-                <p class="text-xs text-slate-500">{{ 'Tiket yang dibuat hari ini, semua area atau per area' if is_pusat else 'Tiket yang dibuat hari ini di area Anda' }}</p>
-            </div>
-            {# HO: pilih site (juga menyaring Status Jembatan Timbang); akun site: hanya site sendiri #}
-            {% if is_pusat %}
-            <select id="pilihAreaArus" data-simpan="area_arus" class="input-field w-56 py-1.5" data-on-change="muatArusSekarang">
-                <option value="">Semua area</option>
-                {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
-            </select>
-            {% else %}
-            <span class="kpi-tanggal"><i class="fa-solid fa-location-dot mr-1"></i>{{ area_saya }}</span>
-            {% endif %}
-        </div>
-        <div id="arusRingkas" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-4"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-5 mt-5">
-            <div class="lg:col-span-3">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                    <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Arus per jam</p>
-                    <span class="flex items-center gap-3 text-xs text-slate-500">
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-600"></span>Masuk</span>
-                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>Selesai</span>
-                    </span>
-                </div>
-                <div id="grafikPerJam" class="relative"></div>
-            </div>
-            <div class="lg:col-span-2">
-                <p class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Posisi truk saat ini</p>
-                <div id="posisiTruk" class="grid grid-cols-2 gap-2"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card space-y-5">
-        <div>
-            <div class="pb-3 border-b border-slate-100 flex items-start justify-between gap-2">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900">Status Jembatan Timbang</h2>
-                    <p class="text-xs text-slate-500">Yang terputus ditampilkan paling atas</p>
-                </div>
-                <span id="ringkasJembatan" class="kpi-tanggal font-mono whitespace-nowrap"></span>
-            </div>
-            {# Satu baris per jembatan; banyak jembatan (HO, semua area) -> digulir di dalam kotak, tidak memanjangkan halaman #}
-            <div id="statusJembatan" class="mt-3 max-h-64 overflow-y-auto divide-y divide-slate-100 -mx-1 px-1"></div>
-        </div>
-        <div>
-            <p class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">Distribusi muatan hari ini</p>
-            <div id="distribusiMuatan" class="space-y-2.5"></div>
-        </div>
-    </div>
-</div>
-
-{% endif %}
-
-{% if 'riwayat' in bagian %}
-<div class="section-box">
-    {% call section_header('riwayat-harga', 'Riwayat Harga') %}
-    <div data-henti-klik>{{ tombol_ekspor('tabelHarga', 'Riwayat Harga') }}</div>
-    {% endcall %}
-    <div id="body-riwayat-harga" class="section-body overflow-x-auto">
-        <table class="w-full text-left text-sm">
-            <thead class="table-header-row">
-                <tr><th class="table-cell">Tanggal</th><th class="table-cell text-right">Harga CPO (Rp/kg)</th><th class="table-cell text-right">Harga Kernel (Rp/kg)</th>
-                    <th class="table-cell text-right">OER CPO (%)</th><th class="table-cell text-right">Biaya Olah (Rp/kg TBS)</th><th class="table-cell text-right">Harga TBS (Rp/kg)</th><th class="table-cell text-right">Qty RSI</th><th class="table-cell">Diisi Oleh</th>
-                    {% if boleh_ubah %}<th class="table-cell text-right">Aksi</th>{% endif %}</tr>
-            </thead>
-            <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelHarga" class="divide-y divide-slate-100"></tbody>
-        </table>
-    </div>
-</div>
-{% endif %}
+{# Widget tampil sesuai urutan Menu.Widgets; satu file per widget di templates/dashboard/widget/ #}
+<div id="dataDashboard" hidden data-widget="{{ widget | join(',') }}"></div>
+{% for w in widget %}{% include "dashboard/widget/" ~ w ~ ".html" %}{% endfor %}
 {% endblock %}
 
 {% block modals %}
