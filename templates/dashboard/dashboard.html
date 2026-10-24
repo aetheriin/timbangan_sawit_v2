@@ -8,9 +8,15 @@
 {% block tab_header %}
 <div class="halaman-judul">
     <div>
+        {% if 'security' in bagian %}
+        <h1>Dashboard Security</h1>
+        <p>Truk masuk dan yang masih di dalam area, tamu, dan blacklist terdeteksi hari ini.</p>
+        {% else %}
         <h1>Dashboard Indikator Pasar &amp; Timbangan</h1>
-        <p>Harga referensi CPO &amp; kernel, OER, biaya olah, dan arus penimbangan hari ini.</p>
+        <p>Harga referensi CPO, kernel &amp; TBS, OER, biaya olah, dan arus penimbangan hari ini.</p>
+        {% endif %}
     </div>
+    {% if 'harga' in bagian %}
     <div class="flex items-center gap-3">
         {% if company_harga|length > 1 %}
         <select id="pilihCompanyHarga" data-simpan="company_harga" class="input-field w-56 py-1.5" data-on-change="muatDashboard" title="Perusahaan (harga)">
@@ -28,12 +34,37 @@
         <button type="button" class="btn-primary" data-on-click="bukaIsiHarga"><i class="fa-solid fa-plus"></i> Isi Harga</button>
         {% endif %}
     </div>
+    {% elif 'security' in bagian and is_pusat %}
+    <select id="pilihAreaSecurity" data-simpan="area_security" class="input-field w-56 py-1.5" data-on-change="muatSecurity">
+        <option value="">Semua area</option>
+        {% for a in area_list %}<option value="{{ a.id_comp_area }}">{{ a.label }}</option>{% endfor %}
+    </select>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block tab_content %}
-<div id="kartuDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
+<div id="dataDashboard" hidden data-bagian="{{ bagian | sort | join(',') }}"></div>
+{% if 'security' in bagian %}
+<div id="ringkasSecurity" class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
+<div class="section-box">
+    <div class="section-header"><span class="section-header-text">Truk Masih di Dalam Area</span>
+        <span id="jumlahDalam" class="badge-status bg-amber-100 text-amber-800"></span></div>
+    <div class="section-body overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row"><tr><th class="table-cell">No. Plat</th><th class="table-cell">Supir</th><th class="table-cell">Customer / Supplier</th>
+                <th class="table-cell">Produk</th><th class="table-cell">Tahap</th><th class="table-cell">Masuk</th><th class="table-cell text-right">Lama di Dalam</th></tr></thead>
+            <tbody id="tabelDalam" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
+{% if 'harga' in bagian %}
+<div id="kartuDashboard" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-5"></div>
+{% endif %}
+
+{% if 'arus' in bagian %}
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
     <div class="card xl:col-span-2">
         <div class="flex flex-wrap items-start justify-between gap-3 pb-3 border-b border-slate-100">
@@ -89,6 +120,9 @@
     </div>
 </div>
 
+{% endif %}
+
+{% if 'riwayat' in bagian %}
 <div class="section-box">
     {% call section_header('riwayat-harga', 'Riwayat Harga') %}
     <div data-henti-klik>{{ tombol_ekspor('tabelHarga', 'Riwayat Harga') }}</div>
@@ -97,13 +131,14 @@
         <table class="w-full text-left text-sm">
             <thead class="table-header-row">
                 <tr><th class="table-cell">Tanggal</th><th class="table-cell text-right">Harga CPO (Rp/kg)</th><th class="table-cell text-right">Harga Kernel (Rp/kg)</th>
-                    <th class="table-cell text-right">OER CPO (%)</th><th class="table-cell text-right">Biaya Olah (Rp/kg TBS)</th><th class="table-cell text-right">Qty RSI</th><th class="table-cell">Diisi Oleh</th>
+                    <th class="table-cell text-right">OER CPO (%)</th><th class="table-cell text-right">Biaya Olah (Rp/kg TBS)</th><th class="table-cell text-right">Harga TBS (Rp/kg)</th><th class="table-cell text-right">Qty RSI</th><th class="table-cell">Diisi Oleh</th>
                     {% if boleh_ubah %}<th class="table-cell text-right">Aksi</th>{% endif %}</tr>
             </thead>
             <tbody data-per-halaman="20" data-boleh-ubah="{{ 1 if boleh_ubah else 0 }}" id="tabelHarga" class="divide-y divide-slate-100"></tbody>
         </table>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block modals %}

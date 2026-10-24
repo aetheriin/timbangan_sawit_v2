@@ -1,12 +1,12 @@
 """Dashboard harga: semua role non-admin melihat, HO mengisi."""
-from datetime import date
+from datetime import date, datetime
 
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
 from utils.area import area_data, company_user
 from utils.area_filter import area_cocok
-from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga, arus_hari_ini
+from utils.db_dashboard import KOLOM, riwayat_harga, riwayat_harga_tbs, simpan_harga, arus_hari_ini, ringkas_security
 from utils.db_jembatan import daftar_jembatan
 from utils.db_organisasi import daftar_area, daftar_company
 from utils.serial_reader import baca_status
@@ -34,10 +34,13 @@ def _company_dipilih(user_id, kode):
     return daftar[0] if daftar else None
 
 
-@dashboard_bp.route("/dashboard")
-@login_required
-@lihat_halaman("DASHBOARD")
-def dashboard_halaman():
+# Dashboard per peran (menu Lv2 di bawah grup Dashboard, nama sama, isi berbeda; peran dicentang di Admin › Hak Akses):
+# DASHBOARD = HO (semua bagian + Isi Harga), DASH_TIMBANGAN = harga + arus + jembatan, DASH_SECURITY = truk & tamu.
+BAGIAN = {"DASHBOARD": {"harga", "arus", "riwayat"}, "DASH_TIMBANGAN": {"harga", "arus"}, "DASH_SECURITY": {"security"}}
+MENU_HARGA = ("DASHBOARD", "DASH_TIMBANGAN")
+
+
+def _render_dashboard(kode_menu):
     """HO (area pusat) bisa memilih site untuk Arus Penimbangan & Status Jembatan; akun site hanya site-nya."""
     id_area = area_data(current_user.id)
     if id_area is None or isinstance(id_area, tuple):      # kantor pusat: semua site, atau site PT yang dikelola
@@ -46,12 +49,37 @@ def dashboard_halaman():
     else:
         area_list = []
         area_saya = next((a["label"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
-    return render_template("dashboard/dashboard.html", halaman="dashboard", boleh_ubah=boleh("DASHBOARD", "ubah"),
-                           company_harga=_company_harga(current_user.id), is_pusat=id_area is None or isinstance(id_area, tuple), area_list=area_list, area_saya=area_saya)
+    bagian = BAGIAN[kode_menu]
+    return render_template("dashboard/dashboard.html", halaman="dashboard", kode_aktif=kode_menu, bagian=bagian,
+                           boleh_ubah=kode_menu == "DASHBOARD" and boleh("DASHBOARD", "ubah"),
+                           company_harga=_company_harga(current_user.id) if "harga" in bagian else [],
+                           is_pusat=id_area is None or isinstance(id_area, tuple), area_list=area_list, area_saya=area_saya)
+
+
+@dashboard_bp.route("/dashboard")
+@login_required
+@lihat_halaman("DASHBOARD")
+def dashboard_halaman():
+    return _render_dashboard("DASHBOARD")
+
+
+@dashboard_bp.route("/dashboard/timbangan")
+@login_required
+@lihat_halaman("DASH_TIMBANGAN")
+def dashboard_timbangan():
+    return _render_dashboard("DASH_TIMBANGAN")
+
+
+@dashboard_bp.route("/dashboard/security")
+@login_required
+@lihat_halaman("DASH_SECURITY")
+def dashboard_security():
+    return _render_dashboard("DASH_SECURITY")
 
 
 @dashboard_bp.route("/api/dashboard/harga")
 @login_required
+@izin(MENU_HARGA, "lihat")
 def dashboard_harga():
     """?company=<kode> (kosong = perusahaan pertama yang boleh dilihat)."""
     hari = min(max(request.args.get("hari", 30, type=int), 7), 365)
@@ -61,8 +89,13 @@ def dashboard_harga():
         return jsonify({"error": str(e)}), 400
     if id_company is None:
         return jsonify([])
-    return jsonify([{**{k: (float(r[k]) if r[k] is not None else None) for k in (*KOLOM, "qty_rsi")},
-                     "tanggal": r["tanggal"].strftime("%Y-%m-%d"), "oleh": r["oleh"]} for r in riwayat_harga(id_company, hari)])
+    per_tanggal = {r["tanggal"]: {**{k: (float(r[k]) if r[k] is not None else None) for k in (*KOLOM, "qty_rsi")},
+                                  "tanggal": r["tanggal"].strftime("%Y-%m-%d"), "oleh": r["oleh"], "ada_harian": True}
+                   for r in riwayat_harga(id_company, hari)}
+    for r in riwayat_harga_tbs(id_company, hari):          # harga TBS (Harga Produk) digabung per tanggal
+        baris = per_tanggal.setdefault(r["tanggal"], {"tanggal": r["tanggal"].strftime("%Y-%m-%d"), "oleh": None})
+        baris["harga_tbs"] = float(r["harga"])
+    return jsonify([per_tanggal[t] for t in sorted(per_tanggal)])
 
 
 @dashboard_bp.route("/api/dashboard/harga/simpan", methods=["POST"])
@@ -101,6 +134,7 @@ def _angka(v):
 
 @dashboard_bp.route("/api/dashboard/arus")
 @login_required
+@izin(MENU_HARGA, "lihat")
 def dashboard_arus():
     """Arus penimbangan hari ini + status jembatan timbang.
     Akun site: selalu area sendiri. HO (area pusat): ?area=<id> untuk satu site, kosong = semua site."""
@@ -125,3 +159,20 @@ def dashboard_arus():
         "posisi": posisi,
         "jembatan": status,
     })
+
+
+@dashboard_bp.route("/api/dashboard/security")
+@login_required
+@izin("DASH_SECURITY", "lihat")
+def dashboard_security_data():
+    """Truk masuk / di dalam (area user; HO bisa ?area=<id>), tamu di dalam, blacklist terdeteksi hari ini."""
+    id_area = area_data(current_user.id)
+    if id_area is None or isinstance(id_area, tuple):
+        dipilih = request.args.get("area", type=int)
+        id_area = dipilih if dipilih and area_cocok(id_area, dipilih) else id_area
+    d = ringkas_security(id_area)
+    sekarang = datetime.now()
+    d["dalam"] = [{"no_tiket": r["no_tiket"], "no_plat": r["no_plat"], "supir": r["supir"], "customer": r["customer"],
+                   "produk": r["produk"], "status": r["status_alur"], "masuk": r["waktu_masuk"].strftime("%H:%M"),
+                   "menit": int((sekarang - r["waktu_masuk"]).total_seconds() // 60)} for r in d["dalam"]]
+    return jsonify(d)

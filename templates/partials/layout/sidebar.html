@@ -30,6 +30,7 @@
            (Admin › Level & Hak Akses, kolom Lihat). Halaman yang belum ada (Url kosong) tampil redup dengan tautan '#'. #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% elif halaman == 'kosong' %}{% set aktif = menu.induk if menu.level == 3 else menu.kode %}
+        {% elif kode_aktif %}{% set aktif = kode_aktif %}
         {% else %}{% set aktif = {'dashboard': 'DASHBOARD', 'face': 'FACE_RECOGNITION', 'kontrak': 'KONTRAK_DO',
                                   'master': 'MASTER', 'blacklist': 'BLACKLIST', 'tamu': 'KUNJUNGAN',
                                   'kelebihan_do': 'KELEBIHAN_DO', 'pos': 'POS_SECURITY', 'logbook': 'LOGBOOK'}.get(halaman) %}{% endif %}

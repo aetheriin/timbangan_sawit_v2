@@ -42,6 +42,7 @@ REF = {
     "harga_produk": {"judul": "Harga Produk", "tabel": "ProductPrice", "id": "ProductPriceID", "menu": "MASTER_PRODUK",
                      "urut": "x.PriceDate DESC, x.ProductPriceID DESC", "ubah": False, "aktif": False, "void": True, "batas": 300,
                      "kolom": [F("ProductID", "id_produk", "Produk", "pilih", True, pilihan="produk"),
+                               F("CompID", "id_company", "Perusahaan (kosong = semua)", "pilih", pilihan="perusahaan"),
                                F("PriceDate", "tanggal", "Tanggal", "tanggal", True),
                                F("Price", "harga", "Harga / kg", "angka", True),
                                F("CurrencyID", "id_mata_uang", "Mata Uang", "pilih", pilihan="mata_uang")],
@@ -54,6 +55,7 @@ PILIHAN = {
     "area": "SELECT CompAreaID AS id, CompID + ' · ' + AreaName AS label FROM CompanyArea WHERE Active = 1 ORDER BY CompID, AreaName",
     "bank": "SELECT BankAccountID AS id, BankName + ISNULL(' · ' + BankRegion, '') AS label FROM Bank WHERE Active = 1 ORDER BY BankName",
     "produk": "SELECT ProductID AS id, ProductName AS label FROM Product WHERE Active = 1 ORDER BY ProductName",
+    "perusahaan": "SELECT CompID AS id, CompID + ' · ' + CompName AS label FROM Company WHERE Active = 1 ORDER BY CompID",
     "grup_supplier": "SELECT SupplierGroupID AS id, NameGroup AS label FROM SupplierGroup WHERE Active = 1 ORDER BY NameGroup",
     "rekening": """SELECT d.BankAccountDetailsID AS id, b.BankName + ' · ' + d.BankAccountCode + ISNULL(' · ' + d.BankName, '') AS label
                    FROM BankDetails d JOIN Bank b ON b.BankAccountID = d.BankAccountID WHERE d.Active = 1 ORDER BY b.BankName""",
@@ -131,9 +133,10 @@ def _nilai(f, teks, opsi):
             return date.fromisoformat(teks)
         except ValueError:
             raise ValueError(f"{f['label']} tidak valid")
-    if not teks.isdigit() or int(teks) not in {o["id"] for o in opsi.get(f["kunci"], [])}:
+    cocok = [o["id"] for o in opsi.get(f["kunci"], []) if str(o["id"]) == teks]     # id angka atau kode (mis. CompID)
+    if not cocok:
         raise ValueError(f"Pilih {f['label'].lower()} dari daftar")
-    return int(teks)
+    return cocok[0]
 
 
 def simpan(jenis, id_baris, form, user_id):

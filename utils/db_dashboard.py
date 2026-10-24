@@ -18,6 +18,44 @@ def riwayat_harga(id_company, hari=30):
         conn.close()
 
 
+def riwayat_harga_tbs(id_company, hari=30):
+    """Harga TBS (Harga Produk, kategori TBS) per tanggal untuk perusahaan ini; harga khusus perusahaan
+    mengalahkan harga umum (CompID kosong) di tanggal yang sama."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""SELECT x.PriceDate AS tanggal, x.Price AS harga FROM (
+                              SELECT pp.PriceDate, pp.Price, ROW_NUMBER() OVER (PARTITION BY pp.PriceDate
+                                     ORDER BY CASE WHEN pp.CompID IS NULL THEN 1 ELSE 0 END, pp.ProductPriceID DESC) AS rn
+                              FROM ProductPrice pp JOIN Product p ON p.ProductID = pp.ProductID
+                              WHERE p.Category = 'TBS' AND pp.IsVoid = 0 AND (pp.CompID = ? OR pp.CompID IS NULL)
+                                AND pp.PriceDate >= DATEADD(day, ?, CAST(GETDATE() AS DATE))) x
+                          WHERE x.rn = 1 ORDER BY x.PriceDate""", id_company, -(int(hari) - 1))
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
+
+
+def ringkas_security(id_area):
+    """Dashboard Security: truk masuk hari ini & yang masih di dalam (logbook), tamu di dalam, blacklist terdeteksi hari ini."""
+    from datetime import date
+    from utils.area_filter import sql_area
+    from utils.db_pos import logbook
+    lb = logbook(id_area, date.today())
+    f_tamu, p_tamu = sql_area("CompAreaID", id_area)
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) FROM Guest WHERE CheckOutDate IS NULL{f_tamu}", *p_tamu)
+        tamu = cursor.fetchone()[0]
+        cursor.execute(f"SELECT COUNT(*) FROM BlacklistDetection WHERE DetectDate >= CAST(GETDATE() AS DATE){f_tamu}", *p_tamu)
+        blacklist = cursor.fetchone()[0]
+    finally:
+        conn.close()
+    return {"masuk": lb["masuk_hari_ini"], "di_dalam": len(lb["dalam"]), "keluar": len(lb["keluar"]), "tamu": tamu,
+            "blacklist": blacklist, "dalam": lb["dalam"]}
+
+
 def simpan_harga(id_company, tanggal, nilai, qty_rsi, user_id):
     """Satu baris per perusahaan per tanggal: yang sudah ada diperbarui."""
     conn = get_connection()

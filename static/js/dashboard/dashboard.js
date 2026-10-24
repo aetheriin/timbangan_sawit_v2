@@ -6,16 +6,21 @@ const UKURAN = [
     { kunci: 'harga_kernel', judul: 'Harga Kernel', satuan: 'Rp/kg', desimal: 0, warna: '#4f46e5', ket: 'vs penetapan sebelumnya' },
     { kunci: 'oer_cpo', judul: 'OER CPO', satuan: 'Rendemen %', desimal: 2, warna: '#059669', ket: 'target ekstraksi pabrik' },
     { kunci: 'biaya_olah', judul: 'Biaya Olah', satuan: 'Rp/kg TBS', desimal: 0, warna: '#0284c7', ket: 'standar biaya proses mill' },
+    { kunci: 'harga_tbs', judul: 'Harga TBS', satuan: 'Rp/kg', desimal: 0, warna: '#d97706', ket: 'harga beli TBS (Harga Produk)' },
 ];
+// Bagian yang tampil sesuai dashboard peran (routes/dashboard.py BAGIAN): harga, arus, riwayat, security
+const BAGIAN = new Set((document.getElementById('dataDashboard')?.dataset.bagian || '').split(',').filter(Boolean));
 let hariDashboard = 30;
 let dataHarga = [];
 
 const pollingArus = new Poller(muatArus, 30000);
+const pollingSecurity = new Poller(muatSecurity, 30000);
 document.addEventListener('DOMContentLoaded', () => {
     const hariTersimpan = document.querySelector(`[data-hari="${Number(Pilihan.ambil('hari'))}"]`);
     if (hariTersimpan) { aktifkanChip(hariTersimpan); hariDashboard = Number(hariTersimpan.dataset.hari); }
-    muatDashboard();
-    pollingArus.start();
+    if (BAGIAN.has('harga')) muatDashboard();
+    if (BAGIAN.has('arus')) pollingArus.start();
+    if (BAGIAN.has('security')) pollingSecurity.start();
     if (location.hash === '#isi-harga' && document.getElementById('formHarga')) bukaIsiHarga();   // tombol Isi Harga di header
 });
 
@@ -135,14 +140,15 @@ function pasangHover(u) {
 
 function tampilkanTabelHarga() {
     const tbody = document.getElementById('tabelHarga');
+    if (!tbody) return;
     const bolehUbah = tbody.dataset.bolehUbah === '1';
-    tbody.innerHTML = [...dataHarga].reverse().map(r => `<tr class="hover:bg-slate-50">
+    tbody.innerHTML = [...dataHarga].filter(r => r.ada_harian).reverse().map(r => `<tr class="hover:bg-slate-50">
         <td class="table-cell whitespace-nowrap">${escapeHtml(r.tanggal)}</td>
         ${UKURAN.map(u => `<td class="table-cell text-right">${angka(r[u.kunci], u.desimal)}</td>`).join('')}
         <td class="table-cell text-right">${angka(r.qty_rsi, 0)}</td>
         <td class="table-cell">${escapeHtml(r.oleh || '-')}</td>
         ${bolehUbah ? `<td class="table-cell text-right"><button type="button" class="link-aksi text-blue-600" data-on-click="bukaIsiHarga" data-arg="${escapeHtml(r.tanggal)}">Ubah</button></td>` : ''}
-    </tr>`).join('') || barisKosong(bolehUbah ? 8 : 7, 'Belum ada data harga');
+    </tr>`).join('') || barisKosong(bolehUbah ? 9 : 8, 'Belum ada data harga');
 }
 
 function bukaIsiHarga(tanggal) {
@@ -249,4 +255,30 @@ function tampilkanPosisiTruk(p) {
         kotak('Sortasi', p.sortasi, 'sortasi', 'text-amber-600') +
         kotak('Laboratorium', p.lab, 'lab', 'text-indigo-700') +
         kotak('Menunggu Timbang 2', p.timbang_2, 'timbangan', 'text-emerald-700');
+}
+
+// ===== DASHBOARD SECURITY =====
+async function muatSecurity() {
+    const area = document.getElementById('pilihAreaSecurity')?.value || '';
+    const r = await Api.get(`/api/dashboard/security${area ? `?area=${encodeURIComponent(area)}` : ''}`, { polling: true });
+    const d = r.data;
+    if (!d || d.error) return;
+    const kartu = (label, nilai, ket, ikon, warna) => `<div class="stat-card">
+        <div class="flex items-start justify-between"><p class="stat-label">${label}</p>
+            <span class="w-9 h-9 rounded-lg inline-flex items-center justify-center ${warna}"><i class="fa-solid ${ikon}"></i></span></div>
+        <p class="text-3xl font-bold font-mono text-slate-900">${nilai}</p><p class="text-xs text-slate-400 mt-1">${ket}</p></div>`;
+    document.getElementById('ringkasSecurity').innerHTML =
+        kartu('Truk masuk hari ini', d.masuk, `${d.keluar} sudah keluar`, 'fa-truck', 'text-blue-600 bg-blue-50') +
+        kartu('Truk masih di dalam', d.di_dalam, 'belum dicatat keluar', 'fa-warehouse', 'text-amber-600 bg-amber-50') +
+        kartu('Tamu di dalam', d.tamu, 'belum dicatat keluar', 'fa-id-card', 'text-emerald-600 bg-emerald-50') +
+        kartu('Blacklist terdeteksi', d.blacklist, 'hari ini', 'fa-ban', 'text-red-600 bg-red-50');
+    document.getElementById('jumlahDalam').textContent = `${d.di_dalam} truk`;
+    const lama = m => m >= 60 ? `${Math.floor(m / 60)} j ${m % 60} m` : `${m} m`;
+    document.getElementById('tabelDalam').innerHTML = d.dalam.map(t => `<tr class="hover:bg-slate-50">
+        <td class="table-cell font-mono font-semibold">${escapeHtml(t.no_plat)}</td><td class="table-cell">${escapeHtml(t.supir || '-')}</td>
+        <td class="table-cell">${escapeHtml(t.customer || '-')}</td><td class="table-cell">${escapeHtml(t.produk || '-')}</td>
+        <td class="table-cell">${badgeStatusTiket(t.status)}</td>
+        <td class="table-cell font-mono">${escapeHtml(t.masuk)}</td>
+        <td class="table-cell text-right font-mono ${t.menit >= 120 ? 'text-red-600 font-semibold' : ''}">${lama(t.menit)}</td></tr>`).join('')
+        || barisKosong(7, 'Tidak ada truk di dalam area');
 }

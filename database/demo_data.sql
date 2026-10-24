@@ -138,11 +138,12 @@ SELECT v.nama, v.kat, f.FlowID, v.ffa, v.air, v.kotor
 FROM (VALUES ('TBS', 'TBS', 'TBS', 5.0, 0.5, 0.5), ('CPO', 'PRODUK_PKS', 'PKS', 5.0, 0.25, 0.02),
              ('Kernel', 'PRODUK_PKS', 'PKS', 2.0, 7.0, 6.0)) v (nama, kat, alur, ffa, air, kotor)
 JOIN dbo.Flow f ON f.FlowCode = v.alur;
-INSERT INTO dbo.ProductPrice (ProductID, PriceDate, Price, CurrencyID, CreateBy)
-SELECT p.ProductID, DATEADD(DAY, -d.n, @hari), v.harga + d.n * v.naik, c.CurrencyID, @ho
+INSERT INTO dbo.ProductPrice (ProductID, CompID, PriceDate, Price, CurrencyID, CreateBy)
+SELECT p.ProductID, k.comp, DATEADD(DAY, -d.n, @hari), v.harga + d.n * v.naik + k.selisih, c.CurrencyID, @ho
 FROM (VALUES ('TBS', 2650, -15), ('CPO', 12400, -40), ('Kernel', 7100, -25)) v (nama, harga, naik)
 JOIN dbo.Product p ON p.ProductName = v.nama
 CROSS JOIN (VALUES (0), (7), (14)) d (n)
+CROSS JOIN (VALUES ('PT', 0), ('YBS', 35)) k (comp, selisih)
 CROSS JOIN dbo.Currency c WHERE c.CurrencyCode = 'IDR';
 INSERT INTO dbo.DailyPrice (CompID, PriceDate, CPOPrice, KernelPrice, OERCPO, ProcessingCost, RSIQty, UpdateBy)
 SELECT c.comp, DATEADD(DAY, -n, @hari), 12400 - n * 35 + c.selisih, 7100 - n * 20 + c.selisih / 2, 21.5 - n * 0.1, 155, 1200 + n * 15, @ho

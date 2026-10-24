@@ -402,6 +402,7 @@ CREATE TABLE dbo.Product (
 CREATE TABLE dbo.ProductPrice (
     ProductPriceID  BIGINT IDENTITY(1,1) PRIMARY KEY,
     ProductID       INT NOT NULL CONSTRAINT FK_ProductPrice_Product REFERENCES dbo.Product (ProductID),
+    CompID          VARCHAR(5) NULL CONSTRAINT FK_ProductPrice_Company REFERENCES dbo.Company (CompID),  -- NULL = semua perusahaan
     PriceDate       DATE NOT NULL,
     Price           DECIMAL(14, 2) NOT NULL,
     CurrencyID      INT NULL CONSTRAINT FK_ProductPrice_Currency REFERENCES dbo.Currency (CurrencyID),
@@ -1207,6 +1208,9 @@ INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
 INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, Icon, AppCode, SortOrder)
 SELECT v.kode, v.nama, p.MenuID, 2, v.url, v.ikon, v.app, v.urut
 FROM (VALUES ('DASHBOARD',       N'Dashboard',                  'G_DASHBOARD',  '/dashboard',             'fa-chart-line',       'CPOS', 10),
+             -- Dashboard per peran: nama sama ("Dashboard"), isi berbeda, tiap peran diberi satu (Admin › Hak Akses)
+             ('DASH_TIMBANGAN',  N'Dashboard',                  'G_DASHBOARD',  '/dashboard/timbangan',   'fa-chart-line',       'CPOS', 11),
+             ('DASH_SECURITY',   N'Dashboard',                  'G_DASHBOARD',  '/dashboard/security',    'fa-chart-line',       'CPOS', 12),
              ('AN_DASHBOARD',    N'Analytical Dashboard',       'G_DASHBOARD',  NULL, 'fa-chart-column', 'ANALYTICS', 15),
              ('LIST',            N'Tickets',                    'G_MILLS',      '/weighbridge?view=list', 'fa-list',             'CPOS', 10),
              ('FORM',            N'Stasiun Timbang',            'G_MILLS',      '/weighbridge?view=form', 'fa-file-pen',         'CPOS', 20),
@@ -1287,12 +1291,16 @@ INSERT INTO @hak VALUES
     ('SECURITY', 'FORM_SECURITY', 1, 1, 0, 0), ('SECURITY', 'MASTER_DRIVER', 1, 1, 1, 0), ('SECURITY', 'MASTER_KENDARAAN', 1, 1, 0, 0),
     ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN', 1, 0, 0, 0), ('SORTASI', 'FORM_SORTASI', 1, 0, 0, 0), ('LAB', 'FORM_LAB', 1, 1, 0, 0),
     ('SECURITY', 'POS_SECURITY', 1, 1, 0, 0), ('SECURITY', 'LOGBOOK', 0, 1, 0, 0), ('SECURITY', 'KUNJUNGAN', 1, 1, 0, 0),
-    ('HO', 'POS_SECURITY', 0, 0, 0, 0), ('HO', 'LOGBOOK', 0, 0, 0, 0);
--- Semua peran non-admin awalnya boleh melihat semua halaman CPOS yang sudah ada (kecuali menu pos: hanya yang diberi di atas)
+    ('HO', 'POS_SECURITY', 0, 0, 0, 0), ('HO', 'LOGBOOK', 0, 0, 0, 0),
+    -- satu dashboard per peran
+    ('OPERATOR_TIMBANG', 'DASH_TIMBANGAN', 0, 0, 0, 0), ('SORTASI', 'DASH_TIMBANGAN', 0, 0, 0, 0), ('LAB', 'DASH_TIMBANGAN', 0, 0, 0, 0),
+    ('SECURITY', 'DASH_SECURITY', 0, 0, 0, 0);
+-- Semua peran non-admin awalnya boleh melihat semua halaman CPOS yang sudah ada (kecuali menu pos & dashboard: hanya yang diberi di atas)
 INSERT INTO @hak (peran, menu, t, u, h, s)
 SELECT ld.LevelDetCode, m.MenuCode, 0, 0, 0, 0
 FROM dbo.LevelDetails ld JOIN dbo.Level l ON l.LevelID = ld.LevelID CROSS JOIN dbo.Menu m
-WHERE l.IsAdmin = 0 AND m.AppCode = 'CPOS' AND m.Url IS NOT NULL AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK')
+WHERE l.IsAdmin = 0 AND m.AppCode = 'CPOS' AND m.Url IS NOT NULL
+  AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK', 'DASHBOARD', 'DASH_TIMBANGAN', 'DASH_SECURITY')
   AND NOT EXISTS (SELECT 1 FROM @hak x WHERE x.peran = ld.LevelDetCode AND x.menu = m.MenuCode);
 INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
 SELECT m.MenuID, a.ActionID, ld.LevelDetID
