@@ -24,7 +24,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
-from utils import alur, log_aktivitas, kolom_wajib, alur_persetujuan
+from utils import alur, log_aktivitas, kolom_wajib, alur_persetujuan, db_dashboard
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -33,6 +33,7 @@ WAKTU_MULAI = time.time()
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
     "hak_akses": ("Level & Hak Akses", "fa-user-shield", "Pilih departemen, lalu jabatan, lalu halaman yang boleh dibuka dan aksinya"),
+    "dashboard": ("Dashboard Peran", "fa-gauge-high", "Susun widget tiap dashboard; dashboard baru lalu diberikan ke peran di Level & Hak Akses"),
     "persetujuan": ("Alur Persetujuan", "fa-route", "Tahap persetujuan berjenjang per jenis pengajuan & kategori (mis. blacklist Driver)"),
     "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, jabatan, dan status tiket"),
     "sesi": ("Sesi Aktif", "fa-user-clock", "Pengguna yang sedang login, paksa keluar, buka kunci login"),
@@ -48,8 +49,8 @@ HALAMAN = {
 POLA_USERNAME = re.compile(r"^[a-z0-9._]{3,50}$")
 # Pilihan "Halaman awal setelah login" (admin memilih nama menu, bukan mengetik alamat)
 # /weighbridge?tab=... (tanpa view=form) = Daftar Tiket dengan tahap terpilih; view=form&tab=... = tab Stasiun Timbang
-HALAMAN_AWAL = [("/dashboard", "Dashboard (HO)"), ("/dashboard/timbangan", "Dashboard Timbangan"),
-                ("/dashboard/security", "Dashboard Security"), ("/pos-security", "Pos Security"), ("/logbook", "Logbook Kendaraan"),
+# Dashboard tidak ditulis di sini: diambil dari menu dashboard aktif (Admin › Dashboard Peran), lihat halaman_awal_list()
+HALAMAN_AWAL = [("/pos-security", "Pos Security"), ("/logbook", "Logbook Kendaraan"),
                 ("/weighbridge?view=list", "Daftar Tiket › Semua tahap"),
                 ("/weighbridge?tab=security", "Daftar Tiket › Security"), ("/weighbridge?tab=timbangan", "Daftar Tiket › Timbangan"),
                 ("/weighbridge?tab=sortasi", "Daftar Tiket › Sortasi"), ("/weighbridge?tab=lab", "Daftar Tiket › Laboratorium"),
@@ -60,6 +61,14 @@ HALAMAN_AWAL = [("/dashboard", "Dashboard (HO)"), ("/dashboard/timbangan", "Dash
                 ("/face-recognition", "Pengenalan Wajah"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
                 ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
                 ("/admin", "Admin (khusus level admin)")]
+POLA_SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,30}$")
+
+
+def halaman_awal_list():
+    dash = [(d["url"], f"{d['nama']} ({d['url']})") for d in db_dashboard.daftar_dashboard() if d["is_active"]]
+    return dash + HALAMAN_AWAL
+
+
 POLA_JAM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 PASSWORD_MIN = 8
 
@@ -118,7 +127,8 @@ def admin_halaman(halaman):
                            kategori_alur=alur_persetujuan.daftar_kategori() if halaman == "persetujuan" else [],
                            jenis_pengajuan=alur_persetujuan.JENIS,
                            password_expired=pengaturan.nilai("PASSWORD_EXPIRED_HARI"),
-                           password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
+                           password_min=PASSWORD_MIN, halaman_awal_list=halaman_awal_list(),
+                           widget_katalog=db_dashboard.WIDGET)
 
 
 # ===== KELOLA USER =====
@@ -393,7 +403,7 @@ def peran_simpan():
         halaman_awal = _teks("halaman_awal", maks=100)
         _, _, id_lama = _peran_form(buat=False)
         lama = hak_akses.get_level(id_lama) if id_lama else None
-        if halaman_awal not in dict(HALAMAN_AWAL) and not (lama and lama["halaman_awal"] == halaman_awal):
+        if halaman_awal not in dict(halaman_awal_list()) and not (lama and lama["halaman_awal"] == halaman_awal):
             raise ValueError("Pilih halaman awal dari daftar")
         _, _, id_level = _peran_form(buat=True)
         lv = hak_akses.get_level(id_level)
@@ -1231,3 +1241,44 @@ def kesehatan():
                      "uptime_jam": round((time.time() - WAKTU_MULAI) / 3600, 1),
                      "sesi_aktif": len(sesi_aktif.daftar(pengaturan.nilai("SESI_IDLE_MENIT") * 60))},
     })
+
+
+# ===== DASHBOARD PERAN (susunan widget per menu dashboard) =====
+@admin_bp.route("/api/admin/dashboard")
+@_admin
+def dashboard_daftar():
+    return jsonify([{**d, "widget": hak_akses.widget_menu(d), "isi_harga": "3" in (d["daftar_aksi"] or "").split(",")}
+                    for d in db_dashboard.daftar_dashboard()])
+
+
+@admin_bp.route("/api/admin/dashboard/simpan", methods=["POST"])
+@_admin
+def dashboard_simpan():
+    """Tambah / ubah dashboard. widget = daftar nama widget sesuai urutan di form (urutan tampil)."""
+    def aksi():
+        id_menu = request.form.get("id_menu", type=int)
+        nama = _teks("nama", maks=100)
+        widget = [w for w in dict.fromkeys(request.form.getlist("widget")) if w in db_dashboard.WIDGET]
+        if not widget:
+            raise ValueError("Pilih minimal satu widget")
+        slug = (request.form.get("slug") or "").strip().lower()
+        if id_menu is None and not POLA_SLUG.match(slug):
+            raise ValueError("Alamat 2-31 karakter: huruf kecil, angka, tanda minus")
+        kode = db_dashboard.simpan_dashboard(id_menu, nama, slug, widget, request.form.get("isi_harga") == "1")
+        hak_akses.hapus_cache()
+        _audit("DASHBOARD_TAMBAH" if id_menu is None else "DASHBOARD_UBAH", kode, f"{nama} · {','.join(widget)}")
+        return jsonify({"message": f"Dashboard {nama} berhasil disimpan" +
+                        (". Berikan ke peran di Level & Hak Akses" if id_menu is None else "")})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/dashboard/<int:id_menu>/aktif", methods=["POST"])
+@_admin
+def dashboard_aktif(id_menu):
+    def aksi():
+        aktif = _aktif_dari_form()
+        db_dashboard.set_aktif_dashboard(id_menu, aktif)
+        hak_akses.hapus_cache()
+        _audit("DASHBOARD_AKTIF" if aktif else "DASHBOARD_NONAKTIF", str(id_menu))
+        return jsonify({"message": "Dashboard diaktifkan" if aktif else "Dashboard dinonaktifkan"})
+    return _jalankan(aksi)

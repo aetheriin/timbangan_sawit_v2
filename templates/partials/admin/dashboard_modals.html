@@ -1,0 +1,39 @@
+<!-- MODAL: Tambah / Ubah Dashboard -->
+<div id="modalDashboardAdmin" class="modal-overlay">
+    <form id="formDashboardAdmin" class="modal-box max-w-xl" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalDashboard" class="font-bold">Tambah Dashboard</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalDashboardAdmin" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="hidden" name="id_menu">
+        <div class="p-6 space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="field-label" for="dashNama">Nama di menu</label>
+                    <input type="text" id="dashNama" name="nama" required maxlength="100" class="input-field" placeholder="Dashboard">
+                </div>
+                <div>
+                    <label class="field-label" for="dashSlug">Alamat</label>
+                    <div class="flex items-center gap-1">
+                        <span class="text-sm text-slate-500 font-mono">/dashboard/</span>
+                        <input type="text" id="dashSlug" name="slug" maxlength="31" pattern="[a-z0-9][a-z0-9\-]{1,30}" class="input-field font-mono lowercase" placeholder="lab">
+                    </div>
+                    <p id="dashSlugInfo" class="text-[11px] text-slate-400 mt-1">Huruf kecil, angka, tanda minus. Tidak bisa diubah setelah disimpan.</p>
+                </div>
+            </div>
+            <div>
+                <p class="field-label">Widget <span class="text-slate-400 font-normal">(centang, atur urutan dengan panah)</span></p>
+                <div id="daftarWidget" class="border border-slate-200 rounded-lg divide-y divide-slate-100"></div>
+            </div>
+            <label class="flex items-start gap-2 text-sm">
+                <input type="checkbox" name="isi_harga" value="1" class="mt-0.5">
+                <span>Bisa <b>Isi Harga</b> dari dashboard ini <span class="block text-xs text-slate-500">Hanya bila ada widget harga / riwayat;
+                    peran yang boleh mengisi dicentang Ubah di Hak Akses</span></span>
+            </label>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalDashboardAdmin" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

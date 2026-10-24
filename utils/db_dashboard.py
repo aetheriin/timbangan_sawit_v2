@@ -3,6 +3,80 @@ from utils.db_utils import get_connection, _rows_to_dicts
 
 KOLOM = ("harga_cpo", "harga_kernel", "oer_cpo", "biaya_olah")
 
+# Katalog widget (yang sudah dibuat di kode: templates/dashboard/widget/<nama>.html + dashboard.js + API datanya).
+# Menu.Widgets hanya boleh berisi nama di sini; urutan di Menu.Widgets = urutan tampil.
+WIDGET = {
+    "harga": "Harga CPO, kernel, OER, biaya olah & TBS",
+    "riwayat": "Riwayat harga",
+    "arus": "Arus penimbangan & status jembatan timbang hari ini",
+    "security": "Truk masuk & di dalam area, tamu, blacklist terdeteksi hari ini",
+}
+WIDGET_HARGA = {"harga", "riwayat"}       # widget yang memakai tombol Isi Harga (aksi Ubah menu dashboard)
+
+
+def daftar_dashboard():
+    """Menu dashboard (Lv2 di grup Dashboard, Url /dashboard...), termasuk yang nonaktif, untuk Admin › Dashboard."""
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""SELECT m.MenuID AS id_menu, m.MenuCode AS kode, m.MenuName AS nama, m.Url AS url, m.Widgets AS widget,
+                                 m.ActionList AS daftar_aksi, m.Active AS is_active,
+                                 (SELECT COUNT(DISTINCT a.LevelDetID) FROM AccessMenu a
+                                  WHERE a.MenuID = m.MenuID AND a.ActionID = 1 AND a.Active = 1) AS jumlah_peran
+                          FROM Menu m JOIN Menu g ON g.MenuID = m.ParentMenuID
+                          WHERE g.MenuCode = 'G_DASHBOARD' AND m.MenuLevel = 2
+                            AND (m.Url = '/dashboard' OR m.Url LIKE '/dashboard/%')
+                          ORDER BY m.SortOrder, m.MenuID""")
+        return _rows_to_dicts(cursor)
+    finally:
+        conn.close()
+
+
+def simpan_dashboard(id_menu, nama, slug, widget, isi_harga):
+    """Tambah (id_menu None, Url /dashboard/<slug>, kode DASH_<SLUG>) atau ubah nama / widget / Isi Harga.
+    Alamat tidak diubah setelah dibuat (dipakai sebagai halaman awal peran). Kembalikan kode menu."""
+    aksi = "3" if isi_harga and WIDGET_HARGA & set(widget) else ""
+    daftar = ",".join(widget)
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        if id_menu is None:
+            kode = "DASH_" + slug.upper().replace("-", "_")
+            cursor.execute("SELECT 1 FROM Menu WHERE MenuCode = ? OR Url = ?", kode, f"/dashboard/{slug}")
+            if cursor.fetchone():
+                raise ValueError("Alamat dashboard ini sudah dipakai")
+            cursor.execute("""INSERT INTO Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, Icon, AppCode, SortOrder, ActionList, Widgets)
+                              SELECT ?, ?, g.MenuID, 2, ?, 'fa-chart-line', 'CPOS',
+                                     (SELECT ISNULL(MAX(SortOrder), 10) + 1 FROM Menu WHERE ParentMenuID = g.MenuID
+                                      AND (Url = '/dashboard' OR Url LIKE '/dashboard/%')), ?, ?
+                              FROM Menu g WHERE g.MenuCode = 'G_DASHBOARD'""", kode, nama, f"/dashboard/{slug}", aksi, daftar)
+        else:
+            cursor.execute("SELECT MenuCode FROM Menu WHERE MenuID = ? AND (Url = '/dashboard' OR Url LIKE '/dashboard/%')", id_menu)
+            baris = cursor.fetchone()
+            if not baris:
+                raise ValueError("Dashboard tidak ditemukan")
+            kode = baris[0]
+            cursor.execute("UPDATE Menu SET MenuName = ?, Widgets = ?, ActionList = ? WHERE MenuID = ?", nama, daftar, aksi, id_menu)
+            if not aksi:       # Isi Harga dimatikan -> hak Ubah yang tersisa di menu ini ikut dicabut
+                cursor.execute("DELETE FROM AccessMenu WHERE MenuID = ? AND ActionID = 3", id_menu)
+        conn.commit()
+        return kode
+    finally:
+        conn.close()
+
+
+def set_aktif_dashboard(id_menu, aktif):
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""UPDATE Menu SET Active = ? WHERE MenuID = ? AND (Url = '/dashboard' OR Url LIKE '/dashboard/%')""",
+                       1 if aktif else 0, id_menu)
+        if cursor.rowcount == 0:
+            raise ValueError("Dashboard tidak ditemukan")
+        conn.commit()
+    finally:
+        conn.close()
+
 
 def riwayat_harga(id_user, id_company, hari=30):
     """Data widget harga dari dbo.sp_DashboardHarga (sama dengan aplikasi lain): harga harian + harga TBS per tanggal,

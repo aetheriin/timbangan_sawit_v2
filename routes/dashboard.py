@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 
 from utils.area import area_data, company_user
 from utils.area_filter import area_cocok
-from utils.db_dashboard import KOLOM, riwayat_harga, simpan_harga, arus_hari_ini, ringkas_security
+from utils.db_dashboard import KOLOM, WIDGET, WIDGET_HARGA, riwayat_harga, simpan_harga, arus_hari_ini, ringkas_security
 from utils.db_jembatan import daftar_jembatan
 from utils.db_organisasi import daftar_area, daftar_company
 from utils.serial_reader import baca_status
@@ -35,14 +35,8 @@ def _company_dipilih(user_id, kode):
 
 
 # Dashboard per peran = menu Lv2 ber-Url /dashboard/... dengan Menu.Widgets terisi (database), mis. DASHBOARD 'harga,arus,riwayat'.
-# Widget = potongan tampilan di kode (templates/dashboard/widget/<nama>.html + dashboard.js + API datanya); database hanya
-# menyimpan widget mana yang tampil di dashboard mana & urutannya. Dashboard baru cukup baris Menu baru, tanpa route baru.
-WIDGET = {
-    "harga": "Harga CPO, kernel, OER, biaya olah & TBS",
-    "riwayat": "Riwayat harga",
-    "arus": "Arus penimbangan & status jembatan timbang hari ini",
-    "security": "Truk masuk & di dalam area, tamu, blacklist terdeteksi hari ini",
-}
+# Widget = potongan tampilan di kode (katalog utils/db_dashboard.py WIDGET); database hanya menyimpan widget mana yang tampil
+# di dashboard mana & urutannya (diatur di Admin › Dashboard). Dashboard baru cukup baris Menu baru, tanpa route baru.
 
 
 def _menu_dashboard(path):
@@ -63,7 +57,7 @@ def _render_dashboard(m):
         area_list = []
         area_saya = next((a["label"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
     widget = [w for w in widget_menu(m) if w in WIDGET]   # nama yang belum ada di kode diabaikan
-    harga = {"harga", "riwayat"} & set(widget)
+    harga = WIDGET_HARGA & set(widget)
     return render_template("dashboard/dashboard.html", halaman="dashboard", kode_aktif=m["kode"], widget=widget,
                            judul=m["nama"], keterangan=" · ".join(WIDGET[w] for w in widget),
                            boleh_ubah=bool(harga) and boleh(m["kode"], "ubah"),

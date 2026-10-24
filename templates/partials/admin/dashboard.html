@@ -1,0 +1,22 @@
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="section-box">
+    {% call section_header('daftar-dashboard', 'Dashboard') %}
+    <div class="flex items-center gap-2" data-henti-klik>
+        <button type="button" class="btn-secondary py-1.5" data-on-click="muatUlang" data-arg="$el|muatDashboardAdmin"><i class="fa-solid fa-rotate"></i></button>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaDashboardAdmin"><i class="fa-solid fa-plus mr-1"></i> Tambah Dashboard</button>
+    </div>
+    {% endcall %}
+    <div id="body-daftar-dashboard" class="section-body overflow-x-auto">
+        <p class="text-xs text-slate-500 mb-3">Widget tampil sesuai urutan. Siapa yang melihat dashboard diatur di
+            <a href="/admin/hak_akses" class="text-blue-600 hover:underline">Level &amp; Hak Akses</a> (menu Dashboard › nama dashboard).</p>
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row">
+                <tr><th class="table-cell">Nama</th><th class="table-cell">Alamat</th><th class="table-cell">Widget</th>
+                    <th class="table-cell">Isi Harga</th><th class="table-cell text-right">Peran</th><th class="table-cell">Status</th>
+                    <th class="table-cell text-right">Aksi</th></tr>
+            </thead>
+            <tbody id="tabelDashboardAdmin" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>
+<div id="katalogWidget" hidden data-katalog="{{ widget_katalog | tojson | forceescape }}"></div>
