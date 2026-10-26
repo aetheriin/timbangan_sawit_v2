@@ -1,0 +1,22 @@
+{# Kelola Menu: susunan menu 3 level (sidebar). Siapa yang mendapat menu diatur di Hak Akses. #}
+{% from "partials/layout/_macros.html" import section_header %}
+<div class="section-box">
+    {% call section_header('daftar-menu', 'Susunan Menu') %}
+    <div class="flex items-center gap-2" data-henti-klik>
+        <input type="search" id="cariMenuKelola" class="input-field py-1.5 w-56" placeholder="Cari menu atau kode..." data-on-input="tampilMenuKelola">
+        <button type="button" class="btn-secondary py-1.5" data-on-click="muatUlang" data-arg="$el|muatMenuKelola" title="Muat ulang"><i class="fa-solid fa-rotate"></i></button>
+        <button type="button" class="btn-primary py-1.5" data-on-click="bukaMenuKelola"><i class="fa-solid fa-plus mr-1"></i> Tambah Menu</button>
+    </div>
+    {% endcall %}
+    <div id="body-daftar-menu" class="section-body overflow-x-auto">
+        <p class="text-xs text-slate-500 px-4 pt-3">Urutan di sini = urutan di sidebar. Pindah induk lewat <b>Ubah</b>; menu anak ikut pindah.
+            Menu nonaktif (beserta turunannya) hilang dari sidebar, aturan hak aksesnya tetap tersimpan.</p>
+        <table class="w-full text-left text-sm mt-2">
+            <thead class="table-header-row"><tr>
+                <th class="table-cell">Menu</th><th class="table-cell">Alamat</th><th class="table-cell">Aplikasi</th>
+                <th class="table-cell">Aksi berlaku</th><th class="table-cell text-right">Aturan</th><th class="table-cell">Status</th>
+                <th class="table-cell text-right">Tindakan</th></tr></thead>
+            <tbody id="tabelMenuKelola" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
+</div>

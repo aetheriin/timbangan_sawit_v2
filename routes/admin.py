@@ -25,7 +25,7 @@ from utils.db_absensi import get_jadwal_kerja
 from utils.keamanan import log_keamanan, baca_log_keamanan
 from utils.serial_reader import semua_status, atur as atur_pembaca, data_mentah, FORMAT as FORMAT_TIMBANGAN
 from utils import db_jembatan as jembatan_db
-from utils import alur, log_aktivitas, kolom_wajib, alur_persetujuan
+from utils import alur, log_aktivitas, kolom_wajib, alur_persetujuan, db_menu
 
 admin_bp = Blueprint("admin", __name__)
 WAKTU_MULAI = time.time()
@@ -33,6 +33,7 @@ WAKTU_MULAI = time.time()
 # key -> (judul, ikon Font Awesome, keterangan). Urutan = urutan menu sidebar.
 HALAMAN = {
     "users": ("Kelola Pengguna", "fa-users", "Tambah akun, ubah level / departemen / area, atur ulang password, aktif / nonaktif"),
+    "menu": ("Kelola Menu", "fa-bars-staggered", "Susunan menu 3 level: nama, induk, urutan, alamat, ikon, aksi yang berlaku, aktif / nonaktif"),
     "hak_akses": ("Hak Akses", "fa-user-shield", "Siapa mendapat menu apa: aturan per menu untuk semua user, peran, jabatan, departemen, atau user tertentu"),
     "persetujuan": ("Alur Persetujuan", "fa-route", "Tahap persetujuan berjenjang per jenis pengajuan & kategori (mis. blacklist Driver)"),
     "organisasi": ("Organisasi", "fa-sitemap", "Perusahaan, area perusahaan, Mill (tipe area), departemen, jabatan, dan status tiket"),
@@ -442,6 +443,67 @@ def level_halaman_awal(id_level):
         get_user_by_id.hapus()
         _audit("HALAMAN_AWAL_UBAH", lv["kode"], halaman_awal)
         return jsonify({"message": f"Halaman awal {lv['nama']} disimpan"})
+    return _jalankan(aksi)
+
+
+# ===== KELOLA MENU =====
+POLA_KODE_MENU = re.compile(r"^[A-Z][A-Z0-9_]{1,39}$")
+
+
+@admin_bp.route("/api/admin/menu")
+@_admin
+def menu_daftar():
+    return jsonify({"menu": db_menu.daftar_menu(), "aplikasi": db_menu.APLIKASI,
+                    "aksi": [{"id": hak_akses.ID_AKSI[a], "nama": a} for a in hak_akses.AKSI_OPSI]})
+
+
+@admin_bp.route("/api/admin/menu/simpan", methods=["POST"])
+@_admin
+def menu_simpan():
+    def aksi():
+        id_menu = request.form.get("id_menu", type=int)
+        kode = (request.form.get("kode") or "").strip().upper()
+        if id_menu is None and not POLA_KODE_MENU.match(kode):
+            raise ValueError("Kode 2-40 karakter: huruf besar, angka, garis bawah, diawali huruf")
+        nama = _teks("nama", maks=100)
+        url = (request.form.get("url") or "").strip() or None
+        if url and (not url.startswith("/") or len(url) > 200 or " " in url):
+            raise ValueError("Alamat diawali / tanpa spasi, mis. /halaman/RP_PR (kosong = halaman belum ada)")
+        ikon = (request.form.get("ikon") or "").strip() or None
+        if ikon and not re.fullmatch(r"fa-[a-z0-9-]{1,36}", ikon):
+            raise ValueError("Ikon berupa nama Font Awesome, mis. fa-chart-line")
+        aplikasi = request.form.get("aplikasi") or "CPOS"
+        if aplikasi not in db_menu.APLIKASI:
+            raise ValueError("Pilih aplikasi dari daftar")
+        sah = {hak_akses.ID_AKSI[a] for a in hak_akses.AKSI_OPSI}
+        daftar_aksi = sorted({int(x) for x in request.form.getlist("aksi") if x.lstrip("-").isdigit()} & sah)
+        kode = db_menu.simpan_menu(id_menu, kode, nama, request.form.get("id_induk", type=int), url, ikon, aplikasi, daftar_aksi)
+        hak_akses.hapus_cache()
+        _audit("MENU_TAMBAH" if id_menu is None else "MENU_UBAH", kode, nama)
+        return jsonify({"message": f"Menu {nama} berhasil disimpan" +
+                        (". Atur siapa yang mendapatkannya di Hak Akses" if id_menu is None else "")})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/menu/<int:id_menu>/geser", methods=["POST"])
+@_admin
+def menu_geser(id_menu):
+    def aksi():
+        db_menu.geser_menu(id_menu, request.form.get("arah", type=int) or 1)
+        hak_akses.hapus_cache()
+        return jsonify({"message": "Urutan menu disimpan"})
+    return _jalankan(aksi)
+
+
+@admin_bp.route("/api/admin/menu/<int:id_menu>/aktif", methods=["POST"])
+@_admin
+def menu_aktif(id_menu):
+    def aksi():
+        aktif = _aktif_dari_form()
+        db_menu.set_aktif_menu(id_menu, aktif)
+        hak_akses.hapus_cache()
+        _audit("MENU_AKTIF" if aktif else "MENU_NONAKTIF", str(id_menu))
+        return jsonify({"message": "Menu diaktifkan" if aktif else "Menu dinonaktifkan"})
     return _jalankan(aksi)
 
 

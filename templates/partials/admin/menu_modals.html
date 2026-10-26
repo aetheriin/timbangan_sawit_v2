@@ -1,0 +1,49 @@
+<!-- MODAL: Tambah / Ubah Menu -->
+<div id="modalMenuKelola" class="modal-overlay">
+    <form id="formMenuKelola" class="modal-box max-w-xl" autocomplete="off">
+        <div class="modal-header">
+            <h3 id="judulModalMenu" class="font-bold">Tambah Menu</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalMenuKelola" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="hidden" name="id_menu">
+        <div class="p-6 grid grid-cols-2 gap-3">
+            <div>
+                <label class="field-label" for="menuKode">Kode</label>
+                <input type="text" id="menuKode" name="kode" maxlength="40" class="input-field font-mono uppercase" placeholder="RP_STOK">
+                <p class="field-hint">Tidak bisa diubah setelah disimpan (dipakai program).</p>
+            </div>
+            <div>
+                <label class="field-label" for="menuNama">Nama di menu</label>
+                <input type="text" id="menuNama" name="nama" required maxlength="100" class="input-field">
+            </div>
+            <div class="col-span-2">
+                <label class="field-label" for="menuInduk">Induk</label>
+                <select id="menuInduk" name="id_induk" class="input-field"></select>
+                <p class="field-hint" id="infoLevelMenu">Tanpa induk = grup Level 1.</p>
+            </div>
+            <div class="col-span-2">
+                <label class="field-label" for="menuUrl">Alamat halaman</label>
+                <input type="text" id="menuUrl" name="url" maxlength="200" class="input-field font-mono" placeholder="/halaman/RP_STOK">
+                <p class="field-hint">Kosong = halaman belum ada (tampil redup "Segera hadir"). Grup Level 1 biasanya kosong.</p>
+            </div>
+            <div>
+                <label class="field-label" for="menuIkon">Ikon <span id="contohIkon" class="ml-1 text-slate-500"></span></label>
+                <input type="text" id="menuIkon" name="ikon" maxlength="40" class="input-field font-mono" placeholder="fa-chart-line" data-on-input="pratinjauIkon">
+                <p class="field-hint">Nama ikon Font Awesome.</p>
+            </div>
+            <div>
+                <label class="field-label" for="menuApp">Aplikasi</label>
+                <select id="menuApp" name="aplikasi" class="input-field"></select>
+            </div>
+            <div class="col-span-2">
+                <p class="field-label">Aksi yang berlaku selain Lihat</p>
+                <div id="aksiMenuKelola" class="flex flex-wrap gap-x-4 gap-y-2 text-sm"></div>
+                <p class="field-hint">Kolom yang bisa dicentang di Hak Akses. Aksi yang dilepas: aturannya ikut dihapus.</p>
+            </div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalMenuKelola" class="btn-secondary">Batal</button>
+            <button type="submit" class="btn-primary">Simpan</button>
+        </div>
+    </form>
+</div>

@@ -26,6 +26,7 @@ DENY ALTER ON SCHEMA::dbo TO [weighbridge_app];
 -- Tabel relasi / pengaturan yang memang diganti ulang oleh aplikasi
 GRANT DELETE ON dbo.AccessMenu TO [weighbridge_app];
 GRANT DELETE ON dbo.AccessMenuWidget TO [weighbridge_app];
+GRANT DELETE ON dbo.MenuAction TO [weighbridge_app];
 GRANT DELETE ON dbo.UserCompany TO [weighbridge_app];
 GRANT DELETE ON dbo.SupplierTypeDetails TO [weighbridge_app];
 GRANT DELETE ON dbo.SupplierCompany TO [weighbridge_app];
