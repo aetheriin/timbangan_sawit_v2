@@ -1,11 +1,9 @@
-"""Hak akses dari database (ERD Ladder Desk): peran (LevelDetails) -> Menu -> ActionType, disimpan di AccessMenu.
-
-Peran = Departemen + Level (jabatan umum), mis. Security · Staff; kode & nama dibuat otomatis. Aksi: View (lihat),
-Create (tambah), Edit (ubah), Delete (hapus), Approve (setujui). Pengguna bisa diberi hak khusus per menu (AccessMenu.UserID)
-yang menggantikan hak perannya untuk menu itu saja. Menu 3 level (flowchart navbar): Lv1 grup, Lv2 halaman, Lv3 bagian;
-menu induk terlihat bila dirinya atau salah satu anaknya boleh dilihat. Peran admin (Level.IsAdmin) hanya area Admin.
-Aturan hak efektif ada di database (dbo.sp_UserMenu / fn_UserAccess / sp_CekAkses) agar CPOS, Analytics & RekapIn memakai
-aturan yang sama; aksi yang berlaku per menu = Menu.ActionList. Dibaca dari cache memori 30 detik per pengguna
+"""Hak akses dari database: aturan per menu (AccessMenu) untuk Semua user / Peran / Jabatan / Departemen / User,
+Izinkan atau Larang per aksi (Larang menang). Peran = Departemen + Jabatan (LevelDetails), mis. Security · Staff.
+Menu 3 level (flowchart navbar): Lv1 grup, Lv2 halaman, Lv3 bagian; menu hanya terlihat bila dirinya dan semua induknya
+boleh dilihat (aturan induk menjadi gerbang). Peran admin (Level.IsAdmin) hanya area Admin.
+Aturan hak efektif ada di database (dbo.fn_UserAccess / sp_UserMenu / sp_CekAkses) agar CPOS, Analytics & RekapIn memakai
+aturan yang sama; aksi yang berlaku per menu = MenuAction. Dibaca dari cache memori 30 detik per pengguna
 (tidak menambah query per request); disimpan ulang -> hapus_cache()."""
 import re
 from functools import wraps
@@ -20,7 +18,7 @@ AKSI = ("tambah", "ubah", "hapus")
 # "setujui" = boleh menyetujui / menolak pengajuan di menu itu (mis. tambah & hapus blacklist); di Daftar Tiket =
 # memverifikasi (menandai sudah diperiksa) tiket selesai & menyetujui koreksi tiket (Ubah = mengajukan koreksi).
 # "tolak" / "selesai" = menolak / menandai selesai sebuah request (dipakai RekapIn: Request Operator).
-# Tidak termasuk "aksi apa pun" pada boleh(kode_menu). Aksi yang berlaku di tiap menu ada di Menu.ActionList.
+# Tidak termasuk "aksi apa pun" pada boleh(kode_menu). Aksi yang berlaku di tiap menu ada di tabel MenuAction.
 
 
 # ActionType.ActionID untuk tiap aksi (seed schema.sql: 0 Delete, 1 View, 2 Create, 3 Edit, 4 Void, 5 Approve,
@@ -45,47 +43,35 @@ def _kosong():
     return dict.fromkeys(AKSI_SEMUA, False)
 
 
-def _peta(rows, kunci):
-    peta = {}
-    for r in rows:
-        hak = peta.setdefault(r[kunci], {}).setdefault(r["kode"], _kosong())
-        if r["Active"] and r["ActionID"] in NAMA_AKSI:
-            hak[NAMA_AKSI[r["ActionID"]]] = True
-    return peta
+KOLOM_HAK = {"lihat": "Visible", "tambah": "CanCreate", "ubah": "CanEdit", "hapus": "CanDelete", "setujui": "CanApprove",
+             "tolak": "CanReject", "selesai": "CanDone"}
 
 
 @cache_ttl(30)
 def peta_akses():
-    """{id_level (LevelDetID): {kode_menu: {"lihat", "tambah", "ubah", "hapus", "setujui": bool}}}"""
-    return _peta(_query("""SELECT a.LevelDetID AS id_level, m.MenuCode AS kode, a.ActionID, a.Active
-                           FROM AccessMenu a JOIN Menu m ON m.MenuID = a.MenuID
-                           WHERE a.LevelDetID IS NOT NULL AND m.Active = 1"""), "id_level")
-
-
-@cache_ttl(30)
-def akses_khusus():
-    """Hak akses khusus per pengguna (AccessMenu.UserID): {id_user: {kode_menu: {lihat, tambah, ...}}}.
-    Menu yang punya baris di sini memakai baris pengguna (bisa menambah maupun mencabut hak perannya)."""
-    return _peta(_query("""SELECT a.UserID AS id_user, m.MenuCode AS kode, a.ActionID, a.Active
-                           FROM AccessMenu a JOIN Menu m ON m.MenuID = a.MenuID
-                           WHERE a.UserID IS NOT NULL AND m.Active = 1"""), "id_user")
+    """Hak tiap peran dari aturan Semua / Peran / Jabatan / Departemen (tanpa aturan per user):
+    {id_level (LevelDetID): {kode_menu: {"lihat", "tambah", ...: bool}}}"""
+    peta = {}
+    for r in _query("""SELECT ld.LevelDetID AS id_level, f.* FROM LevelDetails ld
+                       CROSS APPLY dbo.fn_AccessFor(NULL, ld.LevelDetID) f"""):
+        peta.setdefault(r["id_level"], {})[r["MenuCode"]] = {k: bool(r[c]) for k, c in KOLOM_HAK.items()}
+    return peta
 
 
 @cache_ttl(30)
 def hak_menu_user(id_user):
-    """Hak efektif dari dbo.sp_UserMenu (aturan sama dengan aplikasi lain):
-    {kode_menu: {"lihat": View sendiri, "terlihat": dirinya / turunannya boleh dilihat, "tambah", "ubah", "hapus", "setujui",
-    "tolak", "selesai"}}"""
+    """Hak efektif dari dbo.sp_UserMenu (aturan sama dengan aplikasi lain), hanya menu yang terlihat:
+    {kode_menu: {"lihat", "terlihat", "tambah", "ubah", "hapus", "setujui", "tolak", "selesai"}}"""
     hasil = {}
     for r in _query("EXEC dbo.sp_UserMenu @UserID = ?", id_user):
-        hasil[r["MenuCode"]] = {"lihat": bool(r["CanView"]), "terlihat": bool(r["Visible"]), "tambah": bool(r["CanCreate"]),
+        hasil[r["MenuCode"]] = {"lihat": bool(r["Visible"]), "terlihat": bool(r["Visible"]), "tambah": bool(r["CanCreate"]),
                                 "ubah": bool(r["CanEdit"]), "hapus": bool(r["CanDelete"]), "setujui": bool(r["CanApprove"]),
                                 "tolak": bool(r["CanReject"]), "selesai": bool(r["CanDone"])}
     return hasil
 
 
 def hak_user(user):
-    """Hak efektif pengguna: hak peran, ditimpa hak khusus pengguna per menu (dihitung di database)."""
+    """Hak efektif pengguna (dihitung di database dari semua aturan yang cocok)."""
     id_user = getattr(user, "id", None)
     return hak_menu_user(id_user) if id_user is not None else {}
 
@@ -94,24 +80,15 @@ def hak_user(user):
 def semua_menu():
     """Semua menu aktif (urut) dengan kode induknya: dasar navbar 3 level & pencarian kode halaman."""
     return _query("""SELECT m.MenuID AS id_menu, m.MenuCode AS kode, m.MenuName AS nama, m.Url AS url, m.Icon AS ikon,
-                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk, m.ActionList AS daftar_aksi,
-                            m.Widgets AS widget
+                            m.MenuLevel AS level, m.AppCode AS aplikasi, p.MenuCode AS induk,
+                            (SELECT STRING_AGG(CAST(ma.ActionID AS VARCHAR(3)), ',') FROM MenuAction ma
+                             WHERE ma.MenuID = m.MenuID) AS daftar_aksi
                      FROM Menu m LEFT JOIN Menu p ON p.MenuID = m.ParentMenuID
                      WHERE m.Active = 1 ORDER BY m.MenuLevel, m.SortOrder, m.MenuName""")
 
 
-def widget_menu(m):
-    """Widget dashboard menu ini (Menu.Widgets), urut: ['harga', 'arus']."""
-    return [w.strip() for w in (m.get("widget") or "").split(",") if w.strip()]
-
-
-def menu_dengan_widget(*widget):
-    """Kode menu dashboard yang memuat salah satu widget itu (untuk izin API data widget)."""
-    return [m["kode"] for m in semua_menu() if set(widget) & set(widget_menu(m))]
-
-
 def aksi_menu(m):
-    """Aksi selain Lihat yang berlaku di menu (dari Menu.ActionList), urut seperti AKSI_OPSI."""
+    """Aksi selain Lihat yang berlaku di menu (MenuAction), urut seperti AKSI_OPSI."""
     ada = {NAMA_AKSI.get(int(x)) for x in (m.get("daftar_aksi") or "").split(",") if x.strip().isdigit()}
     return [a for a in AKSI_OPSI if a in ada]
 
@@ -175,7 +152,7 @@ def remah_menu(kode_menu):
 def hapus_cache():
     peta_akses.hapus()
     hak_menu_user.hapus()
-    akses_khusus.hapus()
+    widget_user.hapus()
     semua_menu.hapus()
     anak_menu.hapus()
 
@@ -187,16 +164,15 @@ def jabatan_dengan(kode_menu, aksi):
 
 
 def pengguna_khusus_dengan(kode_menu, aksi):
-    """id pengguna aktif yang diberi aksi itu lewat hak khusus (di luar jabatannya)."""
-    calon = [i for i, hak in akses_khusus().items() if hak.get(kode_menu, {}).get(aksi)]
-    if not calon:
-        return []
-    aktif = {r["id_user"] for r in _query(f"""SELECT u.UserID AS id_user FROM Users u
-                                             JOIN LevelDetails ld ON ld.LevelDetID = u.UserLevelID
-                                             JOIN Level lv ON lv.LevelID = ld.LevelID
-                                             WHERE u.Active = 1 AND lv.IsAdmin = 0
-                                               AND u.UserID IN ({",".join("?" * len(calon))})""", *calon)}
-    return sorted(i for i in calon if i in aktif)
+    """id pengguna aktif yang punya aksi itu lewat aturan per User, padahal perannya tidak (di luar jabatannya)."""
+    calon = _query("""SELECT DISTINCT u.UserID AS id_user, u.UserLevelID AS id_level FROM AccessMenu a
+                      JOIN Menu m ON m.MenuID = a.MenuID JOIN Users u ON u.UserID = a.UserID
+                      WHERE a.TargetType = 'USER' AND a.IsDeny = 0 AND a.Active = 1 AND u.Active = 1
+                        AND m.MenuCode = ? AND a.ActionID = ?""", kode_menu, ID_AKSI[aksi])
+    peran = peta_akses()
+    return sorted(c["id_user"] for c in calon
+                  if hak_menu_user(c["id_user"]).get(kode_menu, {}).get(aksi)
+                  and not peran.get(c["id_level"], {}).get(kode_menu, {}).get(aksi))
 
 
 def boleh(kode_menu, *aksi, user=None):
@@ -392,85 +368,103 @@ def simpan_halaman_awal(id_level, halaman_awal):
         conn.close()
 
 
-def daftar_menu_akses():
-    """Menu untuk matriks hak akses (urut seperti navbar): grup = Lv1, Lv3 ditulis "Halaman › Bagian";
-    "aksi" = aksi yang berlaku di menu itu. Menu yang punya anak diatur lewat anaknya (induk ikut terlihat otomatis),
-    kecuali halaman yang punya aksi sendiri (mis. Blacklist: tambah / hapus / setujui) yang tetap tampil."""
+# ===== Admin › Hak Akses: aturan per menu =====
+JENIS_TARGET = ("ALL", "ROLE", "LEVEL", "DEPT", "USER")
+KOLOM_TARGET = {"ROLE": "LevelDetID", "LEVEL": "LevelID", "DEPT": "DeptID", "USER": "UserID"}
+
+
+def pohon_menu():
+    """Semua menu aktif urut navbar + aksi yang berlaku + jumlah aturan: [{id_menu, kode, nama, level, induk, url, aksi,
+    jumlah_aturan}] (induk = kode menu induk)."""
+    jumlah = {r["MenuID"]: r["n"] for r in _query("""SELECT MenuID, COUNT(*) AS n FROM (
+                  SELECT DISTINCT MenuID, TargetType, LevelDetID, LevelID, DeptID, UserID, IsDeny FROM AccessMenu) x
+              GROUP BY MenuID""")}
     menu = semua_menu()
-    punya_anak = {m["induk"] for m in menu if m["induk"]}
-    per_kode = {m["kode"]: m for m in menu}
+    anak = {}
+    for m in menu:
+        anak.setdefault(m["induk"], []).append(m)
     hasil = []
-    for g in (m for m in menu if m["level"] == 1):
-        for m2 in (m for m in menu if m["induk"] == g["kode"]):
-            daftar = [m for m in menu if m["induk"] == m2["kode"]]
-            if m2["kode"] not in punya_anak or aksi_menu(m2):
-                daftar = [m2, *daftar]
-            for m in daftar:
-                nama = m["nama"] if m["level"] == 2 else f"{per_kode[m['induk']]['nama']} › {m['nama']}"
-                hasil.append({"id_menu": m["id_menu"], "kode": m["kode"], "nama": nama, "induk": g["nama"],
-                              "ada": bool(m["url"]), "aksi": aksi_menu(m)})
+
+    def tambah(kode_induk):
+        for m in anak.get(kode_induk, []):
+            hasil.append({**{k: m[k] for k in ("id_menu", "kode", "nama", "level", "induk", "url", "aplikasi")},
+                          "aksi": aksi_menu(m), "jumlah_aturan": jumlah.get(m["id_menu"], 0)})
+            tambah(m["kode"])
+    tambah(None)
     return hasil
 
 
-def _akses(kolom, nilai):
-    hasil = {}
-    for r in _query(f"SELECT MenuID, ActionID, Active FROM AccessMenu WHERE {kolom} = ?", nilai):
-        baris = hasil.setdefault(r["MenuID"], {"id_menu": r["MenuID"], **{f"bisa_{a}": 0 for a in AKSI_SEMUA}})
-        if r["Active"] and r["ActionID"] in NAMA_AKSI:
-            baris["bisa_" + NAMA_AKSI[r["ActionID"]]] = 1
-    return hasil
+def aturan_menu(id_menu):
+    """Aturan satu menu, satu baris per sasaran + Izinkan / Larang:
+    [{jenis, id_target, nama_target, tolak, aksi: {lihat, tambah, ...}, widget: [kode, ...]}]"""
+    rows = _query("""SELECT a.AccessMenuID, a.ActionID, a.TargetType AS jenis, a.IsDeny AS tolak,
+                            CASE a.TargetType WHEN 'ROLE' THEN ld.DeptID + '|' + CAST(ld.LevelID AS VARCHAR(10))
+                                 WHEN 'LEVEL' THEN CAST(a.LevelID AS VARCHAR(20)) WHEN 'DEPT' THEN a.DeptID
+                                 WHEN 'USER' THEN CAST(a.UserID AS VARCHAR(20)) END AS id_target,
+                            CASE a.TargetType WHEN 'ALL' THEN N'Semua user' WHEN 'ROLE' THEN ld.LevelDetName
+                                 WHEN 'LEVEL' THEN lv.LevelName WHEN 'DEPT' THEN d.DeptName
+                                 ELSE u.Nama + ISNULL(N' · ' + u.UserName, N'') END AS nama_target,
+                            (SELECT STRING_AGG(w.WidgetCode, ',') WITHIN GROUP (ORDER BY w.SortOrder)
+                             FROM AccessMenuWidget w WHERE w.AccessMenuID = a.AccessMenuID) AS widget
+                     FROM AccessMenu a
+                     LEFT JOIN LevelDetails ld ON ld.LevelDetID = a.LevelDetID LEFT JOIN Level lv ON lv.LevelID = a.LevelID
+                     LEFT JOIN Department d ON d.DeptID = a.DeptID LEFT JOIN Users u ON u.UserID = a.UserID
+                     WHERE a.MenuID = ? AND a.Active = 1""", id_menu)
+    urut = {j: i for i, j in enumerate(JENIS_TARGET)}
+    per = {}
+    for r in rows:
+        kunci = (r["jenis"], r["id_target"], bool(r["tolak"]))
+        baris = per.setdefault(kunci, {"jenis": r["jenis"], "id_target": r["id_target"], "nama_target": r["nama_target"],
+                                       "tolak": bool(r["tolak"]), "aksi": _kosong(), "widget": []})
+        if r["ActionID"] in NAMA_AKSI:
+            baris["aksi"][NAMA_AKSI[r["ActionID"]]] = True
+        if r["widget"]:
+            baris["widget"] = r["widget"].split(",")
+    return sorted(per.values(), key=lambda b: (b["tolak"], urut[b["jenis"]], b["nama_target"] or ""))
 
 
-def akses_level(id_level):
-    return _akses("LevelDetID", id_level)
-
-
-def _simpan_akses(kolom, nilai, akses, simpan_kosong):
-    """akses = {id_menu: (nilai per AKSI_SEMUA)}. Aksi apa pun berarti halaman itu boleh dilihat;
-    induk (Lv2 / Lv1) ikut boleh dilihat. simpan_kosong: baris "dicabut" tetap disimpan (hak khusus pengguna)."""
-    induk = {m["id_menu"]: m["induk"] for m in semua_menu()}
-    id_kode = {m["kode"]: m["id_menu"] for m in semua_menu()}
-    baris = {}
-    for id_menu, nilai_aksi in akses.items():
-        aksi = dict(zip(AKSI_SEMUA, nilai_aksi))
-        aksi["lihat"] = any(nilai_aksi)
-        if not aksi["lihat"] and not simpan_kosong:
-            continue
-        baris[id_menu] = aksi
-        kode = induk.get(id_menu) if not simpan_kosong else None      # hak khusus pengguna: induk tidak ditimpa
-        while aksi["lihat"] and kode:                 # flowchart: menu ditampilkan per level -> induk ikut terlihat
-            id_induk = id_kode[kode]
-            if not (baris.get(id_induk) or {}).get("lihat"):
-                baris[id_induk] = {"lihat": True}
-            kode = induk.get(id_induk)
+def simpan_aturan_menu(id_menu, aturan):
+    """Ganti semua aturan menu ini. aturan = [{jenis, id_target, tolak, aksi: [nama aksi], widget: [kode]}];
+    aksi di luar MenuAction diabaikan, widget hanya untuk baris Izinkan + Lihat."""
+    m = next((x for x in semua_menu() if x["id_menu"] == id_menu), None)
+    if m is None:
+        raise ValueError("Menu tidak ditemukan")
+    boleh_aksi = {"lihat", *aksi_menu(m)}
     conn = get_connection()
     try:
         cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM AccessMenu WHERE {kolom} = ?", nilai)
-        for id_menu, aksi in baris.items():
-            for nama, ada in aksi.items():
-                if ada or (simpan_kosong and nama == "lihat"):
-                    cursor.execute(f"INSERT INTO AccessMenu (MenuID, ActionID, {kolom}, Active) VALUES (?, ?, ?, ?)",
-                                   id_menu, ID_AKSI[nama], nilai, 1 if ada else 0)
+        cursor.execute("DELETE FROM AccessMenu WHERE MenuID = ?", id_menu)
+        for a in aturan:
+            kolom = KOLOM_TARGET.get(a["jenis"])
+            for nama in [x for x in AKSI_SEMUA if x in a["aksi"] and x in boleh_aksi]:
+                cursor.execute(f"""SET NOCOUNT ON; INSERT INTO AccessMenu (MenuID, ActionID, TargetType, IsDeny{', ' + kolom if kolom else ''})
+                                   VALUES (?, ?, ?, ?{', ?' if kolom else ''}); SELECT CAST(SCOPE_IDENTITY() AS INT)""",
+                               id_menu, ID_AKSI[nama], a["jenis"], 1 if a["tolak"] else 0, *([a["id_target"]] if kolom else []))
+                id_baris = cursor.fetchone()[0]
+                if nama == "lihat" and not a["tolak"]:
+                    for urut, w in enumerate(a.get("widget") or [], 1):
+                        cursor.execute("INSERT INTO AccessMenuWidget (AccessMenuID, WidgetCode, SortOrder) VALUES (?, ?, ?)",
+                                       id_baris, w, urut)
         conn.commit()
     finally:
         conn.close()
     hapus_cache()
 
 
-def simpan_akses_level(id_level, akses):
-    _simpan_akses("LevelDetID", id_level, akses, simpan_kosong=False)
+def sumber_akses(id_user):
+    """Aturan yang cocok dengan user (Cek Akses): [{MenuCode, MenuName, ActionID, IsDeny, TargetType, TargetName, ...}]"""
+    return _query("EXEC dbo.sp_UserAccessSource @UserID = ?", id_user)
 
 
-def akses_user(id_user):
-    """Baris hak khusus pengguna: {id_menu: {...}}"""
-    return _akses("UserID", id_user)
+def daftar_widget():
+    return _query("""SELECT WidgetCode AS kode, WidgetName AS nama, Description AS keterangan FROM Widget
+                     WHERE Active = 1 ORDER BY SortOrder, WidgetCode""")
 
 
-def simpan_akses_user(id_user, akses):
-    """akses = {id_menu: (nilai per AKSI_SEMUA)} hanya untuk menu yang berbeda dari perannya.
-    Semua dikosongkan = kembali mengikuti peran."""
-    _simpan_akses("UserID", id_user, akses, simpan_kosong=True)
+@cache_ttl(30)
+def widget_user(id_user, kode_menu="DASHBOARD"):
+    """Widget dashboard user, urut tampil (dbo.sp_UserDashboard): ['harga', 'arus']."""
+    return [r["WidgetCode"] for r in _query("EXEC dbo.sp_UserDashboard @UserID = ?, @MenuCode = ?", id_user, kode_menu)]
 
 
 def get_level(id_level):

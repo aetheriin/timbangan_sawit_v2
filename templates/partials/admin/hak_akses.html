@@ -1,61 +1,95 @@
-{# Level & Hak Akses: pilih departemen -> jabatan -> halaman awal & halaman yang boleh dibuka beserta aksinya.
-   Hak menempel di gabungan departemen + jabatan (peran, tabel level); dibuat otomatis saat pertama disimpan.
-   Jabatan & departemen sendiri ditambah / diubah di Admin › Organisasi. #}
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-    <div class="xl:col-span-3 section-box">
-        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">1 · Departemen</p>
-            <a href="{{ url_for('admin.admin_halaman', halaman='organisasi') }}" class="text-xs text-blue-600 hover:underline" title="Tambah / ubah departemen di Admin › Organisasi">Kelola</a>
-        </div>
-        <div id="daftarDepartemen" class="divide-y divide-slate-100"></div>
-    </div>
+{# Hak Akses berbasis aturan (sama dengan Excel uji coba login): tiap menu Lv1 / Lv2 / Lv3 punya daftar "Diberikan ke"
+   (Semua user / Peran / Jabatan / Departemen / User), Izinkan atau Larang per aksi; Larang menang, aturan induk = gerbang.
+   Panel pohon menu & panel aturan masing-masing bergulir sendiri (halaman tidak ikut bergulir). #}
+<div class="seg mb-4" role="tablist">
+    <button type="button" class="chip chip-active" data-tab-akses="aturan" data-on-click="pilihTabAkses" data-arg="aturan"><i class="fa-solid fa-sitemap mr-1"></i> Aturan per Menu</button>
+    <button type="button" class="chip" data-tab-akses="cek" data-on-click="pilihTabAkses" data-arg="cek"><i class="fa-solid fa-user-check mr-1"></i> Cek Akses User</button>
+    <button type="button" class="chip" data-tab-akses="awal" data-on-click="pilihTabAkses" data-arg="awal"><i class="fa-solid fa-house mr-1"></i> Halaman Awal Peran</button>
+</div>
 
-    <div class="xl:col-span-3 section-box">
-        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">2 · Jabatan</p>
-            <a href="{{ url_for('admin.admin_halaman', halaman='organisasi') }}" class="text-xs text-blue-600 hover:underline" title="Tambah / ubah jabatan di Admin › Organisasi">Kelola</a>
-        </div>
-        <div id="tabelLevel" class="divide-y divide-slate-100"></div>
-    </div>
-
-    <form id="formAkses" class="xl:col-span-6 section-box">
-        <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">3 · Hak Akses <span id="judulMatriks" class="normal-case font-semibold text-slate-800 tracking-normal"></span></p>
-            <button type="submit" id="btnSimpanAkses" class="btn-primary btn-sm" disabled>Simpan</button>
-        </div>
-        <input type="hidden" name="id_department">
-        <input type="hidden" name="id_jabatan">
-        <div class="px-4 py-3 border-b border-slate-100">
-            <label class="field-label" for="levelAwal">Halaman Awal Setelah Login</label>
-            <select id="levelAwal" name="halaman_awal" class="input-field" disabled>
-                {% for url, label in halaman_awal_list or [] %}<option value="{{ url }}">{{ label }}</option>{% endfor %}
-            </select>
-        </div>
+{# ===== TAB: ATURAN PER MENU ===== #}
+<div id="tabAkses-aturan" class="grid grid-cols-1 lg:grid-cols-12 gap-4 akses-tinggi">
+    <div class="lg:col-span-4 xl:col-span-3 section-box flex flex-col min-h-0">
         <div class="px-4 py-3 border-b border-slate-100 space-y-2">
-            <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Halaman yang bisa diakses</p>
-            <div id="ringkasAkses" class="flex flex-wrap gap-1.5 text-xs text-slate-400">-</div>
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Menu</p>
+            <input type="search" id="cariMenuAkses" class="input-field py-1.5" placeholder="Cari menu..." data-on-input="tampilPohonMenu">
         </div>
-        <div id="infoAdmin" class="note-warning m-4 hidden">Jabatan admin hanya membuka menu Admin dan tidak punya aksi operasional.</div>
-        <div id="infoBaru" class="note-warning m-4 hidden">Gabungan ini belum pernah diatur. Centang halaman lalu Simpan.</div>
+        <div id="pohonMenu" class="flex-1 overflow-y-auto py-1"></div>
+        <p class="px-4 py-2 border-t border-slate-100 text-[11px] text-slate-400"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>sudah ada aturan</p>
+    </div>
+
+    <form id="formAturan" class="lg:col-span-8 xl:col-span-9 section-box flex flex-col min-h-0" autocomplete="off">
+        <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2">
+            <div class="min-w-0 flex-1">
+                <p id="remahMenuAkses" class="text-[11px] text-slate-400 truncate">Pilih menu di kiri</p>
+                <p id="judulMenuAkses" class="text-sm font-bold text-slate-900 truncate">-</p>
+            </div>
+            <span id="tandaBerubah" class="badge-status bg-amber-100 text-amber-800 hidden">Belum disimpan</span>
+            <button type="submit" id="btnSimpanAturan" class="btn-primary btn-sm" disabled>Simpan</button>
+        </div>
         <div class="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-slate-100 text-xs">
-            <button type="button" class="link-aksi text-blue-600" data-on-click="bukaSemuaAkses" data-arg="$true"><i class="fa-solid fa-angles-down mr-1"></i>Buka semua</button>
-            <button type="button" class="link-aksi text-slate-600" data-on-click="bukaSemuaAkses" data-arg="$false"><i class="fa-solid fa-angles-up mr-1"></i>Tutup semua</button>
+            <button type="button" class="btn-secondary btn-sm" data-on-click="salinAturan" data-perlu-menu disabled title="Salin semua aturan menu ini"><i class="fa-regular fa-copy mr-1"></i>Copy</button>
+            <button type="button" class="btn-secondary btn-sm" id="btnTempel" data-on-click="tempelAturan" disabled title="Tambahkan aturan yang disalin ke menu ini"><i class="fa-solid fa-paste mr-1"></i>Paste</button>
+            <span class="w-px h-5 bg-slate-200"></span>
+            <button type="button" class="btn-secondary btn-sm text-emerald-700" data-on-click="semuaAksi" data-arg="$true" data-perlu-menu disabled title="Centang semua aksi di semua baris"><i class="fa-solid fa-check-double mr-1"></i>Allow all</button>
+            <button type="button" class="btn-secondary btn-sm text-red-600" data-on-click="semuaAksi" data-arg="$false" data-perlu-menu disabled title="Kosongkan semua aksi di semua baris"><i class="fa-solid fa-ban mr-1"></i>Deny all</button>
             <span class="flex-1"></span>
-            <button type="button" class="link-aksi text-red-600" data-on-click="kosongkanAkses"><i class="fa-solid fa-eraser mr-1"></i>Kosongkan semua</button>
+            <span id="infoSalinan" class="text-slate-400"></span>
+            <button type="button" class="btn-primary btn-sm" data-on-click="tambahAturan" data-perlu-menu disabled><i class="fa-solid fa-plus mr-1"></i>Aturan</button>
         </div>
-        <div class="overflow-x-auto">
+        <div class="flex-1 overflow-auto min-h-0">
             <table class="w-full text-left text-sm">
-                <thead class="table-header-row">
-                    <tr><th class="table-cell">Halaman</th><th class="table-cell text-center">Lihat</th>
-                        <th class="table-cell text-center">Tambah</th><th class="table-cell text-center">Ubah</th><th class="table-cell text-center">Hapus</th>
-                        <th class="table-cell text-center" title="Boleh menyetujui / menolak pengajuan (mis. tambah & hapus blacklist)">Setujui</th>
-                        <th class="table-cell text-center" title="Boleh menolak request (mis. Request Operator RekapIn)">Tolak</th>
-                        <th class="table-cell text-center" title="Boleh menandai request selesai">Selesai</th></tr>
+                <thead id="kepalaAturan" class="table-header-row sticky top-0 z-10">
+                    <tr><th class="table-cell !px-2">Efek</th><th class="table-cell !px-2">Diberikan ke</th><th class="table-cell !px-2">Sasaran</th>
+                        <th class="table-cell !px-1 text-center text-[11px] kolom-aksi" colspan="7">Aksi</th>
+                        <th class="table-cell !px-2 kolom-widget hidden">Isi Dashboard</th>
+                        <th class="table-cell !px-2"></th></tr>
                 </thead>
-                <tbody id="tabelAkses" class="divide-y divide-slate-100">
-                    <tr><td colspan="6" class="table-cell text-center text-slate-400 py-6">Pilih departemen lalu jabatan</td></tr>
+                <tbody id="tabelAturan" class="divide-y divide-slate-100">
+                    <tr><td colspan="12" class="table-cell text-center text-slate-400 py-10">Pilih menu di kiri untuk melihat siapa yang mendapatkannya</td></tr>
                 </tbody>
             </table>
         </div>
+        <p class="px-4 py-2 border-t border-slate-100 text-[11px] text-slate-500">Hak user = gabungan semua aturan <b>Izinkan</b> yang cocok, dikurangi aturan <b>Larang</b> yang cocok (Larang selalu menang).
+            Menu hanya tampil bila menu induknya juga diberikan. Isi Dashboard memakai aturan paling spesifik: User › Peran › Jabatan › Departemen › Semua.</p>
     </form>
+</div>
+
+{# ===== TAB: CEK AKSES USER ===== #}
+<div id="tabAkses-cek" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-4 akses-tinggi">
+    <div class="lg:col-span-4 xl:col-span-3 section-box flex flex-col min-h-0">
+        <div class="px-4 py-3 border-b border-slate-100 space-y-2">
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">User</p>
+            <input type="search" id="cariUserCek" class="input-field py-1.5" placeholder="NIK, nama, atau username" data-on-input="cariUserCek">
+        </div>
+        <div id="hasilUserCek" class="flex-1 overflow-y-auto divide-y divide-slate-100"></div>
+    </div>
+    <div class="lg:col-span-8 xl:col-span-9 section-box flex flex-col min-h-0">
+        <div class="px-4 py-3 border-b border-slate-100">
+            <p id="judulCek" class="text-sm font-bold text-slate-900">Pilih user di kiri</p>
+            <p id="infoCek" class="text-xs text-slate-500"></p>
+        </div>
+        <div class="flex-1 overflow-auto min-h-0">
+            <table class="w-full text-left text-sm">
+                <thead class="table-header-row sticky top-0 z-10">
+                    <tr><th class="table-cell">Menu</th><th class="table-cell">Hak</th><th class="table-cell">Asal aturan</th></tr>
+                </thead>
+                <tbody id="tabelCek" class="divide-y divide-slate-100"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{# ===== TAB: HALAMAN AWAL PERAN ===== #}
+<div id="tabAkses-awal" class="hidden section-box">
+    <div class="px-4 py-3 border-b border-slate-100">
+        <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Halaman yang dibuka setelah login</p>
+        <p class="text-xs text-slate-500">Bila peran tidak boleh membuka halaman ini, dipakai halaman pertama di menu yang boleh dibuka.</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="table-header-row"><tr><th class="table-cell">Peran</th><th class="table-cell text-right">User</th><th class="table-cell">Halaman awal</th></tr></thead>
+            <tbody id="tabelHalamanAwal" class="divide-y divide-slate-100"></tbody>
+        </table>
+    </div>
 </div>

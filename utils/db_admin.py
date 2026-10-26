@@ -38,7 +38,7 @@ _SELECT_USER = """SELECT u.UserID AS id_user, u.UserName AS username, u.Nama AS 
                          dd.DeptID AS id_department, ISNULL(d.DeptName, 'Admin sistem') AS department, u.CompAreaID AS id_comp_area,
                          a.CompID + ' · ' + a.AreaName AS area, u.Active AS is_active, u.LastLogin AS last_login,
                          u.CreateDate AS created_at, u.UserID AS id_personel, u.UserCode AS kode_personel, u.NoKTP AS nik, u.Email AS email, u.CategoryCode AS kategori,
-                         (SELECT COUNT(DISTINCT x.MenuID) FROM AccessMenu x WHERE x.UserID = u.UserID) AS jumlah_akses_khusus
+                         (SELECT COUNT(DISTINCT x.MenuID) FROM AccessMenu x WHERE x.TargetType = 'USER' AND x.UserID = u.UserID) AS jumlah_akses_khusus
                   FROM Users u JOIN LevelDetails ld ON ld.LevelDetID = u.UserLevelID JOIN Level lv ON lv.LevelID = ld.LevelID
                   LEFT JOIN DepartmentDetails dd ON dd.DeptDetailID = u.UserDeptID
                   LEFT JOIN Department d ON d.DeptID = dd.DeptID

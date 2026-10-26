@@ -91,8 +91,6 @@ CREATE TABLE dbo.Menu (
     Icon         VARCHAR(40)   NULL,
     AppCode      VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_App DEFAULT ('CPOS'),   -- CPOS / ANALYTICS / REKAPIN
     SortOrder    INT NOT NULL CONSTRAINT DF_Menu_Sort DEFAULT (0),
-    ActionList   VARCHAR(20)   NOT NULL CONSTRAINT DF_Menu_Actions DEFAULT (''),   -- aksi selain View yang berlaku di menu ini: ActionID dipisah koma, mis. '2,3,5'
-    Widgets      VARCHAR(200)  NOT NULL CONSTRAINT DF_Menu_Widgets DEFAULT (''),   -- menu dashboard: widget yang tampil, urut, dipisah koma, mis. 'harga,arus'
     CompAreaID   BIGINT        NULL CONSTRAINT FK_Menu_Area REFERENCES dbo.CompanyArea (CompAreaID),   -- NULL = semua area
     Active       BIT NOT NULL CONSTRAINT DF_Menu_Active DEFAULT (1)
 );
@@ -102,20 +100,53 @@ CREATE TABLE dbo.ActionType (
     Description  VARCHAR(255)  NULL,
     Active       BIT NOT NULL CONSTRAINT DF_ActionType_Active DEFAULT (1)
 );
--- Hak menu: satu baris per menu x aksi, untuk peran (LevelDetID) ATAU pengguna (UserID, hak khusus).
--- Pengguna yang punya baris untuk sebuah menu memakai barisnya sendiri untuk menu itu (Active 0 = dicabut).
+-- Aksi yang berlaku di sebuah menu selain View (Lihat selalu ada), mis. Blacklist: Create, Delete, Approve
+CREATE TABLE dbo.MenuAction (
+    MenuID       INT NOT NULL CONSTRAINT FK_MenuAction_Menu REFERENCES dbo.Menu (MenuID) ON DELETE CASCADE,
+    ActionID     INT NOT NULL CONSTRAINT FK_MenuAction_Action REFERENCES dbo.ActionType (ActionID),
+    CONSTRAINT PK_MenuAction PRIMARY KEY (MenuID, ActionID)
+);
+/* Aturan hak menu (Admin › Hak Akses): satu baris per menu x aksi x sasaran.
+   TargetType: ALL = semua user, ROLE = peran (LevelDetails: departemen + jabatan), LEVEL = jabatan, DEPT = departemen,
+   USER = satu user. Kolom sasaran yang sesuai TargetType yang diisi, sisanya NULL.
+   IsDeny 1 = Larang: aksi itu dicabut untuk sasaran ini; Larang selalu mengalahkan Izinkan. */
 CREATE TABLE dbo.AccessMenu (
     AccessMenuID INT IDENTITY(1,1) PRIMARY KEY,
-    MenuID       INT    NOT NULL CONSTRAINT FK_AccessMenu_Menu REFERENCES dbo.Menu (MenuID),
-    ActionID     INT    NOT NULL CONSTRAINT FK_AccessMenu_Action REFERENCES dbo.ActionType (ActionID),
-    LevelDetID   INT    NULL CONSTRAINT FK_AccessMenu_LevelDet REFERENCES dbo.LevelDetails (LevelDetID),
-    UserID       BIGINT NULL,                       -- FK ke Users ditambahkan setelah tabel Users dibuat
+    MenuID       INT         NOT NULL CONSTRAINT FK_AccessMenu_Menu REFERENCES dbo.Menu (MenuID),
+    ActionID     INT         NOT NULL CONSTRAINT FK_AccessMenu_Action REFERENCES dbo.ActionType (ActionID),
+    TargetType   VARCHAR(5)  NOT NULL CONSTRAINT CK_AccessMenu_Type CHECK (TargetType IN ('ALL', 'ROLE', 'LEVEL', 'DEPT', 'USER')),
+    LevelDetID   INT         NULL CONSTRAINT FK_AccessMenu_LevelDet REFERENCES dbo.LevelDetails (LevelDetID),
+    LevelID      INT         NULL CONSTRAINT FK_AccessMenu_Level REFERENCES dbo.Level (LevelID),
+    DeptID       VARCHAR(5)  NULL CONSTRAINT FK_AccessMenu_Dept REFERENCES dbo.Department (DeptID),
+    UserID       BIGINT      NULL,                       -- FK ke Users ditambahkan setelah tabel Users dibuat
+    IsDeny       BIT NOT NULL CONSTRAINT DF_AccessMenu_Deny DEFAULT (0),
     Active       BIT NOT NULL CONSTRAINT DF_AccessMenu_Active DEFAULT (1),
     CreateDate   DATETIME NOT NULL CONSTRAINT DF_AccessMenu_Create DEFAULT (GETDATE()),
-    CONSTRAINT CK_AccessMenu_Target CHECK ((LevelDetID IS NULL AND UserID IS NOT NULL) OR (LevelDetID IS NOT NULL AND UserID IS NULL))
+    CONSTRAINT CK_AccessMenu_Target CHECK (
+           (TargetType = 'ALL'   AND LevelDetID IS NULL     AND LevelID IS NULL     AND DeptID IS NULL     AND UserID IS NULL)
+        OR (TargetType = 'ROLE'  AND LevelDetID IS NOT NULL AND LevelID IS NULL     AND DeptID IS NULL     AND UserID IS NULL)
+        OR (TargetType = 'LEVEL' AND LevelDetID IS NULL     AND LevelID IS NOT NULL AND DeptID IS NULL     AND UserID IS NULL)
+        OR (TargetType = 'DEPT'  AND LevelDetID IS NULL     AND LevelID IS NULL     AND DeptID IS NOT NULL AND UserID IS NULL)
+        OR (TargetType = 'USER'  AND LevelDetID IS NULL     AND LevelID IS NULL     AND DeptID IS NULL     AND UserID IS NOT NULL))
 );
-CREATE UNIQUE INDEX UX_AccessMenu_Level ON dbo.AccessMenu (LevelDetID, MenuID, ActionID) WHERE LevelDetID IS NOT NULL;
-CREATE UNIQUE INDEX UX_AccessMenu_User ON dbo.AccessMenu (UserID, MenuID, ActionID) WHERE UserID IS NOT NULL;
+CREATE UNIQUE INDEX UX_AccessMenu_Rule ON dbo.AccessMenu (MenuID, ActionID, TargetType, LevelDetID, LevelID, DeptID, UserID, IsDeny);
+CREATE INDEX IX_AccessMenu_User ON dbo.AccessMenu (UserID) WHERE UserID IS NOT NULL;
+-- Widget dashboard (tampilannya dibuat di kode: templates/dashboard/widget/<WidgetCode>.html)
+CREATE TABLE dbo.Widget (
+    WidgetCode   VARCHAR(30)   NOT NULL PRIMARY KEY,
+    WidgetName   NVARCHAR(100) NOT NULL,
+    Description  NVARCHAR(255) NULL,
+    SortOrder    INT NOT NULL CONSTRAINT DF_Widget_Sort DEFAULT (0),
+    Active       BIT NOT NULL CONSTRAINT DF_Widget_Active DEFAULT (1)
+);
+-- Isi dashboard per aturan: menempel di baris aturan Izinkan-Lihat menu dashboard; urut SortOrder.
+-- User memakai aturan paling spesifik yang cocok & punya widget: USER > ROLE > LEVEL > DEPT > ALL.
+CREATE TABLE dbo.AccessMenuWidget (
+    AccessMenuID INT         NOT NULL CONSTRAINT FK_AMWidget_Access REFERENCES dbo.AccessMenu (AccessMenuID) ON DELETE CASCADE,
+    WidgetCode   VARCHAR(30) NOT NULL CONSTRAINT FK_AMWidget_Widget REFERENCES dbo.Widget (WidgetCode),
+    SortOrder    INT NOT NULL CONSTRAINT DF_AMWidget_Sort DEFAULT (0),
+    CONSTRAINT PK_AccessMenuWidget PRIMARY KEY (AccessMenuID, WidgetCode)
+);
 GO
 /* Isi awal ada di bagian DATA AWAL (paling bawah). */
 
@@ -1209,9 +1240,6 @@ INSERT INTO dbo.Menu (MenuCode, MenuName, MenuLevel, Icon, SortOrder) VALUES
 INSERT INTO dbo.Menu (MenuCode, MenuName, ParentMenuID, MenuLevel, Url, Icon, AppCode, SortOrder)
 SELECT v.kode, v.nama, p.MenuID, 2, v.url, v.ikon, v.app, v.urut
 FROM (VALUES ('DASHBOARD',       N'Dashboard',                  'G_DASHBOARD',  '/dashboard',             'fa-chart-line',       'CPOS', 10),
-             -- Dashboard per peran: nama sama ("Dashboard"), isi berbeda, tiap peran diberi satu (Admin › Hak Akses)
-             ('DASH_TIMBANGAN',  N'Dashboard',                  'G_DASHBOARD',  '/dashboard/timbangan',   'fa-chart-line',       'CPOS', 11),
-             ('DASH_SECURITY',   N'Dashboard',                  'G_DASHBOARD',  '/dashboard/security',    'fa-chart-line',       'CPOS', 12),
              ('AN_DASHBOARD',    N'Analytical Dashboard',       'G_DASHBOARD',  NULL, 'fa-chart-column', 'ANALYTICS', 15),
              ('LIST',            N'Tickets',                    'G_MILLS',      '/weighbridge?view=list', 'fa-list',             'CPOS', 10),
              ('FORM',            N'Stasiun Timbang',            'G_MILLS',      '/weighbridge?view=form', 'fa-file-pen',         'CPOS', 20),
@@ -1271,57 +1299,65 @@ UPDATE dbo.Menu SET AppCode = 'ANALYTICS' WHERE MenuCode LIKE 'AN[_]%';
 -- Tickets sementara juga ke halaman kosong (tahap 1); daftar tiket CPOS tetap di /weighbridge?view=list.
 UPDATE dbo.Menu SET Url = '/halaman/' + MenuCode
 WHERE MenuCode IN ('LIST', 'FM_IT_HELPDESK', 'FM_NEW_ITEM', 'RP_PR', 'RP_PO', 'RP_PI', 'RP_GT', 'RP_ITEM');
--- Aksi yang berlaku per menu (centang di Admin › Hak Akses): 2 Create, 3 Edit, 0 Delete, 5 Approve, 6 Reject, 7 Done.
--- Kosong = hanya View.
--- Halaman yang punya anak (FORM, MASTER, FACE_RECOGNITION) diatur lewat anaknya.
-UPDATE m SET ActionList = v.aksi
-FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', '3'), ('LIST', '3,5'), ('FORM_SECURITY', '2,3'), ('FORM_TIMBANGAN', '2'),
+-- Aksi yang berlaku per menu selain View (kolom yang bisa dicentang di Admin › Hak Akses):
+-- 2 Create, 3 Edit, 0 Delete, 5 Approve, 6 Reject, 7 Done. Halaman yang punya anak (FORM, MASTER, FACE_RECOGNITION)
+-- diatur lewat anaknya.
+INSERT INTO dbo.MenuAction (MenuID, ActionID)
+SELECT m.MenuID, CAST(x.value AS INT)
+FROM (VALUES ('DASHBOARD', '3'), ('LIST', '3,5'), ('FORM_SECURITY', '2,3'), ('FORM_TIMBANGAN', '2'),
              ('FORM_SORTASI', '2'), ('FORM_LAB', '2,3'), ('PERSONEL', '2,3,0'), ('MASTER_DRIVER', '2,3,0'),
              ('MASTER_KENDARAAN', '2,3'), ('MASTER_MITRA', '2,3'), ('MASTER_PRODUK', '2,3'), ('MASTER_KEUANGAN', '2,3'),
              ('KONTRAK_DO', '2,3'), ('BLACKLIST', '2,0,5'), ('KUNJUNGAN', '2,3'), ('KELEBIHAN_DO', '2,3'),
              ('POS_SECURITY', '2,3'), ('LOGBOOK', '3'),
              -- RekapIn: request operator (tambah, ubah, hapus, setujui, tolak, selesai), harga & kategori request
-             ('RK_REQUEST', '2,3,0,5,6,7'), ('RK_HARGA', '2,3,0'), ('RK_FITUR', '2,3,0')) v (kode, aksi) ON v.kode = m.MenuCode;
--- Isi dashboard per peran (katalog widget di routes/dashboard.py WIDGET): harga, riwayat, arus, security.
--- Dashboard baru = menu Lv2 ber-Url /dashboard/<nama> dengan Widgets terisi; tidak perlu route baru.
-UPDATE m SET Widgets = v.w
-FROM dbo.Menu m JOIN (VALUES ('DASHBOARD', 'harga,arus,riwayat'), ('DASH_TIMBANGAN', 'harga,arus'),
-             ('DASH_SECURITY', 'security')) v (kode, w) ON v.kode = m.MenuCode;
--- Hak akses awal: (peran, menu, tambah, ubah, hapus, setujui). Lihat ikut diberikan.
-DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), t BIT, u BIT, h BIT, s BIT);
+             ('RK_REQUEST', '2,3,0,5,6,7'), ('RK_HARGA', '2,3,0'), ('RK_FITUR', '2,3,0')) v (kode, aksi)
+JOIN dbo.Menu m ON m.MenuCode = v.kode
+CROSS APPLY STRING_SPLIT(v.aksi, ',') x;
+INSERT INTO dbo.Widget (WidgetCode, WidgetName, Description, SortOrder) VALUES
+    ('harga',    N'Harga',            N'Harga CPO, kernel, OER, biaya olah & TBS', 1),
+    ('riwayat',  N'Riwayat Harga',    N'Riwayat harga', 2),
+    ('arus',     N'Arus Penimbangan', N'Arus penimbangan & status jembatan timbang hari ini', 3),
+    ('security', N'Security',         N'Truk masuk & di dalam area, tamu, blacklist terdeteksi hari ini', 4);
+-- Semua user: grup & halaman CPOS yang sudah ada (Pos Security & Logbook hanya peran tertentu, di bawah)
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, TargetType)
+SELECT m.MenuID, 1, 'ALL' FROM dbo.Menu m
+WHERE m.MenuCode IN ('G_DASHBOARD', 'G_MILLS', 'G_FORMS', 'G_MASTER')
+   OR (m.AppCode = 'CPOS' AND m.Url IS NOT NULL AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK'));
+-- Hak per peran: (peran, menu, lihat, tambah, ubah, hapus, setujui). Lihat hanya untuk menu yang tidak untuk semua user.
+DECLARE @hak TABLE (peran VARCHAR(30), menu VARCHAR(40), l BIT, t BIT, u BIT, h BIT, s BIT);
 INSERT INTO @hak VALUES
-    ('HO', 'DASHBOARD', 0, 1, 0, 0), ('HO', 'PERSONEL', 1, 1, 1, 0), ('HO', 'BLACKLIST', 1, 0, 0, 1),
-    ('HO', 'KONTRAK_DO', 1, 1, 1, 0), ('HO', 'MASTER_DRIVER', 1, 1, 1, 0), ('HO', 'MASTER_KENDARAAN', 1, 1, 0, 0),
-    ('HO', 'KELEBIHAN_DO', 0, 1, 0, 0), ('OPERATOR_TIMBANG', 'KELEBIHAN_DO', 1, 0, 0, 0),
-    ('HO', 'MASTER_MITRA', 1, 1, 0, 0), ('HO', 'MASTER_PRODUK', 1, 1, 0, 0), ('HO', 'MASTER_KEUANGAN', 1, 1, 0, 0),
-    ('SECURITY', 'FORM_SECURITY', 1, 1, 0, 0), ('SECURITY', 'MASTER_DRIVER', 1, 1, 1, 0), ('SECURITY', 'MASTER_KENDARAAN', 1, 1, 0, 0),
-    ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN', 1, 0, 0, 0), ('SORTASI', 'FORM_SORTASI', 1, 0, 0, 0), ('LAB', 'FORM_LAB', 1, 1, 0, 0),
-    ('SECURITY', 'POS_SECURITY', 1, 1, 0, 0), ('SECURITY', 'LOGBOOK', 0, 1, 0, 0), ('SECURITY', 'KUNJUNGAN', 1, 1, 0, 0),
-    ('HO', 'POS_SECURITY', 0, 0, 0, 0), ('HO', 'LOGBOOK', 0, 0, 0, 0),
-    -- satu dashboard per peran
-    ('OPERATOR_TIMBANG', 'DASH_TIMBANGAN', 0, 0, 0, 0), ('SORTASI', 'DASH_TIMBANGAN', 0, 0, 0, 0), ('LAB', 'DASH_TIMBANGAN', 0, 0, 0, 0),
-    ('SECURITY', 'DASH_SECURITY', 0, 0, 0, 0);
--- Semua peran non-admin awalnya boleh melihat semua halaman CPOS yang sudah ada (kecuali menu pos & dashboard: hanya yang diberi di atas)
-INSERT INTO @hak (peran, menu, t, u, h, s)
-SELECT ld.LevelDetCode, m.MenuCode, 0, 0, 0, 0
-FROM dbo.LevelDetails ld JOIN dbo.Level l ON l.LevelID = ld.LevelID CROSS JOIN dbo.Menu m
-WHERE l.IsAdmin = 0 AND m.AppCode = 'CPOS' AND m.Url IS NOT NULL
-  AND m.MenuCode NOT IN ('POS_SECURITY', 'LOGBOOK') AND m.Widgets = ''
-  AND NOT EXISTS (SELECT 1 FROM @hak x WHERE x.peran = ld.LevelDetCode AND x.menu = m.MenuCode);
-INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
-SELECT m.MenuID, a.ActionID, ld.LevelDetID
+    ('HO', 'DASHBOARD', 0, 0, 1, 0, 0), ('HO', 'PERSONEL', 0, 1, 1, 1, 0), ('HO', 'BLACKLIST', 0, 1, 0, 0, 1),
+    ('HO', 'KONTRAK_DO', 0, 1, 1, 1, 0), ('HO', 'MASTER_DRIVER', 0, 1, 1, 1, 0), ('HO', 'MASTER_KENDARAAN', 0, 1, 1, 0, 0),
+    ('HO', 'KELEBIHAN_DO', 0, 0, 1, 0, 0), ('OPERATOR_TIMBANG', 'KELEBIHAN_DO', 0, 1, 0, 0, 0),
+    ('HO', 'MASTER_MITRA', 0, 1, 1, 0, 0), ('HO', 'MASTER_PRODUK', 0, 1, 1, 0, 0), ('HO', 'MASTER_KEUANGAN', 0, 1, 1, 0, 0),
+    ('SECURITY', 'FORM_SECURITY', 0, 1, 1, 0, 0), ('SECURITY', 'MASTER_DRIVER', 0, 1, 1, 1, 0), ('SECURITY', 'MASTER_KENDARAAN', 0, 1, 1, 0, 0),
+    ('OPERATOR_TIMBANG', 'FORM_TIMBANGAN', 0, 1, 0, 0, 0), ('SORTASI', 'FORM_SORTASI', 0, 1, 0, 0, 0), ('LAB', 'FORM_LAB', 0, 1, 1, 0, 0),
+    ('SECURITY', 'POS_SECURITY', 1, 1, 1, 0, 0), ('SECURITY', 'LOGBOOK', 1, 0, 1, 0, 0), ('SECURITY', 'KUNJUNGAN', 0, 1, 1, 0, 0),
+    ('HO', 'POS_SECURITY', 1, 0, 0, 0, 0), ('HO', 'LOGBOOK', 1, 0, 0, 0, 0);
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, TargetType, LevelDetID)
+SELECT m.MenuID, a.ActionID, 'ROLE', ld.LevelDetID
 FROM @hak h JOIN dbo.LevelDetails ld ON ld.LevelDetCode = h.peran JOIN dbo.Menu m ON m.MenuCode = h.menu
-CROSS APPLY (VALUES (1, 1), (2, h.t), (3, h.u), (0, h.h), (5, h.s)) a (ActionID, ada)
+CROSS APPLY (VALUES (1, h.l), (2, h.t), (3, h.u), (0, h.h), (5, h.s)) a (ActionID, ada)
 WHERE a.ada = 1;
--- Induk (Lv2 / Lv1) ikut terlihat bila ada anak yang terlihat (flowchart: menu ditampilkan per level)
-INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
-SELECT DISTINCT p.MenuID, 1, x.LevelDetID
-FROM dbo.AccessMenu x JOIN dbo.Menu m ON m.MenuID = x.MenuID JOIN dbo.Menu p ON p.MenuID = m.ParentMenuID
-WHERE x.ActionID = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu y WHERE y.LevelDetID = x.LevelDetID AND y.MenuID = p.MenuID AND y.ActionID = 1);
-INSERT INTO dbo.AccessMenu (MenuID, ActionID, LevelDetID)
-SELECT DISTINCT p.MenuID, 1, x.LevelDetID
-FROM dbo.AccessMenu x JOIN dbo.Menu m ON m.MenuID = x.MenuID JOIN dbo.Menu p ON p.MenuID = m.ParentMenuID
-WHERE x.ActionID = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu y WHERE y.LevelDetID = x.LevelDetID AND y.MenuID = p.MenuID AND y.ActionID = 1);
+-- Isi Dashboard: semua user = harga; HO = harga, arus, riwayat; timbangan / sortasi / lab = harga, arus; security = security.
+-- Widget menempel di baris aturan Lihat (peran: dibuat di sini sebagai wadah isi dashboard-nya).
+DECLARE @isi TABLE (peran VARCHAR(30), widget VARCHAR(30), urut INT);
+INSERT INTO @isi VALUES
+    (NULL, 'harga', 1),
+    ('HO', 'harga', 1), ('HO', 'arus', 2), ('HO', 'riwayat', 3),
+    ('OPERATOR_TIMBANG', 'harga', 1), ('OPERATOR_TIMBANG', 'arus', 2), ('SORTASI', 'harga', 1), ('SORTASI', 'arus', 2),
+    ('LAB', 'harga', 1), ('LAB', 'arus', 2),
+    ('SECURITY', 'security', 1);
+INSERT INTO dbo.AccessMenu (MenuID, ActionID, TargetType, LevelDetID)
+SELECT DISTINCT m.MenuID, 1, 'ROLE', ld.LevelDetID
+FROM @isi i JOIN dbo.LevelDetails ld ON ld.LevelDetCode = i.peran JOIN dbo.Menu m ON m.MenuCode = 'DASHBOARD';
+INSERT INTO dbo.AccessMenuWidget (AccessMenuID, WidgetCode, SortOrder)
+SELECT a.AccessMenuID, i.widget, i.urut
+FROM @isi i
+JOIN dbo.Menu m ON m.MenuCode = 'DASHBOARD'
+LEFT JOIN dbo.LevelDetails ld ON ld.LevelDetCode = i.peran
+JOIN dbo.AccessMenu a ON a.MenuID = m.MenuID AND a.ActionID = 1 AND a.IsDeny = 0
+ AND ((i.peran IS NULL AND a.TargetType = 'ALL') OR (a.TargetType = 'ROLE' AND a.LevelDetID = ld.LevelDetID));
 GO
 -- Jembatan timbang awal (migrasi 011)
 INSERT INTO dbo.Scale (CompAreaID, ScaleCode, ScaleName, Port)
@@ -1957,24 +1993,43 @@ END
 GO
 
 /* =========================== HAK AKSES BERSAMA (CPOS, ANALYTICS, REKAPIN) ===========================
-   Satu aturan untuk semua aplikasi:
-   - hak diambil dari peran (Users.UserLevelID -> AccessMenu.LevelDetID);
-   - bila pengguna punya baris AccessMenu.UserID untuk sebuah menu, baris itu yang dipakai untuk menu tsb (menambah / mencabut);
-   - Visible = menu itu atau salah satu turunannya (Lv2 / Lv3) boleh dilihat -> induk ikut terlihat;
-   - ShowInMenu = tampil di menu samping (Lv1: ada anak terlihat, Lv2: Visible, Lv3: punya View sendiri);
+   Satu aturan untuk semua aplikasi (Admin › Hak Akses):
+   - tiap menu punya aturan AccessMenu: sasaran Semua / Peran / Jabatan / Departemen / User, Izinkan atau Larang per aksi;
+   - hak user = gabungan semua aturan Izinkan yang cocok dengan dirinya, dikurangi aturan Larang yang cocok (Larang menang);
+   - aksi selain View hanya yang berlaku di menu itu (MenuAction);
+   - Visible = boleh dilihat dirinya DAN semua induknya (aturan Lv1 / Lv2 menjadi gerbang bagi anaknya);
+   - ShowInMenu = tampil di menu samping (Lv1: ada anak terlihat, Lv2 & Lv3: Visible);
    - akun admin sistem (Level.IsAdmin) & akun nonaktif tidak punya hak menu operasional. */
-CREATE OR ALTER FUNCTION dbo.fn_UserAccess (@UserID BIGINT)
+-- Aturan yang cocok untuk user (@UserID) atau, bila @UserID NULL, untuk peran @LevelDetID (tanpa aturan per user).
+CREATE OR ALTER FUNCTION dbo.fn_AccessRules (@UserID BIGINT, @LevelDetID INT)
 RETURNS TABLE AS RETURN
-WITH peran AS (
-    SELECT u.UserLevelID AS LevelDetID
-    FROM dbo.Users u JOIN dbo.LevelDetails ld ON ld.LevelDetID = u.UserLevelID JOIN dbo.Level lv ON lv.LevelID = ld.LevelID
-    WHERE u.UserID = @UserID AND u.Active = 1 AND lv.IsAdmin = 0
+WITH siapa AS (
+    SELECT ld.LevelDetID, ld.LevelID, ld.DeptID, u.UserID
+    FROM dbo.LevelDetails ld
+    JOIN dbo.Level lv ON lv.LevelID = ld.LevelID
+    LEFT JOIN dbo.Users u ON u.UserID = @UserID AND u.Active = 1 AND u.UserLevelID = ld.LevelDetID
+    WHERE lv.IsAdmin = 0
+      AND ((@UserID IS NULL AND ld.LevelDetID = @LevelDetID) OR (@UserID IS NOT NULL AND u.UserID IS NOT NULL))
+)
+SELECT a.AccessMenuID, a.MenuID, a.ActionID, a.TargetType, a.IsDeny, a.LevelDetID, a.LevelID, a.DeptID, a.UserID
+FROM dbo.AccessMenu a CROSS JOIN siapa s
+WHERE a.Active = 1
+  AND (a.TargetType = 'ALL'
+       OR (a.TargetType = 'ROLE'  AND a.LevelDetID = s.LevelDetID)
+       OR (a.TargetType = 'LEVEL' AND a.LevelID = s.LevelID)
+       OR (a.TargetType = 'DEPT'  AND a.DeptID = s.DeptID)
+       OR (a.TargetType = 'USER'  AND a.UserID = s.UserID));
+GO
+-- Hak efektif per menu untuk user, atau untuk peran (@UserID NULL): hanya menu yang terlihat.
+CREATE OR ALTER FUNCTION dbo.fn_AccessFor (@UserID BIGINT, @LevelDetID INT)
+RETURNS TABLE AS RETURN
+WITH cocok AS (
+    SELECT * FROM dbo.fn_AccessRules(@UserID, @LevelDetID)
 ), hak AS (
-    SELECT a.MenuID, a.ActionID FROM dbo.AccessMenu a
-    WHERE a.Active = 1 AND a.UserID = @UserID AND EXISTS (SELECT 1 FROM peran)
-    UNION ALL
-    SELECT a.MenuID, a.ActionID FROM dbo.AccessMenu a JOIN peran p ON p.LevelDetID = a.LevelDetID
-    WHERE a.Active = 1 AND NOT EXISTS (SELECT 1 FROM dbo.AccessMenu k WHERE k.UserID = @UserID AND k.MenuID = a.MenuID)
+    SELECT DISTINCT c.MenuID, c.ActionID FROM cocok c
+    WHERE c.IsDeny = 0
+      AND (c.ActionID = 1 OR EXISTS (SELECT 1 FROM dbo.MenuAction ma WHERE ma.MenuID = c.MenuID AND ma.ActionID = c.ActionID))
+      AND NOT EXISTS (SELECT 1 FROM cocok d WHERE d.IsDeny = 1 AND d.MenuID = c.MenuID AND d.ActionID = c.ActionID)
 ), per AS (
     SELECT m.MenuID, m.ParentMenuID,
            MAX(CASE WHEN h.ActionID = 1 THEN 1 ELSE 0 END) AS V, MAX(CASE WHEN h.ActionID = 2 THEN 1 ELSE 0 END) AS C,
@@ -1984,23 +2039,27 @@ WITH peran AS (
     FROM dbo.Menu m LEFT JOIN hak h ON h.MenuID = m.MenuID
     WHERE m.Active = 1
     GROUP BY m.MenuID, m.ParentMenuID
-), lihat AS (
-    SELECT p.*, CASE WHEN p.V = 1 OR EXISTS (SELECT 1 FROM per c WHERE c.ParentMenuID = p.MenuID AND (c.V = 1
-                     OR EXISTS (SELECT 1 FROM per g WHERE g.ParentMenuID = c.MenuID AND g.V = 1))) THEN 1 ELSE 0 END AS Vis
-    FROM per p
+), gerbang AS (
+    SELECT p.*, CASE WHEN p.V = 1 AND (p.ParentMenuID IS NULL OR (i.V = 1 AND (i.ParentMenuID IS NULL OR k.V = 1)))
+                     THEN 1 ELSE 0 END AS Vis
+    FROM per p LEFT JOIN per i ON i.MenuID = p.ParentMenuID LEFT JOIN per k ON k.MenuID = i.ParentMenuID
 )
 SELECT m.MenuID, m.MenuCode, m.MenuName, m.MenuLevel, pm.MenuCode AS ParentMenuCode, m.Url, m.Icon, m.AppCode, m.SortOrder,
-       m.ActionList, m.Widgets,
-       CAST(l.V AS BIT) AS CanView, CAST(l.Vis AS BIT) AS Visible,
-       CAST(CASE m.MenuLevel WHEN 1 THEN CASE WHEN EXISTS (SELECT 1 FROM lihat c WHERE c.ParentMenuID = m.MenuID AND c.Vis = 1)
-                                              THEN 1 ELSE 0 END
-                             WHEN 2 THEN l.Vis ELSE l.V END AS BIT) AS ShowInMenu,
-       CAST(l.C AS BIT) AS CanCreate, CAST(l.E AS BIT) AS CanEdit, CAST(l.D AS BIT) AS CanDelete,
-       CAST(l.A AS BIT) AS CanApprove, CAST(l.X AS BIT) AS CanVoid, CAST(l.R AS BIT) AS CanReject, CAST(l.N AS BIT) AS CanDone
-FROM lihat l
-JOIN dbo.Menu m ON m.MenuID = l.MenuID
+       ISNULL((SELECT STRING_AGG(CAST(ma.ActionID AS VARCHAR(3)), ',') FROM dbo.MenuAction ma WHERE ma.MenuID = m.MenuID), '')
+           AS ActionList,
+       CAST(1 AS BIT) AS CanView, CAST(1 AS BIT) AS Visible,
+       CAST(CASE WHEN m.MenuLevel > 1 OR EXISTS (SELECT 1 FROM gerbang c WHERE c.ParentMenuID = m.MenuID AND c.Vis = 1)
+                 THEN 1 ELSE 0 END AS BIT) AS ShowInMenu,
+       CAST(g.C AS BIT) AS CanCreate, CAST(g.E AS BIT) AS CanEdit, CAST(g.D AS BIT) AS CanDelete,
+       CAST(g.A AS BIT) AS CanApprove, CAST(g.X AS BIT) AS CanVoid, CAST(g.R AS BIT) AS CanReject, CAST(g.N AS BIT) AS CanDone
+FROM gerbang g
+JOIN dbo.Menu m ON m.MenuID = g.MenuID
 LEFT JOIN dbo.Menu pm ON pm.MenuID = m.ParentMenuID
-WHERE l.Vis = 1 OR l.C = 1 OR l.E = 1 OR l.D = 1 OR l.A = 1 OR l.X = 1 OR l.R = 1 OR l.N = 1;
+WHERE g.Vis = 1;
+GO
+CREATE OR ALTER FUNCTION dbo.fn_UserAccess (@UserID BIGINT)
+RETURNS TABLE AS RETURN
+SELECT * FROM dbo.fn_AccessFor(@UserID, NULL);
 GO
 /* Menu & hak pengguna. @AppCode NULL = semua aplikasi (master page); 'ANALYTICS' = menu Analytics beserta grup induknya.
    Menu samping: ambil baris ShowInMenu = 1, susun per MenuLevel / ParentMenuCode, urut SortOrder. */
@@ -2034,6 +2093,51 @@ BEGIN
     FROM dbo.fn_UserAccess(@UserID) f WHERE f.MenuCode = @MenuCode;
     SET @Allowed = ISNULL(@Allowed, 0);
     SELECT @Allowed AS Allowed;
+END
+GO
+
+/* Asal hak user (Admin › Hak Akses › Cek Akses): aturan yang cocok, per menu & aksi, beserta sasarannya.
+   @MenuCode NULL = semua menu. */
+CREATE OR ALTER PROCEDURE dbo.sp_UserAccessSource
+    @UserID   BIGINT,
+    @MenuCode VARCHAR(40) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.MenuCode, m.MenuName, m.MenuLevel, r.ActionID, t.TypeName AS ActionName, r.IsDeny, r.TargetType,
+           CASE r.TargetType WHEN 'ALL' THEN N'Semua user' WHEN 'ROLE' THEN ld.LevelDetName WHEN 'LEVEL' THEN lv.LevelName
+                             WHEN 'DEPT' THEN d.DeptName ELSE u.Nama END AS TargetName
+    FROM dbo.fn_AccessRules(@UserID, NULL) r
+    JOIN dbo.Menu m ON m.MenuID = r.MenuID
+    JOIN dbo.ActionType t ON t.ActionID = r.ActionID
+    LEFT JOIN dbo.LevelDetails ld ON ld.LevelDetID = r.LevelDetID
+    LEFT JOIN dbo.Level lv ON lv.LevelID = r.LevelID
+    LEFT JOIN dbo.Department d ON d.DeptID = r.DeptID
+    LEFT JOIN dbo.Users u ON u.UserID = r.UserID
+    WHERE @MenuCode IS NULL OR m.MenuCode = @MenuCode
+    ORDER BY m.MenuLevel, m.SortOrder, m.MenuName, r.ActionID, r.IsDeny DESC;
+END
+GO
+/* Isi dashboard user: widget dari aturan Izinkan-Lihat paling spesifik yang cocok & punya widget
+   (USER > ROLE > LEVEL > DEPT > ALL). Kosong bila user tidak boleh melihat menu dashboard itu. */
+CREATE OR ALTER PROCEDURE dbo.sp_UserDashboard
+    @UserID   BIGINT,
+    @MenuCode VARCHAR(40) = 'DASHBOARD'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM dbo.fn_UserAccess(@UserID) WHERE MenuCode = @MenuCode) RETURN;
+    DECLARE @aturan INT = (
+        SELECT TOP (1) r.AccessMenuID
+        FROM dbo.fn_AccessRules(@UserID, NULL) r JOIN dbo.Menu m ON m.MenuID = r.MenuID
+        WHERE m.MenuCode = @MenuCode AND r.ActionID = 1 AND r.IsDeny = 0
+          AND EXISTS (SELECT 1 FROM dbo.AccessMenuWidget w WHERE w.AccessMenuID = r.AccessMenuID)
+        ORDER BY CASE r.TargetType WHEN 'USER' THEN 1 WHEN 'ROLE' THEN 2 WHEN 'LEVEL' THEN 3 WHEN 'DEPT' THEN 4 ELSE 5 END,
+                 r.AccessMenuID);
+    SELECT w.WidgetCode, wd.WidgetName, w.SortOrder
+    FROM dbo.AccessMenuWidget w JOIN dbo.Widget wd ON wd.WidgetCode = w.WidgetCode AND wd.Active = 1
+    WHERE w.AccessMenuID = @aturan
+    ORDER BY w.SortOrder, w.WidgetCode;
 END
 GO
 

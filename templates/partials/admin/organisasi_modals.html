@@ -102,7 +102,7 @@
     </form>
 </div>
 
-<!-- MODAL: Jabatan umum (= Level di ERD): Manager, Supervisor, Staff, ... Hak menu per departemen di Level & Hak Akses -->
+<!-- MODAL: Jabatan umum (= Level di ERD): Manager, Supervisor, Staff, ... Hak menu per departemen di Hak Akses -->
 <div id="modalOrg-jabatan" class="modal-overlay">
     <form id="formOrg-jabatan" class="modal-box" autocomplete="off" data-url="/api/admin/organisasi/jabatan/simpan">
         <div class="modal-header">
@@ -117,7 +117,7 @@
                 <input type="number" id="orgJabUrutan" name="urutan" min="0" max="999" class="input-field" placeholder="10"></div>
             <div class="col-span-3"><label class="field-label" for="orgJabKet">Keterangan</label>
                 <input type="text" id="orgJabKet" name="keterangan" maxlength="255" class="input-field"></div>
-            <p class="col-span-3 field-hint">Urutan menentukan posisi di daftar pilihan (kecil di atas). Hak menu tiap departemen + jabatan diatur di Admin › Level &amp; Hak Akses.</p>
+            <p class="col-span-3 field-hint">Urutan menentukan posisi di daftar pilihan (kecil di atas). Hak menu tiap departemen + jabatan diatur di Admin › Hak Akses.</p>
         </div>
         <div class="px-6 pb-6 flex justify-end gap-2">
             <button type="button" data-on-click="closeModal" data-arg="modalOrg-jabatan" class="btn-secondary">Batal</button>

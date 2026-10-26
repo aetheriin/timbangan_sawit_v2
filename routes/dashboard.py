@@ -1,7 +1,8 @@
 """Dashboard per peran tersusun dari widget (Menu.Widgets); HO mengisi harga."""
 from datetime import date, datetime
+from functools import wraps
 
-from flask import Blueprint, abort, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
 from utils.area import area_data, company_user
@@ -10,7 +11,7 @@ from utils.db_dashboard import KOLOM, WIDGET, WIDGET_HARGA, riwayat_harga, simpa
 from utils.db_jembatan import daftar_jembatan
 from utils.db_organisasi import daftar_area, daftar_company
 from utils.serial_reader import baca_status
-from utils.hak_akses import izin, boleh, halaman as lihat_halaman, semua_menu, widget_menu, menu_dengan_widget
+from utils.hak_akses import izin, boleh, halaman as lihat_halaman, widget_user
 
 dashboard_bp = Blueprint("dashboard", __name__)
 BATAS = {"harga_cpo": (0, 1_000_000), "harga_kernel": (0, 1_000_000), "oer_cpo": (0, 100), "biaya_olah": (0, 1_000_000)}
@@ -34,20 +35,30 @@ def _company_dipilih(user_id, kode):
     return daftar[0] if daftar else None
 
 
-# Dashboard per peran = menu Lv2 ber-Url /dashboard/... dengan Menu.Widgets terisi (database), mis. DASHBOARD 'harga,arus,riwayat'.
-# Widget = potongan tampilan di kode (katalog utils/db_dashboard.py WIDGET); database hanya menyimpan widget mana yang tampil
-# di dashboard mana & urutannya (diatur di Admin › Dashboard). Dashboard baru cukup baris Menu baru, tanpa route baru.
+# Satu menu Dashboard; isinya (widget) dari aturan Hak Akses menu DASHBOARD yang paling spesifik untuk user
+# (dbo.sp_UserDashboard). Widget = potongan tampilan di kode (katalog utils/db_dashboard.py WIDGET, tabel Widget).
+def _widget_saya():
+    return [w for w in widget_user(current_user.id) if w in WIDGET]
 
 
-def _menu_dashboard(path):
-    """Menu dashboard untuk alamat ini (Url sama & punya widget), selain itu 404."""
-    m = next((m for m in semua_menu() if m["url"] == path and widget_menu(m)), None)
-    if m is None:
-        abort(404)
-    return m
+def izin_widget(*widget):
+    """API data widget: hanya user yang dashboard-nya memuat salah satu widget ini."""
+    def dekorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return jsonify({"error": "Belum login"}), 401
+            if not set(widget) & set(_widget_saya()):
+                return jsonify({"error": "Level Anda tidak memiliki akses untuk tindakan ini"}), 403
+            return f(*args, **kwargs)
+        return wrapped
+    return dekorator
 
 
-def _render_dashboard(m):
+@dashboard_bp.route("/dashboard")
+@login_required
+@lihat_halaman("DASHBOARD")
+def dashboard_halaman():
     """HO (area pusat) bisa memilih site untuk Arus Penimbangan & Status Jembatan; akun site hanya site-nya."""
     id_area = area_data(current_user.id)
     if id_area is None or isinstance(id_area, tuple):      # kantor pusat: semua site, atau site PT yang dikelola
@@ -56,26 +67,18 @@ def _render_dashboard(m):
     else:
         area_list = []
         area_saya = next((a["label"] for a in daftar_area() if a["id_comp_area"] == id_area), "")
-    widget = [w for w in widget_menu(m) if w in WIDGET]   # nama yang belum ada di kode diabaikan
+    widget = _widget_saya()
     harga = WIDGET_HARGA & set(widget)
-    return render_template("dashboard/dashboard.html", halaman="dashboard", kode_aktif=m["kode"], widget=widget,
-                           judul=m["nama"], keterangan=" · ".join(WIDGET[w] for w in widget),
-                           boleh_ubah=bool(harga) and boleh(m["kode"], "ubah"),
+    return render_template("dashboard/dashboard.html", halaman="dashboard", kode_aktif="DASHBOARD", widget=widget,
+                           judul="Dashboard", keterangan=" · ".join(WIDGET[w] for w in widget),
+                           boleh_ubah=bool(harga) and boleh("DASHBOARD", "ubah"),
                            company_harga=_company_harga(current_user.id) if harga else [],
                            is_pusat=id_area is None or isinstance(id_area, tuple), area_list=area_list, area_saya=area_saya)
 
 
-@dashboard_bp.route("/dashboard")
-@dashboard_bp.route("/dashboard/<path:_nama>")
-@login_required
-@lihat_halaman(lambda req: _menu_dashboard(req.path)["kode"])
-def dashboard_halaman(_nama=None):
-    return _render_dashboard(_menu_dashboard(request.path))
-
-
 @dashboard_bp.route("/api/dashboard/harga")
 @login_required
-@izin(lambda: menu_dengan_widget("harga", "riwayat"), "lihat")
+@izin_widget("harga", "riwayat")
 def dashboard_harga():
     """?company=<kode> (kosong = perusahaan pertama yang boleh dilihat)."""
     hari = min(max(request.args.get("hari", 30, type=int), 7), 365)
@@ -94,7 +97,8 @@ def dashboard_harga():
 
 @dashboard_bp.route("/api/dashboard/harga/simpan", methods=["POST"])
 @login_required
-@izin(lambda: menu_dengan_widget("harga", "riwayat"), "ubah")
+@izin_widget("harga", "riwayat")
+@izin("DASHBOARD", "ubah")
 def dashboard_harga_simpan():
     try:
         id_company = _company_dipilih(current_user.id, (request.form.get("company") or "").strip().upper())
@@ -128,7 +132,7 @@ def _angka(v):
 
 @dashboard_bp.route("/api/dashboard/arus")
 @login_required
-@izin(lambda: menu_dengan_widget("arus"), "lihat")
+@izin_widget("arus")
 def dashboard_arus():
     """Arus penimbangan hari ini + status jembatan timbang.
     Akun site: selalu area sendiri. HO (area pusat): ?area=<id> untuk satu site, kosong = semua site."""
@@ -157,7 +161,7 @@ def dashboard_arus():
 
 @dashboard_bp.route("/api/dashboard/security")
 @login_required
-@izin(lambda: menu_dengan_widget("security"), "lihat")
+@izin_widget("security")
 def dashboard_security_data():
     """Truk masuk / di dalam (area user; HO bisa ?area=<id>), tamu di dalam, blacklist terdeteksi hari ini."""
     id_area = area_data(current_user.id)

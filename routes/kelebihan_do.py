@@ -1,5 +1,5 @@
 """Menu Kelebihan DO + notifikasi lonceng. Hak: KELEBIHAN_DO tambah = krani (isi No. DO baru dari Ascend),
-ubah = KTU / HO (tetapkan / kembalikan). Diatur di Admin › Level & Hak Akses."""
+ubah = KTU / HO (tetapkan / kembalikan). Diatur di Admin › Hak Akses."""
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 

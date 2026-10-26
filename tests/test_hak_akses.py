@@ -61,10 +61,10 @@ class TestAksiMenu(unittest.TestCase):
         schema = open(os.path.join(os.path.dirname(__file__), "..", "database", "schema.sql"), encoding="utf-8").read()
         blok = "".join(re.findall(r"INSERT INTO dbo\.Menu .*?;", schema, re.S))
         kode = set(re.findall(r"\('([A-Z_]+)',\s+N'", blok))
-        update = re.search(r"UPDATE m SET ActionList = v\.aksi.*?;", schema, re.S).group(0)
+        update = re.search(r"INSERT INTO dbo\.MenuAction .*?;", schema, re.S).group(0)
         aksi = dict(re.findall(r"\('([A-Z_]+)', '([0-9,]*)'\)", update))
         self.assertIn("DASHBOARD", aksi)
-        self.assertEqual(set(aksi) - kode, set())                 # semua kode di UPDATE memang ada di Menu
+        self.assertEqual(set(aksi) - kode, set())                 # semua kode di MenuAction memang ada di Menu
         self.assertNotIn("0", aksi["DASHBOARD"].split(","))
         self.assertEqual(hak_akses.aksi_menu({"daftar_aksi": aksi["BLACKLIST"]}), ["tambah", "hapus", "setujui"])
         self.assertEqual(hak_akses.aksi_menu({"daftar_aksi": ""}), [])

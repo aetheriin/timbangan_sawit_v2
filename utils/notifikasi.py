@@ -6,7 +6,7 @@ Diklik -> tautan dibuka (halaman tujuan menyorot datanya). Dibaca / belum per us
 import pyodbc
 
 from utils.db_utils import get_connection, _rows_to_dicts
-from utils.hak_akses import peta_akses
+from utils.hak_akses import hak_menu_user
 
 HARI_SIMPAN = 30        # yang ditampilkan di lonceng
 
@@ -34,7 +34,7 @@ def buat(kode_menu, judul, isi=None, tautan=None, id_comp_area=None, cursor=None
 def _menu_user(user):
     if getattr(user, "is_admin", False):
         return []
-    hak = peta_akses().get(user.id_level, {})
+    hak = hak_menu_user(user.id)
     return [k for k, v in hak.items() if any(v.values())]
 
 

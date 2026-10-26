@@ -37,7 +37,8 @@ null_of = {(t, k["nama"]): k["null"] for t, ks in kolom.items() for k in ks}
 KELOMPOK = [
     ("01_organisasi_akses", "Organisasi, akun & hak akses",
      ["Company", "Mill", "CompanyArea", "Department", "DepartmentDetails", "Level", "LevelDetails", "Menu", "ActionType",
-      "AccessMenu", "Users", "PasswordManager", "UserCompany", "UserSession", "Setting", "SettingArea", "RequiredDataField",
+      "MenuAction", "AccessMenu", "Widget", "AccessMenuWidget", "Users", "PasswordManager", "UserCompany", "UserSession",
+      "Setting", "SettingArea", "RequiredDataField",
       "Device", "WorkSchedule", "UserCategory"]),
     ("02_personel_dokumen", "Orang (Users), SIM, wajah, kunjungan, absensi, blacklist & dokumen",
      ["UserCategory", "Users", "License", "LicenseDetail", "FaceRecog", "VisitPurpose", "Guest", "FaceActivity",

@@ -25,6 +25,7 @@ GRANT SELECT, INSERT, UPDATE ON SCHEMA::dbo TO [weighbridge_app];
 DENY ALTER ON SCHEMA::dbo TO [weighbridge_app];
 -- Tabel relasi / pengaturan yang memang diganti ulang oleh aplikasi
 GRANT DELETE ON dbo.AccessMenu TO [weighbridge_app];
+GRANT DELETE ON dbo.AccessMenuWidget TO [weighbridge_app];
 GRANT DELETE ON dbo.UserCompany TO [weighbridge_app];
 GRANT DELETE ON dbo.SupplierTypeDetails TO [weighbridge_app];
 GRANT DELETE ON dbo.SupplierCompany TO [weighbridge_app];
@@ -45,6 +46,8 @@ GRANT EXECUTE ON dbo.sp_UserMenu TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_CekAkses TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_CekSesi TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_UserScope TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_UserAccessSource TO [weighbridge_app];
+GRANT EXECUTE ON dbo.sp_UserDashboard TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_DashboardHarga TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_LoginSisaKunci TO [weighbridge_app];
 GRANT EXECUTE ON dbo.sp_LoginGagal TO [weighbridge_app];

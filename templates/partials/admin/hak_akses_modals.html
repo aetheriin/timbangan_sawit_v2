@@ -1,0 +1,31 @@
+<!-- MODAL: Pilih user untuk aturan User -->
+<div id="modalPilihUser" class="modal-overlay">
+    <div class="modal-box max-w-lg">
+        <div class="modal-header">
+            <h3 class="font-bold">Pilih User</h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalPilihUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-4 space-y-3">
+            <input type="search" id="cariPilihUser" class="input-field" placeholder="NIK, nama, atau username" data-on-input="cariPilihUser">
+            <div id="hasilPilihUser" class="max-h-80 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: Isi dashboard (widget) untuk satu aturan -->
+<div id="modalWidgetAturan" class="modal-overlay">
+    <div class="modal-box max-w-xl">
+        <div class="modal-header">
+            <h3 class="font-bold">Isi Dashboard <span id="judulWidgetAturan" class="font-normal text-slate-500"></span></h3>
+            <button type="button" data-on-click="closeModal" data-arg="modalWidgetAturan" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-3">
+            <p class="text-xs text-slate-500">Centang widget yang tampil untuk sasaran ini dan atur urutannya dengan panah. Kosong = memakai isi dari aturan yang lebih umum.</p>
+            <div id="daftarWidgetAturan" class="border border-slate-200 rounded-lg divide-y divide-slate-100"></div>
+        </div>
+        <div class="px-6 pb-6 flex justify-end gap-2">
+            <button type="button" data-on-click="closeModal" data-arg="modalWidgetAturan" class="btn-secondary">Batal</button>
+            <button type="button" data-on-click="pakaiWidgetAturan" class="btn-primary">Pakai</button>
+        </div>
+    </div>
+</div>

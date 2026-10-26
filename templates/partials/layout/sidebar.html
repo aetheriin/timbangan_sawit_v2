@@ -27,7 +27,7 @@
         {% endfor %}
     {% else %}
         {# Navbar 3 level (flowchart): grup Lv1 -> halaman Lv2 -> bagian Lv3, hanya yang boleh dilihat peran / pengguna
-           (Admin › Level & Hak Akses, kolom Lihat). Halaman yang belum ada (Url kosong) tampil redup dengan tautan '#'. #}
+           (Admin › Hak Akses, kolom Lihat). Halaman yang belum ada (Url kosong) tampil redup dengan tautan '#'. #}
         {% if halaman == 'site' %}{% set aktif = 'FORM' if view == 'form' else 'LIST' %}
         {% elif halaman == 'kosong' %}{% set aktif = menu.induk if menu.level == 3 else menu.kode %}
         {% elif kode_aktif %}{% set aktif = kode_aktif %}

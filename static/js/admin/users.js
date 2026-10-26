@@ -2,7 +2,6 @@
 let daftarUser = [];
 let filterRole = '';
 let idUserReset = null;
-let idUserAkses = null;
 
 document.addEventListener('DOMContentLoaded', muatUser);
 
@@ -21,7 +20,7 @@ function tampilkanUser() {
         <tr class="hover:bg-slate-50${u.is_active ? '' : ' text-slate-400'}" data-cari="${escapeHtml(`${u.username} ${u.nama} ${u.nik || ''} ${u.email || ''}`.toLowerCase())}">
             <td class="table-cell font-mono">${escapeHtml(u.username)}${u.is_saya ? ' <span class="text-xs text-blue-600">(Anda)</span>' : ''}</td>
             <td class="table-cell">${escapeHtml(u.nama)}<span class="block text-[11px] text-slate-500">${u.nik ? `NIK ${escapeHtml(u.nik)}` : '<span class="text-amber-700">NIK belum diisi</span>'}${u.email ? ` · ${escapeHtml(u.email)}` : ''}</span></td>
-            <td class="table-cell">${badgeRole(u.role, u.nama_level)}${u.jumlah_akses_khusus ? ` <span class="badge-status bg-violet-100 text-violet-800" title="${u.jumlah_akses_khusus} menu berbeda dari jabatan">Hak khusus</span>` : ''}</td>
+            <td class="table-cell">${badgeRole(u.role, u.nama_level)}${u.jumlah_akses_khusus ? ` <span class="badge-status bg-violet-100 text-violet-800" title="Punya aturan User di ${u.jumlah_akses_khusus} menu (Admin › Hak Akses)">Aturan khusus</span>` : ''}</td>
             <td class="table-cell">${escapeHtml(u.department)}</td>
             <td class="table-cell">${escapeHtml(u.area)}${u.di_pusat ? `<span class="block text-[11px] text-slate-500">${u.pt_kelola.length ? `Mengelola ${u.pt_kelola.length} PT` : 'Mengelola semua PT'}</span>` : ''}</td>
             <td class="table-cell">${badgeAktif(u.is_active)}</td>
@@ -29,7 +28,7 @@ function tampilkanUser() {
             <td class="table-cell">${escapeHtml(u.created_at || '-')}</td>
             <td class="table-cell text-right whitespace-nowrap space-x-3">
                 <button type="button" class="link-aksi text-blue-600" data-on-click="bukaUbahUser" data-arg="${u.id_user}">Ubah</button>
-                ${u.is_admin ? '' : `<button type="button" class="link-aksi text-violet-700" data-on-click="bukaAksesUser" data-arg="${u.id_user}">Hak Akses</button>`}
+                ${u.is_admin ? '' : `<a class="link-aksi text-violet-700" href="/admin/hak_akses?cek=${u.id_user}">Cek Akses</a>`}
                 <button type="button" class="link-aksi text-amber-700" data-on-click="bukaResetPassword" data-arg="${u.id_user}">Atur Ulang Password</button>
                 ${u.is_saya ? '' : `<button type="button" class="link-aksi ${u.is_active ? 'text-red-600' : 'text-emerald-600'}"
                     data-on-click="ubahAktifUser" data-arg="${u.id_user}">${u.is_active ? 'Nonaktifkan' : 'Aktifkan'}</button>`}
@@ -170,54 +169,4 @@ async function cekNikUser(nik) {
     if (!p.boleh_akun) { info.textContent = `NIK ini terdaftar sebagai ${p.nama_kategori || p.kategori} dan tidak bisa dibuatkan akun.`; return; }
     info.textContent = `Terdaftar sebagai personel ${p.nama_personel}. Akun ini akan dihubungkan ke personel tersebut.`;
     form.elements.nama.value = p.nama_personel;
-}
-
-// ===== HAK AKSES KHUSUS =====
-const AKSI_USER = ['lihat', 'tambah', 'ubah', 'hapus', 'setujui', 'tolak', 'selesai'];
-
-async function bukaAksesUser(id) {
-    idUserAkses = id;
-    const data = await ambilJson(`/api/admin/users/${id}/akses`);
-    if (data.error) { Notif.error(data.error); return; }
-    document.getElementById('judulAksesUser').textContent = `· ${data.user.username}`;
-    document.getElementById('jabatanAksesUser').textContent = data.user.nama_level;
-    let induk = null;
-    document.getElementById('tabelAksesUser').innerHTML = data.menu.map(m => {
-        const judul = m.induk && m.induk !== induk
-            ? `<tr class="bg-slate-50"><td colspan="8" class="table-cell text-xs font-semibold text-slate-500 uppercase">${escapeHtml(m.induk)}</td></tr>` : '';
-        induk = m.induk;
-        const kotak = a => (a === 'lihat' || m.aksi.includes(a))
-            ? `<td class="table-cell text-center"><input type="checkbox" class="w-4 h-4" name="${m.id_menu}_${a}" data-menu="${m.id_menu}" data-aksi="${a}"
-                data-jabatan="${m.jabatan[a] ? 1 : 0}"${m[a] ? ' checked' : ''}></td>`
-            : '<td class="table-cell text-center text-slate-300">–</td>';
-        return `${judul}<tr data-baris="${m.id_menu}"><td class="table-cell">${escapeHtml(m.nama.split(' › ').pop())}
-                <span class="badge-status bg-violet-100 text-violet-800 ml-1${m.khusus ? '' : ' hidden'}" data-khusus>Khusus</span></td>
-                ${AKSI_USER.map(kotak).join('')}</tr>`;
-    }).join('');
-    openModal('modalAksesUser');
-}
-
-// Lihat dilepas -> aksinya ikut dilepas; aksi dicentang -> Lihat ikut; tanda Khusus bila berbeda dari jabatan
-document.getElementById('tabelAksesUser').addEventListener('change', e => {
-    const c = e.target;
-    if (!c.dataset.menu) return;
-    const baris = [...document.querySelectorAll(`#tabelAksesUser input[data-menu="${c.dataset.menu}"]`)];
-    if (c.dataset.aksi === 'lihat' && !c.checked) baris.forEach(x => { x.checked = false; });
-    if (c.dataset.aksi !== 'lihat' && c.checked) baris.forEach(x => { if (x.dataset.aksi === 'lihat') x.checked = true; });
-    const beda = baris.some(x => x.checked !== (x.dataset.jabatan === '1'));
-    document.querySelector(`#tabelAksesUser tr[data-baris="${c.dataset.menu}"] [data-khusus]`).classList.toggle('hidden', !beda);
-});
-
-document.getElementById('formAksesUser').addEventListener('submit', e => {
-    e.preventDefault();
-    kirimFormAdmin(e.target, `/api/admin/users/${idUserAkses}/akses`, { modal: 'modalAksesUser', setelahnya: muatUser });
-});
-
-async function resetAksesUser() {
-    const fd = new FormData();
-    fd.append('reset', '1');
-    const data = await kirimForm(`/api/admin/users/${idUserAkses}/akses`, fd);
-    if (!tampilkanHasil(data)) return;
-    closeModal('modalAksesUser');
-    muatUser();
 }

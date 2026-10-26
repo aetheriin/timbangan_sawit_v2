@@ -35,7 +35,7 @@ async function muatAlurSetuju() {
 function rantaiTahap(tahap) {
     return `<div class="flex flex-wrap items-center gap-1.5">${tahap.map((t, i) => {
         const masalah = !t.jumlah_user ? 'Belum ada pengguna aktif dengan peran ini'
-            : (!t.bisa_lihat ? 'Peran ini belum boleh membuka menunya (atur di Level & Hak Akses)' : '');
+            : (!t.bisa_lihat ? 'Peran ini belum boleh membuka menunya (atur di Hak Akses)' : '');
         return `${i ? '<i class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i>' : ''}
             <span class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${masalah ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-slate-200 bg-white text-slate-700'}"
                   ${masalah ? `title="${escapeHtml(masalah)}"` : ''}>

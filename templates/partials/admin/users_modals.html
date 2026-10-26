@@ -50,7 +50,7 @@
                 </div>
             </div>
             {# Sumber pilihan Area (per perusahaan) & Departemen (per area, DepartmentDetails), disaring users.js.
-               Hak menu mengikuti gabungan departemen + jabatan (Admin › Level & Hak Akses). #}
+               Hak menu mengikuti gabungan departemen + jabatan (Admin › Hak Akses). #}
             <template id="sumberArea">{% for a in area_list %}<option value="{{ a.id_comp_area }}" data-company="{{ a.id_company }}" data-pusat="{{ 1 if a.is_pusat else 0 }}">{{ a.nama }} ({{ a.kode }})</option>{% endfor %}</template>
             <template id="sumberDept">{% for d in department_list %}<option value="{{ d.id_department }}" data-area="{{ d.area | join(',') }}">{{ d.nama }}</option>{% endfor %}</template>
             {# Hanya untuk user di area kantor pusat: PT yang dikelola. Tidak dicentang semua = semua PT. #}
@@ -106,28 +106,3 @@
     </form>
 </div>
 
-<!-- MODAL: Hak Akses Khusus pengguna (menimpa hak jabatan per menu) -->
-<div id="modalAksesUser" class="modal-overlay">
-    <form id="formAksesUser" class="modal-box modal-box-lg" autocomplete="off">
-        <div class="modal-header">
-            <h3 class="font-bold">Hak Akses Khusus <span id="judulAksesUser" class="font-normal text-slate-500"></span></h3>
-            <button type="button" data-on-click="closeModal" data-arg="modalAksesUser" title="Tutup"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="p-6 space-y-3">
-            <p class="text-sm text-slate-600">Awalnya sama dengan hak jabatan <b id="jabatanAksesUser"></b>. Centang yang diubah hanya berlaku untuk
-                pengguna ini; baris yang berbeda dari jabatan ditandai <span class="badge-status bg-violet-100 text-violet-800">Khusus</span>.</p>
-            <table class="w-full text-left text-sm">
-                <thead class="table-header-row"><tr><th class="table-cell">Halaman / Bagian</th>
-                    {% for a in ['Lihat', 'Tambah', 'Ubah', 'Hapus', 'Setujui', 'Tolak', 'Selesai'] %}<th class="table-cell text-center w-20">{{ a }}</th>{% endfor %}</tr></thead>
-                <tbody id="tabelAksesUser" class="divide-y divide-slate-100"></tbody>
-            </table>
-        </div>
-        <div class="px-6 pb-6 flex justify-between gap-2">
-            <button type="button" class="btn-secondary" data-on-click="resetAksesUser">Kembalikan ke Jabatan</button>
-            <div class="flex gap-2">
-                <button type="button" data-on-click="closeModal" data-arg="modalAksesUser" class="btn-secondary">Batal</button>
-                <button type="submit" class="btn-primary">Simpan</button>
-            </div>
-        </div>
-    </form>
-</div>
