@@ -60,6 +60,8 @@ HALAMAN_AWAL = [("/dashboard", "Dashboard"), ("/pos-security", "Pos Security"), 
                 ("/face-recognition", "Pengenalan Wajah"), ("/blacklist", "Blacklist"), ("/tamu", "Tamu"),
                 ("/kontrak", "Kontrak & DO"), ("/master", "Data Master"), ("/kelebihan-do", "Kelebihan DO"),
                 ("/admin", "Admin (khusus level admin)")]
+PILIHAN_HALAMAN = {"users": ("jabatan", "department", "area", "company"), "persetujuan": ("jabatan", "department"),
+                   "jadwal": ("area",), "pengaturan": ("area",), "perangkat": ("area",)}
 POLA_JAM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 PASSWORD_MIN = 8
 
@@ -106,19 +108,16 @@ def admin_halaman(halaman):
     if halaman not in HALAMAN:
         abort(404)
     judul, ikon, keterangan = HALAMAN[halaman]
+    # Data pilihan hanya diambil untuk halaman yang memakainya (tiap daftar = satu koneksi ke database)
+    perlu = PILIHAN_HALAMAN.get(halaman, ())
     return render_template("admin/admin.html", halaman=f"admin:{halaman}", menu_admin=HALAMAN,
                            admin_aktif=halaman, judul=judul, ikon=ikon, keterangan=keterangan,
-                           jabatan_list=[j for j in hak_akses.daftar_jabatan() if j["is_active"]],
-                           department_list=[d for d in org.daftar_department() if d["is_active"]],
-                           area_list=[a for a in org.daftar_area() if a["is_active"]],
-                           format_timbangan=FORMAT_TIMBANGAN,
-                           company_list=[c for c in org.daftar_company() if c["is_active"]],
-                           lokasi_list=[l for l in org.daftar_lokasi() if l["is_active"]] if halaman == "organisasi" else [],
-                           alur_list=alur.daftar_alur(),
+                           jabatan_list=[j for j in hak_akses.daftar_jabatan() if j["is_active"]] if "jabatan" in perlu else [],
+                           department_list=[d for d in org.daftar_department() if d["is_active"]] if "department" in perlu else [],
+                           area_list=[a for a in org.daftar_area() if a["is_active"]] if "area" in perlu else [],
+                           company_list=[c for c in org.daftar_company() if c["is_active"]] if "company" in perlu else [],
                            kategori_alur=alur_persetujuan.daftar_kategori() if halaman == "persetujuan" else [],
-                           jenis_pengajuan=alur_persetujuan.JENIS,
-                           password_expired=pengaturan.nilai("PASSWORD_EXPIRED_HARI"),
-                           password_min=PASSWORD_MIN, halaman_awal_list=HALAMAN_AWAL)
+                           format_timbangan=FORMAT_TIMBANGAN, jenis_pengajuan=alur_persetujuan.JENIS, password_min=PASSWORD_MIN)
 
 
 # ===== KELOLA USER =====
